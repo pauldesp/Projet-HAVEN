@@ -1,0 +1,49 @@
+{
+  "name": "copy-of-haven---colocation-courte-durée",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "npx tsx server.ts",
+    "build": "vite build",
+    "preview": "vite preview",
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@google/genai": "^1.40.0",
+    "@stripe/stripe-js": "^9.2.0",
+    "@tailwindcss/typography": "^0.5.19",
+    "@vis.gl/react-google-maps": "^1.7.1",
+    "express": "^5.2.1",
+    "firebase": "^12.11.0",
+    "lucide-react": "0.460.0",
+    "motion": "^12.38.0",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "react-markdown": "^10.1.0",
+    "react-quill-new": "^3.8.3",
+    "react-router-dom": "6.28.0",
+    "react-signature-canvas": "^1.1.0-alpha.2",
+    "resend": "^6.11.0",
+    "router-dom": "^3.0.3",
+    "showdown": "^2.1.0",
+    "sonner": "^2.0.7",
+    "stripe": "^22.0.2",
+    "tsx": "^4.21.0",
+    "turndown": "^7.2.2"
+  },
+  "devDependencies": {
+    "@firebase/eslint-plugin-security-rules": "^0.0.2",
+    "@types/express": "^5.0.6",
+    "@types/node": "^22.14.0",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@types/react-signature-canvas": "^1.0.7",
+    "@types/showdown": "^2.0.6",
+    "@types/turndown": "^5.0.6",
+    "@vitejs/plugin-react": "^5.0.0",
+    "eslint": "^10.3.0",
+    "typescript": "~5.8.2",
+    "vite": "^6.2.0"
+  }
+}

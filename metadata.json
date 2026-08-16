@@ -1,0 +1,5 @@
+{
+  "name": "HAVEN - Colocation Courte Durée",
+  "description": "Plateforme de colocation courte durée premium pour étudiants et jeunes actifs. Gestion des baux, paiements et recherche de logement.",
+  "requestFramePermissions": ["geolocation"]
+}

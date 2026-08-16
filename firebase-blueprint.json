@@ -1,0 +1,279 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile information",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique user ID (UID from Auth)" },
+        "firstName": { "type": "string", "description": "User's first name" },
+        "lastName": { "type": "string", "description": "User's last name" },
+        "email": { "type": "string", "format": "email", "description": "User's email address" },
+        "role": { "type": "string", "enum": ["TENANT", "OWNER", "ADMIN"], "description": "User's role in the platform" },
+        "avatarUrl": { "type": "string", "description": "URL to user's avatar image" },
+        "isVerified": { "type": "boolean", "description": "Whether the user is verified" },
+        "bio": { "type": "string", "description": "User's biography" },
+        "school": { "type": "string", "description": "User's school or university" }
+      },
+      "required": ["id", "firstName", "lastName", "email", "role"]
+    },
+    "Listing": {
+      "title": "Listing",
+      "description": "Property listing for colocation",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique listing ID" },
+        "title": { "type": "string", "description": "Title of the listing" },
+        "description": { "type": "string", "description": "Detailed description" },
+        "city": { "type": "string", "description": "City where the property is located" },
+        "address": { "type": "string", "description": "Full address" },
+        "coordinates": {
+          "type": "object",
+          "properties": {
+            "lat": { "type": "number" },
+            "lng": { "type": "number" }
+          }
+        },
+        "type": { "type": "string", "enum": ["APARTMENT", "HOUSE", "STUDIO"] },
+        "status": { "type": "string", "enum": ["PENDING", "APPROVED", "REJECTED"] },
+        "totalRooms": { "type": "integer" },
+        "availableRooms": { "type": "integer" },
+        "minStay": { "type": "integer", "description": "Séjour minimum en jours" },
+        "cleaningFee": { "type": "number", "description": "Fixed cleaning fee set by owner" },
+        "blockedDates": { "type": "array", "items": { "type": "string" }, "description": "Dates bloquées pour tout le logement" },
+        "surface": { "type": "number" },
+        "amenities": { "type": "array", "items": { "type": "string" } },
+        "ownerId": { "type": "string", "description": "UID of the owner" },
+        "mainPhotoUrl": { "type": "string" },
+        "galleryUrls": { "type": "array", "items": { "type": "string" } },
+        "rating": { "type": "number" },
+        "reviewsCount": { "type": "integer" },
+        "isMixed": { "type": "boolean" },
+        "views": { "type": "integer" },
+        "occupants": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "firstName": { "type": "string" },
+              "avatarUrl": { "type": "string" },
+              "school": { "type": "string" }
+            }
+          }
+        },
+        "rooms": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "name": { "type": "string" },
+              "pricePerDay": { "type": "number" },
+              "size": { "type": "number" },
+              "hasPrivateBath": { "type": "boolean" },
+              "bedSize": { "type": "string" },
+              "isAvailable": { "type": "boolean" },
+              "photoUrl": { "type": "string" },
+              "blockedDates": { "type": "array", "items": { "type": "string" }, "description": "Dates bloquées pour cette chambre" }
+            }
+          }
+        }
+      },
+      "required": ["id", "title", "city", "ownerId", "status"]
+    },
+    "Booking": {
+      "title": "Booking",
+      "description": "Booking record for a room",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique booking ID" },
+        "listingId": { "type": "string", "description": "ID of the listing" },
+        "roomId": { "type": "string", "description": "ID of the room" },
+        "tenantId": { "type": "string", "description": "UID of the tenant" },
+        "startDate": { "type": "string", "format": "date" },
+        "endDate": { "type": "string", "format": "date" },
+        "status": { "type": "string", "enum": ["PENDING", "CONFIRMED", "CANCELLED", "COMPLETED"] },
+        "basePrice": { "type": "number" },
+        "cleaningFee": { "type": "number" },
+        "platformFee": { "type": "number" },
+        "totalPrice": { "type": "number" }
+      },
+      "required": ["id", "listingId", "roomId", "tenantId", "startDate", "endDate", "status"]
+    },
+    "Message": {
+      "title": "Message",
+      "description": "Message between users",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique message ID" },
+        "senderId": { "type": "string", "description": "UID of the sender" },
+        "receiverId": { "type": "string", "description": "UID of the receiver" },
+        "bookingId": { "type": "string", "description": "ID of the associated booking" },
+        "content": { "type": "string", "description": "Content of the message" },
+        "timestamp": { "type": "string", "format": "date-time", "description": "When the message was sent" },
+        "isRead": { "type": "boolean", "description": "Whether the message has been read" }
+      },
+      "required": ["id", "senderId", "receiverId", "bookingId", "content", "timestamp"]
+    },
+    "ContactRequest": {
+      "title": "ContactRequest",
+      "description": "User request to contact the platform",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique request ID" },
+        "name": { "type": "string", "description": "Name of the user" },
+        "email": { "type": "string", "format": "email", "description": "Email of the user" },
+        "phone": { "type": "string", "description": "Phone number of the user" },
+        "subject": { "type": "string", "description": "Subject of the message" },
+        "message": { "type": "string", "description": "Content of the message" },
+        "timestamp": { "type": "string", "format": "date-time", "description": "When the request was sent" },
+        "status": { "type": "string", "enum": ["NEW", "IN_PROGRESS", "RESOLVED"], "description": "Status of the request" }
+      },
+      "required": ["id", "name", "email", "phone", "subject", "message", "timestamp", "status"]
+    },
+    "Report": {
+      "title": "Report",
+      "description": "User signalement (listing, user, message, etc.)",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique report ID" },
+        "reporterId": { "type": "string", "description": "UID of the user who reported" },
+        "targetId": { "type": "string", "description": "ID of the reported item" },
+        "targetType": { "type": "string", "enum": ["LISTING", "USER", "MESSAGE", "TECHNICAL", "OTHER"] },
+        "reason": { "type": "string", "enum": ["OFFENSIVE", "SPAM", "INACCURATE", "FRAUD", "TECHNICAL_ISSUE", "OTHER"] },
+        "description": { "type": "string" },
+        "status": { "type": "string", "enum": ["NEW", "INVESTIGATING", "RESOLVED", "DISMISSED"] },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "adminNotes": { "type": "string" }
+      },
+      "required": ["id", "reporterId", "targetId", "targetType", "reason", "status", "timestamp"]
+    },
+    "LegalDocument": {
+      "title": "LegalDocument",
+      "description": "Legal document content (CGR, Privacy Policy, etc.)",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Document ID (e.g., 'cgr', 'privacy')" },
+        "title": { "type": "string", "description": "Title of the document" },
+        "content": { "type": "string", "description": "Markdown content of the document" },
+        "lastUpdated": { "type": "string", "format": "date-time", "description": "When the document was last updated" },
+        "updatedBy": { "type": "string", "description": "UID of the admin who updated it" }
+      },
+      "required": ["id", "title", "content", "lastUpdated"]
+    },
+    "Incident": {
+      "title": "Incident",
+      "description": "Technical or property incident report",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "listingId": { "type": "string" },
+        "bookingId": { "type": "string" },
+        "reporterId": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "status": { "type": "string", "enum": ["NEW", "INVESTIGATING", "RESOLVED", "DISMISSED"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "photos": { "type": "array", "items": { "type": "string" } },
+        "adminNotes": { "type": "string" },
+        "priority": { "type": "string", "enum": ["LOW", "MEDIUM", "HIGH"] }
+      },
+      "required": ["id", "listingId", "bookingId", "reporterId", "title", "description", "status", "createdAt"]
+    },
+    "Payment": {
+      "title": "Payment",
+      "description": "Financial transaction record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "bookingId": { "type": "string" },
+        "listingId": { "type": "string" },
+        "ownerId": { "type": "string" },
+        "tenantId": { "type": "string" },
+        "amount": { "type": "number" },
+        "status": { "type": "string", "enum": ["PENDING", "COMPLETED", "FAILED", "REFUNDED"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "type": { "type": "string", "enum": ["RENT", "DEPOSIT", "REFUND"] }
+      },
+      "required": ["id", "bookingId", "listingId", "ownerId", "tenantId", "amount", "status", "createdAt", "type"]
+    },
+    "Review": {
+      "title": "Review",
+      "description": "Review for a listing or a user",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "authorId": { "type": "string" },
+        "targetId": { "type": "string" },
+        "targetType": { "type": "string", "enum": ["LISTING", "USER"] },
+        "rating": { "type": "number" },
+        "comment": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "authorId", "targetId", "targetType", "rating", "comment", "createdAt"]
+    },
+    "AppDocument": {
+      "title": "AppDocument",
+      "description": "Generated reports and legal documents for users",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "bookingId": { "type": "string" },
+        "title": { "type": "string" },
+        "type": { "type": "string", "enum": ["INVENTORY_IN", "INVENTORY_OUT", "RENT_RECEIPT", "LEASE", "OTHER"] },
+        "url": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "listingTitle": { "type": "string" }
+      },
+      "required": ["id", "userId", "bookingId", "title", "type", "url", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profiles"
+    },
+    "/listings/{listingId}": {
+      "schema": "Listing",
+      "description": "Property listings"
+    },
+    "/bookings/{bookingId}": {
+      "schema": "Booking",
+      "description": "Booking records"
+    },
+    "/messages/{messageId}": {
+      "schema": "Message",
+      "description": "Messages between users"
+    },
+    "/contact_requests/{requestId}": {
+      "schema": "ContactRequest",
+      "description": "Contact requests to the platform"
+    },
+    "/reports/{reportId}": {
+      "schema": "Report",
+      "description": "User signalements"
+    },
+    "/incidents/{incidentId}": {
+      "schema": "Incident",
+      "description": "Technical or property incidents"
+    },
+    "/payments/{paymentId}": {
+      "schema": "Payment",
+      "description": "Financial transactions"
+    },
+    "/reviews/{reviewId}": {
+      "schema": "Review",
+      "description": "Reviews for listings and users"
+    },
+    "/settings/{documentId}": {
+      "schema": "LegalDocument",
+      "description": "Global application settings and legal documents"
+    },
+    "/documents/{documentId}": {
+      "schema": "AppDocument",
+      "description": "User generated documents and receipts"
+    }
+  }
+}
