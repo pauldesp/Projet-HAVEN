@@ -13,13 +13,12 @@ service cloud.firestore {
     function incoming() { return request.resource.data; }
     function existing() { return resource.data; }
     
-    // Auth tokens NEVER contain custom claims. Roles must be looked up in the database.
+    // Administrative access is granted only by the role stored in Firestore.
+    // Never infer privileges from an email address or from client-side code.
     function isAdmin() {
-      return isSignedIn() && (
-        (request.auth.token.keys().contains('email') && request.auth.token.email.lowerCase() == "paul.desplanques@gmail.com") ||
-        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'ADMIN')
-      );
+      return isSignedIn() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'ADMIN';
     }
 
     function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
@@ -186,8 +185,8 @@ service cloud.firestore {
     // ===============================================================
 
     match /users/{userId} {
-      allow get: if true; // Allow public access to owner profiles on listing pages
-      allow list: if true; // Allow checking user existence during registration
+      allow get: if isAdmin() || isOwner(userId);
+      allow list: if isAdmin();
       allow create: if isOwner(userId) && isValidUser(incoming());
       allow update: if (isAdmin() || isOwner(userId)) && isValidUser(incoming()) && (
         isAdmin() || incoming().diff(existing()).affectedKeys().hasOnly(['firstName', 'lastName', 'avatarUrl', 'bio', 'school', 'favorites', 'documents', 'status', 'city', 'job', 'phone'])

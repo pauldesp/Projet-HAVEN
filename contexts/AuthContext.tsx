@@ -40,15 +40,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             if (docSnapshot.exists()) {
               let userData = docSnapshot.data() as User;
               
-              // Force admin role and approved status for the specific owner email
-              if (userData.email.toLowerCase() === "paul.desplanques@gmail.com") {
-                if (userData.role !== UserRole.ADMIN || userData.status !== 'APPROVED') {
-                  userData = { ...userData, role: UserRole.ADMIN, status: 'APPROVED' as UserStatus };
-                  // Update Firestore in background if needed
-                  updateDoc(doc(db, 'users', userData.id), { role: UserRole.ADMIN, status: 'APPROVED' }).catch(console.error);
-                }
-              }
-              
               setCurrentUser(userData);
             } else {
               setCurrentUser(null);
@@ -94,26 +85,18 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       
       if (userDoc.exists()) {
         userData = userDoc.data() as User;
-        // Force admin role and approved status for the specific owner email
-        if (userData.email.toLowerCase() === "paul.desplanques@gmail.com") {
-          if (userData.role !== UserRole.ADMIN || userData.status !== 'APPROVED') {
-            userData = { ...userData, role: UserRole.ADMIN, status: 'APPROVED' as UserStatus };
-            await updateDoc(doc(db, 'users', userData.id), { role: UserRole.ADMIN, status: 'APPROVED' });
-          }
-        }
       } else {
         // Auto-bootstrap Firestore profile if user exists in Firebase Auth but document is missing
         console.log("Firestore profile missing. Self-bootstrapping profile document.");
-        const isMasterAdmin = email.toLowerCase() === "paul.desplanques@gmail.com";
         userData = {
           id: userCredential.user.uid,
-          firstName: isMasterAdmin ? 'Paul' : (userCredential.user.displayName?.split(' ')[0] || 'User'),
-          lastName: isMasterAdmin ? 'Desplanques' : (userCredential.user.displayName?.split(' ').slice(1).join(' ') || ''),
+          firstName: userCredential.user.displayName?.split(' ')[0] || 'User',
+          lastName: userCredential.user.displayName?.split(' ').slice(1).join(' ') || '',
           email: email,
-          role: isMasterAdmin ? UserRole.ADMIN : UserRole.TENANT,
-          status: isMasterAdmin ? 'APPROVED' : 'PENDING',
-          isVerified: true,
-          avatarUrl: `https://ui-avatars.com/api/?name=${isMasterAdmin ? 'Paul+Desplanques' : 'User'}&background=1E293B&color=fff`,
+          role: UserRole.TENANT,
+          status: 'PENDING',
+          isVerified: userCredential.user.emailVerified,
+          avatarUrl: `https://ui-avatars.com/api/?name=User&background=1E293B&color=fff`,
           createdAt: new Date().toISOString()
         };
         await setDoc(doc(db, 'users', userCredential.user.uid), userData);
@@ -123,23 +106,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setIsLoading(false);
       return true;
     } catch (e: any) {
-      // Auto-bootstrap master admin if not found in Auth or Auth is not initiated yet
-      if ((e.code === 'auth/user-not-found' || e.code === 'auth/invalid-credential') && 
-          email.toLowerCase() === "paul.desplanques@gmail.com" && 
-          password === "P@uldesp1") {
-        const masterAdmin: User = {
-          id: '', // will be set
-          firstName: 'Paul',
-          lastName: 'Desplanques',
-          email: email,
-          role: UserRole.ADMIN,
-          status: 'APPROVED',
-          isVerified: true,
-          avatarUrl: `https://ui-avatars.com/api/?name=Paul+Desplanques&background=1E293B&color=fff`
-        };
-        return await register(masterAdmin, password);
-      }
-
       console.error("Login error", e);
       if (e.code === 'auth/operation-not-allowed') {
         throw new Error("La connexion par email n'est pas activée dans la console Firebase. Veuillez l'activer dans Authentication > Sign-in method.");
@@ -155,11 +121,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setIsLoading(true);
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, userData.email, password);
-      const isMasterAdmin = userData.email.toLowerCase() === "paul.desplanques@gmail.com";
       const newUser = { 
         ...userData, 
         id: userCredential.user.uid, 
-        status: (isMasterAdmin ? 'APPROVED' : 'PENDING') as UserStatus,
+        role: UserRole.TENANT,
+        status: 'PENDING' as UserStatus,
         createdAt: new Date().toISOString()
       };
       await setDoc(doc(db, 'users', userCredential.user.uid), newUser);
@@ -188,14 +154,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         setCurrentUser(userDoc.data() as User);
       } else {
         // Create new user profile for Google login
-        const isAdmin = result.user.email?.toLowerCase() === "paul.desplanques@gmail.com";
         const newUser: User = {
           id: result.user.uid,
           firstName: result.user.displayName?.split(' ')[0] || 'User',
           lastName: result.user.displayName?.split(' ').slice(1).join(' ') || '',
           email: result.user.email || '',
-          role: isAdmin ? UserRole.ADMIN : UserRole.TENANT,
-          status: isAdmin ? 'APPROVED' : 'PENDING',
+          role: UserRole.TENANT,
+          status: 'PENDING',
           avatarUrl: result.user.photoURL || `https://ui-avatars.com/api/?name=${result.user.displayName}&background=1E293B&color=fff`,
           isVerified: true
         };

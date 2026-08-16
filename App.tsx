@@ -33,6 +33,8 @@ import { LanguageProvider } from './contexts/LanguageContext';
 import { ListingProvider } from './contexts/ListingContext';
 import { AuthProvider } from './contexts/AuthContext';
 import { BookingProvider } from './contexts/BookingContext';
+import { ProtectedRoute } from './components/ProtectedRoute';
+import { UserRole } from './types';
 
 import { Toaster, toast } from 'sonner';
 
@@ -94,18 +96,18 @@ const AppContent: React.FC = () => {
           <Route path="/search" element={<SearchPage />} />
           <Route path="/listing/:id" element={<ListingDetails />} />
           <Route path="/profile/:id" element={<ProfilePage />} />
-          <Route path="/dashboard" element={<TenantDashboard />} />
-          <Route path="/owner/dashboard" element={<OwnerDashboard />} />
-          <Route path="/owner/publish" element={<PublishListing />} />
-          <Route path="/owner/edit/:id" element={<EditListing />} />
-          <Route path="/admin/dashboard" element={<AdminDashboard />} />
+          <Route path="/dashboard" element={<ProtectedRoute><TenantDashboard /></ProtectedRoute>} />
+          <Route path="/owner/dashboard" element={<ProtectedRoute roles={[UserRole.OWNER, UserRole.ADMIN]}><OwnerDashboard /></ProtectedRoute>} />
+          <Route path="/owner/publish" element={<ProtectedRoute roles={[UserRole.OWNER, UserRole.ADMIN]}><PublishListing /></ProtectedRoute>} />
+          <Route path="/owner/edit/:id" element={<ProtectedRoute roles={[UserRole.OWNER, UserRole.ADMIN]}><EditListing /></ProtectedRoute>} />
+          <Route path="/admin/dashboard" element={<ProtectedRoute roles={[UserRole.ADMIN]}><AdminDashboard /></ProtectedRoute>} />
           <Route path="/admin/login" element={<AdminLoginPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/contact" element={<ContactPage />} />
-          <Route path="/messages/:bookingId" element={<ChatPage />} />
-          <Route path="/inbox" element={<InboxPage />} />
+          <Route path="/messages/:bookingId" element={<ProtectedRoute><ChatPage /></ProtectedRoute>} />
+          <Route path="/inbox" element={<ProtectedRoute><InboxPage /></ProtectedRoute>} />
           <Route path="/legal/:docId" element={<LegalPage />} />
-          <Route path="/inventory/in/:bookingId" element={<EntryInventory />} />
+          <Route path="/inventory/in/:bookingId" element={<ProtectedRoute><EntryInventory /></ProtectedRoute>} />
           <Route path="/how-it-works" element={<HowItWorks />} />
           <Route path="/partners" element={<ForPartners />} />
           <Route path="/become-owner" element={<BecomeOwner />} />
@@ -113,7 +115,7 @@ const AppContent: React.FC = () => {
           <Route path="/help" element={<HelpCenter />} />
           <Route path="/trust-and-safety" element={<TrustAndSafetyPage />} />
           <Route path="/cookies" element={<CookiePolicyPage />} />
-          <Route path="/debug/tests" element={<TestDashboard />} />
+          <Route path="/debug/tests" element={<ProtectedRoute roles={[UserRole.ADMIN]}><TestDashboard /></ProtectedRoute>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
