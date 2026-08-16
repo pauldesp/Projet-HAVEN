@@ -185,7 +185,9 @@ service cloud.firestore {
     // ===============================================================
 
     match /users/{userId} {
-      allow get: if isAdmin() || isOwner(userId);
+      // Signed-in members may resolve another member's profile for listings,
+      // bookings and conversations. Anonymous reads and collection scans stay blocked.
+      allow get: if isSignedIn();
       allow list: if isAdmin();
       allow create: if isOwner(userId) && isValidUser(incoming());
       allow update: if (isAdmin() || isOwner(userId)) && isValidUser(incoming()) && (
