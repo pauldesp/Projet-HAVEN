@@ -20,7 +20,6 @@ export interface User {
   birthDate?: string;
   marketingOptIn?: boolean;
   legalAccepted?: boolean;
-  password?: string;
   avatarUrl: string;
   role: UserRole;
   status?: UserStatus;
@@ -128,6 +127,18 @@ export interface Booking {
   paymentStatus?: 'PENDING' | 'PAID';
   bookingMode?: 'INSTANT' | 'MANUAL';
   approvedAt?: string;
+}
+
+// Public calendar record. It intentionally contains no user or payment data.
+export interface BookingAvailability {
+  id: string;
+  bookingId: string;
+  listingId: string;
+  roomId: string;
+  startDate: string;
+  endDate: string;
+  status: Booking['status'];
+  updatedAt: string;
 }
 
 // Type État des Lieux

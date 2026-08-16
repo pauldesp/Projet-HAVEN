@@ -61,7 +61,6 @@ export const runAuthTests = (): TestSuite => {
   test('Vérification des identifiants mockés par défaut', () => {
     const thomas = MOCK_USERS_DB.find(u => u.email === 'thomas@example.com');
     expect(thomas).toBeTruthy();
-    expect(thomas?.password).toBe('password123');
   });
 
   test('L\'admin doit avoir le rôle ADMIN', () => {

@@ -3,7 +3,7 @@ import { getAuth, GoogleAuthProvider } from 'firebase/auth';
 import { getFirestore, doc, getDocFromServer, collection, getDocs, setDoc } from 'firebase/firestore';
 import firebaseConfig from './firebase-applet-config.json';
 import { MOCK_USERS_DB, MOCK_LISTINGS, SEED_BOOKINGS } from './services/mockData';
-import { User, UserRole } from './types';
+import { BookingAvailability, User, UserRole } from './types';
 
 // Initialize Firebase SDK
 const app = initializeApp(firebaseConfig);
@@ -73,36 +73,23 @@ export async function seedFirestore(force = false) {
     return;
   }
 
-  const isAdminUser = auth.currentUser.email?.toLowerCase() === "paul.desplanques@gmail.com";
-  
-  console.log(`DEBUG: Seeding check for user: ${auth.currentUser.email} (isAdmin: ${isAdminUser}, force: ${force})`);
-
   try {
+    const currentProfileSnap = await getDocFromServer(doc(db, 'users', auth.currentUser.uid));
+    const currentProfile = currentProfileSnap.exists() ? currentProfileSnap.data() as User : undefined;
+    const isAdminUser = currentProfile?.role === UserRole.ADMIN && currentProfile.status === 'APPROVED';
+
+    console.log(`DEBUG: Seeding check for user ${auth.currentUser.uid} (isAdmin: ${isAdminUser}, force: ${force})`);
     // Check listings first as they are public-readable
     const listingsSnap = await getDocs(collection(db, 'listings'));
     
     if (listingsSnap.empty || force) {
       if (!isAdminUser) {
-        console.log("Database is empty or force seed requested. Please log in as paul.desplanques@gmail.com to initialize the mock data.");
+        console.log("Database is empty or force seed requested. An approved administrator must initialize the mock data.");
         return;
       }
 
       console.log("Seeding database...");
       
-      // Ensure current admin user is in Firestore with ADMIN role
-      const adminProfile: User = {
-        id: auth.currentUser.uid,
-        firstName: auth.currentUser.displayName?.split(' ')[0] || 'Admin',
-        lastName: auth.currentUser.displayName?.split(' ').slice(1).join(' ') || 'Haven',
-        email: auth.currentUser.email || '',
-        role: UserRole.ADMIN,
-        status: 'APPROVED',
-        isVerified: true,
-        avatarUrl: auth.currentUser.photoURL || `https://ui-avatars.com/api/?name=Admin&background=1E293B&color=fff`,
-        createdAt: new Date().toISOString()
-      };
-      await setDoc(doc(db, 'users', auth.currentUser.uid), adminProfile);
-
       // Seed users
       for (const user of MOCK_USERS_DB) {
         try {
@@ -130,12 +117,43 @@ export async function seedFirestore(force = false) {
       for (const booking of SEED_BOOKINGS) {
         try {
           await setDoc(doc(db, 'bookings', booking.id), booking);
+          const availability: BookingAvailability = {
+            id: booking.id,
+            bookingId: booking.id,
+            listingId: booking.listingId,
+            roomId: booking.roomId,
+            startDate: booking.startDate,
+            endDate: booking.endDate,
+            status: booking.status,
+            updatedAt: new Date().toISOString()
+          };
+          await setDoc(doc(db, 'booking_availability', booking.id), availability);
           console.log(`Seeded booking ${booking.id}`);
         } catch (e) {
           handleFirestoreError(e, OperationType.WRITE, `bookings/${booking.id}`);
         }
       }
       console.log("Seeding completed successfully.");
+    }
+
+    // Incremental migration for bookings created before the public availability
+    // collection existed. Only an approved administrator can run it.
+    if (isAdminUser) {
+      const bookingsSnap = await getDocs(collection(db, 'bookings'));
+      for (const bookingDoc of bookingsSnap.docs) {
+        const booking = bookingDoc.data() as typeof SEED_BOOKINGS[number];
+        const availability: BookingAvailability = {
+          id: booking.id,
+          bookingId: booking.id,
+          listingId: booking.listingId,
+          roomId: booking.roomId,
+          startDate: booking.startDate,
+          endDate: booking.endDate,
+          status: booking.status,
+          updatedAt: new Date().toISOString()
+        };
+        await setDoc(doc(db, 'booking_availability', booking.id), availability);
+      }
     }
   } catch (e) {
     console.error("Seeding error (top level):", e);

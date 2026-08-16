@@ -7,9 +7,8 @@ import { ListingCalendar } from '../components/ListingCalendar';
 import ReactMarkdown from 'react-markdown';
 import { Star, MapPin, Wifi, Layout, Users, Check, Share, Heart, Calendar, Lock, Maximize2, ShieldCheck, AlertCircle, Loader2 } from 'lucide-react';
 import { useListings } from '../contexts/ListingContext';
-import { useBookings } from '../contexts/BookingContext';
 import { apiService } from '../services/api';
-import { User } from '../types';
+import { BookingAvailability, User } from '../types';
 import { toast } from 'sonner';
 
 import { useAuth } from '../contexts/AuthContext';
@@ -20,7 +19,6 @@ export const ListingDetails: React.FC = () => {
   const { id } = useParams();
   const { currentUser } = useAuth();
   const { getListingById, updateListing } = useListings();
-  const { getBookingsByListing } = useBookings();
   const listing = getListingById(id || '');
   const calendarRef = useRef<HTMLDivElement>(null);
 
@@ -32,6 +30,7 @@ export const ListingDetails: React.FC = () => {
   const [reviews, setReviews] = useState<any[]>([]);
   const [isReviewsLoading, setIsReviewsLoading] = useState(false);
   const [isOwnerMode, setIsOwnerMode] = useState(false);
+  const [availability, setAvailability] = useState<BookingAvailability[]>([]);
   
   const isApproved = currentUser?.status === 'APPROVED' || currentUser?.role === 'ADMIN';
   const isListingOwner = currentUser?.id === listing?.ownerId;
@@ -73,32 +72,25 @@ export const ListingDetails: React.FC = () => {
     fetchReviews();
   }, [listing?.id]);
 
+  useEffect(() => {
+    if (!listing?.id) return;
+    return apiService.availability.listenByListingId(listing.id, setAvailability);
+  }, [listing?.id]);
+
   if (!listing) return <div className="pt-24 text-center">Logement non trouvé</div>;
 
   // Par défaut, on sélectionne la première chambre dispo pour l'encart de droite
   const defaultRoom = listing.rooms.find(r => r.isAvailable) || listing.rooms[0];
   const activeRoom = selectedRoomId ? listing.rooms.find(r => r.id === selectedRoomId)! : defaultRoom;
 
-  // Fetch real bookings for this listing
-  const listingBookings = getBookingsByListing(listing.id);
-
-  // 1. Réservations SPECIFIQUES à la chambre active (pour bloquer le calendrier et empêcher la réservation)
-  const activeRoomBookings = listingBookings.filter(
-    b => b.roomId === activeRoom.id && (b.status === 'CONFIRMED' || b.status === 'PENDING')
+  const activeRoomBookings = availability.filter(
+    b => b.roomId === activeRoom.id && ['PENDING', 'APPROVED', 'CONFIRMED'].includes(b.status)
   );
 
   // 2. TOUTES les réservations confirmées de la maison (pour afficher les visages sur le calendrier)
-  const allHouseBookings = listingBookings.filter(
+  const allHouseBookings = availability.filter(
     b => b.status === 'CONFIRMED'
   );
-
-  // 3. Unique roommates (excluding host and current user)
-  const uniqueRoommates = allHouseBookings.reduce((acc: User[], booking) => {
-    if (booking.tenant && booking.tenant.id !== currentUser?.id && !acc.find(u => u.id === booking.tenant?.id)) {
-      acc.push(booking.tenant);
-    }
-    return acc;
-  }, []);
 
   const handleBookClick = () => {
     if (!currentUser) {
@@ -347,43 +339,12 @@ export const ListingDetails: React.FC = () => {
                 </div>
               </div>
 
-              {uniqueRoommates.length > 0 && (
-                <div className="mb-10">
-                  <h2 className="font-heading font-bold text-xl mb-4">Qui d'autre habite ici ?</h2>
-                  <div className="flex flex-wrap gap-6">
-                    {uniqueRoommates.map(roommate => (
-                      <Link 
-                        key={roommate.id} 
-                        to={`/profile/${roommate.id}`}
-                        className="flex flex-col items-center gap-2 group"
-                      >
-                        <div className="relative">
-                          <img 
-                            src={roommate.avatarUrl} 
-                            alt={roommate.firstName} 
-                            className="w-16 h-16 rounded-full object-cover border-2 border-white shadow-sm group-hover:scale-110 transition-transform"
-                          />
-                          {roommate.isVerified && (
-                            <div className="absolute -bottom-1 -right-1 bg-blue-500 text-white p-0.5 rounded-full border-2 border-white">
-                              <ShieldCheck size={10} />
-                            </div>
-                          )}
-                        </div>
-                        <span className="text-xs font-bold text-haven-navy group-hover:text-haven-red transition-colors">
-                          {roommate.firstName}
-                        </span>
-                      </Link>
-                    ))}
-                  </div>
-                </div>
-              )}
-
               {/* CALENDAR SECTION */}
               <div ref={calendarRef} className="mb-10">
                 <div className="flex justify-between items-center mb-4">
                   <h2 className="font-heading font-bold text-xl flex items-center gap-2">
                     <Calendar size={24} className="text-haven-navy"/>
-                    Disponibilités et Colocataires
+                    Disponibilités
                   </h2>
                   {isListingOwner && (
                     <div className="bg-haven-red/10 text-haven-red px-3 py-1 rounded-full text-xs font-bold border border-haven-red/20">
@@ -395,13 +356,13 @@ export const ListingDetails: React.FC = () => {
                 {isListingOwner ? (
                   <p className="text-gray-500 mb-6 text-sm italic">
                     En tant que propriétaire, cliquez sur une date pour la bloquer/débloquer. 
-                    Les réservations de vos locataires sont visibles avec leurs photos.
+                    Les périodes réservées restent visibles, sans afficher les données personnelles des locataires.
                   </p>
                 ) : (
                   <p className="text-gray-500 mb-6 text-sm">
                     Sélectionnez vos dates pour <span className="font-bold text-haven-navy">{activeRoom.name}</span>. 
                     Séjour minimum : <span className="font-bold text-haven-navy">{listing.minStay} jours</span>.
-                    Survolez les photos pour voir qui sera présent !
+                    Les jours occupés sont indiqués sans exposer l'identité des locataires.
                   </p>
                 )}
                 

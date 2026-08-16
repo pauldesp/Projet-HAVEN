@@ -1,7 +1,18 @@
 
 import { db, auth } from '../firebase';
 import { collection, getDocs, getDoc, doc, setDoc, updateDoc, query, where, deleteField, onSnapshot, or } from 'firebase/firestore';
-import { Listing, User, Booking, ListingStatus, UserStatus, Message, ContactRequest, Report, Incident, Payment, InventoryReport, AppDocument } from '../types';
+import { Listing, User, Booking, BookingAvailability, ListingStatus, UserStatus, Message, ContactRequest, Report, Incident, Payment, InventoryReport, AppDocument } from '../types';
+
+const toAvailability = (booking: Booking): BookingAvailability => ({
+  id: booking.id,
+  bookingId: booking.id,
+  listingId: booking.listingId,
+  roomId: booking.roomId,
+  startDate: booking.startDate,
+  endDate: booking.endDate,
+  status: booking.status,
+  updatedAt: new Date().toISOString()
+});
 
 // Helper to handle firestore errors with context
 const handleFirestoreError = (error: any, operation: string, path: string) => {
@@ -60,6 +71,7 @@ async function cleanupAndFilterBookings(bookings: Booking[]): Promise<Booking[]>
     if (changed) {
       try {
         await updateDoc(doc(db, 'bookings', booking.id), { status: currentStatus });
+        await setDoc(doc(db, 'booking_availability', booking.id), toAvailability({ ...booking, status: currentStatus }));
 
         // Release room if it was previously locked (i.e. status was APPROVED)
         if (booking.status === 'APPROVED' && currentStatus === 'CANCELLED') {
@@ -268,6 +280,7 @@ export const apiService = {
     async create(booking: Booking) {
       try {
         await setDoc(doc(db, 'bookings', booking.id), booking);
+        await setDoc(doc(db, 'booking_availability', booking.id), toAvailability(booking));
         
         // Dynamic chat message creation based on booking mode
         const msgId = `m-${crypto.randomUUID()}`;
@@ -360,6 +373,7 @@ export const apiService = {
             updateData.approvedAt = new Date().toISOString();
           }
           await updateDoc(doc(db, 'bookings', bookingId), updateData);
+          await setDoc(doc(db, 'booking_availability', bookingId), toAvailability({ ...booking, status }));
           
           // Automated status change messages inside chat
           if (status === 'APPROVED' && previousStatus !== 'APPROVED') {
@@ -435,6 +449,15 @@ export const apiService = {
       } catch (e) {
         handleFirestoreError(e, 'UPDATE_BOOKING_STATUS', `bookings/${bookingId}`);
       }
+    }
+  },
+
+  availability: {
+    listenByListingId(listingId: string, callback: (items: BookingAvailability[]) => void) {
+      const q = query(collection(db, 'booking_availability'), where('listingId', '==', listingId));
+      return onSnapshot(q, snapshot => {
+        callback(snapshot.docs.map(item => item.data() as BookingAvailability));
+      }, error => handleFirestoreError(error, 'LIST_AVAILABILITY', `booking_availability?listingId=${listingId}`));
     }
   },
 

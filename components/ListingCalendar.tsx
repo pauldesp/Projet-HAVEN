@@ -1,17 +1,12 @@
 
 import React, { useState } from 'react';
-import { ChevronLeft, ChevronRight, CheckCircle, ExternalLink, Lock } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
-import { User, Booking } from '../types';
+import { ChevronLeft, ChevronRight, Lock } from 'lucide-react';
+import { BookingAvailability } from '../types';
 import { Button } from './Button';
 
-interface BookingWithTenant extends Booking {
-  tenant?: User;
-}
-
 interface ListingCalendarProps {
-  activeRoomBookings: BookingWithTenant[];
-  allHouseBookings: BookingWithTenant[];
+  activeRoomBookings: BookingAvailability[];
+  allHouseBookings: BookingAvailability[];
   onDateSelect: (start: string, end: string) => void;
   selectedStart: string;
   selectedEnd: string;
@@ -32,7 +27,6 @@ export const ListingCalendar: React.FC<ListingCalendarProps> = ({
   listingBlockedDates = [],
   onSaveBlockedDates
 }) => {
-  const navigate = useNavigate();
   const [currentDate, setCurrentDate] = useState(new Date()); 
   const [hoveredDate, setHoveredDate] = useState<string | null>(null);
   const [manualBlockedDates, setManualBlockedDates] = useState<string[]>(blockedDates);
@@ -329,11 +323,7 @@ export const ListingCalendar: React.FC<ListingCalendarProps> = ({
                     <div className="flex -space-x-2 mt-0.5 relative z-20 justify-center w-full px-1">
                       {tenants.slice(0, 3).map((booking, idx) => (
                         <div key={idx} className={`w-5 h-5 rounded-full border-2 overflow-hidden flex-shrink-0 ${isSelected ? 'border-haven-navy' : 'border-white'}`}>
-                          {booking.tenant ? (
-                            <img src={booking.tenant.avatarUrl} alt="" className="w-full h-full object-cover" />
-                          ) : (
-                            <div className="w-full h-full bg-gray-200" />
-                          )}
+                          <div className="w-full h-full bg-gray-300" />
                         </div>
                       ))}
                       {tenants.length > 3 && (
@@ -345,46 +335,25 @@ export const ListingCalendar: React.FC<ListingCalendarProps> = ({
                   )}
                 </button>
 
-                {/* TOOLTIP - PROFILE POPUP */}
+                {/* Public occupancy summary: no tenant identity is exposed. */}
                 {hoveredDate === dateKey && tenants.length > 0 && (
                   <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 w-64 bg-white rounded-2xl shadow-xl border border-gray-100 p-4 z-50 animate-fade-in-up">
                     <h4 className="text-xs font-bold text-gray-400 uppercase mb-3 flex justify-between items-center">
-                      Colocataires présents
-                      <span className="text-[10px] bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded">Cliquez pour voir</span>
+                      Occupations confirmées
                     </h4>
                     <div className="space-y-3 max-h-48 overflow-y-auto">
                       {tenants.map((booking) => (
                         <div 
                           key={booking.id} 
-                          className="flex items-center gap-3 hover:bg-gray-50 p-1.5 rounded-lg cursor-pointer transition-colors group/item"
-                          onClick={(e) => {
-                            e.stopPropagation(); // Prevent changing calendar selection
-                            if (booking.tenant) {
-                              navigate(`/profile/${booking.tenant.id}`);
-                            }
-                          }}
+                          className="flex items-center gap-3 p-1.5 rounded-lg"
                         >
                           <div className="relative flex-shrink-0">
-                            {booking.tenant ? (
-                              <>
-                                <img src={booking.tenant.avatarUrl} className="w-10 h-10 rounded-full object-cover border border-gray-200" alt={booking.tenant.firstName} />
-                                {booking.tenant.isVerified && (
-                                   <div className="absolute -bottom-1 -right-1 bg-white rounded-full p-0.5">
-                                      <CheckCircle size={12} className="text-blue-500 fill-blue-500 bg-white rounded-full" />
-                                   </div>
-                                )}
-                              </>
-                            ) : (
-                              <div className="w-10 h-10 rounded-full bg-gray-200 border border-gray-200" />
-                            )}
+                            <div className="w-10 h-10 rounded-full bg-gray-200 border border-gray-200 flex items-center justify-center"><Lock size={14} /></div>
                           </div>
                           <div className="text-left flex-1">
-                            <div className="flex justify-between items-center">
-                              <p className="text-sm font-bold text-haven-navy">{booking.tenant?.firstName || 'Utilisateur'}</p>
-                              <ExternalLink size={12} className="text-gray-300 group-hover/item:text-haven-red opacity-0 group-hover/item:opacity-100 transition-all"/>
-                            </div>
+                            <p className="text-sm font-bold text-haven-navy">Occupation confirmée</p>
                             <p className="text-[10px] text-gray-500 line-clamp-1">
-                              {booking.roomName}
+                              Chambre indisponible à cette date
                             </p>
                           </div>
                         </div>
