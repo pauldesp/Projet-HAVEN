@@ -29,7 +29,6 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useListings } from '../contexts/ListingContext';
-import { useBookings } from '../contexts/BookingContext';
 import { apiService } from '../services/api';
 import { Booking, Listing, Room, UserRole, AppDocument } from '../types';
 import { InventoryModal } from '../components/InventoryModal';
@@ -99,7 +98,6 @@ export const TenantDashboard: React.FC = () => {
   const navigate = useNavigate();
   const { currentUser, refreshUser, updateUserRole } = useAuth();
   const { listings: allListings } = useListings();
-  const { bookings: allBookings } = useBookings();
   const [activeTab, setActiveTab] = useState<'UPCOMING' | 'HISTORY' | 'FAVORITES' | 'MESSAGES' | 'DOCUMENTS'>('UPCOMING');
   const [bookings, setBookings] = useState<(Booking & { listing?: Listing })[]>([]);
   const [favorites, setFavorites] = useState<Listing[]>([]);
@@ -399,18 +397,6 @@ export const TenantDashboard: React.FC = () => {
             authorAvatarUrl: currentUser.avatarUrl
           });
 
-          const roommates = getRoommates(inventoryState.selectedBooking);
-          if (roommates.length > 0) {
-            await apiService.reviews.create({
-              id: `rev_r_${bookingId}`,
-              authorId: currentUser.id,
-              targetId: roommates[0].id,
-              rating: data.reviews.roommates.rating,
-              comment: data.reviews.roommates.comment,
-              createdAt: new Date().toISOString(),
-              targetType: 'USER'
-            });
-          }
         }
 
         // Update Booking Status
@@ -540,26 +526,6 @@ export const TenantDashboard: React.FC = () => {
     }
   };
 
-  const getRoommates = (booking: Booking) => {
-    const roommates = allBookings.filter(b => 
-      b.listingId === booking.listingId && 
-      b.id !== booking.id && 
-      b.status === 'CONFIRMED' &&
-      new Date(b.startDate) <= new Date(booking.endDate) &&
-      new Date(b.endDate) >= new Date(booking.startDate)
-    );
-    const uniqueTenants: any[] = [];
-    roommates.forEach(r => {
-      if (r.tenantId) { // Simplified for demo
-         const foundTenant = allBookings.find(b => b.tenantId === r.tenantId)?.tenant;
-         if (foundTenant && !uniqueTenants.find(t => t.id === foundTenant.id)) {
-            uniqueTenants.push(foundTenant);
-         }
-      }
-    });
-    return uniqueTenants;
-  };
-
   if (isLoading) return <div className="p-20 text-center flex flex-col items-center gap-4"><Loader2 className="animate-spin text-haven-navy" size={40}/><p className="text-sm font-bold text-gray-400 uppercase tracking-widest">Chargement de votre univers...</p></div>;
 
   return (
@@ -679,16 +645,6 @@ export const TenantDashboard: React.FC = () => {
                         <BookingCountdown booking={booking} />
                       </div>
 
-                      {getRoommates(booking).length > 0 && (
-                        <div className="pt-4 flex items-center gap-4">
-                           <div className="flex -space-x-3">
-                             {getRoommates(booking).map(roommate => (
-                               <img key={roommate.id} className="h-10 w-10 rounded-full ring-4 ring-white object-cover" src={roommate.avatarUrl} alt="" />
-                             ))}
-                           </div>
-                           <p className="text-[11px] font-bold text-gray-500">Vos colocataires sur ce séjour</p>
-                        </div>
-                      )}
                     </div>
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-1 gap-2 w-full lg:w-72 pt-4 lg:pt-0 border-t lg:border-t-0 lg:border-l border-gray-100 lg:pl-8">
