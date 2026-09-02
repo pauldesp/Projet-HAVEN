@@ -43,7 +43,6 @@ export const LoginPage: React.FC = () => {
   const [identifier, setIdentifier] = useState(''); // Email or Phone
   const [password, setPassword] = useState('');
   const [verificationCode, setVerificationCode] = useState('');
-  const [generatedCode, setGeneratedCode] = useState('');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [birthDate, setBirthDate] = useState('');
@@ -83,9 +82,6 @@ export const LoginPage: React.FC = () => {
       } else {
         // If it's an email, send a real verification code via Resend
         if (identifier.includes('@')) {
-          const code = Math.floor(1000 + Math.random() * 9000).toString();
-          setGeneratedCode(code);
-          
           try {
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
@@ -93,7 +89,7 @@ export const LoginPage: React.FC = () => {
             const response = await fetch('/api/send-verification', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ email: identifier, code }),
+              body: JSON.stringify({ email: identifier }),
               signal: controller.signal
             });
             
@@ -109,9 +105,7 @@ export const LoginPage: React.FC = () => {
             setError(err.message || "Impossible d'envoyer l'email de vérification.");
           }
         } else {
-          // For phone numbers, we still simulate for now
-          setGeneratedCode('1234');
-          setStep('VERIFY');
+          setError("L'inscription par téléphone n'est pas encore disponible. Utilisez une adresse e-mail.");
         }
       }
     } catch (err: any) {
@@ -163,12 +157,19 @@ export const LoginPage: React.FC = () => {
     }
   };
 
-  const handleVerifySubmit = (e: React.FormEvent) => {
+  const handleVerifySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (verificationCode === generatedCode) {
+    setError('');
+    try {
+      const response = await fetch('/api/verify-code', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: identifier, code: verificationCode })
+      });
+      if (!response.ok) throw new Error((await response.json()).error || 'Code invalide.');
       setStep('PROFILE');
-    } else {
-      setError(`Code invalide. ${identifier.includes('@') ? 'Vérifiez vos emails.' : 'Utilisez 1234 pour le test.'}`);
+    } catch (err: any) {
+      setError(err.message || 'Code invalide. Vérifiez vos e-mails.');
     }
   };
 

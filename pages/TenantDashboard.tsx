@@ -37,6 +37,7 @@ import { ReportModal } from '../components/ReportModal';
 import { AccountStatusOverlay } from '../components/AccountStatusOverlay';
 import { ConversationsList } from '../components/ConversationsList';
 import { toast } from 'sonner';
+import { authenticatedFetch } from '../services/serverApi';
 
 const BookingCountdown: React.FC<{ booking: Booking }> = ({ booking }) => {
   const [timeLeft, setTimeLeft] = useState<string>('');
@@ -153,63 +154,15 @@ export const TenantDashboard: React.FC = () => {
       const bookingResult = params.get('booking');
       const bookingId = params.get('id');
 
-      if (bookingResult === 'success' && bookingId) {
+      if (bookingResult === 'pending' && bookingId) {
         try {
-          await apiService.bookings.updateStatus(bookingId, 'CONFIRMED');
-          toast.success("Votre réservation est confirmée ! Bienvenue chez HAVEN.");
-
-          // Send confirmation emails to both parties (Chantier 3)
-          try {
-            const booking = await apiService.bookings.getById(bookingId);
-            if (booking) {
-              const ownerProfile = await apiService.users.getById(booking.ownerId);
-              const listing = await apiService.listings.getById(booking.listingId);
-              const listingTitle = listing?.title || "Logement HAVEN";
-              const ownerName = ownerProfile ? `${ownerProfile.firstName} ${ownerProfile.lastName}` : "Hôte HAVEN";
-              
-              // Email to Tenant
-              await apiService.notifications.sendBookingNotification(
-                currentUser.email,
-                'PAYMENT_CONFIRMED',
-                {
-                  listingTitle,
-                  roomName: booking.roomName || 'Chambre',
-                  amount: booking.totalPrice,
-                  startDate: new Date(booking.startDate).toLocaleDateString('fr-FR'),
-                  endDate: new Date(booking.endDate).toLocaleDateString('fr-FR'),
-                  tenantName: `${currentUser.firstName} ${currentUser.lastName}`,
-                  ownerName,
-                  bookingId
-                }
-              );
-
-              // Email to Landlord
-              if (ownerProfile && ownerProfile.email) {
-                await apiService.notifications.sendBookingNotification(
-                  ownerProfile.email,
-                  'PAYMENT_CONFIRMED',
-                  {
-                    listingTitle,
-                    roomName: booking.roomName || 'Chambre',
-                    amount: booking.totalPrice,
-                    startDate: new Date(booking.startDate).toLocaleDateString('fr-FR'),
-                    endDate: new Date(booking.endDate).toLocaleDateString('fr-FR'),
-                    tenantName: `${currentUser.firstName} ${currentUser.lastName}`,
-                    ownerName,
-                    bookingId
-                  }
-                );
-              }
-            }
-          } catch (emailErr) {
-            console.error("Failed to fetch profiles or dispatch PAYMENT_CONFIRMED emails:", emailErr);
-          }
+          toast.success("Paiement reçu. Stripe vérifie maintenant la confirmation.");
 
           // Clear query params without refreshing page
           const newUrl = window.location.pathname + window.location.hash;
           window.history.replaceState({}, '', newUrl);
         } catch (e) {
-          console.error("Error confirming booking", e);
+          console.error("Error handling payment return", e);
         }
       } else if (bookingResult === 'cancel' && bookingId) {
         try {
@@ -296,17 +249,13 @@ export const TenantDashboard: React.FC = () => {
   const handleProceedToPayment = async (booking: Booking) => {
     setIsPayingBookingId(booking.id);
     try {
-      const response = await fetch('/api/create-checkout-session', {
+      const response = await authenticatedFetch('/api/create-checkout-session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           bookingId: booking.id,
-          listingId: booking.listingId,
-          amount: booking.totalPrice,
-          listingTitle: booking.listing?.title || 'Logement',
-          roomName: booking.roomName || 'Chambre',
-          successUrl: `${window.location.origin}${window.location.pathname}?booking=success&id=${booking.id}#/dashboard`,
-          cancelUrl: `${window.location.origin}${window.location.pathname}?booking=cancel&id=${booking.id}`,
+          successPath: `/?booking=pending&id=${booking.id}#/dashboard`,
+          cancelPath: `/?booking=cancel&id=${booking.id}#/dashboard`,
         }),
       });
 

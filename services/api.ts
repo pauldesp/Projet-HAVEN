@@ -2,6 +2,7 @@
 import { db, auth } from '../firebase';
 import { collection, getDocs, getDoc, doc, setDoc, updateDoc, query, where, deleteField, onSnapshot, or } from 'firebase/firestore';
 import { Listing, User, Booking, BookingAvailability, ListingStatus, UserStatus, Message, ContactRequest, Report, Incident, Payment, InventoryReport, AppDocument } from '../types';
+import { authenticatedFetch } from './serverApi';
 
 const toAvailability = (booking: Booking): BookingAvailability => ({
   id: booking.id,
@@ -300,10 +301,10 @@ export const apiService = {
           // Instant booking
           const initialMessage: Message = {
             id: msgId,
-            senderId: booking.ownerId, // simulated as welcoming message from owner
-            receiverId: booking.tenantId,
+            senderId: booking.tenantId,
+            receiverId: booking.ownerId,
             bookingId: booking.id,
-            content: `Félicitations ! Votre réservation instantanée pour la chambre "${booking.roomName || 'Chambre'}" du ${new Date(booking.startDate).toLocaleDateString()} au ${new Date(booking.endDate).toLocaleDateString()} est confirmée de manière définitive. Bienvenue ! 🏡`,
+            content: `Bonjour, je souhaite réserver la chambre "${booking.roomName || 'Chambre'}" du ${new Date(booking.startDate).toLocaleDateString()} au ${new Date(booking.endDate).toLocaleDateString()}.`,
             timestamp: new Date().toISOString(),
             isRead: false,
             participants: [booking.tenantId, booking.ownerId]
@@ -311,21 +312,6 @@ export const apiService = {
           await setDoc(doc(db, 'messages', msgId), initialMessage);
         }
 
-        // Update listing availability ONLY if it's an INSTANT booking,
-        // because for MANUAL bookings, room locking is deferred until the owner's APPROVAL.
-        if (booking.bookingMode !== 'MANUAL') {
-          const listingDoc = await getDoc(doc(db, 'listings', booking.listingId));
-          if (listingDoc.exists()) {
-            const listing = listingDoc.data() as Listing;
-            const updatedRooms = listing.rooms.map(r => 
-              r.id === booking.roomId ? { ...r, isAvailable: false } : r
-            );
-            await updateDoc(doc(db, 'listings', booking.listingId), { 
-              rooms: updatedRooms,
-              availableRooms: Math.max(0, listing.availableRooms - 1)
-            });
-          }
-        }
         return booking;
       } catch (e) {
         return handleFirestoreError(e, 'CREATE_BOOKING', `bookings/${booking.id}`);
@@ -404,10 +390,12 @@ export const apiService = {
             await setDoc(doc(db, 'messages', msgId), confirmationMessage);
           } else if (status === 'CANCELLED' && previousStatus !== 'CANCELLED') {
             const msgId = `m-${crypto.randomUUID()}`;
+            const actorId = auth.currentUser?.uid;
+            if (!actorId) throw new Error('Authentication required');
             const cancelMessage: Message = {
               id: msgId,
-              senderId: booking.ownerId,
-              receiverId: booking.tenantId,
+              senderId: actorId,
+              receiverId: actorId === booking.ownerId ? booking.tenantId : booking.ownerId,
               bookingId,
               content: `La demande de réservation pour la chambre "${booking.roomName || 'Chambre'}" a été déclinée ou a expiré.`,
               timestamp: new Date().toISOString(),
@@ -834,7 +822,7 @@ export const apiService = {
       bookingId: string;
     }) {
       try {
-        const response = await fetch('/api/send-booking-notification', {
+        const response = await authenticatedFetch('/api/send-booking-notification', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email, type, details })

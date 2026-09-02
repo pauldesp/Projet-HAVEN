@@ -4,6 +4,7 @@ import { Button } from './Button';
 import { X, Check, FileText, CreditCard, User, ShieldCheck, Shield, ArrowRight, CheckCircle, XCircle } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { apiService } from '../services/api';
+import { authenticatedFetch } from '../services/serverApi';
 
 interface BookingModalProps {
   isOpen: boolean;
@@ -123,17 +124,13 @@ export const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose, lis
       await apiService.bookings.create(bookingData);
       
       // 2. Call our server to create a Stripe checkout session
-      const response = await fetch('/api/create-checkout-session', {
+      const response = await authenticatedFetch('/api/create-checkout-session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           bookingId,
-          listingId: listing.id,
-          amount: total,
-          listingTitle: listing.title,
-          roomName: room.name,
-          successUrl: `${window.location.origin}${window.location.pathname}?booking=success&id=${bookingId}#/dashboard`,
-          cancelUrl: `${window.location.origin}${window.location.pathname}?booking=cancel&id=${bookingId}`,
+          successPath: `/?booking=pending&id=${bookingId}#/dashboard`,
+          cancelPath: `/?booking=cancel&id=${bookingId}#/dashboard`,
         }),
       });
 

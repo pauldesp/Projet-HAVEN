@@ -60,6 +60,17 @@ service cloud.firestore {
              data.role in ['TENANT', 'OWNER', 'ADMIN'];
     }
 
+    function isSafeSelfProfile(data, userId) {
+      return data.id == userId &&
+             data.role == 'TENANT' &&
+             data.status == 'PENDING' &&
+             data.email == request.auth.token.email;
+    }
+
+    function isSafeMemberRole(role) {
+      return role in ['TENANT', 'OWNER'];
+    }
+
     function isValidListing(data) {
       return data.keys().hasAll(['id', 'title', 'city', 'ownerId', 'status']) &&
              data.id is string && isValidId(data.id) &&
@@ -200,27 +211,40 @@ service cloud.firestore {
       // bookings and conversations. Anonymous reads and collection scans stay blocked.
       allow get: if isSignedIn();
       allow list: if isAdmin();
-      allow create: if isOwner(userId) && isValidUser(incoming());
+      allow create: if isOwner(userId) && isValidUser(incoming()) && isSafeSelfProfile(incoming(), userId);
       allow update: if (isAdmin() || isOwner(userId)) && isValidUser(incoming()) && (
-        isAdmin() || incoming().diff(existing()).affectedKeys().hasOnly(['firstName', 'lastName', 'avatarUrl', 'bio', 'school', 'favorites', 'documents', 'status', 'city', 'job', 'phone'])
+        isAdmin() || (
+          incoming().id == existing().id &&
+          incoming().email == existing().email &&
+          incoming().status == existing().status &&
+          isSafeMemberRole(incoming().role) &&
+          incoming().diff(existing()).affectedKeys().hasOnly(['firstName', 'lastName', 'avatarUrl', 'bio', 'school', 'favorites', 'documents', 'city', 'job', 'phone', 'role'])
+        )
       );
     }
 
     match /listings/{listingId} {
       allow read: if true;
       allow create: if (isSignedIn() || isAdmin()) && isValidListing(incoming()) && (incoming().ownerId == request.auth.uid || isAdmin());
-      allow update: if (isAdmin() || (isSignedIn() && existing().ownerId == request.auth.uid)) && isValidListing(incoming()) && 
-                    incoming().ownerId == existing().ownerId;
-      // Allow minor updates for booking availability (simple mode)
-      allow update: if isSignedIn() && incoming().diff(existing()).affectedKeys().hasOnly(['rooms', 'availableRooms']);
+      allow update: if isAdmin() && isValidListing(incoming());
+      allow update: if isSignedIn() && existing().ownerId == request.auth.uid && isValidListing(incoming()) &&
+                    incoming().id == existing().id && incoming().ownerId == existing().ownerId &&
+                    incoming().status == existing().status;
       allow delete: if isAdmin() || (isSignedIn() && existing().ownerId == request.auth.uid);
     }
 
     match /bookings/{bookingId} {
       allow get, list: if isAdmin() || (isSignedIn() && (resource.data.tenantId == request.auth.uid || resource.data.ownerId == request.auth.uid));
-      allow create: if (isSignedIn() || isAdmin()) && isValidBooking(incoming()) && (incoming().tenantId == request.auth.uid || isAdmin());
-      allow update: if (isAdmin() || (isSignedIn() && (existing().tenantId == request.auth.uid || existing().ownerId == request.auth.uid))) 
-                    && isValidBooking(incoming()) && incoming().tenantId == existing().tenantId;
+      allow create: if isSignedIn() && isValidBooking(incoming()) &&
+                    incoming().tenantId == request.auth.uid && incoming().status == 'PENDING' &&
+                    exists(/databases/$(database)/documents/listings/$(incoming().listingId)) &&
+                    get(/databases/$(database)/documents/listings/$(incoming().listingId)).data.ownerId == incoming().ownerId;
+      allow update: if isAdmin() || (isSignedIn() && isValidBooking(incoming()) &&
+                    incoming().diff(existing()).affectedKeys().hasOnly(['status', 'approvedAt']) && (
+                      (existing().ownerId == request.auth.uid && existing().status == 'PENDING' && incoming().status in ['APPROVED', 'CANCELLED']) ||
+                      (existing().tenantId == request.auth.uid && incoming().status == 'CANCELLED' && existing().status in ['PENDING', 'APPROVED']) ||
+                      (existing().tenantId == request.auth.uid && incoming().status == 'COMPLETED' && existing().status == 'CONFIRMED')
+                    ));
     }
 
     match /booking_availability/{bookingId} {
@@ -235,7 +259,7 @@ service cloud.firestore {
         isAdmin() || (isSignedIn() && (
           get(/databases/$(database)/documents/bookings/$(bookingId)).data.tenantId == request.auth.uid ||
           get(/databases/$(database)/documents/bookings/$(bookingId)).data.ownerId == request.auth.uid
-        ))
+        ) && get(/databases/$(database)/documents/bookings/$(bookingId)).data.status == incoming().status)
       );
       allow delete: if isAdmin();
     }
@@ -256,14 +280,14 @@ service cloud.firestore {
 
     match /inventory/{reportId} {
       allow get: if isAdmin() || (isSignedIn() && (existing().tenantId == request.auth.uid || existing().ownerId == request.auth.uid));
-      allow list: if isAdmin() || (isSignedIn() && (resource.data.tenantId == request.auth.uid || resource.data.ownerId == request.auth.uid || resource.data.bookingId != null));
+      allow list: if isAdmin() || (isSignedIn() && (resource.data.tenantId == request.auth.uid || resource.data.ownerId == request.auth.uid));
       allow create: if (isSignedIn() || isAdmin()) && isValidInventoryReport(incoming()) && (incoming().tenantId == request.auth.uid || incoming().ownerId == request.auth.uid || isAdmin());
       allow update, delete: if isAdmin();
     }
 
     match /incidents/{incidentId} {
       allow get: if isAdmin() || (isSignedIn() && (existing().reporterId == request.auth.uid || existing().ownerId == request.auth.uid));
-      allow list: if isAdmin() || (isSignedIn() && (resource.data.reporterId == request.auth.uid || resource.data.ownerId == request.auth.uid || resource.data.listingId != null));
+      allow list: if isAdmin() || (isSignedIn() && (resource.data.reporterId == request.auth.uid || resource.data.ownerId == request.auth.uid));
       allow create: if (isSignedIn() || isAdmin()) && isValidIncident(incoming()) && (incoming().reporterId == request.auth.uid || isAdmin());
       allow update: if isAdmin() || (isSignedIn() && existing().ownerId == request.auth.uid && 
                     incoming().diff(existing()).affectedKeys().hasOnly(['status', 'adminNotes']));
@@ -278,7 +302,8 @@ service cloud.firestore {
     match /payments/{paymentId} {
       allow get: if isAdmin() || (isSignedIn() && (existing().ownerId == request.auth.uid || existing().tenantId == request.auth.uid));
       allow list: if isAdmin() || (isSignedIn() && (resource.data.ownerId == request.auth.uid || resource.data.tenantId == request.auth.uid));
-      allow create: if (isSignedIn() || isAdmin()) && isValidPayment(incoming()) && (incoming().tenantId == request.auth.uid || incoming().ownerId == request.auth.uid || isAdmin());
+      // Payment records are authoritative server output and must never be client-created.
+      allow create: if isAdmin();
       allow update, delete: if isAdmin();
     }
 
