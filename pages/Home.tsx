@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
-import { Search, Calendar as CalendarIcon, ShieldCheck, Sparkles, TrendingUp, BarChart3, AlertCircle, Users, Route, Check, X, Coins, Hotel, Info, Home as HomeIcon } from 'lucide-react';
+import { Search, Calendar as CalendarIcon, ShieldCheck, Sparkles, TrendingUp, BarChart3, AlertCircle, Users, Route, Check, Coins, Hotel, Info, Home as HomeIcon, ArrowRight } from 'lucide-react';
 import { Button } from '../components/Button';
 import { CityAutocomplete } from '../components/CityAutocomplete';
 import { DateRangePicker } from '../components/DateRangePicker';
@@ -42,8 +42,70 @@ export const Home: React.FC = () => {
 
   return (
     <div className="w-full bg-haven-cream font-body selection:bg-haven-navy/10">
+      {/* Mobile explorer */}
+      <div className="md:hidden min-h-screen bg-white pb-28">
+        <section className="relative overflow-hidden bg-haven-navy px-5 pt-10 pb-9 text-white">
+          <div className="relative z-10">
+            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/55">La colocation flexible</p>
+            <h1 className="mt-3 max-w-xs font-heading text-[2rem] font-bold leading-[1.08]">Votre logement, le temps qu’il vous faut.</h1>
+            <p className="mt-4 max-w-sm text-sm leading-relaxed text-white/75">Des chambres meublées, une communauté fiable et un prix clair pour vos études, missions ou transitions professionnelles.</p>
+            <Link to="/search" className="mt-6 inline-flex items-center gap-2 rounded-2xl bg-haven-red px-5 py-3.5 text-sm font-bold shadow-lg shadow-black/15">
+              Rechercher une chambre <ArrowRight size={17} />
+            </Link>
+          </div>
+          <HomeIcon className="absolute -bottom-8 -right-6 text-white/5" size={180} />
+        </section>
+
+        <main className="space-y-12 px-4 pt-9">
+          <section>
+            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-haven-red">Pourquoi HAVEN ?</p>
+            <h2 className="mt-2 font-heading text-2xl font-bold text-haven-navy">Une colocation pensée pour la mobilité</h2>
+            <div className="mt-5 space-y-3">
+              {[
+                { icon: CalendarIcon, color: 'bg-blue-50 text-blue-600', title: 'Flexibilité totale', text: 'Choisissez vos semaines, sans dossier complexe ni engagement long terme.' },
+                { icon: ShieldCheck, color: 'bg-red-50 text-haven-red', title: 'Communauté vérifiée', text: 'Les logements sont contrôlés et les occupants vérifiés pour bien vivre ensemble.' },
+                { icon: Sparkles, color: 'bg-green-50 text-green-600', title: 'Prêt à vivre', text: 'Des logements équipés, une installation immédiate et un prix clair toute l’année.' },
+              ].map(({ icon: Icon, color, title, text }) => (
+                <article key={title} className="flex gap-4 rounded-3xl border border-gray-100 bg-white p-5 shadow-soft">
+                  <span className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl ${color}`}><Icon size={24} /></span>
+                  <div><h3 className="font-heading text-lg font-bold text-haven-navy">{title}</h3><p className="mt-1 text-sm leading-relaxed text-haven-stone">{text}</p></div>
+                </article>
+              ))}
+            </div>
+          </section>
+
+          <section className="-mx-4 bg-haven-gray/65 px-4 py-9">
+            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-haven-red">Un besoin concret</p>
+            <h2 className="mt-2 font-heading text-2xl font-bold text-haven-navy">Le défi du logement mobile</h2>
+            <p className="mt-2 text-sm leading-relaxed text-haven-stone">Le marché traditionnel n’est pas adapté à la mobilité de nombreux étudiants et jeunes professionnels.</p>
+            <div className="mt-5 grid grid-cols-2 gap-3">
+              <article className="rounded-3xl bg-white p-5 shadow-soft"><AlertCircle className="text-haven-red" size={22} /><strong className="mt-5 block text-3xl text-haven-navy">74 %</strong><p className="mt-2 text-xs leading-relaxed text-haven-stone">jugent la recherche d’un logement temporaire très complexe.</p></article>
+              <article className="rounded-3xl bg-white p-5 shadow-soft"><Route className="text-blue-600" size={22} /><strong className="mt-5 block text-3xl text-haven-navy">6 / 10</strong><p className="mt-2 text-xs leading-relaxed text-haven-stone">alternants étudient et travaillent dans deux villes différentes.</p></article>
+            </div>
+          </section>
+
+          <section>
+            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-haven-red">Budget maîtrisé</p>
+            <h2 className="mt-2 font-heading text-2xl font-bold text-haven-navy">Le juste prix de la mobilité</h2>
+            <p className="mt-2 text-sm text-haven-stone">Exemple pour une semaine à La Rochelle.</p>
+            <div className="mt-5 grid grid-cols-3 gap-2 text-center">
+              <article className="rounded-2xl border border-gray-100 p-3"><Hotel className="mx-auto text-gray-400" size={20} /><p className="mt-3 text-[10px] font-bold text-gray-500">Hôtel</p><strong className="mt-1 block text-lg text-haven-navy">260 €</strong></article>
+              <article className="rounded-2xl border border-gray-100 p-3"><HomeIcon className="mx-auto text-gray-400" size={20} /><p className="mt-3 text-[10px] font-bold text-gray-500">Location</p><strong className="mt-1 block text-lg text-haven-navy">230 €</strong></article>
+              <article className="rounded-2xl border-2 border-haven-red bg-red-50/40 p-3"><Logo className="mx-auto h-5" /><p className="mt-3 text-[10px] font-bold text-haven-red">HAVEN</p><strong className="mt-1 block text-lg text-haven-red">175 €</strong></article>
+            </div>
+          </section>
+
+          <section className="rounded-[2rem] bg-haven-red p-6 text-white">
+            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-white/65">Vous êtes propriétaire ?</p>
+            <h2 className="mt-2 font-heading text-2xl font-bold">Rentabilisez votre logement autrement.</h2>
+            <p className="mt-3 text-sm leading-relaxed text-white/80">HAVEN facilite la location flexible par chambre et accompagne une occupation plus régulière.</p>
+            <button type="button" onClick={handlePublishClick} className="mt-5 inline-flex items-center gap-2 rounded-2xl bg-white px-5 py-3 text-sm font-bold text-haven-red">Publier un logement <ArrowRight size={17} /></button>
+          </section>
+        </main>
+      </div>
+
       {/* Refined Minimalist Hero */}
-      <div className="relative h-[85vh] min-h-[600px] w-full flex flex-col justify-center items-center px-4 overflow-hidden">
+      <div className="relative hidden md:flex md:h-[85vh] md:min-h-[600px] w-full flex-col justify-center items-center px-4 overflow-hidden">
         
         {/* Background */}
         <div className="absolute inset-0 z-0 overflow-hidden">
@@ -59,7 +121,7 @@ export const Home: React.FC = () => {
         {/* Hero Content */}
         <div className="relative z-10 w-full max-w-4xl text-center space-y-6 animate-fade-in">
           <div className="space-y-4">
-            <h1 className="font-heading font-medium text-3xl md:text-4xl lg:text-5xl text-white leading-tight tracking-tight drop-shadow-2xl">
+            <h1 className="font-heading font-medium text-[2rem] md:text-4xl lg:text-5xl text-white leading-[1.1] tracking-tight drop-shadow-2xl">
               {t('hero.title')}
             </h1>
             
@@ -68,11 +130,11 @@ export const Home: React.FC = () => {
             </p>
           </div>
 
-          <div className="flex flex-col items-center gap-4 pt-8 w-full">
+          <div className="flex flex-col items-center gap-4 pt-4 md:pt-8 w-full">
             <form 
               onSubmit={handleSearch} 
               style={{ width: '914px' }}
-              className="bg-white p-1.5 rounded-2xl md:rounded-full shadow-[0_20px_50px_rgba(0,0,0,0.15)] flex flex-col md:flex-row items-stretch max-w-full border border-gray-100 relative group/form"
+              className="bg-white p-1.5 rounded-3xl md:rounded-full shadow-[0_20px_50px_rgba(0,0,0,0.15)] flex flex-col md:flex-row items-stretch max-w-full border border-gray-100 relative group/form"
             >
               {/* Where Section */}
               <div className="flex-1 px-8 py-4 w-full border-b md:border-b-0 md:border-r border-gray-100 text-left hover:bg-gray-50/80 transition-colors cursor-pointer rounded-t-2xl md:rounded-l-full md:rounded-tr-none group">
@@ -110,6 +172,7 @@ export const Home: React.FC = () => {
         </div>
       </div>
 
+      <div className="hidden md:block">
       {/* Value Props Section */}
       <section className="py-24 max-w-7xl mx-auto px-6">
         <div className="grid md:grid-cols-3 gap-12 lg:gap-20">
@@ -410,6 +473,7 @@ export const Home: React.FC = () => {
           animation: fade-in 1s cubic-bezier(0.16, 1, 0.3, 1);
         }
       `}</style>
+      </div>
     </div>
   );
 };

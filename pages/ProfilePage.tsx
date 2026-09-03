@@ -1,13 +1,16 @@
 
 import React, { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { apiService } from '../services/api';
 import { User, Listing } from '../types';
-import { ShieldCheck, Star, Calendar, MapPin, Briefcase, GraduationCap, Loader2, Home, CheckCircle2 } from 'lucide-react';
+import { ShieldCheck, Star, Calendar, Briefcase, GraduationCap, Loader2, Home, CheckCircle2, FileText, HelpCircle, LogOut, ChevronRight, UserRound } from 'lucide-react';
 import { Button } from '../components/Button';
+import { useAuth } from '../contexts/AuthContext';
 
 export const ProfilePage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const { currentUser, logout } = useAuth();
   const [user, setUser] = useState<User | null>(null);
   const [listings, setListings] = useState<Listing[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -59,21 +62,32 @@ export const ProfilePage: React.FC = () => {
   const memberSince = user.createdAt 
     ? new Date(user.createdAt).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })
     : "Mars 2026";
+  const isOwnProfile = currentUser?.id === user.id;
+
+  const handleLogout = async () => {
+    await logout();
+    navigate('/');
+  };
 
   return (
     <div className="min-h-screen bg-haven-cream pb-20 font-body">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-12">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 pt-5 md:pt-12">
+        {isOwnProfile && (
+          <div className="mb-4 px-1 md:hidden">
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-haven-red">Mon compte</p>
+          </div>
+        )}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 md:gap-12">
           
           {/* Left Column: Avatar & Stats */}
           <div className="lg:col-span-1">
-            <div className="bg-white rounded-[2.5rem] shadow-premium p-8 border border-gray-50 sticky top-24">
+            <div className="bg-white rounded-3xl md:rounded-[2.5rem] shadow-soft md:shadow-premium p-5 md:p-8 border border-gray-50 sticky top-24">
               <div className="flex flex-col items-center text-center">
-                <div className="relative mb-6">
+                <div className="relative mb-4 md:mb-6">
                   <img 
                     src={user.avatarUrl} 
                     alt={`${user.firstName} ${user.lastName}`} 
-                    className="w-40 h-40 rounded-full object-cover border-4 border-white shadow-xl"
+                    className="w-28 h-28 md:w-40 md:h-40 rounded-full object-cover border-4 border-white shadow-xl"
                   />
                   {user.status === 'APPROVED' && (
                     <div className="absolute bottom-2 right-2 bg-green-500 text-white p-1.5 rounded-full border-4 border-white shadow-lg" title="Identité vérifiée">
@@ -82,14 +96,14 @@ export const ProfilePage: React.FC = () => {
                   )}
                 </div>
                 
-                <h1 className="text-3xl font-heading font-bold text-haven-navy mb-1">
+                <h1 className="text-2xl md:text-3xl font-heading font-bold text-haven-navy mb-1">
                   {user.firstName} {user.lastName}
                 </h1>
                 <p className="text-gray-500 font-medium mb-6 uppercase tracking-widest text-[10px]">
                   {user.role === 'OWNER' ? 'Propriétaire' : user.role === 'ADMIN' ? 'Administrateur' : 'Locataire'}
                 </p>
 
-                <div className="grid grid-cols-2 gap-4 w-full mb-8">
+                <div className="grid grid-cols-2 gap-3 md:gap-4 w-full mb-5 md:mb-8">
                   <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
                     <div className="flex items-center justify-center gap-1 text-haven-navy font-black text-xl mb-1">
                       {user.rating || 4.8} <Star size={16} className="fill-haven-red text-haven-red" />
@@ -104,7 +118,7 @@ export const ProfilePage: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="w-full space-y-4 border-t border-gray-100 pt-6 text-left">
+                <div className="w-full space-y-3 md:space-y-4 border-t border-gray-100 pt-5 md:pt-6 text-left">
                   <div className="flex items-center gap-3 text-gray-600">
                     <Calendar size={18} className="text-haven-stone" />
                     <span className="text-sm">Membre depuis {memberSince}</span>
@@ -127,16 +141,39 @@ export const ProfilePage: React.FC = () => {
           </div>
 
           {/* Right Column: Bio & Listings */}
-          <div className="lg:col-span-2 space-y-12">
+          <div className="lg:col-span-2 space-y-5 md:space-y-12">
+
+            {isOwnProfile && (
+              <div className="space-y-2 md:hidden">
+                <div className="flex w-full items-center gap-4 rounded-2xl border border-gray-100 bg-white p-4 text-left shadow-soft">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-haven-navy/5 text-haven-navy"><UserRound size={20} /></div>
+                  <div className="min-w-0 flex-1"><p className="font-bold text-haven-navy">Mon profil public</p><p className="text-xs text-gray-400">Présentation visible par la communauté</p></div>
+                  <ChevronRight size={19} className="text-gray-300" />
+                </div>
+                <button onClick={() => navigate('/dashboard')} className="flex w-full items-center gap-4 rounded-2xl border border-gray-100 bg-white p-4 text-left shadow-soft">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600"><FileText size={20} /></div>
+                  <div className="min-w-0 flex-1"><p className="font-bold text-haven-navy">Identité et documents</p><p className="text-xs text-gray-400">Justificatifs et documents de séjour</p></div>
+                  <ChevronRight size={19} className="text-gray-300" />
+                </button>
+                <button onClick={() => navigate('/help')} className="flex w-full items-center gap-4 rounded-2xl border border-gray-100 bg-white p-4 text-left shadow-soft">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-green-50 text-green-600"><HelpCircle size={20} /></div>
+                  <div className="min-w-0 flex-1"><p className="font-bold text-haven-navy">Aide et sécurité</p><p className="text-xs text-gray-400">Obtenir de l’aide ou signaler un problème</p></div>
+                  <ChevronRight size={19} className="text-gray-300" />
+                </button>
+                <button onClick={handleLogout} className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl border border-red-100 bg-red-50 p-4 text-sm font-bold text-haven-red">
+                  <LogOut size={18} /> Se déconnecter
+                </button>
+              </div>
+            )}
             
             {/* Bio Section */}
-            <div className="bg-white rounded-[2.5rem] shadow-premium p-10 border border-gray-50">
-              <h2 className="text-2xl font-heading font-bold text-haven-navy mb-6">À propos de {user.firstName}</h2>
-              <p className="text-gray-600 leading-relaxed text-lg">
+            <div className="bg-white rounded-3xl md:rounded-[2.5rem] shadow-soft md:shadow-premium p-5 md:p-10 border border-gray-50">
+              <h2 className="text-xl md:text-2xl font-heading font-bold text-haven-navy mb-4 md:mb-6">{isOwnProfile ? 'Mon profil public' : `À propos de ${user.firstName}`}</h2>
+              <p className="text-gray-600 leading-relaxed text-base md:text-lg">
                 {user.bio || `${user.firstName} n'a pas encore rédigé sa description. C'est un membre de la communauté HAVEN qui apprécie les séjours de qualité et les rencontres conviviales.`}
               </p>
               
-              <div className="mt-10 grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="mt-6 md:mt-10 grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
                 <div className="flex items-start gap-4">
                   <div className="w-10 h-10 bg-green-50 text-green-600 rounded-xl flex items-center justify-center flex-shrink-0">
                     <CheckCircle2 size={20} />
@@ -198,7 +235,7 @@ export const ProfilePage: React.FC = () => {
             )}
 
             {/* Reviews Section (Mocked for now) */}
-            <div className="bg-white rounded-[2.5rem] shadow-premium p-10 border border-gray-50">
+            <div className={`${isOwnProfile ? 'hidden md:block' : ''} bg-white rounded-[2.5rem] shadow-premium p-10 border border-gray-50`}>
               <h2 className="text-2xl font-heading font-bold text-haven-navy mb-8 flex items-center gap-3">
                 <Star className="text-haven-red fill-haven-red" size={24} />
                 Ce que les gens disent de {user.firstName}

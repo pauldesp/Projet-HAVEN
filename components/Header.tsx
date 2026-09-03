@@ -56,10 +56,11 @@ export const Header: React.FC = () => {
     setIsLangOpen(false);
   };
 
-  const handleRoleSwitch = () => {
+  const handleRoleSwitch = async () => {
     if (!currentUser) return;
     const newRole = currentUser.role === UserRole.TENANT ? UserRole.OWNER : UserRole.TENANT;
-    updateUserRole(newRole);
+    await updateUserRole(newRole);
+    setIsUserMenuOpen(false);
     
     if (newRole === UserRole.OWNER) {
       navigate('/owner/dashboard');
@@ -77,9 +78,9 @@ export const Header: React.FC = () => {
   return (
     <header className="sticky top-0 z-50 w-full bg-haven-cream/80 backdrop-blur-md border-b border-haven-gray/50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-20">
+        <div className="flex justify-between items-center h-16 md:h-20">
           <Link to="/" className="flex items-center gap-2 hover:opacity-90 transition-opacity">
-            <Logo className="h-10 w-auto" />
+            <Logo className="h-8 md:h-10 w-auto" />
           </Link>
 
           <nav className="hidden md:flex items-center gap-8">
@@ -198,11 +199,11 @@ export const Header: React.FC = () => {
                           <UserIcon size={18} /> Mon Profil
                         </Link>
                         <Link 
-                          to="/settings"
+                          to={`/profile/${currentUser.id}`}
                           onClick={() => setIsUserMenuOpen(false)}
                           className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 hover:text-haven-navy rounded-xl transition-colors"
                         >
-                          <Settings size={18} /> Paramètres
+                          <Settings size={18} /> Mon compte
                         </Link>
                       </div>
 
@@ -231,9 +232,22 @@ export const Header: React.FC = () => {
             )}
           </nav>
 
-          <button className="md:hidden text-haven-navy p-2">
-            <Globe size={24} />
-          </button>
+          <div className="flex items-center gap-2 md:hidden">
+            {!currentUser ? (
+              <Link to="/login" className="rounded-full bg-haven-navy px-4 py-2 text-xs font-bold text-white">
+                Connexion
+              </Link>
+            ) : (
+              <Link to={`/profile/${currentUser.id}`} aria-label="Ouvrir mon profil">
+                <img
+                  src={currentUser.avatarUrl}
+                  alt=""
+                  className="h-9 w-9 rounded-full border-2 border-white object-cover shadow-sm"
+                  referrerPolicy="no-referrer"
+                />
+              </Link>
+            )}
+          </div>
         </div>
       </div>
     </header>

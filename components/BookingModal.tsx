@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Room, Listing, Booking, LegalDocument } from '../types';
 import { Button } from './Button';
-import { X, Check, FileText, CreditCard, User, ShieldCheck, Shield, ArrowRight, CheckCircle, XCircle } from 'lucide-react';
+import { X, Check, FileText, CreditCard, ShieldCheck, Shield, ArrowLeft, ArrowRight, CheckCircle, XCircle } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { apiService } from '../services/api';
 
@@ -28,6 +28,17 @@ export const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose, lis
   const [isLoadingLegal, setIsLoadingLegal] = useState(false);
 
   const { currentUser } = useAuth();
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setStep(1);
+    setIsSigned(false);
+    setError(null);
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [isOpen]);
 
   useEffect(() => {
     if (step === 2 && !legalDoc) {
@@ -160,15 +171,26 @@ export const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose, lis
 
   return (
     <>
-      <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+      <div role="dialog" aria-modal="true" aria-label="Réserver ce logement" className="fixed inset-0 z-[60] flex items-end justify-center md:items-center md:p-4">
         <div className="absolute inset-0 bg-haven-navy/40 backdrop-blur-sm" onClick={onClose}></div>
         
-        <div className="relative bg-white rounded-3xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl flex flex-col">
+        <div className="relative bg-white rounded-t-[2rem] md:rounded-3xl w-full max-w-2xl max-h-[92dvh] md:max-h-[90vh] overflow-y-auto shadow-2xl flex flex-col">
+          <div className="mx-auto mt-2 h-1.5 w-12 rounded-full bg-gray-200 md:hidden" />
           {/* Header */}
-          <div className="flex justify-between items-center p-6 border-b border-gray-100 sticky top-0 bg-white z-10">
-            <h2 className="font-heading font-bold text-xl text-haven-navy">
-              {step === 5 ? 'Réservation confirmée !' : 'Demande de réservation'}
-            </h2>
+          <div className="flex justify-between items-center px-4 py-4 md:p-6 border-b border-gray-100 sticky top-0 bg-white z-10">
+            <div className="flex items-center gap-2">
+              {step > 1 && step < 5 && (
+                <button onClick={() => setStep(current => Math.max(1, current - 1))} aria-label="Étape précédente" className="rounded-full p-2 hover:bg-gray-100">
+                  <ArrowLeft size={20} />
+                </button>
+              )}
+              <div>
+                <h2 className="font-heading font-bold text-lg md:text-xl text-haven-navy">
+                  {step === 5 ? 'Demande envoyée' : step === 1 ? 'Votre séjour' : step === 2 ? 'Votre accord' : 'Paiement'}
+                </h2>
+                {step < 5 && <p className="text-xs text-gray-400">Étape {step} sur 3</p>}
+              </div>
+            </div>
             <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full text-gray-500">
               <X size={20} />
             </button>
@@ -184,7 +206,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose, lis
             </div>
           )}
 
-          <div className="p-8">
+          <div className="p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] md:p-8">
             {/* STEP 1: RECAP */}
             {step === 1 && (
               <div className="space-y-6">
@@ -212,7 +234,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose, lis
 
             {/* STEP 2: LEGAL & CONDITIONS - Pattern Login */}
             {step === 2 && (
-              <div className="space-y-8 py-4">
+              <div className="space-y-6 py-2 md:space-y-8 md:py-4">
                 <div className="text-center space-y-4">
                   <div className="w-16 h-16 bg-haven-red/10 rounded-2xl flex items-center justify-center text-haven-red mx-auto">
                     <Shield size={32} />
@@ -221,7 +243,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose, lis
                   <p className="text-sm text-haven-stone">Veuillez lire et accepter les Conditions Générales de Réservations. Votre validation et votre paiement vaudront signature de l'accord tripartite (Locataire, Propriétaire, HAVEN) valant contrat officiel.</p>
                 </div>
 
-                <div className={`p-6 rounded-[2rem] border transition-all ${isSigned ? 'bg-green-50 border-green-200' : 'bg-white border-gray-100 shadow-premium'}`}>
+                <div className={`p-4 md:p-6 rounded-2xl md:rounded-[2rem] border transition-all ${isSigned ? 'bg-green-50 border-green-200' : 'bg-white border-gray-100 shadow-premium'}`}>
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-3">
                       <FileText className="text-haven-red" size={24} />
@@ -329,10 +351,10 @@ export const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose, lis
 
             {/* STEP 3: PAYMENT & STRIPE REDIRECT */}
             {step === 3 && (
-              <div className="space-y-6">
+              <div className="space-y-5 md:space-y-6">
                 <h3 className="font-heading font-bold text-lg">Paiement sécurisé</h3>
                 
-                <div className="bg-white border-2 border-haven-navy group p-6 rounded-2xl flex items-center justify-between hover:bg-haven-cream/20 transition-all cursor-pointer">
+                <div className="bg-white border-2 border-haven-navy group p-4 md:p-6 rounded-2xl flex items-center justify-between hover:bg-haven-cream/20 transition-all cursor-pointer">
                    <div className="flex items-center gap-4">
                       <div className="w-12 h-12 bg-haven-navy text-white rounded-xl flex items-center justify-center">
                          <CreditCard size={24} />

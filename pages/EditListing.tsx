@@ -29,6 +29,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { Listing, Room } from '../types';
 import { aiService } from '../services/ai';
 import { toast } from 'sonner';
+import { DEFAULT_MINIMUM_NIGHTS, isValidMinimumNights, minimumNights } from '../services/minimumStay';
 
 export const EditListing: React.FC = () => {
   const { id } = useParams();
@@ -63,7 +64,7 @@ export const EditListing: React.FC = () => {
         totalRooms: 0,
         availableRooms: 0,
         bathrooms: 1,
-        minStay: 30,
+        minStay: DEFAULT_MINIMUM_NIGHTS,
         price: 0,
         amenities: [],
         galleryUrls: [],
@@ -87,7 +88,7 @@ export const EditListing: React.FC = () => {
         ...r
       }));
 
-      setListing(normalizedListing);
+      setListing({ ...normalizedListing, minStay: minimumNights(normalizedListing.minStay) });
     } else {
       toast.error("Logement non trouvé.");
       navigate('/owner/dashboard');
@@ -97,6 +98,10 @@ export const EditListing: React.FC = () => {
   if (!listing) return <div className="p-20 text-center"><Loader2 className="animate-spin mx-auto text-haven-navy"/></div>;
 
   const handleSave = async () => {
+    if (!isValidMinimumNights(listing.minStay)) {
+      toast.error('Le minimum doit être un nombre entier d’au moins 1 nuit.');
+      return;
+    }
     setIsSaving(true);
     try {
       await updateListing(listing);
@@ -279,13 +284,15 @@ export const EditListing: React.FC = () => {
 
                <div className="grid md:grid-cols-2 gap-8">
                   <div className="space-y-3">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-haven-stone">Séjour Minimum (jours)</label>
+                    <label htmlFor="edit-minimum-nights" className="text-[10px] font-black uppercase tracking-widest text-haven-stone">Durée minimale (nuits)</label>
                     <input 
                       type="number" 
-                      value={listing.minStay || 0}
-                      onChange={(e) => setListing({...listing, minStay: parseInt(e.target.value) || 0})}
+                      id="edit-minimum-nights" min="1" step="1"
+                      value={listing.minStay || ''}
+                      onChange={(e) => setListing({...listing, minStay: Number(e.target.value)})}
                       className="w-full bg-gray-50 border-none rounded-2xl px-5 py-4 text-haven-navy font-bold focus:ring-2 focus:ring-haven-navy/20 outline-none transition-all"
                     />
+                    <p className="text-sm text-gray-500">4 nuits par défaut. Choisissez au minimum 1 nuit. Les réservations déjà effectuées ne sont pas modifiées.</p>
                   </div>
                   <div className="space-y-3">
                     <label className="text-[10px] font-black uppercase tracking-widest text-haven-stone">Surface totale (m²)</label>

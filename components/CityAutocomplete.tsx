@@ -2,6 +2,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { MapPin } from 'lucide-react';
 import { useMapsLibrary } from '@vis.gl/react-google-maps';
+import { hasGoogleMaps } from '../src/config';
+import { CommuneInput } from './CommuneInput';
 
 export interface PlaceData {
   fullAddress: string;
@@ -19,7 +21,7 @@ interface CityAutocompleteProps {
   isAddressMode?: boolean;
 }
 
-export const CityAutocomplete: React.FC<CityAutocompleteProps> = ({ 
+const GoogleCityAutocomplete: React.FC<CityAutocompleteProps> = ({
   value, 
   onChange, 
   onSelect, 
@@ -318,4 +320,28 @@ export const CityAutocomplete: React.FC<CityAutocompleteProps> = ({
       `}</style>
     </div>
   );
+};
+
+export const CityAutocomplete: React.FC<CityAutocompleteProps> = (props) => {
+  if (!props.isAddressMode) return <CommuneInput value={props.value} onChange={props.onChange} placeholder={props.placeholder} />;
+  if (!hasGoogleMaps) {
+    return (
+      <div className="relative w-full group/city h-full">
+        <div className="flex items-center gap-3 text-gray-600 h-full">
+          <MapPin size={20} className="flex-shrink-0 text-haven-navy group-focus-within/city:text-haven-red transition-colors duration-300" />
+          <input
+            type="text"
+            value={props.value}
+            onChange={(event) => props.onChange(event.target.value)}
+            placeholder={props.placeholder}
+            autoComplete={props.isAddressMode ? 'street-address' : 'address-level2'}
+            className="w-full h-full bg-transparent border-0 outline-none text-base font-bold text-[#141414] placeholder:text-gray-400"
+            aria-label={props.placeholder || (props.isAddressMode ? 'Adresse' : 'Ville')}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  return <GoogleCityAutocomplete {...props} />;
 };

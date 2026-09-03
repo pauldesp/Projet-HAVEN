@@ -19,8 +19,7 @@ import {
   ArrowRight, 
   Shield,
   FileText,
-  Info,
-  Apple
+  Info
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { UserRole, User, LegalDocument } from '../types';
@@ -32,7 +31,7 @@ type AuthStep = 'IDENTIFIER' | 'LOGIN' | 'VERIFY' | 'PROFILE' | 'LEGAL' | 'FORGO
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { login, register, loginWithGoogle, logout, currentUser, checkUserExists, resetPassword } = useAuth();
+  const { login, register, loginWithGoogle, logout, currentUser, resetPassword } = useAuth();
 
   const queryParams = new URLSearchParams(location.search);
   const redirectPath = queryParams.get('redirect');
@@ -43,7 +42,7 @@ export const LoginPage: React.FC = () => {
   const [identifier, setIdentifier] = useState(''); // Email or Phone
   const [password, setPassword] = useState('');
   const [verificationCode, setVerificationCode] = useState('');
-  const [generatedCode, setGeneratedCode] = useState('');
+  const [verifiedEmail, setVerifiedEmail] = useState('');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [birthDate, setBirthDate] = useState('');
@@ -59,6 +58,7 @@ export const LoginPage: React.FC = () => {
 
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
 
   useEffect(() => {
     if (currentUser) {
@@ -75,47 +75,41 @@ export const LoginPage: React.FC = () => {
   const handleIdentifierSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setVerifiedEmail('');
+    setVerificationCode('');
+    if (!identifier.includes('@')) {
+      setError("Utilisez votre adresse e-mail.");
+      return;
+    }
+    setIdentifier(identifier.trim().toLowerCase());
+    setStep('LOGIN');
+  };
+
+  const handleStartRegistration = async () => {
+    setError('');
+    setVerifiedEmail('');
+    setVerificationCode('');
+    if (!identifier.includes('@')) {
+      setError("Utilisez une adresse e-mail valide pour créer un compte.");
+      return;
+    }
     setIsLoading(true);
     try {
-      const result = await checkUserExists(identifier);
-      if (result.exists) {
-        setStep('LOGIN');
-      } else {
-        // If it's an email, send a real verification code via Resend
-        if (identifier.includes('@')) {
-          const code = Math.floor(1000 + Math.random() * 9000).toString();
-          setGeneratedCode(code);
-          
-          try {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
-
-            const response = await fetch('/api/send-verification', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ email: identifier, code }),
-              signal: controller.signal
-            });
-            
-            clearTimeout(timeoutId);
-            
-            if (!response.ok) {
-              const data = await response.json();
-              throw new Error(data.error || "Erreur lors de l'envoi de l'email.");
-            }
-            
-            setStep('VERIFY');
-          } catch (err: any) {
-            setError(err.message || "Impossible d'envoyer l'email de vérification.");
-          }
-        } else {
-          // For phone numbers, we still simulate for now
-          setGeneratedCode('1234');
-          setStep('VERIFY');
-        }
-      }
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+      const response = await fetch('/api/send-verification', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: identifier }),
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Erreur lors de l'envoi de l'e-mail.");
+      setIdentifier(typeof data.email === 'string' ? data.email : identifier.trim().toLowerCase());
+      setStep('VERIFY');
     } catch (err: any) {
-      setError(err.message || "Une erreur est survenue.");
+      setError(err.name === 'AbortError' ? "Le service met trop de temps à répondre." : err.message || "Impossible d'envoyer l'e-mail de vérification.");
     } finally {
       setIsLoading(false);
     }
@@ -126,19 +120,7 @@ export const LoginPage: React.FC = () => {
     setError('');
     setIsLoading(true);
     try {
-      let loginEmail = identifier;
-      // If identifier is a phone number, resolve the associated email first
-      if (!identifier.includes('@')) {
-        const result = await checkUserExists(identifier);
-        if (result.exists && result.email) {
-          loginEmail = result.email;
-        } else {
-          setError('Aucun compte associé à ce numéro.');
-          setIsLoading(false);
-          return;
-        }
-      }
-      const success = await login(loginEmail, password);
+      const success = await login(identifier, password);
       if (!success) {
         setError('Mot de passe incorrect.');
       }
@@ -163,12 +145,27 @@ export const LoginPage: React.FC = () => {
     }
   };
 
-  const handleVerifySubmit = (e: React.FormEvent) => {
+  const handleVerifySubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (verificationCode === generatedCode) {
+    setError('');
+    setIsLoading(true);
+    try {
+      const response = await fetch('/api/verify-code', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: identifier, code: verificationCode }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Code invalide.');
+      if (typeof data.email !== 'string' || !data.email.includes('@')) {
+        throw new Error('La validation de l’adresse e-mail est incomplète.');
+      }
+      setVerifiedEmail(data.email);
       setStep('PROFILE');
-    } else {
-      setError(`Code invalide. ${identifier.includes('@') ? 'Vérifiez vos emails.' : 'Utilisez 1234 pour le test.'}`);
+    } catch (err: any) {
+      setError(err.message || 'Impossible de vérifier ce code.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -208,13 +205,16 @@ export const LoginPage: React.FC = () => {
     setError('');
     setIsLoading(true);
     try {
-      const isEmail = identifier.includes('@');
+      if (!verifiedEmail || verifiedEmail !== identifier.trim().toLowerCase()) {
+        setStep('IDENTIFIER');
+        throw new Error("Votre adresse e-mail doit être vérifiée à nouveau.");
+      }
       const newUser: User = {
         id: '',
         firstName,
         lastName,
-        email: isEmail ? identifier : otherContact,
-        phone: isEmail ? otherContact : identifier,
+        email: verifiedEmail,
+        phone: otherContact,
         birthDate,
         marketingOptIn,
         legalAccepted: true,
@@ -247,13 +247,27 @@ export const LoginPage: React.FC = () => {
   };
 
   const handleGoogleLogin = async () => {
+    if (isLoading) return;
     setError('');
     setIsLoading(true);
+    setIsGoogleLoading(true);
     try {
       await loginWithGoogle();
     } catch (err: any) {
-      setError(err.message || "Erreur Google Login.");
+      const messages: Record<string, string> = {
+        'auth/unauthorized-domain': 'Cette adresse d’aperçu n’est pas autorisée pour Google. La configuration Firebase doit être ajustée.',
+        'auth/operation-not-allowed': 'La connexion Google n’est pas activée dans Firebase pour ce projet.',
+        'auth/popup-blocked': 'Le navigateur a bloqué la fenêtre Google. Autorisez son ouverture, puis réessayez.',
+        'auth/popup-closed-by-user': 'La fenêtre Google a été fermée avant la fin de la connexion. Vous pouvez réessayer.',
+        'auth/cancelled-popup-request': 'Une autre connexion Google est déjà en cours. Terminez-la avant de réessayer.',
+        'auth/network-request-failed': 'La connexion réseau a été interrompue. Vérifiez votre connexion puis réessayez.',
+        'auth/account-exists-with-different-credential': 'Un compte utilise déjà cette adresse avec une autre méthode. Connectez-vous avec votre méthode habituelle.',
+        'permission-denied': 'Google a authentifié votre compte, mais HAVEN n’a pas pu accéder à votre profil. Les autorisations Firebase doivent être vérifiées.',
+      };
+      const code = typeof err?.code === 'string' ? err.code : '';
+      setError(`${messages[code] || 'La connexion Google n’a pas abouti. Transmettez-nous le code ci-dessous pour identifier le blocage.'}${code ? ` (Code : ${code})` : ''}`);
     } finally {
+      setIsGoogleLoading(false);
       setIsLoading(false);
     }
   };
@@ -291,7 +305,9 @@ export const LoginPage: React.FC = () => {
                   required 
                   value={identifier} 
                   onChange={(e) => setIdentifier(e.target.value)}
-                  placeholder="Numéro de téléphone ou adresse e-mail"
+                  inputMode="email"
+                  autoComplete="email"
+                  placeholder="Adresse e-mail"
                   className="w-full px-4 py-4 bg-white rounded-xl border border-gray-300 outline-none focus:ring-2 focus:ring-black/5 focus:border-black transition-all text-base placeholder:text-gray-500"
                 />
               </div>
@@ -333,6 +349,9 @@ export const LoginPage: React.FC = () => {
             <Button type="submit" fullWidth size="lg" disabled={isLoading}>
               {isLoading ? <Loader2 className="animate-spin" /> : "Se connecter"}
             </Button>
+            <button type="button" onClick={handleStartRegistration} disabled={isLoading} className="w-full text-center text-sm font-bold text-haven-red hover:underline disabled:opacity-50">
+              Nouveau sur HAVEN ? Créer mon compte
+            </button>
             <button type="button" onClick={() => setStep('IDENTIFIER')} className="w-full text-center text-sm font-bold text-haven-stone hover:text-haven-navy">
               Utiliser un autre compte
             </button>
@@ -348,13 +367,20 @@ export const LoginPage: React.FC = () => {
             <div className="space-y-2">
               <label className="block text-[10px] font-black text-haven-stone uppercase tracking-widest ml-1">Code de validation</label>
               <input 
-                type="text" required value={verificationCode} onChange={(e) => setVerificationCode(e.target.value)}
-                placeholder="1234"
+                type="text"
+                required
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                value={verificationCode}
+                onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                placeholder="123456"
                 className="w-full px-4 py-4 bg-gray-50 rounded-2xl border border-gray-100 outline-none focus:border-haven-navy text-center text-2xl tracking-[1em] font-bold"
-                maxLength={4}
+                maxLength={6}
               />
             </div>
-            <Button type="submit" fullWidth size="lg">Valider le code</Button>
+            <Button type="submit" fullWidth size="lg" disabled={isLoading || verificationCode.length !== 6}>
+              {isLoading ? <Loader2 className="animate-spin" /> : "Valider le code"}
+            </Button>
             <button type="button" onClick={() => setStep('IDENTIFIER')} className="w-full text-center text-sm font-bold text-haven-stone hover:text-haven-navy">
               Modifier les coordonnées
             </button>
@@ -645,19 +671,11 @@ export const LoginPage: React.FC = () => {
                       className="w-full flex items-center justify-between px-4 py-3 bg-white border border-gray-900 rounded-xl font-bold text-haven-navy hover:bg-gray-50 transition-all active:scale-[0.98]"
                     >
                       <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-5 h-5" />
-                      <span className="flex-grow text-center text-sm">Continuer avec Google</span>
-                      <div className="w-5" />
+                      <span className="flex-grow text-center text-sm">{isGoogleLoading ? 'Connexion Google en cours…' : 'Continuer avec Google'}</span>
+                      {isGoogleLoading ? <Loader2 className="w-5 h-5 animate-spin" aria-hidden="true" /> : <div className="w-5" />}
                     </button>
+                    {isGoogleLoading && <p role="status" className="text-sm text-gray-600 text-center">Patientez pendant l’ouverture de Google. Si une fenêtre s’ouvre, poursuivez la connexion dans celle-ci.</p>}
 
-                    <button
-                      type="button"
-                      disabled={isLoading}
-                      className="w-full flex items-center justify-between px-4 py-3 bg-white border border-gray-900 rounded-xl font-bold text-haven-navy hover:bg-gray-50 transition-all active:scale-[0.98]"
-                    >
-                      <Apple size={20} />
-                      <span className="flex-grow text-center text-sm">Continuer avec Apple</span>
-                      <div className="w-5" />
-                    </button>
                   </div>
                 </>
               )}

@@ -2,7 +2,8 @@
 import React from 'react';
 import { Listing } from '../types';
 import { MapPin, Users, Star, ArrowRight } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
+import { listingSearchLink } from '../services/searchDates';
 import { useLanguage } from '../contexts/LanguageContext';
 
 interface ListingCardProps {
@@ -10,6 +11,7 @@ interface ListingCardProps {
 }
 
 export const ListingCard: React.FC<ListingCardProps> = ({ listing }) => {
+  const [searchParams] = useSearchParams();
   const minPrice = listing.rooms && listing.rooms.length > 0 
     ? Math.min(...listing.rooms.map(r => r.pricePerDay))
     : 0;
@@ -17,10 +19,10 @@ export const ListingCard: React.FC<ListingCardProps> = ({ listing }) => {
 
   return (
     <Link 
-      to={`/listing/${listing.id}`}
-      className="group flex flex-col bg-white rounded-[2rem] p-3 transition-all duration-300 border border-transparent hover:border-gray-100 hover:shadow-2xl hover:-translate-y-1"
+      to={listingSearchLink(listing.id, searchParams)}
+      className="group flex flex-col bg-white rounded-[1.5rem] md:rounded-[2rem] p-2.5 md:p-3 transition-all duration-300 border border-gray-100 md:border-transparent hover:border-gray-100 hover:shadow-2xl md:hover:-translate-y-1 shadow-soft md:shadow-none"
     >
-      <div className="relative aspect-[16/10] overflow-hidden rounded-2xl mb-4">
+      <div className="relative aspect-[16/10] overflow-hidden rounded-[1.1rem] md:rounded-2xl mb-3 md:mb-4">
         <img 
           src={listing.mainPhotoUrl} 
           alt={listing.title} 
@@ -38,7 +40,7 @@ export const ListingCard: React.FC<ListingCardProps> = ({ listing }) => {
 
       <div className="flex-1 px-2">
         <div className="flex justify-between items-start mb-1.5">
-          <h3 className="font-heading font-bold text-lg text-haven-navy line-clamp-1 group-hover:text-haven-red transition-colors">
+          <h3 className="font-heading font-bold text-base md:text-lg text-haven-navy line-clamp-1 group-hover:text-haven-red transition-colors">
             {listing.title}
           </h3>
           <div className="flex items-center gap-1 text-sm font-bold text-haven-navy">
@@ -52,7 +54,7 @@ export const ListingCard: React.FC<ListingCardProps> = ({ listing }) => {
           <span>{listing.city}</span>
         </div>
 
-        <div className="flex items-center gap-3 text-xs text-gray-500 mb-6 font-medium">
+        <div className="flex items-center gap-3 text-xs text-gray-500 mb-3 md:mb-6 font-medium">
           <span className="flex items-center gap-1">
             <Users size={14} />
             {listing.availableRooms} {t('card.available')}
@@ -61,7 +63,7 @@ export const ListingCard: React.FC<ListingCardProps> = ({ listing }) => {
           <span>{listing.surface}m²</span>
         </div>
 
-        <div className="flex items-center justify-between pt-4 border-t border-gray-100">
+        <div className="flex items-center justify-between pt-3 md:pt-4 border-t border-gray-100">
           <div className="flex flex-col">
             <span className="text-[10px] text-gray-400 uppercase font-black tracking-widest">{t('card.from')}</span>
             <div className="flex items-baseline gap-1">

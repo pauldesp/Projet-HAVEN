@@ -24,10 +24,23 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const { currentUser } = useAuth();
 
   useEffect(() => {
-    // Listen to all bookings (in a real app, we might want to filter this more strictly)
-    const q = query(collection(db, 'bookings'));
-    const unsubscribe = onSnapshot(q, async (snapshot) => {
-      const bookingsData = snapshot.docs.map(doc => doc.data() as Booking);
+    if (!currentUser) {
+      setBookings([]);
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    const bookingsById = new Map<string, Booking>();
+    const queries = currentUser.role === 'ADMIN'
+      ? [query(collection(db, 'bookings'))]
+      : [
+          query(collection(db, 'bookings'), where('tenantId', '==', currentUser.id)),
+          query(collection(db, 'bookings'), where('ownerId', '==', currentUser.id)),
+        ];
+
+    const hydrateBookings = async () => {
+      const bookingsData = Array.from(bookingsById.values());
       
       // Fetch tenant info for each booking (for the calendar)
       // Note: In a production app, we'd optimize this with a cache or by denormalizing
@@ -43,6 +56,14 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
       
       setBookings(bookingsWithTenants);
       setLoading(false);
+    };
+
+    const unsubscribes = queries.map(q => onSnapshot(q, async (snapshot) => {
+      snapshot.docChanges().forEach(change => {
+        if (change.type === 'removed') bookingsById.delete(change.doc.id);
+        else bookingsById.set(change.doc.id, change.doc.data() as Booking);
+      });
+      await hydrateBookings();
     }, (error) => {
       const errInfo = {
         error: error.message,
@@ -56,10 +77,10 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
       };
       console.error("Error listening to bookings:", JSON.stringify(errInfo));
       setLoading(false);
-    });
+    }));
 
-    return () => unsubscribe();
-  }, []);
+    return () => unsubscribes.forEach(unsubscribe => unsubscribe());
+  }, [currentUser]);
 
   const createBooking = async (booking: Booking) => {
     return await apiService.bookings.create(booking);

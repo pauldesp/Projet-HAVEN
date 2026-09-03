@@ -1,43 +1,43 @@
 
-import React, { Component, ReactNode, useEffect } from 'react';
+import React, { Component, ReactNode, Suspense, lazy, useEffect } from 'react';
 import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { Header } from './components/Header';
 import { Footer } from './components/Footer';
-import { Home } from './pages/Home';
-import { ListingDetails } from './pages/ListingDetails';
-import { SearchPage } from './pages/SearchPage';
-import { TenantDashboard } from './pages/TenantDashboard';
-import { OwnerDashboard } from './pages/OwnerDashboard';
-import { PublishListing } from './pages/PublishListing';
-import { EditListing } from './pages/EditListing';
-import { LoginPage } from './pages/LoginPage';
-import { AdminLoginPage } from './pages/AdminLoginPage';
-import { AdminDashboard } from './pages/AdminDashboard';
-import { TestDashboard } from './pages/TestDashboard';
-import { ProfilePage } from './pages/ProfilePage';
-import { ContactPage } from './pages/ContactPage';
-import { ChatPage } from './pages/ChatPage';
-import { InboxPage } from './pages/InboxPage';
-import { LegalPage } from './pages/LegalPage';
-import { EntryInventory } from './pages/EntryInventory';
-import { HowItWorks } from './pages/HowItWorks';
-import { ForPartners } from './pages/ForPartners';
-import { BecomeOwner } from './pages/BecomeOwner';
-import { FaqPage } from './pages/FaqPage';
-import { HelpCenter } from './pages/HelpCenter';
-import { TrustAndSafetyPage } from './pages/TrustAndSafetyPage';
-import { CookiePolicyPage } from './pages/CookiePolicyPage';
-import { AccountStatusOverlay } from './components/AccountStatusOverlay';
-import { APIProvider } from '@vis.gl/react-google-maps';
 import { LanguageProvider } from './contexts/LanguageContext';
 import { ListingProvider } from './contexts/ListingContext';
 import { AuthProvider } from './contexts/AuthContext';
 import { BookingProvider } from './contexts/BookingContext';
+import { hasGoogleMaps } from './src/config';
+import { MobileBottomNav } from './components/MobileBottomNav';
+import { ScreenLoader } from './components/ScreenLoader';
 
 import { Toaster, toast } from 'sonner';
 
-const GOOGLE_MAPS_KEY = (typeof process !== 'undefined' && process.env?.GOOGLE_MAPS_PLATFORM_KEY) || '';
-const hasValidMapsKey = Boolean(GOOGLE_MAPS_KEY) && GOOGLE_MAPS_KEY !== 'YOUR_API_KEY';
+const Home = lazy(() => import('./pages/Home').then(module => ({ default: module.Home })));
+const SearchPage = lazy(() => import('./pages/SearchPage').then(module => ({ default: module.SearchPage })));
+const ListingDetails = lazy(() => import('./pages/ListingDetails').then(module => ({ default: module.ListingDetails })));
+const ProfilePage = lazy(() => import('./pages/ProfilePage').then(module => ({ default: module.ProfilePage })));
+const TenantDashboard = lazy(() => import('./pages/TenantDashboard').then(module => ({ default: module.TenantDashboard })));
+const OwnerDashboard = lazy(() => import('./pages/OwnerDashboard').then(module => ({ default: module.OwnerDashboard })));
+const PublishListing = lazy(() => import('./pages/PublishListing').then(module => ({ default: module.PublishListing })));
+const EditListing = lazy(() => import('./pages/EditListing').then(module => ({ default: module.EditListing })));
+const LoginPage = lazy(() => import('./pages/LoginPage').then(module => ({ default: module.LoginPage })));
+const AdminLoginPage = lazy(() => import('./pages/AdminLoginPage').then(module => ({ default: module.AdminLoginPage })));
+const AdminDashboard = lazy(() => import('./pages/AdminDashboard').then(module => ({ default: module.AdminDashboard })));
+const TestDashboard = lazy(() => import('./pages/TestDashboard').then(module => ({ default: module.TestDashboard })));
+const ContactPage = lazy(() => import('./pages/ContactPage').then(module => ({ default: module.ContactPage })));
+const ChatPage = lazy(() => import('./pages/ChatPage').then(module => ({ default: module.ChatPage })));
+const InboxPage = lazy(() => import('./pages/InboxPage').then(module => ({ default: module.InboxPage })));
+const LegalPage = lazy(() => import('./pages/LegalPage').then(module => ({ default: module.LegalPage })));
+const EntryInventory = lazy(() => import('./pages/EntryInventory').then(module => ({ default: module.EntryInventory })));
+const HowItWorks = lazy(() => import('./pages/HowItWorks').then(module => ({ default: module.HowItWorks })));
+const ForPartners = lazy(() => import('./pages/ForPartners').then(module => ({ default: module.ForPartners })));
+const BecomeOwner = lazy(() => import('./pages/BecomeOwner').then(module => ({ default: module.BecomeOwner })));
+const FaqPage = lazy(() => import('./pages/FaqPage').then(module => ({ default: module.FaqPage })));
+const HelpCenter = lazy(() => import('./pages/HelpCenter').then(module => ({ default: module.HelpCenter })));
+const TrustAndSafetyPage = lazy(() => import('./pages/TrustAndSafetyPage').then(module => ({ default: module.TrustAndSafetyPage })));
+const CookiePolicyPage = lazy(() => import('./pages/CookiePolicyPage').then(module => ({ default: module.CookiePolicyPage })));
+const MapsAppProvider = lazy(() => import('./components/MapsAppProvider').then(module => ({ default: module.MapsAppProvider })));
 
 const AppContent: React.FC = () => {
   const location = useLocation();
@@ -88,7 +88,8 @@ const AppContent: React.FC = () => {
       <Toaster position="top-right" richColors />
       {!isAdminLogin && <Header />}
       
-      <main className="flex-grow">
+      <main className="flex-grow pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-0">
+        <Suspense fallback={<ScreenLoader />}>
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/search" element={<SearchPage />} />
@@ -116,40 +117,14 @@ const AppContent: React.FC = () => {
           <Route path="/debug/tests" element={<TestDashboard />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+        </Suspense>
       </main>
 
       {!isAdminLogin && <Footer />}
+      {!isAdminLogin && <MobileBottomNav />}
     </div>
   );
 };
-
-const MapsKeySplashScreen: React.FC = () => (
-  <div className="flex items-center justify-center min-h-screen bg-haven-cream p-6 font-body">
-    <div className="max-w-md w-full bg-white rounded-3xl shadow-2xl p-8 text-center border border-haven-navy/5">
-      <div className="w-16 h-16 bg-haven-navy/10 rounded-2xl flex items-center justify-center mx-auto mb-6">
-        <span className="text-2xl">🗺️</span>
-      </div>
-      <h2 className="text-2xl font-heading font-bold text-haven-navy mb-4">Clé API Google Maps requise</h2>
-      <p className="text-gray-600 mb-8 leading-relaxed">
-        Pour activer la recherche intelligente des villes, vous devez ajouter votre clé API Google Maps.
-      </p>
-      
-      <div className="space-y-4 text-left bg-gray-50 p-6 rounded-2xl border border-gray-100 mb-8">
-        <p className="text-sm font-bold text-haven-navy uppercase tracking-wider">Instructions :</p>
-        <ol className="text-sm text-gray-600 space-y-3 list-decimal list-inside">
-          <li>Obtenez une clé API sur la <a href="https://console.cloud.google.com/google/maps-apis/credentials" target="_blank" rel="noopener" className="text-haven-red font-bold hover:underline">Console Google Cloud</a></li>
-          <li>Ouvrez les <strong>Paramètres</strong> (icône ⚙️ en haut à droite)</li>
-          <li>Allez dans <strong>Secrets</strong></li>
-          <li>Ajoutez <code>GOOGLE_MAPS_PLATFORM_KEY</code> avec votre clé</li>
-        </ol>
-      </div>
-      
-      <p className="text-xs text-gray-400 italic">
-        L'application redémarrera automatiquement une fois la clé ajoutée.
-      </p>
-    </div>
-  </div>
-);
 
 interface ErrorBoundaryProps {
   children: ReactNode;
@@ -192,27 +167,27 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
 }
 
 const App: React.FC = () => {
-  if (!hasValidMapsKey) {
-    return <MapsKeySplashScreen />;
-  }
-
-  return (
+  const application = (
     <ErrorBoundary>
       <AuthProvider>
         <LanguageProvider>
           <ListingProvider>
             <BookingProvider>
-              <APIProvider apiKey={GOOGLE_MAPS_KEY} version="beta">
-                <HashRouter>
-                  <AppContent />
-                </HashRouter>
-              </APIProvider>
+              <HashRouter>
+                <AppContent />
+              </HashRouter>
             </BookingProvider>
           </ListingProvider>
         </LanguageProvider>
       </AuthProvider>
     </ErrorBoundary>
   );
+
+  return hasGoogleMaps ? (
+    <Suspense fallback={<ScreenLoader />}>
+      <MapsAppProvider>{application}</MapsAppProvider>
+    </Suspense>
+  ) : application;
 };
 
 export default App;

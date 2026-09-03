@@ -1,6 +1,8 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useSearchParams } from 'react-router-dom';
+import { readSearchDates, listingSearchLink } from '../services/searchDates';
+import { minimumNights } from '../services/minimumStay';
 import { Button } from '../components/Button';
 import { BookingModal } from '../components/BookingModal';
 import { ListingCalendar } from '../components/ListingCalendar';
@@ -18,6 +20,7 @@ import { ReportModal } from '../components/ReportModal';
 
 export const ListingDetails: React.FC = () => {
   const { id } = useParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { currentUser } = useAuth();
   const { getListingById, updateListing } = useListings();
   const { getBookingsByListing } = useBookings();
@@ -25,6 +28,7 @@ export const ListingDetails: React.FC = () => {
   const calendarRef = useRef<HTMLDivElement>(null);
 
   const [isBookingOpen, setIsBookingOpen] = useState(false);
+  const [bookingMessage, setBookingMessage] = useState('');
   const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
   const [isVerificationModalOpen, setIsVerificationModalOpen] = useState(false);
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
@@ -32,6 +36,7 @@ export const ListingDetails: React.FC = () => {
   const [reviews, setReviews] = useState<any[]>([]);
   const [isReviewsLoading, setIsReviewsLoading] = useState(false);
   const [isOwnerMode, setIsOwnerMode] = useState(false);
+  const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
   
   const isApproved = currentUser?.status === 'APPROVED' || currentUser?.role === 'ADMIN';
   const isListingOwner = currentUser?.id === listing?.ownerId;
@@ -44,18 +49,24 @@ export const ListingDetails: React.FC = () => {
   }, [isListingOwner]);
   
   // États pour les dates sélectionnées (synchronisés entre calendrier et sidebar)
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
+  const { start: startDate, end: endDate } = readSearchDates(searchParams);
+  useEffect(() => { setBookingMessage(''); }, [startDate, endDate, selectedRoomId, currentUser?.role, currentUser?.status]);
 
   useEffect(() => {
     const fetchOwner = async () => {
-      if (listing?.ownerId) {
+      if (!currentUser || !listing?.ownerId) {
+        setOwner(null);
+        return;
+      }
+      try {
         const ownerData = await apiService.users.getById(listing.ownerId);
         if (ownerData) setOwner(ownerData);
+      } catch (error) {
+        console.warn("Le profil du propriétaire n'est pas accessible.", error);
       }
     };
     fetchOwner();
-  }, [listing?.ownerId]);
+  }, [currentUser, listing?.ownerId]);
 
   useEffect(() => {
     const fetchReviews = async () => {
@@ -101,29 +112,47 @@ export const ListingDetails: React.FC = () => {
   }, []);
 
   const handleBookClick = () => {
+    setBookingMessage('');
+    if (!activeRoom.isAvailable) {
+      setBookingMessage('Cette chambre est indisponible. Choisissez une autre chambre.');
+      return;
+    }
+    if (!startDate || !endDate) {
+      setBookingMessage('Choisissez une date d’arrivée et une date de départ dans le calendrier.');
+      calendarRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
+    const blocked = [...(listing.blockedDates || []), ...(activeRoom.blockedDates || [])];
+    const hasConflict = blocked.some(date => date >= startDate && date <= endDate) || activeRoomBookings.some(booking => booking.startDate <= endDate && booking.endDate >= startDate);
+    if (hasConflict) {
+      setBookingMessage('Cette chambre n’est pas disponible pour les dates choisies. Modifiez les dates ou choisissez une autre chambre.');
+      calendarRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
     if (!currentUser) {
       // Redirect to login or show login modal
-      window.location.hash = '/login';
+      window.location.hash = `/login?redirect=${encodeURIComponent(listingSearchLink(listing.id, searchParams))}`;
       return;
     }
 
     if (isListingOwner) {
-      alert("Vous ne pouvez pas réserver votre propre logement.");
+      setBookingMessage('Vous ne pouvez pas réserver votre propre logement.');
       return;
     }
 
     if (isHost && !isListingOwner) {
-      alert("En mode propriétaire, vous ne pouvez pas réserver de logement. Basculez en mode locataire pour réserver.");
+      setBookingMessage('Vous êtes en mode propriétaire. Passez en mode locataire depuis votre profil pour réserver ce logement.');
       return;
     }
     
     if (!isApproved) {
+      setBookingMessage('Votre compte doit être vérifié avant de pouvoir réserver.');
       setIsVerificationModalOpen(true);
       return;
     }
 
-    if (days < listing.minStay) {
-      alert(`Ce logement nécessite un séjour minimum de ${listing.minStay} jours.`);
+    if (days < minimumNights(listing.minStay)) {
+      setBookingMessage(`Ce logement nécessite au moins ${minimumNights(listing.minStay)} nuits. Vous avez sélectionné ${days} nuit(s) : modifiez votre date de départ.`);
       return;
     }
     
@@ -131,8 +160,10 @@ export const ListingDetails: React.FC = () => {
   };
 
   const handleDateSelect = (start: string, end: string) => {
-    setStartDate(start);
-    setEndDate(end);
+    const next = new URLSearchParams(searchParams);
+    if (start) next.set('start', start); else next.delete('start');
+    if (end) next.set('end', end); else next.delete('end');
+    setSearchParams(next, { replace: true });
   };
 
   const handleSaveBlockedDates = async (dates: string[]) => {
@@ -164,13 +195,13 @@ export const ListingDetails: React.FC = () => {
 
   return (
     <>
-      <div className="pt-8 pb-20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="pt-0 pb-28 md:pt-8 md:pb-20">
+        <div className="max-w-7xl mx-auto px-0 sm:px-6 lg:px-8">
           
           {/* Gallery */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 h-[400px] md:h-[500px] rounded-3xl overflow-hidden mb-8">
-            <img src={listing.mainPhotoUrl} alt="Main" className="w-full h-full object-cover" />
-            <div className="grid grid-cols-2 gap-4">
+          <div className="relative grid grid-cols-1 md:grid-cols-2 gap-4 h-[300px] sm:h-[400px] md:h-[500px] md:rounded-3xl overflow-hidden mb-6 md:mb-8">
+            <img src={listing.mainPhotoUrl} alt={listing.title} className="w-full h-full object-cover" />
+            <div className="hidden grid-cols-2 gap-4 md:grid">
                {listing.galleryUrls.length > 0 ? (
                   listing.galleryUrls.map((url, i) => (
                     <img key={i} src={url} alt={`Gallery ${i}`} className="w-full h-full object-cover" />
@@ -185,27 +216,30 @@ export const ListingDetails: React.FC = () => {
                   </div>
                </div>
             </div>
+            <div className="absolute bottom-4 right-4 rounded-full bg-white/95 px-3 py-2 text-xs font-bold text-haven-navy shadow-lg md:hidden">
+              1 / {Math.max(1, listing.galleryUrls.length + 1)} photos
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-12 px-4 sm:px-0">
             {/* Main Info */}
             <div className="lg:col-span-2">
-              <div className="flex justify-between items-start mb-6">
+              <div className="flex justify-between items-start gap-3 mb-5 md:mb-6">
                 <div>
-                  <h1 className="font-heading font-bold text-3xl md:text-4xl text-haven-navy mb-2">{listing.title}</h1>
-                  <div className="flex items-center gap-4 text-gray-600">
+                  <h1 className="font-heading font-bold text-2xl md:text-4xl text-haven-navy mb-2 leading-tight">{listing.title}</h1>
+                  <div className="flex flex-wrap items-center gap-3 md:gap-4 text-sm text-gray-600">
                     <span className="flex items-center gap-1"><MapPin size={16}/> {listing.city}</span>
                     <span className="flex items-center gap-1"><Star size={16} className="text-haven-red fill-haven-red"/> {listing.rating} ({listing.reviewsCount} avis)</span>
                   </div>
                 </div>
-                <div className="flex gap-2">
-                  <button className="p-3 rounded-full border border-gray-200 hover:bg-gray-50 text-haven-navy" title="Signaler"><AlertCircle size={20} onClick={() => setIsReportModalOpen(true)} /></button>
+                <div className="flex gap-1 md:gap-2">
+                  <button className="hidden p-3 rounded-full border border-gray-200 hover:bg-gray-50 text-haven-navy md:block" title="Signaler"><AlertCircle size={20} onClick={() => setIsReportModalOpen(true)} /></button>
                   <button className="p-3 rounded-full border border-gray-200 hover:bg-gray-50 text-haven-navy"><Share size={20}/></button>
                   <button className="p-3 rounded-full border border-gray-200 hover:bg-gray-50 text-haven-navy"><Heart size={20}/></button>
                 </div>
               </div>
 
-              <div className="flex items-center gap-6 py-6 border-y border-gray-100 mb-8">
+              <div className="flex items-center justify-around gap-3 py-4 md:justify-start md:gap-6 md:py-6 border-y border-gray-100 mb-7 md:mb-8">
                  <div className="flex flex-col items-center">
                     <span className="font-bold text-haven-navy">{listing.totalRooms}</span>
                     <span className="text-sm text-gray-500">Chambres</span>
@@ -222,29 +256,32 @@ export const ListingDetails: React.FC = () => {
                  </div>
               </div>
 
-              <div className="mb-10">
+              <div className="mb-8 md:mb-10">
                 <h2 className="font-heading font-bold text-xl mb-4">À propos du logement</h2>
-                <div className="prose prose-slate max-w-none 
+                <div className={`prose prose-slate max-w-none ${isDescriptionExpanded ? '' : 'max-h-28 overflow-hidden md:max-h-none'}
                   prose-p:text-gray-600 prose-p:leading-relaxed prose-p:mb-4 prose-p:mt-0
                   prose-li:text-gray-600 prose-li:my-0.5
                   prose-ul:list-disc prose-ul:pl-5 prose-ul:mb-4
                   prose-ol:list-decimal prose-ol:pl-5 prose-ol:mb-4
                   prose-strong:text-haven-navy prose-strong:font-bold
-                  break-words">
+                  break-words`}>
                   <ReactMarkdown>
                     {listing.description.replace(/\n/g, '  \n')}
                   </ReactMarkdown>
                 </div>
+                <button type="button" onClick={() => setIsDescriptionExpanded(value => !value)} className="mt-3 text-sm font-bold text-haven-navy underline underline-offset-4 md:hidden">
+                  {isDescriptionExpanded ? 'Réduire' : 'Lire la suite'}
+                </button>
               </div>
 
               {owner && (
-                <div className="mb-10 p-6 bg-white rounded-3xl border border-gray-100 shadow-sm flex items-center gap-6">
+                <div className="mb-8 md:mb-10 p-4 md:p-6 bg-white rounded-3xl border border-gray-100 shadow-sm flex items-center gap-4 md:gap-6">
                   <Link to={`/profile/${owner.id}`} className="flex-shrink-0">
                     <div className="relative">
                       <img 
                         src={owner.avatarUrl} 
                         alt={owner.firstName} 
-                        className="w-20 h-20 rounded-full object-cover border-2 border-white shadow-md hover:scale-105 transition-transform" 
+                        className="w-16 h-16 md:w-20 md:h-20 rounded-full object-cover border-2 border-white shadow-md hover:scale-105 transition-transform"
                       />
                       {owner.status === 'APPROVED' && (
                         <div className="absolute -bottom-1 -right-1 bg-green-500 text-white p-1 rounded-full border-2 border-white shadow-sm">
@@ -272,9 +309,9 @@ export const ListingDetails: React.FC = () => {
                 </div>
               )}
 
-              <div className="mb-10">
+              <div className="mb-8 md:mb-10">
                 <h2 className="font-heading font-bold text-xl mb-4">Équipements du logement</h2>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 md:gap-4">
                   {/* Équipements standards HAVEN */}
                   <div className="flex items-center gap-3 text-gray-700 font-bold">
                     <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-700 flex items-center justify-center">
@@ -306,15 +343,13 @@ export const ListingDetails: React.FC = () => {
                   {listing.rooms.map(room => (
                     <div 
                       key={room.id} 
-                      className={`border rounded-2xl p-4 flex flex-col md:flex-row gap-6 items-center transition-all cursor-pointer ${selectedRoomId === room.id || (!selectedRoomId && room.id === activeRoom.id) ? 'border-haven-navy ring-1 ring-haven-navy bg-blue-50/50' : 'border-gray-200 bg-white hover:border-haven-navy/30'}`}
+                      className={`border rounded-2xl p-3 md:p-4 flex flex-row gap-3 md:gap-6 items-center transition-all cursor-pointer ${selectedRoomId === room.id || (!selectedRoomId && room.id === activeRoom.id) ? 'border-haven-navy ring-1 ring-haven-navy bg-blue-50/50' : 'border-gray-200 bg-white hover:border-haven-navy/30'}`}
                       onClick={() => {
                         setSelectedRoomId(room.id);
-                        // Reset dates on room change to avoid invalid states
-                        setStartDate('');
-                        setEndDate('');
+                        // Keep the requested dates; availability is checked before booking.
                       }}
                     >
-                      <div className="w-full md:w-48 h-32 rounded-xl overflow-hidden flex-shrink-0">
+                      <div className="w-24 md:w-48 h-28 md:h-32 rounded-xl overflow-hidden flex-shrink-0">
                         <img src={room.photoUrl} className="w-full h-full object-cover" alt={room.name} />
                       </div>
                       <div className="flex-1 w-full text-left">
@@ -325,7 +360,7 @@ export const ListingDetails: React.FC = () => {
                             <span className="bg-gray-100 text-gray-500 px-2 py-1 rounded text-xs font-bold">Occupée</span>
                           }
                         </div>
-                        <div className="flex flex-wrap gap-3 text-[11px] text-gray-500 mb-3">
+                        <div className="hidden md:flex flex-wrap gap-3 text-[11px] text-gray-500 mb-3">
                            <span className="flex items-center gap-1 font-bold bg-gray-100 px-2 py-0.5 rounded-full"><Layout size={12}/> {room.size}m²</span>
                            <span className="flex items-center gap-1 font-bold bg-gray-100 px-2 py-0.5 rounded-full"><Users size={12}/> Lit {room.bedSize}</span>
                            <span className="flex items-center gap-1 font-bold bg-gray-100 px-2 py-0.5 rounded-full">{room.hasPrivateBath ? 'SDB Privée' : 'SDB Partagée'}</span>
@@ -400,7 +435,7 @@ export const ListingDetails: React.FC = () => {
                 ) : (
                   <p className="text-gray-500 mb-6 text-sm">
                     Sélectionnez vos dates pour <span className="font-bold text-haven-navy">{activeRoom.name}</span>. 
-                    Séjour minimum : <span className="font-bold text-haven-navy">{listing.minStay} jours</span>.
+                    Durée minimale : <span className="font-bold text-haven-navy">{minimumNights(listing.minStay)} nuits</span>.
                     Survolez les photos pour voir qui sera présent !
                   </p>
                 )}
@@ -483,7 +518,7 @@ export const ListingDetails: React.FC = () => {
 
             {/* Sticky Sidebar */}
             {!isListingOwner && (
-              <div className="lg:col-span-1">
+              <div className="hidden lg:col-span-1 lg:block">
                 <div className="sticky top-24 bg-white p-6 rounded-3xl shadow-card border border-gray-100">
                   <h3 className="font-heading font-bold text-xl mb-4">Réserver <span className="text-haven-red">{activeRoom.name}</span></h3>
                   
@@ -524,7 +559,8 @@ export const ListingDetails: React.FC = () => {
                     </div>
                   </div>
 
-                  <Button fullWidth size="lg" onClick={handleBookClick} disabled={!activeRoom.isAvailable || !startDate || !endDate}>
+                  {bookingMessage && <p role="alert" className="mb-3 rounded-xl border border-orange-200 bg-orange-50 p-3 text-sm text-orange-900">{bookingMessage}</p>}
+                  <Button type="button" fullWidth size="lg" onClick={handleBookClick}>
                     {activeRoom.isAvailable ? (startDate && endDate ? 'Réserver' : 'Sélectionnez vos dates') : 'Indisponible'}
                   </Button>
                   <p className="text-center text-xs text-gray-400 mt-4">Vous ne serez débité qu'après validation</p>
@@ -534,6 +570,27 @@ export const ListingDetails: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {!isListingOwner && !isBookingOpen && !isVerificationModalOpen && (
+        <div className="fixed inset-x-0 bottom-0 z-50 border-t border-gray-200 bg-white/95 px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] shadow-[0_-10px_35px_rgba(30,41,59,0.10)] backdrop-blur-xl lg:hidden">
+          {bookingMessage && <p role="alert" className="mx-auto mb-3 max-w-md rounded-xl border border-orange-200 bg-orange-50 p-3 text-sm text-orange-900">{bookingMessage}</p>}
+          <div className="mx-auto flex max-w-md items-center gap-4">
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-xs font-medium text-gray-500">{activeRoom.name}</div>
+              <div className="font-heading text-lg font-bold text-haven-navy">
+                {activeRoom.pricePerDay}€ <span className="text-xs font-medium text-gray-400">/ jour</span>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={handleBookClick}
+              className="h-12 min-w-40 rounded-2xl bg-haven-red px-5 text-sm font-bold text-white shadow-lg shadow-haven-red/20 disabled:bg-gray-300"
+            >
+              {!activeRoom.isAvailable ? 'Indisponible' : startDate && endDate ? `Réserver · ${totalPrice}€` : 'Choisir mes dates'}
+            </button>
+          </div>
+        </div>
+      )}
 
       <BookingModal 
         isOpen={isBookingOpen} 

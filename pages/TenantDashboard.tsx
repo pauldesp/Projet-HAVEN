@@ -560,25 +560,26 @@ export const TenantDashboard: React.FC = () => {
     return uniqueTenants;
   };
 
-  if (isLoading) return <div className="p-20 text-center flex flex-col items-center gap-4"><Loader2 className="animate-spin text-haven-navy" size={40}/><p className="text-sm font-bold text-gray-400 uppercase tracking-widest">Chargement de votre univers...</p></div>;
+  if (isLoading) return <div className="min-h-[60dvh] p-8 text-center flex flex-col items-center justify-center gap-4"><Loader2 className="animate-spin text-haven-navy" size={36}/><p className="text-sm font-bold text-gray-400">Chargement de vos séjours…</p></div>;
 
   return (
     <div className="min-h-screen bg-haven-cream pb-20 font-body">
       {/* ... (Previous header remains similar) ... */}
-      <div className="bg-haven-navy pt-12 pb-24 px-4 sm:px-6 lg:px-8">
+      <div className="bg-haven-navy pt-6 pb-16 md:pt-12 md:pb-24 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
           <div>
-            <h1 className="font-heading font-bold text-3xl text-white mb-2 tracking-tight">
-              Bonjour, {currentUser?.firstName || 'Locataire'} 👋
+            <p className="mb-1 text-xs font-bold uppercase tracking-[0.18em] text-blue-200 md:hidden">Mes séjours</p>
+            <h1 className="font-heading font-bold text-2xl md:text-3xl text-white mb-2 tracking-tight">
+              Bonjour {currentUser?.firstName || ''} 👋
             </h1>
             <div className="flex items-center gap-4">
-              <p className="text-blue-200 font-medium">Gérez vos séjours, vos documents et vos favoris.</p>
-              <Link to={`/profile/${currentUser?.id}`} className="text-white/70 hover:text-white text-xs font-bold underline underline-offset-4 decoration-white/30">
+              <p className="text-sm text-blue-200 font-medium md:text-base">Retrouvez ici tout ce qui concerne vos réservations.</p>
+              <Link to={`/profile/${currentUser?.id}`} className="hidden text-white/70 hover:text-white text-xs font-bold underline underline-offset-4 decoration-white/30 md:block">
                 Voir mon profil public
               </Link>
             </div>
           </div>
-          <div className="flex flex-col md:flex-row gap-4 items-center">
+          <div className="hidden flex-col md:flex md:flex-row gap-4 items-center">
             <Button 
               variant="outline" 
               size="sm" 
@@ -597,10 +598,10 @@ export const TenantDashboard: React.FC = () => {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-16">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 -mt-8 md:-mt-16">
         {/* Verification Banner */}
         {!isApproved && currentUser?.role !== 'ADMIN' && (
-          <div className="mb-8 bg-orange-50 border border-orange-100 rounded-[2.5rem] p-6 flex flex-col md:flex-row items-center justify-between gap-6 shadow-sm">
+          <div className="mb-5 md:mb-8 bg-orange-50 border border-orange-100 rounded-2xl md:rounded-[2.5rem] p-4 md:p-6 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 md:gap-6 shadow-sm">
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 bg-orange-100 rounded-2xl flex items-center justify-center text-orange-600">
                 <ShieldCheck size={24} />
@@ -621,8 +622,8 @@ export const TenantDashboard: React.FC = () => {
           </div>
         )}
 
-        <div className="bg-white rounded-[2.5rem] shadow-premium p-8 min-h-[500px] border border-gray-50">
-          <div className="flex flex-wrap gap-4 md:gap-8 border-b border-gray-100 mb-8 overflow-x-auto">
+        <div className="bg-transparent md:bg-white rounded-[2.5rem] md:shadow-premium p-0 md:p-8 min-h-[500px] md:border border-gray-50">
+          <div className="flex gap-2 md:gap-8 mb-5 md:mb-8 overflow-x-auto pb-1 md:border-b md:border-gray-100">
             {[
               { id: 'UPCOMING', label: 'Séjours à venir', count: upcoming.length },
               { id: 'HISTORY', label: 'Historique', count: history.length },
@@ -632,7 +633,7 @@ export const TenantDashboard: React.FC = () => {
             ].map(tab => (
               <button 
                 key={tab.id}
-                className={`pb-4 font-bold text-sm transition-all relative whitespace-nowrap flex items-center gap-2 ${activeTab === tab.id ? 'text-haven-navy' : 'text-gray-300 hover:text-gray-500'}`}
+                className={`relative items-center gap-2 whitespace-nowrap rounded-full px-4 py-2.5 text-xs font-bold transition-all md:rounded-none md:px-0 md:pb-4 md:pt-0 md:text-sm ${tab.id === 'MESSAGES' ? 'hidden md:flex' : 'flex'} ${activeTab === tab.id ? 'bg-haven-navy text-white md:bg-transparent md:text-haven-navy' : 'bg-white text-gray-400 md:bg-transparent md:text-gray-300 hover:text-gray-500'}`}
                 onClick={() => setActiveTab(tab.id as any)}
               >
                 {tab.label} {tab.id !== 'MESSAGES' && tab.count !== null && `(${tab.count})`}
@@ -641,7 +642,7 @@ export const TenantDashboard: React.FC = () => {
                     {tab.count}
                   </span>
                 )}
-                {activeTab === tab.id && <motion.div layoutId="activeTabUnderline" className="absolute bottom-0 left-0 right-0 h-1 bg-haven-navy rounded-full" />}
+                {activeTab === tab.id && <motion.div layoutId="activeTabUnderline" className="absolute bottom-0 left-0 right-0 hidden h-1 bg-haven-navy rounded-full md:block" />}
               </button>
             ))}
           </div>
@@ -650,8 +651,8 @@ export const TenantDashboard: React.FC = () => {
             {activeTab === 'UPCOMING' && (
               <>
                 {upcoming.map(booking => (
-                  <div key={booking.id} className="group border border-gray-100 rounded-[2rem] p-8 flex flex-col lg:flex-row gap-8 items-start lg:items-center hover:shadow-xl hover:border-gray-200 transition-all duration-500 bg-white">
-                    <div className="relative w-full lg:w-64 h-40 flex-shrink-0 overflow-hidden rounded-3xl">
+                  <div key={booking.id} className="group border border-gray-100 rounded-3xl md:rounded-[2rem] p-3 md:p-8 flex flex-col lg:flex-row gap-4 md:gap-8 items-start lg:items-center hover:shadow-xl hover:border-gray-200 transition-all duration-500 bg-white shadow-soft md:shadow-none">
+                    <div className="relative w-full lg:w-64 h-44 md:h-40 flex-shrink-0 overflow-hidden rounded-2xl md:rounded-3xl">
                       <img src={booking.listing?.mainPhotoUrl} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000" alt="" />
                       <div className={`absolute top-4 left-4 backdrop-blur-md px-3 py-1.5 rounded-full text-[10px] font-black uppercase shadow-sm ${
                         booking.status === 'CONFIRMED' ? 'bg-green-500/90 text-white' : 
@@ -662,14 +663,14 @@ export const TenantDashboard: React.FC = () => {
                       </div>
                     </div>
 
-                    <div className="flex-1 w-full text-left space-y-4">
+                    <div className="flex-1 w-full px-1 md:px-0 text-left space-y-3 md:space-y-4">
                       <div>
-                        <h3 className="font-heading font-bold text-2xl text-haven-navy group-hover:text-haven-red transition-colors mb-1">{booking.listing?.title}</h3>
+                        <h3 className="font-heading font-bold text-xl md:text-2xl text-haven-navy group-hover:text-haven-red transition-colors mb-1">{booking.listing?.title}</h3>
                         <p className="text-gray-400 text-[11px] flex items-center gap-1.5 font-black uppercase tracking-widest leading-none"><MapPin size={12} className="text-haven-red"/> {booking.listing?.city}</p>
                       </div>
                       
-                      <div className="flex flex-wrap gap-3">
-                        <div className="flex items-center gap-2 bg-gray-50 px-4 py-2.5 rounded-2xl border border-gray-100/50">
+                      <div className="flex flex-wrap gap-2 md:gap-3">
+                        <div className="flex items-center gap-2 bg-gray-50 px-3 md:px-4 py-2.5 rounded-2xl border border-gray-100/50">
                           <Calendar size={16} className="text-haven-stone"/>
                           <span className="text-xs font-bold text-haven-navy">{new Date(booking.startDate).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })} — {new Date(booking.endDate).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
                         </div>
@@ -680,7 +681,7 @@ export const TenantDashboard: React.FC = () => {
                       </div>
 
                       {getRoommates(booking).length > 0 && (
-                        <div className="pt-4 flex items-center gap-4">
+                        <div className="hidden pt-4 items-center gap-4 md:flex">
                            <div className="flex -space-x-3">
                              {getRoommates(booking).map(roommate => (
                                <img key={roommate.id} className="h-10 w-10 rounded-full ring-4 ring-white object-cover" src={roommate.avatarUrl} alt="" />
@@ -691,7 +692,7 @@ export const TenantDashboard: React.FC = () => {
                       )}
                     </div>
                     
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-1 gap-2 w-full lg:w-72 pt-4 lg:pt-0 border-t lg:border-t-0 lg:border-l border-gray-100 lg:pl-8">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-1 gap-2 w-full lg:w-72 pt-3 md:pt-4 lg:pt-0 border-t lg:border-t-0 lg:border-l border-gray-100 lg:pl-8">
                       {booking.status === 'CONFIRMED' && (
                         <>
                           <Link to={`/messages/${booking.id}`}>
@@ -699,7 +700,7 @@ export const TenantDashboard: React.FC = () => {
                               variant="outline" 
                               className="w-full h-12 rounded-2xl text-[11px] font-black uppercase tracking-widest border-haven-navy/10 text-haven-navy hover:bg-haven-navy hover:text-white transition-all gap-2"
                             >
-                              <MessageCircle size={16} /> Contacter le propriétaire
+                              <MessageCircle size={16} /> Envoyer un message
                             </Button>
                           </Link>
                           
@@ -745,7 +746,7 @@ export const TenantDashboard: React.FC = () => {
                           {/* Departure Inventory */}
                           <Button 
                             variant="secondary" 
-                            className="w-full h-12 rounded-2xl text-[11px] font-black uppercase tracking-widest gap-2 shadow-lg shadow-haven-red/10"
+                            className="hidden md:flex w-full h-12 rounded-2xl text-[11px] font-black uppercase tracking-widest gap-2 shadow-lg shadow-haven-red/10"
                             onClick={() => handleOpenInventory(booking, 'OUT')}
                           >
                             <Sparkles size={16} /> Départ & Ménage
@@ -754,7 +755,7 @@ export const TenantDashboard: React.FC = () => {
                           {/* Incident Button */}
                           <Button 
                             variant="ghost" 
-                            className="w-full h-10 rounded-2xl text-[9px] font-black uppercase tracking-widest text-amber-600 bg-amber-50/30 hover:bg-amber-100/50 border border-dashed border-amber-200/50 transition-all gap-2"
+                            className="hidden md:flex w-full h-10 rounded-2xl text-[9px] font-black uppercase tracking-widest text-amber-600 bg-amber-50/30 hover:bg-amber-100/50 border border-dashed border-amber-200/50 transition-all gap-2"
                             onClick={() => setReportState({
                               isOpen: true,
                               targetId: booking.listingId,
@@ -770,7 +771,7 @@ export const TenantDashboard: React.FC = () => {
                           {/* Modify Dates */}
                           <button 
                             onClick={() => alert("Demande de modification des dates envoyée au propriétaire.")}
-                            className="w-full h-10 text-[10px] text-haven-stone hover:text-haven-navy font-black uppercase tracking-tighter transition-colors underline underline-offset-4"
+                            className="hidden md:block w-full h-10 text-[10px] text-haven-stone hover:text-haven-navy font-black uppercase tracking-tighter transition-colors underline underline-offset-4"
                           >
                             Modifier le séjour
                           </button>

@@ -58,10 +58,10 @@ export const runAuthTests = (): TestSuite => {
     }
   };
 
-  test('Vérification des identifiants mockés par défaut', () => {
+  test('Les profils de démonstration ne contiennent aucun mot de passe', () => {
     const thomas = MOCK_USERS_DB.find(u => u.email === 'thomas@example.com');
     expect(thomas).toBeTruthy();
-    expect(thomas?.password).toBe('password123');
+    expect(MOCK_USERS_DB.some(user => 'password' in user)).toBe(false);
   });
 
   test('L\'admin doit avoir le rôle ADMIN', () => {

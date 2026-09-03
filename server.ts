@@ -3,8 +3,18 @@ import { createServer as createViteServer } from "vite";
 import path from "path";
 import { Resend } from "resend";
 import Stripe from "stripe";
+import { GoogleGenAI, Type } from "@google/genai";
+import { createHash, randomInt, timingSafeEqual } from "node:crypto";
 
 let stripeClient: Stripe | null = null;
+const verificationRequests = new Map<string, { hash: string; expiresAt: number; attempts: number; sentAt: number }>();
+
+const normalizeEmail = (value: unknown) => typeof value === "string" ? value.trim().toLowerCase() : "";
+const isValidEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && email.length <= 254;
+const hashVerificationCode = (email: string, code: string) => {
+  const secret = process.env.VERIFICATION_SECRET || process.env.RESEND_API_KEY || "haven-development-only";
+  return createHash("sha256").update(`${secret}:${email}:${code}`).digest("hex");
+};
 
 function getStripe(): Stripe {
   if (!stripeClient) {
@@ -24,6 +34,12 @@ async function startServer() {
 
   app.use(express.json());
 
+  const getAiClient = () => {
+    const apiKey = process.env.GEMINI_API_KEY?.trim();
+    if (!apiKey || apiKey === "YOUR_API_KEY") return null;
+    return new GoogleGenAI({ apiKey });
+  };
+
   // Health check
   app.get("/api/health", (req, res) => {
     const stripeKey = process.env.STRIPE_SECRET_KEY;
@@ -35,23 +51,101 @@ async function startServer() {
     });
   });
 
+  app.post("/api/ai/city-coordinates", async (req, res) => {
+    const city = typeof req.body?.city === "string" ? req.body.city.trim() : "";
+    if (!city || city.length > 120) return res.status(400).json({ error: "Ville invalide" });
+
+    const ai = getAiClient();
+    if (!ai) return res.status(503).json({ error: "Assistant IA non configuré" });
+
+    try {
+      const response = await ai.models.generateContent({
+        model: "gemini-3-flash-preview",
+        contents: `Donne les coordonnées GPS de la ville suivante : "${city}"`,
+        config: {
+          systemInstruction: "Tu es un service de géocodage. Retourne uniquement un objet JSON avec lat et lng.",
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: { lat: { type: Type.NUMBER }, lng: { type: Type.NUMBER } },
+            required: ["lat", "lng"],
+          },
+        },
+      });
+      return res.json(JSON.parse(response.text || "null"));
+    } catch (error) {
+      console.error("AI geocoding failed", error);
+      return res.status(502).json({ error: "Géocodage temporairement indisponible" });
+    }
+  });
+
+  app.post("/api/ai/listing-description", async (req, res) => {
+    const data = req.body;
+    if (!data || typeof data.title !== "string" || typeof data.city !== "string") {
+      return res.status(400).json({ error: "Informations du logement invalides" });
+    }
+
+    const ai = getAiClient();
+    if (!ai) return res.status(503).json({ error: "Assistant IA non configuré" });
+
+    const amenities = Array.isArray(data.amenities) ? data.amenities.slice(0, 30).join(", ") : "";
+    const prompt = `Rédige une annonce de colocation courte durée attractive pour HAVEN.
+Type: ${data.type === "APARTMENT" ? "Appartement" : "Maison"}
+Titre: ${String(data.title).slice(0, 200)}
+Ville: ${String(data.city).slice(0, 120)}
+Surface: ${data.surface}m²
+Chambres: ${data.totalRooms}
+Salles de bain: ${data.bathrooms}
+Mixité: ${data.isMixed ? "Mixte" : "Non-mixte"}
+Équipements: ${amenities}`;
+
+    try {
+      const response = await ai.models.generateContent({
+        model: "gemini-3-flash-preview",
+        contents: prompt,
+        config: {
+          systemInstruction: "Tu rédiges en français impeccable pour HAVEN. Ton chaleureux et professionnel, sans hashtags.",
+        },
+      });
+      return res.json({ description: response.text || "" });
+    } catch (error) {
+      console.error("AI listing description failed", error);
+      return res.status(502).json({ error: "Assistant rédactionnel temporairement indisponible" });
+    }
+  });
+
   // API route for sending verification email
   app.post("/api/send-verification", async (req, res) => {
-    const { email, code } = req.body;
+    const email = normalizeEmail(req.body?.email);
 
-    if (!email || !code) {
-      return res.status(400).json({ error: "Email and code are required" });
+    if (!isValidEmail(email)) {
+      return res.status(400).json({ error: "Adresse e-mail invalide" });
     }
+
+    const previousRequest = verificationRequests.get(email);
+    if (previousRequest && Date.now() - previousRequest.sentAt < 60_000) {
+      return res.status(429).json({ error: "Veuillez patienter une minute avant de demander un nouveau code." });
+    }
+
+    const code = randomInt(100000, 1000000).toString();
+    verificationRequests.set(email, {
+      hash: hashVerificationCode(email, code),
+      expiresAt: Date.now() + 10 * 60_000,
+      attempts: 0,
+      sentAt: Date.now(),
+    });
 
     const apiKey = process.env.RESEND_API_KEY;
     if (!apiKey) {
-      console.error("RESEND_API_KEY is missing");
-      return res.status(500).json({ error: "Le service d'envoi d'emails n'est pas configuré." });
+      if (process.env.NODE_ENV === "production") {
+        verificationRequests.delete(email);
+        return res.status(503).json({ error: "Le service d’envoi d’e-mails n’est pas configuré." });
+      }
+      console.log(`[VERIFICATION DEV] Email: ${email}, Code: ${code}`);
+      return res.json({ success: true, developmentMode: true, email });
     }
 
     try {
-      console.log(`[VERIFICATION] Email: ${email}, Code: ${code}`);
-      
       const resend = new Resend(apiKey);
       const { data, error } = await resend.emails.send({
         from: "HAVEN <onboarding@resend.dev>",
@@ -73,23 +167,55 @@ async function startServer() {
         console.error("Resend error:", error);
         
         // Handle Resend trial limitations gracefully for development
-        if (error.name === 'validation_error' || error.message.includes('authorized')) {
+        if (process.env.NODE_ENV !== "production" && (error.name === 'validation_error' || error.message.includes('authorized'))) {
+          console.log(`[VERIFICATION DEV] Email: ${email}, Code: ${code}`);
           console.warn("⚠️ Resend sandbox limitation detected. Using mock success because verification code was logged above.");
           return res.json({ 
             success: true, 
+            email,
             data: { id: "mock_resend_id" }, 
             warning: "Email sent via mock mode (Check server console for code)" 
           });
         }
         
-        return res.status(500).json({ error: error.message });
+        verificationRequests.delete(email);
+        return res.status(500).json({ error: "Impossible d’envoyer le code de vérification." });
       }
 
-      res.json({ success: true, data });
+      res.json({ success: true, email, data });
     } catch (err: any) {
       console.error("Server error:", err);
-      res.status(500).json({ error: err.message });
+      verificationRequests.delete(email);
+      res.status(500).json({ error: "Impossible d’envoyer le code de vérification." });
     }
+  });
+
+  app.post("/api/verify-code", (req, res) => {
+    const email = normalizeEmail(req.body?.email);
+    const code = typeof req.body?.code === "string" ? req.body.code.trim() : "";
+    const request = verificationRequests.get(email);
+
+    if (!isValidEmail(email) || !/^\d{6}$/.test(code) || !request) {
+      return res.status(400).json({ error: "Code invalide ou expiré." });
+    }
+    if (Date.now() > request.expiresAt) {
+      verificationRequests.delete(email);
+      return res.status(400).json({ error: "Ce code a expiré. Demandez-en un nouveau." });
+    }
+    if (request.attempts >= 5) {
+      verificationRequests.delete(email);
+      return res.status(429).json({ error: "Trop de tentatives. Demandez un nouveau code." });
+    }
+
+    request.attempts += 1;
+    const expected = Buffer.from(request.hash, "hex");
+    const received = Buffer.from(hashVerificationCode(email, code), "hex");
+    if (expected.length !== received.length || !timingSafeEqual(expected, received)) {
+      return res.status(400).json({ error: "Code incorrect." });
+    }
+
+    verificationRequests.delete(email);
+    return res.json({ success: true, email });
   });
 
   // API route for sending booking notification emails
@@ -294,6 +420,9 @@ Details:`, JSON.stringify(details, null, 2));
           stripeKey.startsWith("sk_test_YOUR") ||
           stripeKey.includes("***") ||
           stripeKey.length < 15) {
+        if (process.env.NODE_ENV === "production") {
+          return res.status(503).json({ error: "Le paiement n’est pas encore configuré." });
+        }
         console.log("STRIPE_SECRET_KEY not set or invalid placeholder. Using MOCK mode.");
         // Redirect directly to success URL for testing purposes
         return res.json({ 
@@ -335,7 +464,7 @@ Details:`, JSON.stringify(details, null, 2));
         console.error("Stripe API call failed:", stripeErr);
         
         // If the key is invalid, fallback to mock mode in dev/preview environment
-        if (stripeErr.type === 'StripeAuthenticationError') {
+        if (stripeErr.type === 'StripeAuthenticationError' && process.env.NODE_ENV !== "production") {
           console.warn("⚠️ Invalid Stripe API key detected. Falling back to MOCK mode for development.");
           return res.json({ 
             id: "mock_session_id", 

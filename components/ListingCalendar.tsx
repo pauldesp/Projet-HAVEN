@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, CheckCircle, ExternalLink, Lock } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { User, Booking } from '../types';
@@ -33,7 +33,10 @@ export const ListingCalendar: React.FC<ListingCalendarProps> = ({
   onSaveBlockedDates
 }) => {
   const navigate = useNavigate();
-  const [currentDate, setCurrentDate] = useState(new Date()); 
+  const [currentDate, setCurrentDate] = useState(() => selectedStart ? new Date(`${selectedStart}T12:00:00`) : new Date());
+  useEffect(() => {
+    if (selectedStart) setCurrentDate(new Date(`${selectedStart}T12:00:00`));
+  }, [selectedStart]);
   const [hoveredDate, setHoveredDate] = useState<string | null>(null);
   const [manualBlockedDates, setManualBlockedDates] = useState<string[]>(blockedDates);
   
@@ -177,13 +180,13 @@ export const ListingCalendar: React.FC<ListingCalendarProps> = ({
 
   return (
     <>
-      <div className={`bg-white rounded-2xl border ${isBlockingMode ? 'border-haven-red ring-2 ring-haven-red/10' : 'border-gray-100'} p-6 shadow-sm transition-all overflow-hidden relative`}>
+      <div className={`bg-white rounded-2xl border ${isBlockingMode ? 'border-haven-red ring-2 ring-haven-red/10' : 'border-gray-100'} p-3 md:p-6 shadow-sm transition-all overflow-hidden relative`}>
         
         {isBlockingMode && (
           <div className="absolute inset-0 bg-haven-red/[0.02] pointer-events-none z-0"></div>
         )}
 
-        <div className="flex justify-between items-center mb-6 relative z-10">
+        <div className="flex justify-between items-center mb-4 md:mb-6 relative z-10">
           <div className="flex flex-col">
             <h3 className="font-heading font-bold text-lg text-haven-navy capitalize">
               {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
@@ -193,7 +196,7 @@ export const ListingCalendar: React.FC<ListingCalendarProps> = ({
             )}
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 md:gap-4">
             {isOwner && (
               <div className="flex gap-2">
                 {!isBlockingMode ? (
@@ -224,7 +227,7 @@ export const ListingCalendar: React.FC<ListingCalendarProps> = ({
               </div>
             )}
             
-            <div className="flex gap-2 text-[10px] font-bold items-center pr-4">
+            <div className="hidden gap-2 text-[10px] font-bold items-center pr-4 md:flex">
               <div className="flex items-center gap-1.5 mr-3 text-gray-400">
                 <div className="w-2.5 h-2.5 rounded-full bg-white border border-gray-200"></div>
                 <span>Libre</span>
@@ -265,13 +268,13 @@ export const ListingCalendar: React.FC<ListingCalendarProps> = ({
           </div>
         )}
 
-        <div className="grid grid-cols-7 gap-2 mb-2 text-center relative z-10">
+        <div className="grid grid-cols-7 gap-1 md:gap-2 mb-2 text-center relative z-10">
           {['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'].map(d => (
-            <div key={d} className="text-xs font-bold text-gray-400 uppercase">{d}</div>
+            <div key={d} className="text-[10px] md:text-xs font-bold text-gray-400 uppercase"><span className="md:hidden">{d[0]}</span><span className="hidden md:inline">{d}</span></div>
           ))}
         </div>
 
-        <div className="grid grid-cols-7 gap-2">
+        <div className="grid grid-cols-7 gap-1 md:gap-2">
           {[...Array(firstDayIndex)].map((_, i) => <div key={`empty-${i}`} />)}
 
           {[...Array(daysInMonth)].map((_, i) => {
@@ -300,7 +303,7 @@ export const ListingCalendar: React.FC<ListingCalendarProps> = ({
                   disabled={isBooked && !isOwner}
                   onClick={() => handleDayClick(day)}
                   className={`
-                    h-14 w-full rounded-xl text-sm font-medium flex flex-col items-center justify-start pt-1.5 transition-all relative border overflow-visible
+                    h-10 md:h-14 w-full rounded-lg md:rounded-xl text-xs md:text-sm font-medium flex flex-col items-center justify-center md:justify-start md:pt-1.5 transition-all relative border overflow-visible
                     ${isToday(year, month, day) && !isSelected ? 'border-haven-red/30 bg-haven-red/[0.02]' : ''}
                     ${isBlockingMode && tempBlockedDates.includes(dateStr)
                       ? 'bg-haven-red/20 text-haven-red border-haven-red shadow-sm scale-105 z-10'
@@ -326,7 +329,7 @@ export const ListingCalendar: React.FC<ListingCalendarProps> = ({
                   )}
                   
                   {tenants.length > 0 && (
-                    <div className="flex -space-x-2 mt-0.5 relative z-20 justify-center w-full px-1">
+                    <div className="hidden md:flex -space-x-2 mt-0.5 relative z-20 justify-center w-full px-1">
                       {tenants.slice(0, 3).map((booking, idx) => (
                         <div key={idx} className={`w-5 h-5 rounded-full border-2 overflow-hidden flex-shrink-0 ${isSelected ? 'border-haven-navy' : 'border-white'}`}>
                           {booking.tenant ? (
