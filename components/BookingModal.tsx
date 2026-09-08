@@ -5,6 +5,7 @@ import { X, Check, FileText, CreditCard, User, ShieldCheck, Shield, ArrowRight, 
 import { useAuth } from '../contexts/AuthContext';
 import { apiService } from '../services/api';
 import { authenticatedFetch } from '../services/serverApi';
+import { sanitizeHtml } from '../services/sanitizeHtml';
 
 interface BookingModalProps {
   isOpen: boolean;
@@ -416,7 +417,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose, lis
                   prose-strong:text-haven-navy prose-strong:font-bold
                 ">
                   <div 
-                    dangerouslySetInnerHTML={{ __html: legalDoc.content }} 
+                    dangerouslySetInnerHTML={{ __html: sanitizeHtml(legalDoc.content) }}
                   />
                 </div>
               </div>

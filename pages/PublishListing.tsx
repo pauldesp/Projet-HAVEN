@@ -86,6 +86,7 @@ const STORAGE_KEY = 'haven_draft_listing';
 import { AccountStatusOverlay } from '../components/AccountStatusOverlay';
 
 import ReactMarkdown from 'react-markdown';
+import { sanitizeHtml } from '../services/sanitizeHtml';
 
 export const PublishListing: React.FC = () => {
   const navigate = useNavigate();
@@ -1385,9 +1386,9 @@ export const PublishListing: React.FC = () => {
                     <div 
                       className="legal-content-html"
                       dangerouslySetInnerHTML={{ 
-                        __html: activeLegalDoc.content
+                        __html: sanitizeHtml(activeLegalDoc.content
                           .replace(/&nbsp;/g, ' ')
-                          .replace(/<p><\/p>/g, '') // Remove empty paragraphs
+                          .replace(/<p><\/p>/g, '')) // Remove empty paragraphs
                       }} 
                     />
                   ) : (

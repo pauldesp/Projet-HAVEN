@@ -5,6 +5,7 @@ import test from 'node:test';
 const rules = readFileSync(new URL('../firestore.rules', import.meta.url), 'utf8');
 const server = readFileSync(new URL('../server.ts', import.meta.url), 'utf8');
 const dashboard = readFileSync(new URL('../pages/TenantDashboard.tsx', import.meta.url), 'utf8');
+const sanitizer = readFileSync(new URL('../services/sanitizeHtml.ts', import.meta.url), 'utf8');
 
 test('self-created profiles cannot request privileged roles or approval', () => {
   assert.match(rules, /data\.role == 'TENANT'/);
@@ -18,7 +19,7 @@ test('booking creation and transitions are constrained', () => {
 });
 
 test('checkout requires authentication and Stripe webhook verification', () => {
-  assert.match(server, /create-checkout-session", requireAuth/);
+  assert.match(server, /create-checkout-session", sensitiveApiLimiter, requireAuth/);
   assert.match(server, /webhooks\.constructEvent/);
   assert.match(server, /payment_status === "paid"/);
 });
@@ -26,4 +27,10 @@ test('checkout requires authentication and Stripe webhook verification', () => {
 test('the browser cannot confirm a booking from redirect parameters', () => {
   assert.doesNotMatch(dashboard, /bookingResult === 'success'/);
   assert.doesNotMatch(dashboard, /updateStatus\(bookingId, 'CONFIRMED'\)/);
+});
+
+test('rich HTML is sanitized and sensitive endpoints are rate limited', () => {
+  assert.match(sanitizer, /DOMPurify\.sanitize/);
+  assert.match(server, /send-verification", verificationLimiter/);
+  assert.match(server, /create-checkout-session", sensitiveApiLimiter, requireAuth/);
 });

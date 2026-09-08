@@ -9,6 +9,8 @@ import { getFirestore } from "firebase-admin/firestore";
 import type { NextFunction, Request, Response } from "express";
 import firebaseConfig from "./firebase-applet-config.json" with { type: "json" };
 import { createHash, randomInt, timingSafeEqual } from "node:crypto";
+import helmet from "helmet";
+import { rateLimit } from "express-rate-limit";
 
 let stripeClient: Stripe | null = null;
 const adminApp = getApps()[0] ?? initializeApp({ credential: applicationDefault(), projectId: firebaseConfig.projectId });
@@ -17,6 +19,8 @@ const adminDb = getFirestore(adminApp, firebaseConfig.firestoreDatabaseId);
 const verificationCodes = new Map<string, { hash: Buffer; expiresAt: number; attempts: number; lastSentAt: number }>();
 const normalizeEmail = (value: unknown) => typeof value === "string" ? value.trim().toLowerCase() : "";
 const hashCode = (email: string, code: string) => createHash("sha256").update(`${email}:${code}`).digest();
+const verificationLimiter = rateLimit({ windowMs: 15 * 60_000, limit: 10, standardHeaders: true, legacyHeaders: false });
+const sensitiveApiLimiter = rateLimit({ windowMs: 60_000, limit: 30, standardHeaders: true, legacyHeaders: false });
 
 interface AuthenticatedRequest extends Request { user?: { uid: string; email?: string } }
 
@@ -55,6 +59,10 @@ async function startServer() {
   console.log("Starting server...");
   const app = express();
   const PORT = 3000;
+
+  // The current UI still uses an inline Tailwind configuration. Keep CSP disabled
+  // until Tailwind is bundled, while enabling Helmet's other security headers.
+  app.use(helmet({ contentSecurityPolicy: false }));
 
   app.post("/api/stripe/webhook", express.raw({ type: "application/json", limit: "1mb" }), async (req, res) => {
     const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
@@ -105,7 +113,7 @@ async function startServer() {
   });
 
   // API route for sending verification email
-  app.post("/api/send-verification", async (req, res) => {
+  app.post("/api/send-verification", verificationLimiter, async (req, res) => {
     const email = normalizeEmail(req.body.email);
 
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
@@ -165,7 +173,7 @@ async function startServer() {
     }
   });
 
-  app.post("/api/verify-code", (req, res) => {
+  app.post("/api/verify-code", verificationLimiter, (req, res) => {
     const email = normalizeEmail(req.body.email);
     const code = typeof req.body.code === "string" ? req.body.code : "";
     const entry = verificationCodes.get(email);
@@ -181,7 +189,7 @@ async function startServer() {
   });
 
   // API route for sending booking notification emails
-  app.post("/api/send-booking-notification", requireAuth, async (req, res) => {
+  app.post("/api/send-booking-notification", sensitiveApiLimiter, requireAuth, async (req, res) => {
     const { email, type, details } = req.body;
 
     if (!email || !type || !details) {
@@ -382,7 +390,7 @@ Details:`, JSON.stringify(details, null, 2));
   });
 
   // Stripe Checkout Endpoint
-  app.post("/api/create-checkout-session", requireAuth, async (req: AuthenticatedRequest, res) => {
+  app.post("/api/create-checkout-session", sensitiveApiLimiter, requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
       const { bookingId, successPath, cancelPath } = req.body;
       if (typeof bookingId !== "string" || !/^[a-zA-Z0-9_-]{1,128}$/.test(bookingId)) {

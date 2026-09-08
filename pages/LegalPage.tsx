@@ -6,6 +6,7 @@ import { LegalDocument } from '../types';
 import { Loader2, ArrowLeft, Clock } from 'lucide-react';
 import { Button } from '../components/Button';
 import 'react-quill-new/dist/quill.snow.css';
+import { sanitizeHtml } from '../services/sanitizeHtml';
 
 export const LegalPage: React.FC = () => {
   const { docId } = useParams<{ docId: string }>();
@@ -78,7 +79,7 @@ export const LegalPage: React.FC = () => {
             prose-ol:list-decimal prose-ol:pl-5 prose-ol:mb-6 prose-ol:mt-2
             prose-a:text-haven-red prose-a:font-bold prose-a:no-underline hover:prose-a:underline
             break-words overflow-hidden"
-            dangerouslySetInnerHTML={{ __html: document.content }} 
+            dangerouslySetInnerHTML={{ __html: sanitizeHtml(document.content) }}
           />
         </div>
       </div>
