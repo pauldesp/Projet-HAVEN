@@ -48,7 +48,6 @@
         "galleryUrls": { "type": "array", "items": { "type": "string" } },
         "rating": { "type": "number" },
         "reviewsCount": { "type": "integer" },
-        "isMixed": { "type": "boolean" },
         "views": { "type": "integer" },
         "occupants": {
           "type": "array",

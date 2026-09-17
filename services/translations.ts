@@ -78,7 +78,6 @@ export const translations = {
     "card.from": "À partir de",
     "card.week": "/ semaine",
     "card.available": "ch. dispo",
-    "card.mixed": "Mixte",
 
     // Footer
     "footer.desc": "HAVEN simplifie la colocation courte durée pour les étudiants et jeunes actifs.",
@@ -160,7 +159,6 @@ export const translations = {
     "card.from": "From",
     "card.week": "/ week",
     "card.available": "rooms avail.",
-    "card.mixed": "Mixed",
     "footer.desc": "HAVEN simplifies short-term coliving for students and young professionals.",
     "footer.platform": "Platform",
     "footer.publish": "List a property",
@@ -236,7 +234,6 @@ export const translations = {
     "card.from": "Desde",
     "card.week": "/ semana",
     "card.available": "hab. disp.",
-    "card.mixed": "Mixto",
     "footer.desc": "HAVEN simplifica el coliving a corto plazo para estudiantes y jóvenes profesionales.",
     "footer.platform": "Platforma",
     "footer.publish": "Publicar propiedad",

@@ -1,9 +1,11 @@
 
 import React, { useState, useEffect, useRef } from 'react';
+import { FrenchCityAutocomplete } from './FrenchCityAutocomplete';
 import { MapPin } from 'lucide-react';
 import { useMapsLibrary } from '@vis.gl/react-google-maps';
 
 export interface PlaceData {
+  cityCode?: string;
   fullAddress: string;
   address: string;
   city: string;
@@ -19,7 +21,10 @@ interface CityAutocompleteProps {
   isAddressMode?: boolean;
 }
 
-export const CityAutocomplete: React.FC<CityAutocompleteProps> = ({ 
+export const CityAutocomplete: React.FC<CityAutocompleteProps> = (props) =>
+  props.isAddressMode ? <GoogleAddressAutocomplete {...props} /> : <FrenchCityAutocomplete {...props} />;
+
+const GoogleAddressAutocomplete: React.FC<CityAutocompleteProps> = ({ 
   value, 
   onChange, 
   onSelect, 
@@ -240,10 +245,21 @@ export const CityAutocomplete: React.FC<CityAutocompleteProps> = ({
     <div className="relative w-full group/city h-full">
       <div className="flex items-center gap-3 text-gray-600 h-full">
         <MapPin size={20} className="flex-shrink-0 text-haven-navy group-focus-within/city:text-haven-red transition-colors duration-300" />
+        {!placesLib && (
+          <input
+            type="text"
+            aria-label={isAddressMode ? 'Adresse' : 'Ville'}
+            value={value}
+            onChange={(event) => onChange(event.target.value)}
+            placeholder={placeholder || (isAddressMode ? 'Votre adresse' : 'Dans quelle ville ?')}
+            className="w-full bg-transparent outline-none font-bold text-haven-navy placeholder:text-gray-400"
+          />
+        )}
         <div 
           ref={containerRef} 
-          className="w-full gmp-autocomplete-container bg-white flex items-center h-full"
+          className={placesLib ? "w-full gmp-autocomplete-container bg-white flex items-center h-full" : "hidden"}
           style={{
+            display: placesLib ? undefined : 'none',
             '--font-family': 'inherit',
             '--font-size': '1rem',
             '--font-weight': '700',

@@ -16,19 +16,32 @@ import {
   Building,
   Home as HomeIcon,
   MapPin,
-  Sparkles,
   Upload,
   CheckCircle,
   XCircle,
-  Armchair,
-  Lock
+  Lock,
+  Wifi,
+  Wind,
+  Zap,
+  Mic,
+  Trees,
+  Bike,
+  Car,
+  Archive,
+  Waves,
+  Sun
 } from 'lucide-react';
 import { Button } from '../components/Button';
 import { useListings } from '../contexts/ListingContext';
 import { useAuth } from '../contexts/AuthContext';
 import { Listing, Room } from '../types';
-import { aiService } from '../services/ai';
 import { toast } from 'sonner';
+import { hasMissingRoomPhoto, MAX_LISTING_PHOTOS, normalizeListingPhotos } from '../services/media';
+import { MAX_IMAGE_UPLOAD_BYTES, optimizeListingImages, prepareImageForStorage } from '../services/images';
+import { MAX_LISTING_DESCRIPTION_LENGTH } from '../services/listingDescription';
+import { hasIncompleteRoom, hasRoomWithoutOption, roomHasAtLeastOneOption } from '../services/roomValidation';
+import { AMENITIES_LIST } from '../services/amenities';
+import { WardrobeIcon } from '../components/WardrobeIcon';
 
 export const EditListing: React.FC = () => {
   const { id } = useParams();
@@ -38,8 +51,8 @@ export const EditListing: React.FC = () => {
   
   const [listing, setListing] = useState<Listing | null>(null);
   const [isSaving, setIsSaving] = useState(false);
-  const [isGenerating, setIsGenerating] = useState(false);
   const [activeTab, setActiveTab] = useState<'GENERAL' | 'ROOMS' | 'PHOTOS'>('GENERAL');
+  const [showRoomOptionComplianceError, setShowRoomOptionComplianceError] = useState(false);
 
   useEffect(() => {
     const data = getListingById(id || '');
@@ -69,7 +82,6 @@ export const EditListing: React.FC = () => {
         galleryUrls: [],
         mainPhotoUrl: '',
         cleaningFee: 15,
-        isMixed: true,
         bookingMode: 'INSTANT',
         status: 'PENDING',
         ...JSON.parse(JSON.stringify(data))
@@ -87,7 +99,7 @@ export const EditListing: React.FC = () => {
         ...r
       }));
 
-      setListing(normalizedListing);
+      setListing(normalizeListingPhotos(normalizedListing));
     } else {
       toast.error("Logement non trouvé.");
       navigate('/owner/dashboard');
@@ -96,10 +108,35 @@ export const EditListing: React.FC = () => {
 
   if (!listing) return <div className="p-20 text-center"><Loader2 className="animate-spin mx-auto text-haven-navy"/></div>;
 
+  const listingHasIncompleteRoom = hasIncompleteRoom(listing.rooms);
+  const listingHasRoomWithoutOption = hasRoomWithoutOption(listing.rooms);
+
   const handleSave = async () => {
+    if (listingHasIncompleteRoom) {
+      setActiveTab('ROOMS');
+      toast.error('Renseignez le nom, le prix par nuit et la surface de chaque chambre avant d’enregistrer.');
+      return;
+    }
+    if (listingHasRoomWithoutOption) {
+      setActiveTab('ROOMS');
+      setShowRoomOptionComplianceError(true);
+      toast.error('Une chambre sans option n’est pas conforme au cahier des charges HAVEN.');
+      return;
+    }
+    const hasTooFewCommonPhotos = listing.galleryUrls.length < 3;
+    const missingRoomPhoto = hasMissingRoomPhoto(listing.rooms);
+    if (hasTooFewCommonPhotos || missingRoomPhoto) {
+      setActiveTab('PHOTOS');
+      toast.error(hasTooFewCommonPhotos
+        ? 'Ajoutez au moins trois photos des parties communes avant d’enregistrer.'
+        : 'Ajoutez une photo pour chaque chambre avant d’enregistrer.');
+      return;
+    }
     setIsSaving(true);
     try {
-      await updateListing(listing);
+      const optimizedListing = await optimizeListingImages(normalizeListingPhotos(listing));
+      setListing(optimizedListing);
+      await updateListing(optimizedListing);
       toast.success("Annonce mise à jour avec succès !");
       navigate('/owner/dashboard');
     } catch (e) {
@@ -110,21 +147,6 @@ export const EditListing: React.FC = () => {
     }
   };
 
-  const handleGenerateDescription = async () => {
-    setIsGenerating(true);
-    try {
-      const generated = await aiService.generateListingDescription(listing as any);
-      if (generated) {
-        setListing({ ...listing, description: generated });
-        toast.success("Description générée !");
-      }
-    } catch (e) {
-      toast.error("Erreur Gemini AI");
-    } finally {
-      setIsGenerating(false);
-    }
-  };
-
   const updateRoom = (roomId: string, updates: Partial<Room>) => {
     setListing({
       ...listing,
@@ -132,19 +154,29 @@ export const EditListing: React.FC = () => {
     });
   };
 
+  const toggleAmenity = (amenity: string) => {
+    setListing({
+      ...listing,
+      amenities: listing.amenities.includes(amenity)
+        ? listing.amenities.filter(item => item !== amenity)
+        : [...listing.amenities, amenity]
+    });
+  };
+
   const addRoom = () => {
+    setShowRoomOptionComplianceError(false);
     const newRoom: Room = {
       id: `r-${Date.now()}`,
-      name: `Nouvelle chambre`,
-      pricePerDay: 40,
-      size: 10,
+      name: '',
+      pricePerDay: 0,
+      size: 0,
       hasPrivateBath: false,
       bedSize: 'Double',
       isAvailable: true,
-      photoUrl: 'https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?auto=format&fit=crop&w=800&q=80',
-      hasDesk: true,
-      hasLock: true,
-      hasWardrobe: true,
+      photoUrl: '',
+      hasDesk: false,
+      hasLock: false,
+      hasWardrobe: false,
       roomPhotos: []
     };
     setListing({
@@ -168,12 +200,55 @@ export const EditListing: React.FC = () => {
     });
   };
 
-  const removePhoto = (url: string) => {
+  const removePhoto = (index: number) => {
+    const galleryUrls = listing.galleryUrls.filter((_, photoIndex) => photoIndex !== index);
     setListing({
       ...listing,
-      galleryUrls: listing.galleryUrls.filter(u => u !== url),
-      mainPhotoUrl: listing.mainPhotoUrl === url ? listing.galleryUrls.find(u => u !== url) || '' : listing.mainPhotoUrl
+      galleryUrls,
+      mainPhotoUrl: galleryUrls[0] || ''
     });
+  };
+
+  const setPrimaryPhoto = (index: number) => {
+    const selectedPhoto = listing.galleryUrls[index];
+    const galleryUrls = [selectedPhoto, ...listing.galleryUrls.filter((_, photoIndex) => photoIndex !== index)];
+    setListing({ ...listing, galleryUrls, mainPhotoUrl: selectedPhoto });
+  };
+
+  const selectImage = (onLoad: (photo: string) => void, errorMessage: string) => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.onchange = (event: Event) => {
+      const file = (event.target as HTMLInputElement).files?.[0];
+      if (!file) return;
+      if (file.size > MAX_IMAGE_UPLOAD_BYTES) {
+        toast.error(errorMessage);
+        return;
+      }
+      prepareImageForStorage(file).then(onLoad).catch(() => toast.error('Impossible de préparer cette image.'));
+    };
+    input.click();
+  };
+
+  const addGalleryPhoto = () => {
+    if (listing.galleryUrls.length >= MAX_LISTING_PHOTOS) return;
+    selectImage(photo => {
+      setListing(current => current ? { ...current, galleryUrls: [...current.galleryUrls, photo], mainPhotoUrl: current.mainPhotoUrl || photo } : current);
+      toast.success('Photo des parties communes ajoutée.');
+    }, "L'image est trop volumineuse (max 1,2 Mo).");
+  };
+
+  const toggleRoomPhoto = (roomId: string) => {
+    const room = listing.rooms.find(item => item.id === roomId);
+    if (room?.roomPhotos?.[0] || room?.photoUrl) {
+      setListing({ ...listing, rooms: listing.rooms.map(item => item.id === roomId ? { ...item, photoUrl: '', roomPhotos: [] } : item) });
+      return;
+    }
+    selectImage(photo => {
+      setListing(current => current ? { ...current, rooms: current.rooms.map(item => item.id === roomId ? { ...item, photoUrl: photo, roomPhotos: [photo] } : item) } : current);
+      toast.success('Photo de la chambre ajoutée.');
+    }, "L'image de la chambre est trop volumineuse (max 1,2 Mo).");
   };
 
   return (
@@ -243,7 +318,7 @@ export const EditListing: React.FC = () => {
                     <label className="text-[10px] font-black uppercase tracking-widest text-haven-stone">Type de bien</label>
                     <div className="flex bg-gray-50 p-1.5 rounded-2xl">
                       <button onClick={() => setListing({...listing, type: 'APARTMENT'})} className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition-all ${listing.type === 'APARTMENT' ? 'bg-white text-haven-navy shadow-sm' : 'text-haven-stone'}`}>
-                        <Building size={16} /> Appart
+                        <Building size={16} /> Appartement
                       </button>
                       <button onClick={() => setListing({...listing, type: 'HOUSE'})} className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition-all ${listing.type === 'HOUSE' ? 'bg-white text-haven-navy shadow-sm' : 'text-haven-stone'}`}>
                         <HomeIcon size={16} /> Maison
@@ -259,27 +334,36 @@ export const EditListing: React.FC = () => {
                       className="w-full bg-gray-50 border-none rounded-2xl px-5 py-4 text-haven-navy font-bold focus:ring-2 focus:ring-haven-navy/20 outline-none transition-all"
                     />
                   </div>
+                  <div className="space-y-3">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-haven-stone">Salles de bain</label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={listing.bathrooms || 1}
+                      onChange={(e) => setListing({...listing, bathrooms: Math.max(1, parseInt(e.target.value) || 1)})}
+                      className="w-full bg-gray-50 border-none rounded-2xl px-5 py-4 text-haven-navy font-bold focus:ring-2 focus:ring-haven-navy/20 outline-none transition-all"
+                    />
+                  </div>
                </div>
 
                <div className="space-y-3">
-                  <div className="flex justify-between items-center">
+                  <div>
                     <label className="text-[10px] font-black uppercase tracking-widest text-haven-stone">Description détaillée</label>
-                    <button onClick={handleGenerateDescription} disabled={isGenerating} className="text-[10px] font-black uppercase tracking-widest text-haven-red flex items-center gap-1.5 hover:opacity-80 transition-opacity disabled:opacity-50">
-                      {isGenerating ? <Loader2 className="animate-spin" size={12} /> : <Sparkles size={12} />}
-                      Récrire avec IA
-                    </button>
+                    <p className="mt-1 text-sm text-haven-stone">Décrivez votre logement en quelques phrases.</p>
                   </div>
                   <textarea 
                     rows={8}
                     value={listing.description || ''}
+                    maxLength={MAX_LISTING_DESCRIPTION_LENGTH}
                     onChange={(e) => setListing({...listing, description: e.target.value})}
                     className="w-full bg-gray-50 border-none rounded-2xl px-5 py-4 text-haven-navy leading-relaxed focus:ring-2 focus:ring-haven-navy/20 outline-none transition-all resize-none"
                   />
+                  <p className="text-right text-xs font-semibold text-haven-stone">{(listing.description || '').length} / {MAX_LISTING_DESCRIPTION_LENGTH} caractères</p>
                </div>
 
                <div className="grid md:grid-cols-2 gap-8">
                   <div className="space-y-3">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-haven-stone">Séjour Minimum (jours)</label>
+                    <label className="text-[10px] font-black uppercase tracking-widest text-haven-stone">Séjour minimum (nuits)</label>
                     <input 
                       type="number" 
                       value={listing.minStay || 0}
@@ -324,6 +408,29 @@ export const EditListing: React.FC = () => {
                  </div>
                </div>
 
+               <div className="space-y-4">
+                 <div>
+                   <label className="text-[10px] font-black uppercase tracking-widest text-haven-stone">Équipements et services</label>
+                   <p className="mt-1 text-sm text-haven-stone">Sélectionnez les équipements disponibles dans les parties communes.</p>
+                 </div>
+                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                   {AMENITIES_LIST.map(amenity => {
+                     const isSelected = listing.amenities.includes(amenity.id);
+                     return (
+                       <button
+                         key={amenity.id}
+                         type="button"
+                         onClick={() => toggleAmenity(amenity.id)}
+                         className={`min-h-28 p-5 border-2 rounded-3xl text-left transition-all flex flex-col gap-3 ${isSelected ? 'border-haven-navy bg-haven-navy/5 text-haven-navy shadow-sm' : 'border-gray-100 bg-gray-50 text-haven-stone hover:border-haven-navy/30'}`}
+                       >
+                         {amenity.icon}
+                         <span className="font-bold text-xs">{amenity.id}</span>
+                       </button>
+                     );
+                   })}
+                 </div>
+               </div>
+
                <div className="p-6 bg-haven-red/5 rounded-3xl border border-haven-red/10 flex items-start gap-4">
                   <MapPin size={24} className="text-haven-red shrink-0" />
                   <div className="space-y-1">
@@ -354,15 +461,15 @@ export const EditListing: React.FC = () => {
                        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 items-end">
                           <div className="space-y-2 col-span-2">
                             <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Nom</label>
-                            <input type="text" value={room.name || ''} onChange={(e) => updateRoom(room.id, { name: e.target.value })} className="w-full bg-white rounded-xl px-4 py-3 font-bold text-haven-navy outline-none border border-gray-100" />
+                            <input type="text" required placeholder="Ex. Chambre Horizon" value={room.name || ''} onChange={(e) => updateRoom(room.id, { name: e.target.value })} className={`w-full bg-white rounded-xl px-4 py-3 font-bold text-haven-navy outline-none border ${!room.name.trim() ? 'border-haven-red' : 'border-gray-100'}`} />
                           </div>
                           <div className="space-y-2">
-                            <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Prix / Jour (€)</label>
-                            <input type="number" value={room.pricePerDay || 0} onChange={(e) => updateRoom(room.id, { pricePerDay: parseInt(e.target.value) || 0 })} className="w-full bg-white rounded-xl px-4 py-3 font-bold text-haven-navy outline-none border border-gray-100" />
+                            <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Prix / Nuit (€)</label>
+                            <input type="number" required min="0.01" step="0.01" placeholder="0" value={room.pricePerDay || ''} onChange={(e) => updateRoom(room.id, { pricePerDay: parseFloat(e.target.value) || 0 })} className={`w-full bg-white rounded-xl px-4 py-3 font-bold text-haven-navy outline-none border ${room.pricePerDay <= 0 ? 'border-haven-red' : 'border-gray-100'}`} />
                           </div>
                           <div className="space-y-2">
                             <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Surface (m²)</label>
-                            <input type="number" value={room.size || 0} onChange={(e) => updateRoom(room.id, { size: parseInt(e.target.value) || 0 })} className="w-full bg-white rounded-xl px-4 py-3 font-bold text-haven-navy outline-none border border-gray-100" />
+                            <input type="number" required min="1" step="1" placeholder="0" value={room.size || ''} onChange={(e) => updateRoom(room.id, { size: parseInt(e.target.value) || 0 })} className={`w-full bg-white rounded-xl px-4 py-3 font-bold text-haven-navy outline-none border ${room.size <= 0 ? 'border-haven-red' : 'border-gray-100'}`} />
                           </div>
                        </div>
 
@@ -370,8 +477,8 @@ export const EditListing: React.FC = () => {
                           {[
                             { id: 'hasPrivateBath', label: 'SDB Privée', icon: Bath },
                             { id: 'hasDesk', label: 'Bureau', icon: Maximize2 },
-                            { id: 'hasLock', label: 'Verrou', icon: Lock },
-                            { id: 'hasWardrobe', label: 'Armoire', icon: Armchair }
+                            { id: 'hasLock', label: 'Verrou porte', icon: Lock },
+                            { id: 'hasWardrobe', label: 'Armoire/dressing', icon: WardrobeIcon }
                           ].map(opt => (
                             <button 
                               key={opt.id}
@@ -383,6 +490,7 @@ export const EditListing: React.FC = () => {
                             </button>
                           ))}
                        </div>
+                       {!roomHasAtLeastOneOption(room) && <p className={`mt-4 text-sm font-semibold ${showRoomOptionComplianceError ? 'text-haven-red' : 'text-haven-stone'}`}>{showRoomOptionComplianceError ? 'Cette chambre ne dispose d’aucune option et n’est pas conforme au cahier des charges HAVEN.' : 'Cochez les options de la chambre.'}</p>}
                     </div>
                   ))}
                </div>
@@ -393,7 +501,7 @@ export const EditListing: React.FC = () => {
             <div className="space-y-10">
                <div>
                   <h3 className="font-heading font-bold text-2xl text-haven-navy mb-2">Galerie Photos</h3>
-                  <p className="text-sm text-haven-stone">Gérez les photos des parties communes. La première sera la photo principale.</p>
+                  <p className="text-sm text-haven-stone">Gérez jusqu’à 5 photos des parties communes. La première sera la photo principale.</p>
                </div>
 
                <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
@@ -401,22 +509,50 @@ export const EditListing: React.FC = () => {
                     <div key={idx} className="aspect-[4/3] rounded-[2rem] overflow-hidden relative group border border-gray-100 shadow-premium">
                        <img src={url} className="w-full h-full object-cover" alt="" />
                        <div className="absolute inset-0 bg-haven-navy/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                          <button onClick={() => removePhoto(url)} className="w-10 h-10 rounded-xl bg-white text-haven-red flex items-center justify-center"><Trash2 size={20} /></button>
-                          {listing.mainPhotoUrl !== url && (
-                            <button onClick={() => setListing({...listing, mainPhotoUrl: url})} className="w-10 h-10 rounded-xl bg-white text-haven-navy flex items-center justify-center"><CheckCircle size={20} /></button>
+                          <button onClick={() => removePhoto(idx)} className="w-10 h-10 rounded-xl bg-white text-haven-red flex items-center justify-center"><Trash2 size={20} /></button>
+                          {idx !== 0 && (
+                            <button onClick={() => setPrimaryPhoto(idx)} className="w-10 h-10 rounded-xl bg-white text-haven-navy flex items-center justify-center"><CheckCircle size={20} /></button>
                           )}
                        </div>
-                       {listing.mainPhotoUrl === url && (
+                       {idx === 0 && (
                          <div className="absolute top-4 left-4 bg-haven-red text-white text-[9px] font-black uppercase px-2 py-1 rounded-full shadow-sm">Principal</div>
                        )}
                     </div>
                   ))}
-                  {listing.galleryUrls.length < 8 && (
-                    <div className="aspect-[4/3] rounded-[2rem] border-2 border-dashed border-gray-200 flex flex-col items-center justify-center gap-2 text-gray-400 hover:border-haven-navy hover:text-haven-navy transition-all cursor-pointer">
+                  {listing.galleryUrls.length < MAX_LISTING_PHOTOS && (
+                    <button type="button" onClick={addGalleryPhoto} className="aspect-[4/3] rounded-[2rem] border-2 border-dashed border-gray-200 flex flex-col items-center justify-center gap-2 text-gray-400 hover:border-haven-navy hover:text-haven-navy transition-all cursor-pointer">
                        <Plus size={24} />
-                       <span className="text-[10px] font-bold uppercase">Ajouter</span>
-                    </div>
+                       <span className="text-[10px] font-bold uppercase">Charger une photo</span>
+                    </button>
                   )}
+               </div>
+
+               <div className="pt-8 mt-8 border-t border-gray-100 space-y-5">
+                  <div>
+                    <h3 className="font-heading font-bold text-2xl text-haven-navy mb-2">Photos des chambres</h3>
+                    <p className="text-sm text-haven-stone">Ajoutez une photo de chaque chambre.</p>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {listing.rooms.map(room => {
+                      const roomPhoto = room.roomPhotos?.[0] || room.photoUrl;
+                      return (
+                        <div key={room.id} className="space-y-2">
+                          <p className="px-1 text-sm font-bold text-haven-navy">{room.name || 'Chambre'}</p>
+                          <button type="button" onClick={() => toggleRoomPhoto(room.id)} className={`relative aspect-[4/3] w-full rounded-[2rem] border-2 border-dashed overflow-hidden flex flex-col items-center justify-center gap-2 transition-all ${roomPhoto ? 'border-haven-navy bg-white shadow-premium' : 'border-gray-200 hover:border-haven-navy text-gray-400'}`}>
+                          {roomPhoto ? (
+                            <>
+                              <img src={roomPhoto} alt={`Photo de ${room.name || 'la chambre'}`} className="w-full h-full object-cover" />
+                              <span className="absolute inset-0 bg-haven-navy/40 opacity-0 hover:opacity-100 flex items-center justify-center text-white text-sm font-bold">Supprimer la photo</span>
+                            </>
+                          ) : (
+                            <><Upload size={24} /><span className="text-xs">Charger une photo</span></>
+                          )}
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {hasMissingRoomPhoto(listing.rooms) && <p className="text-sm font-semibold text-haven-red">Ajoutez une photo pour chaque chambre avant d’enregistrer.</p>}
                </div>
             </div>
           )}

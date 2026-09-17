@@ -1,6 +1,7 @@
+import { countNights } from '../services/stay';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useSearchParams } from 'react-router-dom';
 import { Button } from '../components/Button';
 import { BookingModal } from '../components/BookingModal';
 import { ListingCalendar } from '../components/ListingCalendar';
@@ -14,10 +15,13 @@ import { toast } from 'sonner';
 import { useAuth } from '../contexts/AuthContext';
 import { AccountStatusOverlay } from '../components/AccountStatusOverlay';
 import { ReportModal } from '../components/ReportModal';
+import { isRoomAvailableForStay } from '../services/availability';
+import { getListingPhotoUrls } from '../services/media';
+import { shareOrCopy } from '../services/share';
 
 export const ListingDetails: React.FC = () => {
   const { id } = useParams();
-  const { currentUser } = useAuth();
+  const { currentUser, refreshUser } = useAuth();
   const { getListingById, updateListing } = useListings();
   const listing = getListingById(id || '');
   const calendarRef = useRef<HTMLDivElement>(null);
@@ -31,6 +35,7 @@ export const ListingDetails: React.FC = () => {
   const [isReviewsLoading, setIsReviewsLoading] = useState(false);
   const [isOwnerMode, setIsOwnerMode] = useState(false);
   const [availability, setAvailability] = useState<BookingAvailability[]>([]);
+  const [isFavoriteUpdating, setIsFavoriteUpdating] = useState(false);
   
   const isApproved = currentUser?.status === 'APPROVED' || currentUser?.role === 'ADMIN';
   const isListingOwner = currentUser?.id === listing?.ownerId;
@@ -43,8 +48,11 @@ export const ListingDetails: React.FC = () => {
   }, [isListingOwner]);
   
   // États pour les dates sélectionnées (synchronisés entre calendrier et sidebar)
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const startParam = searchParams.get('start') || '';
+  const endParam = searchParams.get('end') || '';
+  const startDate = /^\d{4}-\d{2}-\d{2}$/.test(startParam) ? startParam : '';
+  const endDate = countNights(startDate, endParam) > 0 ? endParam : '';
 
   useEffect(() => {
     const fetchOwner = async () => {
@@ -79,9 +87,12 @@ export const ListingDetails: React.FC = () => {
 
   if (!listing) return <div className="pt-24 text-center">Logement non trouvé</div>;
 
-  // Par défaut, on sélectionne la première chambre dispo pour l'encart de droite
-  const defaultRoom = listing.rooms.find(r => r.isAvailable) || listing.rooms[0];
-  const activeRoom = selectedRoomId ? listing.rooms.find(r => r.id === selectedRoomId)! : defaultRoom;
+  const isRoomAvailable = (room: typeof listing.rooms[number]) =>
+    isRoomAvailableForStay(room, listing, availability, startDate, endDate);
+  const defaultRoom = listing.rooms.find(isRoomAvailable) || listing.rooms[0];
+  const requestedRoom = selectedRoomId ? listing.rooms.find(r => r.id === selectedRoomId) : undefined;
+  const activeRoom = requestedRoom && isRoomAvailable(requestedRoom) ? requestedRoom : defaultRoom;
+  const activeRoomIsAvailable = isRoomAvailable(activeRoom);
 
   const activeRoomBookings = availability.filter(
     b => b.roomId === activeRoom.id && ['PENDING', 'APPROVED', 'CONFIRMED'].includes(b.status)
@@ -93,9 +104,13 @@ export const ListingDetails: React.FC = () => {
   );
 
   const handleBookClick = () => {
+    if (!activeRoomIsAvailable) {
+      toast.error('Cette chambre n’est pas disponible pour les dates sélectionnées.');
+      return;
+    }
     if (!currentUser) {
       // Redirect to login or show login modal
-      window.location.hash = '/login';
+      window.location.hash = `/login?redirect=${encodeURIComponent(`/listing/${id}?${searchParams.toString()}`)}`;
       return;
     }
 
@@ -114,8 +129,8 @@ export const ListingDetails: React.FC = () => {
       return;
     }
 
-    if (days < listing.minStay) {
-      alert(`Ce logement nécessite un séjour minimum de ${listing.minStay} jours.`);
+    if (nights < Math.max(1, listing.minStay)) {
+      alert(`Ce logement nécessite un séjour minimum de ${listing.minStay} nuits.`);
       return;
     }
     
@@ -123,8 +138,43 @@ export const ListingDetails: React.FC = () => {
   };
 
   const handleDateSelect = (start: string, end: string) => {
-    setStartDate(start);
-    setEndDate(end);
+    const next = new URLSearchParams(searchParams);
+    if (start) next.set('start', start); else next.delete('start');
+    if (end) next.set('end', end); else next.delete('end');
+    setSearchParams(next, { replace: true });
+  };
+
+  const handleShare = async () => {
+    const result = await shareOrCopy({
+      title: `${listing.title} | HAVEN`,
+      text: `Découvrez ${listing.title}, une colocation à ${listing.city}.`,
+      url: window.location.href
+    });
+
+    if (result === 'shared') toast.success('Annonce partagée !');
+    if (result === 'copied') toast.success('Lien de l’annonce copié.');
+    if (result === 'unavailable') toast.error('Le partage est indisponible sur ce navigateur.');
+  };
+
+  const handleFavorite = async () => {
+    const returnTo = `/listing/${id}${searchParams.toString() ? `?${searchParams.toString()}` : ''}`;
+    if (!currentUser) {
+      window.location.hash = `/login?redirect=${encodeURIComponent(returnTo)}`;
+      return;
+    }
+
+    const wasFavorite = currentUser.favorites?.includes(listing.id) ?? false;
+    setIsFavoriteUpdating(true);
+    try {
+      await apiService.users.toggleFavorite(currentUser.id, listing.id);
+      await refreshUser();
+      toast.success(wasFavorite ? 'Annonce retirée de vos favoris.' : 'Annonce ajoutée à vos favoris.');
+    } catch (error) {
+      console.error('Erreur lors de la mise à jour des favoris', error);
+      toast.error('Impossible de mettre à jour vos favoris.');
+    } finally {
+      setIsFavoriteUpdating(false);
+    }
   };
 
   const handleSaveBlockedDates = async (dates: string[]) => {
@@ -144,15 +194,14 @@ export const ListingDetails: React.FC = () => {
     }
   };
 
-  // Calcul du nombre de jours
-  const days = startDate && endDate 
-    ? Math.max(1, Math.ceil((new Date(endDate).getTime() - new Date(startDate).getTime()) / (1000 * 60 * 60 * 24))) 
-    : 0;
+  const nights = countNights(startDate, endDate);
 
-  const basePrice = activeRoom.pricePerDay * days;
+  const basePrice = activeRoom.pricePerDay * nights;
   const cleaningFee = listing.cleaningFee || 0;
   const platformFee = Math.round(basePrice * 0.15);
   const totalPrice = basePrice + cleaningFee + platformFee;
+  const listingPhotos = getListingPhotoUrls(listing);
+  const isFavorite = currentUser?.favorites?.includes(listing.id) ?? false;
 
   return (
     <>
@@ -161,21 +210,22 @@ export const ListingDetails: React.FC = () => {
           
           {/* Gallery */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 h-[400px] md:h-[500px] rounded-3xl overflow-hidden mb-8">
-            <img src={listing.mainPhotoUrl} alt="Main" className="w-full h-full object-cover" />
+            <img src={listingPhotos[0] || listing.mainPhotoUrl} alt="Photo principale du logement" className="w-full h-full object-cover" />
             <div className="grid grid-cols-2 gap-4">
-               {listing.galleryUrls.length > 0 ? (
-                  listing.galleryUrls.map((url, i) => (
-                    <img key={i} src={url} alt={`Gallery ${i}`} className="w-full h-full object-cover" />
+               {listingPhotos.slice(1).length > 0 ? (
+                  listingPhotos.slice(1).map((url, i) => (
+                    <div key={url} className="relative overflow-hidden">
+                      <img src={url} alt={`Photo ${i + 2} du logement`} className="w-full h-full object-cover" />
+                      {i === listingPhotos.slice(1).length - 1 && (
+                        <div className="absolute inset-0 bg-black/40 flex items-center justify-center text-white font-bold cursor-pointer hover:bg-black/50 transition-colors">
+                          {listingPhotos.length} photo{listingPhotos.length > 1 ? 's' : ''}
+                        </div>
+                      )}
+                    </div>
                   ))
                ) : (
                   <div className="bg-gray-200 w-full h-full flex items-center justify-center text-gray-500">Plus de photos bientôt</div>
                )}
-               <div className="bg-gray-100 w-full h-full flex items-center justify-center relative">
-                  <img src={`https://picsum.photos/id/100/400/300`} className="absolute inset-0 w-full h-full object-cover" />
-                  <div className="absolute inset-0 bg-black/40 flex items-center justify-center text-white font-bold cursor-pointer hover:bg-black/50 transition-colors">
-                    Voir toutes les photos
-                  </div>
-               </div>
             </div>
           </div>
 
@@ -192,8 +242,10 @@ export const ListingDetails: React.FC = () => {
                 </div>
                 <div className="flex gap-2">
                   <button className="p-3 rounded-full border border-gray-200 hover:bg-gray-50 text-haven-navy" title="Signaler"><AlertCircle size={20} onClick={() => setIsReportModalOpen(true)} /></button>
-                  <button className="p-3 rounded-full border border-gray-200 hover:bg-gray-50 text-haven-navy"><Share size={20}/></button>
-                  <button className="p-3 rounded-full border border-gray-200 hover:bg-gray-50 text-haven-navy"><Heart size={20}/></button>
+                  <button type="button" onClick={handleShare} aria-label="Partager cette annonce" title="Partager cette annonce" className="p-3 rounded-full border border-gray-200 hover:bg-gray-50 text-haven-navy"><Share size={20}/></button>
+                  <button type="button" onClick={handleFavorite} disabled={isFavoriteUpdating} aria-label={isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris'} title={isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris'} className={`p-3 rounded-full border border-gray-200 hover:bg-gray-50 text-haven-navy disabled:cursor-wait ${isFavorite ? 'bg-haven-red/5 text-haven-red border-haven-red/20' : ''}`}>
+                    {isFavoriteUpdating ? <Loader2 size={20} className="animate-spin" /> : <Heart size={20} className={isFavorite ? 'fill-current' : ''}/>} 
+                  </button>
                 </div>
               </div>
 
@@ -209,7 +261,7 @@ export const ListingDetails: React.FC = () => {
                  </div>
                  <div className="w-px h-10 bg-gray-200"></div>
                  <div className="flex flex-col items-center">
-                    <span className="font-bold text-haven-navy">{listing.type === 'HOUSE' ? 'Maison' : 'Appart'}</span>
+                    <span className="font-bold text-haven-navy">{listing.type === 'HOUSE' ? 'Maison' : 'Appartement'}</span>
                     <span className="text-sm text-gray-500">Type</span>
                  </div>
               </div>
@@ -293,17 +345,18 @@ export const ListingDetails: React.FC = () => {
               </div>
 
               <div className="mb-10">
-                <h2 className="font-heading font-bold text-xl mb-6">Chambres disponibles</h2>
+                <h2 className="font-heading font-bold text-xl mb-6">Chambres</h2>
                 <div className="space-y-4">
-                  {listing.rooms.map(room => (
+                  {listing.rooms.map(room => {
+                    const roomAvailable = isRoomAvailable(room);
+                    const roomIsSelected = roomAvailable && (selectedRoomId === room.id || (!selectedRoomId && room.id === activeRoom.id));
+                    return (
                     <div 
                       key={room.id} 
-                      className={`border rounded-2xl p-4 flex flex-col md:flex-row gap-6 items-center transition-all cursor-pointer ${selectedRoomId === room.id || (!selectedRoomId && room.id === activeRoom.id) ? 'border-haven-navy ring-1 ring-haven-navy bg-blue-50/50' : 'border-gray-200 bg-white hover:border-haven-navy/30'}`}
+                      aria-disabled={!roomAvailable}
+                      className={`border rounded-2xl p-4 flex flex-col md:flex-row gap-6 items-center transition-all ${roomAvailable ? 'cursor-pointer' : 'cursor-not-allowed opacity-60 bg-gray-50'} ${roomIsSelected ? 'border-haven-navy ring-1 ring-haven-navy bg-blue-50/50' : 'border-gray-200'} ${roomAvailable ? 'hover:border-haven-navy/30' : ''}`}
                       onClick={() => {
-                        setSelectedRoomId(room.id);
-                        // Reset dates on room change to avoid invalid states
-                        setStartDate('');
-                        setEndDate('');
+                        if (roomAvailable) setSelectedRoomId(room.id);
                       }}
                     >
                       <div className="w-full md:w-48 h-32 rounded-xl overflow-hidden flex-shrink-0">
@@ -312,9 +365,9 @@ export const ListingDetails: React.FC = () => {
                       <div className="flex-1 w-full text-left">
                         <div className="flex justify-between items-start mb-2">
                           <h3 className="font-bold text-lg text-haven-navy">{room.name}</h3>
-                          {room.isAvailable ? 
+                          {roomAvailable ? 
                             <span className="bg-green-100 text-green-700 px-2 py-1 rounded text-xs font-bold">Disponible</span> :
-                            <span className="bg-gray-100 text-gray-500 px-2 py-1 rounded text-xs font-bold">Occupée</span>
+                            <span className="bg-gray-200 text-gray-600 px-2 py-1 rounded text-xs font-bold">Indisponible pour vos dates</span>
                           }
                         </div>
                         <div className="flex flex-wrap gap-3 text-[11px] text-gray-500 mb-3">
@@ -322,20 +375,20 @@ export const ListingDetails: React.FC = () => {
                            <span className="flex items-center gap-1 font-bold bg-gray-100 px-2 py-0.5 rounded-full"><Users size={12}/> Lit {room.bedSize}</span>
                            <span className="flex items-center gap-1 font-bold bg-gray-100 px-2 py-0.5 rounded-full">{room.hasPrivateBath ? 'SDB Privée' : 'SDB Partagée'}</span>
                            {room.hasDesk && <span className="flex items-center gap-1 font-bold bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full"><Maximize2 size={12}/> Bureau</span>}
-                           {room.hasLock && <span className="flex items-center gap-1 font-bold bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full"><Lock size={12}/> Verrou</span>}
+                           {room.hasLock && <span className="flex items-center gap-1 font-bold bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full"><Lock size={12}/> Verrou porte</span>}
                         </div>
                         <div className="flex justify-between items-center mt-2">
                           <div>
                             <span className="font-bold text-xl text-haven-navy">{room.pricePerDay}€</span>
-                            <span className="text-gray-500 text-sm"> / jour</span>
+                            <span className="text-gray-500 text-sm"> / nuit</span>
                           </div>
-                          <div className={`w-6 h-6 rounded-full border flex items-center justify-center ${(selectedRoomId === room.id || (!selectedRoomId && room.id === activeRoom.id)) ? 'bg-haven-navy border-haven-navy' : 'border-gray-300'}`}>
-                            {(selectedRoomId === room.id || (!selectedRoomId && room.id === activeRoom.id)) && <div className="w-2 h-2 bg-white rounded-full"></div>}
+                          <div className={`w-6 h-6 rounded-full border flex items-center justify-center ${roomIsSelected ? 'bg-haven-navy border-haven-navy' : 'border-gray-300'}`}>
+                            {roomIsSelected && <div className="w-2 h-2 bg-white rounded-full"></div>}
                           </div>
                         </div>
                       </div>
                     </div>
-                  ))}
+                  )})}
                 </div>
               </div>
 
@@ -361,7 +414,7 @@ export const ListingDetails: React.FC = () => {
                 ) : (
                   <p className="text-gray-500 mb-6 text-sm">
                     Sélectionnez vos dates pour <span className="font-bold text-haven-navy">{activeRoom.name}</span>. 
-                    Séjour minimum : <span className="font-bold text-haven-navy">{listing.minStay} jours</span>.
+                    Séjour minimum : <span className="font-bold text-haven-navy">{listing.minStay} nuits</span>.
                     Les jours occupés sont indiqués sans exposer l'identité des locataires.
                   </p>
                 )}
@@ -467,8 +520,8 @@ export const ListingDetails: React.FC = () => {
 
                   <div className="space-y-3 mb-6 text-left">
                     <div className="flex justify-between text-sm text-gray-600">
-                      <span>{activeRoom.pricePerDay}€ x {days || 1} jour(s)</span>
-                      <span>{activeRoom.pricePerDay * (days || 1)}€</span>
+                      <span>{activeRoom.pricePerDay}€ x {nights} nuit(s)</span>
+                      <span>{activeRoom.pricePerDay * (nights)}€</span>
                     </div>
                     <div className="flex justify-between text-sm text-gray-600">
                       <span>Frais de ménage (par location)</span>
@@ -476,12 +529,12 @@ export const ListingDetails: React.FC = () => {
                     </div>
                     <div className="flex justify-between text-sm text-gray-600">
                       <span>Frais HAVEN (15%)</span>
-                      <span>{Math.round(activeRoom.pricePerDay * (days || 1) * 0.15)}€</span>
+                      <span>{Math.round(activeRoom.pricePerDay * (nights) * 0.15)}€</span>
                     </div>
                     <div className="h-px bg-gray-200 my-2"></div>
                     <div className="flex justify-between font-bold text-haven-navy text-lg">
                       <span>Total</span>
-                      <span>{(activeRoom.pricePerDay * (days || 1)) + (listing.cleaningFee || 0) + Math.round(activeRoom.pricePerDay * (days || 1) * 0.15)}€</span>
+                      <span>{(activeRoom.pricePerDay * (nights)) + (listing.cleaningFee || 0) + Math.round(activeRoom.pricePerDay * (nights) * 0.15)}€</span>
                     </div>
                   </div>
 

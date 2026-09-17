@@ -1,3 +1,4 @@
+import { countNights } from './services/stay';
 import express from "express";
 import { createServer as createViteServer } from "vite";
 import path from "path";
@@ -408,9 +409,9 @@ Details:`, JSON.stringify(details, null, 2));
       const listing = listingSnap.data()!;
       const room = Array.isArray(listing.rooms) ? listing.rooms.find((item: any) => item.id === booking.roomId) : undefined;
       if (!room || typeof room.pricePerDay !== "number") return res.status(400).json({ error: "Chambre invalide" });
-      const days = Math.ceil((new Date(booking.endDate).getTime() - new Date(booking.startDate).getTime()) / 86400000);
-      if (!Number.isFinite(days) || days < 1 || days > 366) return res.status(400).json({ error: "Dates invalides" });
-      const basePrice = room.pricePerDay * days;
+      const nights = countNights(booking.startDate, booking.endDate);
+      if (nights < Math.max(1, Number(listing.minStay) || 1) || nights > 366) return res.status(400).json({ error: "Dates invalides" });
+      const basePrice = room.pricePerDay * nights;
       const amount = basePrice + (Number(listing.cleaningFee) || 0) + Math.round(basePrice * 0.15);
       const listingTitle = String(listing.title || "Logement HAVEN").slice(0, 200);
       const roomName = String(room.name || "Chambre").slice(0, 200);

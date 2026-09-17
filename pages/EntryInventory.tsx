@@ -114,8 +114,8 @@ export const EntryInventory = () => {
         if (room) {
           privateItems.push({ name: `Chambre: ${room.name}`, category: 'PRIVATE', isPresent: true, isFunctional: true });
           if (room.hasDesk) privateItems.push({ name: 'Bureau', category: 'PRIVATE', isPresent: true, isFunctional: true });
-          if (room.hasWardrobe) privateItems.push({ name: 'Penderie / Armoire', category: 'PRIVATE', isPresent: true, isFunctional: true });
-          if (room.hasLock) privateItems.push({ name: 'Verrou de porte', category: 'PRIVATE', isPresent: true, isFunctional: true });
+          if (room.hasWardrobe) privateItems.push({ name: 'Armoire / dressing', category: 'PRIVATE', isPresent: true, isFunctional: true });
+          if (room.hasLock) privateItems.push({ name: 'Verrou porte', category: 'PRIVATE', isPresent: true, isFunctional: true });
           if (room.hasPrivateBath) privateItems.push({ name: 'Salle de bain privée', category: 'PRIVATE', isPresent: true, isFunctional: true });
           privateItems.push({ name: `Lit (${room.bedSize})`, category: 'PRIVATE', isPresent: true, isFunctional: true });
         }

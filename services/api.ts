@@ -3,6 +3,9 @@ import { db, auth } from '../firebase';
 import { collection, getDocs, getDoc, doc, setDoc, updateDoc, query, where, deleteField, onSnapshot, or } from 'firebase/firestore';
 import { Listing, User, Booking, BookingAvailability, ListingStatus, UserStatus, Message, ContactRequest, Report, Incident, Payment, InventoryReport, AppDocument } from '../types';
 import { authenticatedFetch } from './serverApi';
+import { hasMissingRoomPhoto, normalizeListingPhotos } from './media';
+import { normalizeListingDescription } from './listingDescription';
+import { hasIncompleteRoom, hasRoomWithoutOption } from './roomValidation';
 
 const toAvailability = (booking: Booking): BookingAvailability => ({
   id: booking.id,
@@ -74,19 +77,6 @@ async function cleanupAndFilterBookings(bookings: Booking[]): Promise<Booking[]>
         await updateDoc(doc(db, 'bookings', booking.id), { status: currentStatus });
         await setDoc(doc(db, 'booking_availability', booking.id), toAvailability({ ...booking, status: currentStatus }));
 
-        // Release room if it was previously locked (i.e. status was APPROVED)
-        if (booking.status === 'APPROVED' && currentStatus === 'CANCELLED') {
-          const listingDoc = await getDoc(doc(db, 'listings', booking.listingId));
-          if (listingDoc.exists()) {
-            const listing = listingDoc.data() as Listing;
-            const updatedRooms = listing.rooms.map(r => r.id === booking.roomId ? { ...r, isAvailable: true } : r);
-            await updateDoc(doc(db, 'listings', booking.listingId), { 
-              rooms: updatedRooms,
-              availableRooms: Math.min(listing.totalRooms, listing.availableRooms + 1)
-            });
-          }
-        }
-        
         // Post automated expiration message in chat log
         const msgId = `m-${crypto.randomUUID()}`;
         const autoCancelMsg: Message = {
@@ -209,7 +199,7 @@ export const apiService = {
     async getAll() {
       try {
         const snapshot = await getDocs(collection(db, 'listings'));
-        return snapshot.docs.map(doc => doc.data() as Listing);
+        return snapshot.docs.map(doc => normalizeListingDescription(normalizeListingPhotos(doc.data() as Listing)));
       } catch (e) {
         return handleFirestoreError(e, 'GET_ALL', 'listings');
       }
@@ -217,23 +207,31 @@ export const apiService = {
     async getById(id: string) {
       try {
         const userDoc = await getDoc(doc(db, 'listings', id));
-        return userDoc.exists() ? (userDoc.data() as Listing) : undefined;
+        return userDoc.exists() ? normalizeListingDescription(normalizeListingPhotos(userDoc.data() as Listing)) : undefined;
       } catch (e) {
         return handleFirestoreError(e, 'GET_BY_ID', `listings/${id}`);
       }
     },
     async create(listing: Listing) {
       try {
-        await setDoc(doc(db, 'listings', listing.id), listing);
-        return listing;
+        if (hasIncompleteRoom(listing.rooms)) throw new Error('Chaque chambre doit avoir un nom, un prix par nuit et une surface.');
+        if (hasRoomWithoutOption(listing.rooms)) throw new Error('Chaque chambre doit disposer d’au moins une option du cahier des charges HAVEN.');
+        if (listing.galleryUrls.length < 3 || hasMissingRoomPhoto(listing.rooms)) throw new Error('Ajoutez au moins trois photos des parties communes et une photo par chambre.');
+        const normalizedListing = normalizeListingDescription(normalizeListingPhotos(listing));
+        await setDoc(doc(db, 'listings', listing.id), normalizedListing);
+        return normalizedListing;
       } catch (e) {
         return handleFirestoreError(e, 'CREATE', `listings/${listing.id}`);
       }
     },
     async update(listing: Listing) {
       try {
-        await setDoc(doc(db, 'listings', listing.id), listing);
-        return listing;
+        if (hasIncompleteRoom(listing.rooms)) throw new Error('Chaque chambre doit avoir un nom, un prix par nuit et une surface.');
+        if (hasRoomWithoutOption(listing.rooms)) throw new Error('Chaque chambre doit disposer d’au moins une option du cahier des charges HAVEN.');
+        if (listing.galleryUrls.length < 3 || hasMissingRoomPhoto(listing.rooms)) throw new Error('Ajoutez au moins trois photos des parties communes et une photo par chambre.');
+        const normalizedListing = normalizeListingDescription(normalizeListingPhotos(listing));
+        await setDoc(doc(db, 'listings', listing.id), normalizedListing);
+        return normalizedListing;
       } catch (e) {
         return handleFirestoreError(e, 'UPDATE', `listings/${listing.id}`);
       }
@@ -405,34 +403,8 @@ export const apiService = {
             await setDoc(doc(db, 'messages', msgId), cancelMessage);
           }
 
-          // Lock room when manual booking is approved
-          if (status === 'APPROVED' && previousStatus !== 'APPROVED') {
-             const listingDoc = await getDoc(doc(db, 'listings', booking.listingId));
-             if (listingDoc.exists()) {
-                const listing = listingDoc.data() as Listing;
-                const updatedRooms = listing.rooms.map(r => r.id === booking.roomId ? { ...r, isAvailable: false } : r);
-                await updateDoc(doc(db, 'listings', booking.listingId), { 
-                  rooms: updatedRooms,
-                  availableRooms: Math.max(0, listing.availableRooms - 1)
-                });
-             }
-          }
-          
-          // Release room on cancellation or completion
-          if (status === 'COMPLETED' || status === 'CANCELLED') {
-             const wasLocked = booking.bookingMode !== 'MANUAL' || previousStatus === 'APPROVED' || previousStatus === 'CONFIRMED';
-             if (wasLocked) {
-                const listingDoc = await getDoc(doc(db, 'listings', booking.listingId));
-                if (listingDoc.exists()) {
-                   const listing = listingDoc.data() as Listing;
-                   const updatedRooms = listing.rooms.map(r => r.id === booking.roomId ? { ...r, isAvailable: true } : r);
-                   await updateDoc(doc(db, 'listings', booking.listingId), { 
-                     rooms: updatedRooms,
-                     availableRooms: Math.min(listing.totalRooms, listing.availableRooms + 1)
-                   });
-                }
-             }
-          }
+          // Booking availability is range-based. The room's general availability
+          // must not be flipped for a whole period after one reservation.
         }
       } catch (e) {
         handleFirestoreError(e, 'UPDATE_BOOKING_STATUS', `bookings/${bookingId}`);
@@ -441,6 +413,11 @@ export const apiService = {
   },
 
   availability: {
+    listenAll(callback: (items: BookingAvailability[]) => void) {
+      return onSnapshot(collection(db, 'booking_availability'), snapshot => {
+        callback(snapshot.docs.map(item => item.data() as BookingAvailability));
+      }, error => handleFirestoreError(error, 'LIST_AVAILABILITY', 'booking_availability'));
+    },
     listenByListingId(listingId: string, callback: (items: BookingAvailability[]) => void) {
       const q = query(collection(db, 'booking_availability'), where('listingId', '==', listingId));
       return onSnapshot(q, snapshot => {

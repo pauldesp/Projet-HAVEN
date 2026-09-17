@@ -41,6 +41,11 @@ import { Toaster, toast } from 'sonner';
 const GOOGLE_MAPS_KEY = (typeof process !== 'undefined' && process.env?.GOOGLE_MAPS_PLATFORM_KEY) || '';
 const hasValidMapsKey = Boolean(GOOGLE_MAPS_KEY) && GOOGLE_MAPS_KEY !== 'YOUR_API_KEY';
 
+const MapsProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
+  hasValidMapsKey
+    ? <APIProvider apiKey={GOOGLE_MAPS_KEY} version="beta">{children}</APIProvider>
+    : <>{children}</>;
+
 const AppContent: React.FC = () => {
   const location = useLocation();
   const isAdminLogin = location.pathname === '/admin/login';
@@ -125,34 +130,6 @@ const AppContent: React.FC = () => {
   );
 };
 
-const MapsKeySplashScreen: React.FC = () => (
-  <div className="flex items-center justify-center min-h-screen bg-haven-cream p-6 font-body">
-    <div className="max-w-md w-full bg-white rounded-3xl shadow-2xl p-8 text-center border border-haven-navy/5">
-      <div className="w-16 h-16 bg-haven-navy/10 rounded-2xl flex items-center justify-center mx-auto mb-6">
-        <span className="text-2xl">🗺️</span>
-      </div>
-      <h2 className="text-2xl font-heading font-bold text-haven-navy mb-4">Clé API Google Maps requise</h2>
-      <p className="text-gray-600 mb-8 leading-relaxed">
-        Pour activer la recherche intelligente des villes, vous devez ajouter votre clé API Google Maps.
-      </p>
-      
-      <div className="space-y-4 text-left bg-gray-50 p-6 rounded-2xl border border-gray-100 mb-8">
-        <p className="text-sm font-bold text-haven-navy uppercase tracking-wider">Instructions :</p>
-        <ol className="text-sm text-gray-600 space-y-3 list-decimal list-inside">
-          <li>Obtenez une clé API sur la <a href="https://console.cloud.google.com/google/maps-apis/credentials" target="_blank" rel="noopener" className="text-haven-red font-bold hover:underline">Console Google Cloud</a></li>
-          <li>Ouvrez les <strong>Paramètres</strong> (icône ⚙️ en haut à droite)</li>
-          <li>Allez dans <strong>Secrets</strong></li>
-          <li>Ajoutez <code>GOOGLE_MAPS_PLATFORM_KEY</code> avec votre clé</li>
-        </ol>
-      </div>
-      
-      <p className="text-xs text-gray-400 italic">
-        L'application redémarrera automatiquement une fois la clé ajoutée.
-      </p>
-    </div>
-  </div>
-);
-
 interface ErrorBoundaryProps {
   children: ReactNode;
 }
@@ -194,21 +171,17 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
 }
 
 const App: React.FC = () => {
-  if (!hasValidMapsKey) {
-    return <MapsKeySplashScreen />;
-  }
-
   return (
     <ErrorBoundary>
       <AuthProvider>
         <LanguageProvider>
           <ListingProvider>
             <BookingProvider>
-              <APIProvider apiKey={GOOGLE_MAPS_KEY} version="beta">
+              <MapsProvider>
                 <HashRouter>
                   <AppContent />
                 </HashRouter>
-              </APIProvider>
+              </MapsProvider>
             </BookingProvider>
           </ListingProvider>
         </LanguageProvider>

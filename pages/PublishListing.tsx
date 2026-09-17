@@ -32,7 +32,6 @@ import {
   Sun,
   Camera,
   Bath,
-  Armchair,
   Eye,
   ListChecks,
   Check,
@@ -49,7 +48,13 @@ import { useAuth } from '../contexts/AuthContext';
 import { aiService } from '../services/ai';
 import { Listing, Room, LegalDocument } from '../types';
 import { toast } from 'sonner';
+import { hasMissingRoomPhoto, MAX_LISTING_PHOTOS, MAX_ROOM_PHOTOS, normalizeRoomPhotos } from '../services/media';
+import { MAX_IMAGE_UPLOAD_BYTES, prepareImageForStorage } from '../services/images';
+import { limitListingDescription, MAX_LISTING_DESCRIPTION_LENGTH } from '../services/listingDescription';
+import { hasIncompleteRoom, hasRoomWithoutOption, roomHasAtLeastOneOption } from '../services/roomValidation';
 import { apiService } from '../services/api';
+import { AMENITIES_LIST } from '../services/amenities';
+import { WardrobeIcon } from '../components/WardrobeIcon';
 
 type Step = 'TYPE' | 'LOCATION' | 'ADDRESS_CONFIRM' | 'DETAILS' | 'DESCRIPTION' | 'AMENITIES' | 'ROOMS' | 'PHOTOS' | 'REVIEW' | 'LEGAL' | 'SUCCESS';
 
@@ -66,21 +71,6 @@ const STEPS: { id: Step; label: string }[] = [
   { id: 'LEGAL', label: 'Validation Légale' }
 ];
 
-const AMENITIES_LIST = [
-  { id: 'Wifi Fibre', icon: <Wifi size={20} /> },
-  { id: 'Lave-vaisselle', icon: <Waves size={20} /> },
-  { id: 'Lave-linge', icon: <Wind size={20} /> },
-  { id: 'Sèche-linge', icon: <Sun size={20} /> },
-  { id: 'Fer à repasser', icon: <Zap size={20} /> },
-  { id: 'Rangements indépendants', icon: <Archive size={20} /> },
-  { id: 'Climatisation', icon: <Wind size={20} /> },
-  { id: 'Interphone', icon: <Mic size={20} /> },
-  { id: 'Digicode', icon: <Lock size={20} /> },
-  { id: 'Balcon / terrasse / jardin', icon: <Trees size={20} /> },
-  { id: 'Local vélo', icon: <Bike size={20} /> },
-  { id: 'Parking', icon: <Car size={20} /> },
-];
-
 const STORAGE_KEY = 'haven_draft_listing';
 
 import { AccountStatusOverlay } from '../components/AccountStatusOverlay';
@@ -95,10 +85,10 @@ export const PublishListing: React.FC = () => {
 
   const [currentStep, setCurrentStep] = useState<Step>('TYPE');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isGenerating, setIsGenerating] = useState(false);
   const [showResumePrompt, setShowResumePrompt] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isVerificationModalOpen, setIsVerificationModalOpen] = useState(false);
+  const [showRoomOptionComplianceError, setShowRoomOptionComplianceError] = useState(false);
   const [legalDocs, setLegalDocs] = useState<LegalDocument[]>([]);
   const [activeLegalDoc, setActiveLegalDoc] = useState<{ id: 'specifications' | 'terms', title: string, content: string } | null>(null);
   const [isLegalModalOpen, setIsLegalModalOpen] = useState(false);
@@ -231,11 +221,10 @@ export const PublishListing: React.FC = () => {
     bathrooms: 1,
     cleaningFee: 15,
     amenities: [] as string[],
-    isMixed: true,
     bookingMode: 'INSTANT' as 'INSTANT' | 'MANUAL',
     galleryUrls: [] as string[],
       rooms: [
-        { id: 'temp-1', name: 'Chambre 1', pricePerDay: 40, size: 12, hasPrivateBath: false, bedSize: 'Double' as any, isAvailable: true, photoUrl: '', hasDesk: true, hasLock: true, hasWardrobe: true, roomPhotos: [] }
+        { id: 'temp-1', name: '', pricePerDay: 0, size: 0, hasPrivateBath: false, bedSize: 'Double' as any, isAvailable: true, photoUrl: '', hasDesk: false, hasLock: false, hasWardrobe: false, roomPhotos: [] }
       ] as Room[]
   });
 
@@ -243,22 +232,23 @@ export const PublishListing: React.FC = () => {
 
   // Sync rooms when totalRooms changes
   const handleTotalRoomsChange = (count: number) => {
+    setShowRoomOptionComplianceError(false);
     setFormData(prev => {
       const newRooms = [...prev.rooms];
       if (count > newRooms.length) {
         for (let i = newRooms.length; i < count; i++) {
             newRooms.push({
               id: `temp-${Date.now()}-${i}`,
-              name: `Chambre ${i + 1}`,
-              pricePerDay: 40,
-              size: 10,
+              name: '',
+              pricePerDay: 0,
+              size: 0,
               hasPrivateBath: false,
               bedSize: 'Double',
               isAvailable: true,
               photoUrl: '',
-              hasDesk: true,
-              hasLock: true,
-              hasWardrobe: true,
+              hasDesk: false,
+              hasLock: false,
+              hasWardrobe: false,
               roomPhotos: []
             });
         }
@@ -320,6 +310,10 @@ export const PublishListing: React.FC = () => {
   };
 
   const handleNext = () => {
+    if (currentStep === 'ROOMS' && hasRoomWithoutOption(formData.rooms)) {
+      setShowRoomOptionComplianceError(true);
+      return;
+    }
     // Magic fix for address parsing if it failed in CityAutocomplete selection
     if (currentStep === 'LOCATION') {
       const fullAddress = formData.address;
@@ -398,20 +392,6 @@ export const PublishListing: React.FC = () => {
     setTimeout(() => setHighlightFields(false), 2000);
   }, []);
 
-  const handleGenerateDescription = async () => {
-    setIsGenerating(true);
-    try {
-      const generated = await aiService.generateListingDescription(formData);
-      if (generated) {
-        setFormData(prev => ({ ...prev, description: generated }));
-      }
-    } catch (e) {
-      console.error("Erreur génération AI", e);
-    } finally {
-      setIsGenerating(false);
-    }
-  };
-
   const handleAddressChange = React.useCallback((val: string) => {
     setFormData(prev => ({ ...prev, address: val }));
   }, []);
@@ -426,6 +406,7 @@ export const PublishListing: React.FC = () => {
   };
 
   const toggleGalleryPhoto = (index: number) => {
+    if (index >= MAX_LISTING_PHOTOS) return;
     if (formData.galleryUrls[index]) {
       setFormData(prev => {
         const newGallery = [...prev.galleryUrls];
@@ -435,72 +416,31 @@ export const PublishListing: React.FC = () => {
       return;
     }
 
-    const mockPhotos = [
-      'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?auto=format&fit=crop&w=800&q=80',
-      'https://images.unsplash.com/photo-1484154218962-a197022b5858?auto=format&fit=crop&w=800&q=80',
-      'https://images.unsplash.com/photo-1493809842364-78817add7ffb?auto=format&fit=crop&w=800&q=80',
-      'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?auto=format&fit=crop&w=800&q=80',
-      'https://images.unsplash.com/photo-1502005229762-cf1b2da7c5d6?auto=format&fit=crop&w=800&q=80',
-      'https://images.unsplash.com/photo-1494438639946-1ebd1d20bf85?auto=format&fit=crop&w=800&q=80',
-      'https://images.unsplash.com/photo-1513584684374-8bdb74838a0f?auto=format&fit=crop&w=800&q=80',
-      'https://images.unsplash.com/photo-1524758631624-e2822e304c36?auto=format&fit=crop&w=800&q=80'
-    ];
-
-    const useCustom = window.confirm("Souhaitez-vous téléverser votre propre photo réelle pour les parties communes ?\n\n(Cliquez sur 'Annuler' pour insérer instantanément une magnifique photo de démonstration HAVEN)");
-
-    if (useCustom) {
-      const input = document.createElement('input');
-      input.type = 'file';
-      input.accept = 'image/*';
-      input.onchange = (e: Event) => {
-        const target = e.target as HTMLInputElement;
-        if (!target.files || target.files.length === 0) return;
-        const file = target.files[0];
-        if (file.size > 1.2 * 1024 * 1024) {
-          toast.error("L'image est trop volumineuse (max 1.2 Mo).");
-          return;
-        }
-        const reader = new FileReader();
-        reader.onload = () => {
-          setFormData(prev => {
-            const newGallery = [...prev.galleryUrls];
-            newGallery[index] = reader.result as string;
-            return { ...prev, galleryUrls: newGallery };
-          });
-          toast.success("Votre photo a bien été téléversée !");
-        };
-        reader.readAsDataURL(file);
-      };
-      input.click();
-    } else {
-      setFormData(prev => {
-        const newGallery = [...prev.galleryUrls];
-        newGallery[index] = mockPhotos[index % mockPhotos.length];
-        return { ...prev, galleryUrls: newGallery.filter(Boolean) };
-      });
-      toast.success("Photo de démonstration HAVEN sélectionnée !");
-    }
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.onchange = (e: Event) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file) return;
+      if (file.size > MAX_IMAGE_UPLOAD_BYTES) {
+        toast.error("L'image est trop volumineuse (max 1,2 Mo).");
+        return;
+      }
+      prepareImageForStorage(file).then(photo => {
+        setFormData(prev => {
+          const newGallery = [...prev.galleryUrls];
+          newGallery[index] = photo;
+          return { ...prev, galleryUrls: newGallery };
+        });
+        toast.success('Photo des parties communes ajoutée.');
+      }).catch(() => toast.error('Impossible de préparer cette image.'));
+    };
+    input.click();
   };
 
   const toggleRoomPhoto = (roomId: string, photoIndex: number) => {
-    const mockRoomPhotos = [
-      'https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?auto=format&fit=crop&w=800&q=80',
-      'https://images.unsplash.com/photo-1554995207-c18c203602cb?auto=format&fit=crop&w=800&q=80',
-      'https://images.unsplash.com/photo-1598928506311-c55ded91a20c?auto=format&fit=crop&w=800&q=80',
-      'https://images.unsplash.com/photo-1595526114035-0d45ed16cfbf?auto=format&fit=crop&w=800&q=80',
-      'https://images.unsplash.com/photo-1560185007-cde436f6a4d0?auto=format&fit=crop&w=800&q=80',
-      'https://images.unsplash.com/photo-1560185127-6ed189bf02f4?auto=format&fit=crop&w=800&q=80'
-    ];
-
-    // Check if photo at photoIndex already exists for this room
-    let photoExists = false;
-    setFormData(prev => {
-      const room = prev.rooms.find(r => r.id === roomId);
-      if (room && room.roomPhotos && room.roomPhotos[photoIndex]) {
-        photoExists = true;
-      }
-      return prev;
-    });
+    if (photoIndex >= MAX_ROOM_PHOTOS) return;
+    const photoExists = Boolean(formData.rooms.find(room => room.id === roomId)?.roomPhotos?.[photoIndex]);
 
     if (photoExists) {
       setFormData(prev => ({
@@ -517,52 +457,27 @@ export const PublishListing: React.FC = () => {
       return;
     }
 
-    const useCustom = window.confirm("Souhaitez-vous téléverser votre propre photo réelle pour cette chambre ?\n\n(Cliquez sur 'Annuler' pour insérer une magnifique photo de démonstration de chambre)");
-
-    if (useCustom) {
-      const input = document.createElement('input');
-      input.type = 'file';
-      input.accept = 'image/*';
-      input.onchange = (e: Event) => {
-        const target = e.target as HTMLInputElement;
-        if (!target.files || target.files.length === 0) return;
-        const file = target.files[0];
-        if (file.size > 1.2 * 1024 * 1024) {
-          toast.error("L'image de la chambre est trop volumineuse (max 1.2 Mo).");
-          return;
-        }
-        const reader = new FileReader();
-        reader.onload = () => {
-          setFormData(prev => ({
-            ...prev,
-            rooms: prev.rooms.map(r => {
-              if (r.id === roomId) {
-                const newPhotos = [...(r.roomPhotos || [])];
-                newPhotos[photoIndex] = reader.result as string;
-                return { ...r, roomPhotos: newPhotos.filter(Boolean), photoUrl: newPhotos[0] || '' };
-              }
-              return r;
-            })
-          }));
-          toast.success("Photo de la chambre ajoutée !");
-        };
-        reader.readAsDataURL(file);
-      };
-      input.click();
-    } else {
-      setFormData(prev => ({
-        ...prev,
-        rooms: prev.rooms.map(r => {
-          if (r.id === roomId) {
-            const newPhotos = [...(r.roomPhotos || [])];
-            newPhotos[photoIndex] = mockRoomPhotos[photoIndex % mockRoomPhotos.length];
-            return { ...r, roomPhotos: newPhotos.filter(Boolean), photoUrl: newPhotos[0] || '' };
-          }
-          return r;
-        })
-      }));
-      toast.success("Photo de démonstration sélectionnée !");
-    }
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.onchange = (e: Event) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file) return;
+      if (file.size > MAX_IMAGE_UPLOAD_BYTES) {
+        toast.error("L'image de la chambre est trop volumineuse (max 1,2 Mo).");
+        return;
+      }
+      prepareImageForStorage(file).then(photo => {
+        setFormData(prev => ({
+          ...prev,
+          rooms: prev.rooms.map(r => r.id === roomId
+            ? { ...r, roomPhotos: [photo], photoUrl: photo }
+            : r)
+        }));
+        toast.success('Photo de la chambre ajoutée.');
+      }).catch(() => toast.error('Impossible de préparer cette image.'));
+    };
+    input.click();
   };
 
   const handleSuggestRoomNames = () => {
@@ -606,7 +521,7 @@ export const PublishListing: React.FC = () => {
     const newListing: Listing = {
       id: `l-${Date.now()}`,
       title: formData.title || "Nouveau logement",
-      description: formData.description,
+      description: limitListingDescription(formData.description),
       city: formData.city,
       address: `${formData.address}${formData.addressComplement ? ', ' + formData.addressComplement : ''}`,
       coordinates: coords,
@@ -621,11 +536,10 @@ export const PublishListing: React.FC = () => {
       mainPhotoUrl: formData.galleryUrls[0] || 'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?ixlib=rb-4.0.3&auto=format&fit=crop&w=1600&q=80',
       rating: 0,
       reviewsCount: 0,
-      isMixed: formData.isMixed,
       bathrooms: formData.bathrooms,
       cleaningFee: formData.cleaningFee,
-      rooms: formData.rooms,
-      galleryUrls: formData.galleryUrls
+      rooms: formData.rooms.map(normalizeRoomPhotos),
+      galleryUrls: formData.galleryUrls.slice(0, MAX_LISTING_PHOTOS)
     };
     await addListing(newListing);
     setIsSubmitting(false);
@@ -639,10 +553,10 @@ export const PublishListing: React.FC = () => {
       case 'LOCATION': return (formData.address || '').length >= 2; 
       case 'ADDRESS_CONFIRM': return (formData.city || '').length >= 2 && (formData.address || '').length >= 2 && (formData.zipCode || '').length >= 4;
       case 'DETAILS': return formData.title.length > 5 && formData.surface > 0 && formData.totalRooms > 0;
-      case 'DESCRIPTION': return formData.description.length > 10;
+      case 'DESCRIPTION': return formData.description.length > 10 && formData.description.length <= MAX_LISTING_DESCRIPTION_LENGTH;
       case 'AMENITIES': return true;
-      case 'ROOMS': return formData.rooms.every(r => r.pricePerDay > 0 && r.size > 0);
-      case 'PHOTOS': return formData.galleryUrls.length >= 3;
+      case 'ROOMS': return !hasIncompleteRoom(formData.rooms) && !hasRoomWithoutOption(formData.rooms);
+      case 'PHOTOS': return formData.galleryUrls.length >= 3 && !hasMissingRoomPhoto(formData.rooms);
       case 'REVIEW': return true;
       case 'LEGAL': return legalReadStatus.specifications.validated && legalReadStatus.terms.validated;
       default: return false;
@@ -861,14 +775,6 @@ export const PublishListing: React.FC = () => {
                 </div>
               </div>
               
-              <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-soft flex flex-col justify-center gap-4">
-                <label className="block text-[10px] font-black text-haven-stone uppercase tracking-widest">Mixité</label>
-                <div className="flex items-center gap-3">
-                  <button onClick={() => setFormData({...formData, isMixed: !formData.isMixed})} className={`w-10 h-5 rounded-full p-1 transition-all ${formData.isMixed ? 'bg-haven-navy' : 'bg-gray-200'}`}><div className={`w-3 h-3 bg-white rounded-full transition-transform ${formData.isMixed ? 'translate-x-5' : ''}`} /></button>
-                  <span className="font-bold text-xs text-haven-navy">{formData.isMixed ? 'Mixte' : 'Non-mixte'}</span>
-                </div>
-              </div>
-
               <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-soft flex flex-col justify-center gap-4 col-span-full">
                 <label className="block text-[10px] font-black text-haven-stone uppercase tracking-widest">Processus de réservation</label>
                 <div className="grid md:grid-cols-2 gap-4">
@@ -900,39 +806,20 @@ export const PublishListing: React.FC = () => {
 
         {currentStep === 'DESCRIPTION' && (
           <div className="space-y-8 animate-fade-in-up">
-            <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-              <h1 className="text-4xl font-heading font-bold text-haven-navy">Décrivez l'expérience HAVEN</h1>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={handleGenerateDescription}
-                disabled={isGenerating}
-                className="text-haven-red hover:bg-haven-red/5 gap-2"
-              >
-                {isGenerating ? (
-                  <Loader2 className="animate-spin" size={18} />
-                ) : (
-                  <Sparkles size={18} />
-                )}
-                Rédiger avec l'IA
-              </Button>
+            <div>
+              <h1 className="text-4xl font-heading font-bold text-haven-navy">Présentez votre logement</h1>
+              <p className="mt-2 text-haven-stone">Décrivez simplement les espaces, l’ambiance et les équipements importants.</p>
             </div>
-            <div className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-premium relative">
+            <div className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-premium">
               <textarea 
                 rows={10} 
                 value={formData.description || ''} 
+                maxLength={MAX_LISTING_DESCRIPTION_LENGTH}
                 onChange={(e) => setFormData({...formData, description: e.target.value})} 
                 placeholder="Racontez l'histoire de ce lieu..." 
                 className="w-full outline-none text-haven-navy text-lg leading-relaxed bg-white" 
               />
-              {isGenerating && (
-                <div className="absolute inset-0 bg-white/50 backdrop-blur-[1px] rounded-[2.5rem] flex items-center justify-center">
-                  <div className="flex items-center gap-3 bg-white px-6 py-3 rounded-full shadow-premium border border-gray-100">
-                    <Loader2 className="animate-spin text-haven-red" size={20} />
-                    <span className="font-bold text-haven-navy">Gemini rédige votre annonce...</span>
-                  </div>
-                </div>
-              )}
+              <p className="mt-3 text-right text-xs font-semibold text-haven-stone">{formData.description.length} / {MAX_LISTING_DESCRIPTION_LENGTH} caractères</p>
             </div>
           </div>
         )}
@@ -971,6 +858,8 @@ export const PublishListing: React.FC = () => {
                 Suggérer des noms originaux
               </Button>
             </div>
+            {hasIncompleteRoom(formData.rooms) && <p className="text-sm font-semibold text-haven-red">Renseignez le nom, le prix par nuit et la surface de chaque chambre pour continuer.</p>}
+            {hasRoomWithoutOption(formData.rooms) && <p className={`text-sm font-semibold ${showRoomOptionComplianceError ? 'text-haven-red' : 'text-haven-stone'}`}>{showRoomOptionComplianceError ? 'Une chambre sans option n’est pas conforme au cahier des charges HAVEN.' : 'Cochez les options de la chambre.'}</p>}
             <div className="space-y-12">
               {formData.rooms.map((room, index) => (
                 <div key={room.id} className="bg-white rounded-[2.5rem] border border-gray-100 shadow-premium overflow-hidden flex flex-col lg:flex-row">
@@ -979,12 +868,12 @@ export const PublishListing: React.FC = () => {
                     <div className="flex items-center justify-between border-b border-gray-100 pb-4">
                       <div className="space-y-1">
                         <label className="text-[10px] font-black text-haven-stone uppercase tracking-widest">Nom de la chambre</label>
-                        <input type="text" value={room.name || ''} onChange={(e) => updateRoom(room.id, { name: e.target.value })} className="block w-full text-2xl font-bold text-haven-navy bg-white outline-none" />
+                        <input type="text" required placeholder="Ex. Chambre Horizon" value={room.name || ''} onChange={(e) => updateRoom(room.id, { name: e.target.value })} className={`block w-full text-2xl font-bold text-haven-navy bg-white outline-none placeholder:text-gray-300 ${!room.name.trim() ? 'border-b-2 border-haven-red/50' : ''}`} />
                       </div>
                       <div className="text-right">
-                        <span className="text-[10px] font-black text-haven-stone uppercase tracking-widest block mb-1">Prix / Jour</span>
+                        <span className="text-[10px] font-black text-haven-stone uppercase tracking-widest block mb-1">Prix / Nuit</span>
                         <div className="flex items-center gap-1">
-                          <input type="number" value={room.pricePerDay || 0} onChange={(e) => updateRoom(room.id, { pricePerDay: parseInt(e.target.value) || 0 })} className="w-20 text-2xl font-bold text-haven-navy text-right bg-white outline-none" />
+                          <input type="number" required min="0.01" step="0.01" placeholder="0" value={room.pricePerDay || ''} onChange={(e) => updateRoom(room.id, { pricePerDay: parseFloat(e.target.value) || 0 })} className={`w-20 text-2xl font-bold text-haven-navy text-right bg-white outline-none placeholder:text-gray-300 ${room.pricePerDay <= 0 ? 'border-b-2 border-haven-red/50' : ''}`} />
                           <span className="text-xl font-bold text-haven-navy">€</span>
                         </div>
                       </div>
@@ -996,7 +885,7 @@ export const PublishListing: React.FC = () => {
                         <label className="text-[10px] font-black text-haven-stone uppercase tracking-widest">Surface (m²)</label>
                         <div className="flex items-center gap-2 border-b border-gray-100 pb-2">
                           <Maximize2 size={18} className="text-gray-300"/>
-                          <input type="number" value={room.size || 0} onChange={(e) => updateRoom(room.id, { size: parseInt(e.target.value) || 0 })} className="w-full text-lg font-bold text-haven-navy bg-white outline-none" />
+                          <input type="number" required min="1" step="1" placeholder="0" value={room.size || ''} onChange={(e) => updateRoom(room.id, { size: parseInt(e.target.value) || 0 })} className={`w-full text-lg font-bold text-haven-navy bg-white outline-none placeholder:text-gray-300 ${room.size <= 0 ? 'border-b-2 border-haven-red/50' : ''}`} />
                         </div>
                       </div>
 
@@ -1022,22 +911,23 @@ export const PublishListing: React.FC = () => {
                       </button>
                       <button onClick={() => updateRoom(room.id, { hasLock: !room.hasLock })} className={`p-4 rounded-2xl border-2 transition-all flex flex-col items-center gap-3 ${room.hasLock ? 'border-haven-navy bg-haven-navy/5 text-haven-navy' : 'border-gray-50 text-haven-stone'}`}>
                         <Lock size={20} />
-                        <span className="text-[10px] font-black uppercase text-center">Verrou</span>
+                        <span className="text-[10px] font-black uppercase text-center">Verrou porte</span>
                       </button>
                       <button onClick={() => updateRoom(room.id, { hasWardrobe: !room.hasWardrobe })} className={`p-4 rounded-2xl border-2 transition-all flex flex-col items-center gap-3 ${room.hasWardrobe ? 'border-haven-navy bg-haven-navy/5 text-haven-navy' : 'border-gray-50 text-haven-stone'}`}>
-                        <Armchair size={20} />
-                        <span className="text-[10px] font-black uppercase text-center">Armoire</span>
+                        <WardrobeIcon size={20} />
+                        <span className="text-[10px] font-black uppercase text-center">Armoire/dressing</span>
                       </button>
                     </div>
+                    {!roomHasAtLeastOneOption(room) && <p className={`text-sm font-semibold ${showRoomOptionComplianceError ? 'text-haven-red' : 'text-haven-stone'}`}>{showRoomOptionComplianceError ? 'Cette chambre ne dispose d’aucune option et n’est pas conforme au cahier des charges HAVEN.' : 'Cochez les options de la chambre.'}</p>}
                   </div>
 
                   {/* Photos Part */}
                   <div className="w-full lg:w-72 bg-gray-50/50 p-8 flex flex-col gap-4">
                     <label className="text-[10px] font-black text-haven-stone uppercase tracking-widest mb-1 flex items-center gap-2">
-                      <Camera size={14}/> Photos (max 3)
+                      <Camera size={14}/> Photo de la chambre
                     </label>
-                    <div className="grid grid-cols-3 lg:grid-cols-1 gap-4">
-                      {[0, 1, 2].map((i) => (
+                    <div className="grid grid-cols-1 gap-4">
+                      {[0].map((i) => (
                         <div 
                           key={i} 
                           onClick={() => toggleRoomPhoto(room.id, i)}
@@ -1070,7 +960,7 @@ export const PublishListing: React.FC = () => {
           <div className="space-y-8 animate-fade-in-up">
             <div className="space-y-2 text-center">
               <h1 className="text-4xl font-heading font-bold text-haven-navy">Mise en lumière globale</h1>
-              <p className="text-haven-stone">Ajoutez entre 3 et 8 photos des parties communes (salon, cuisine, terrasse...).</p>
+              <p className="text-haven-stone">Ajoutez entre 3 et 5 photos des parties communes (salon, cuisine, terrasse...).</p>
               <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold uppercase tracking-widest ${formData.galleryUrls.length >= 3 ? 'bg-green-50 text-green-600' : 'bg-haven-red/5 text-haven-red'}`}>
                 {formData.galleryUrls.length < 3 ? (
                   <><Info size={14}/> Encore {3 - formData.galleryUrls.length} photo{3 - formData.galleryUrls.length > 1 ? 's' : ''} minimum</>
@@ -1081,7 +971,7 @@ export const PublishListing: React.FC = () => {
             </div>
             
             <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-              {[0, 1, 2, 3, 4, 5, 6, 7].map((i) => (
+              {[0, 1, 2, 3, 4].map((i) => (
                 <div 
                   key={i} 
                   onClick={() => toggleGalleryPhoto(i)}
@@ -1104,6 +994,34 @@ export const PublishListing: React.FC = () => {
                   )}
                 </div>
               ))}
+            </div>
+
+            <div className="pt-8 border-t border-gray-100 space-y-5">
+              <div>
+                <h2 className="text-2xl font-heading font-bold text-haven-navy">Photos des chambres</h2>
+                <p className="text-haven-stone">Ajoutez une photo de chaque chambre.</p>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                {formData.rooms.map(room => (
+                  <div key={room.id} className="space-y-2">
+                    <p className="px-1 text-sm font-bold text-haven-navy">{room.name || 'Chambre'}</p>
+                    <button type="button" onClick={() => toggleRoomPhoto(room.id, 0)} className={`relative aspect-[4/3] w-full rounded-[2rem] border-2 border-dashed overflow-hidden flex flex-col items-center justify-center gap-2 transition-all ${room.roomPhotos?.[0] ? 'border-haven-navy bg-white shadow-premium' : 'border-gray-200 hover:border-haven-navy text-gray-400'}`}>
+                    {room.roomPhotos?.[0] ? (
+                      <>
+                        <img src={room.roomPhotos[0]} alt={`Photo de ${room.name || 'la chambre'}`} className="w-full h-full object-cover" />
+                        <span className="absolute inset-0 bg-haven-navy/40 opacity-0 hover:opacity-100 flex items-center justify-center text-white text-sm font-bold">Supprimer la photo</span>
+                      </>
+                    ) : (
+                      <>
+                        <Upload size={24} />
+                        <span className="text-xs">Ajouter une photo</span>
+                      </>
+                    )}
+                    </button>
+                  </div>
+                ))}
+              </div>
+              {hasMissingRoomPhoto(formData.rooms) && <p className="text-sm font-semibold text-haven-red">Ajoutez une photo réelle pour chaque chambre avant de continuer.</p>}
             </div>
           </div>
         )}
@@ -1157,7 +1075,7 @@ export const PublishListing: React.FC = () => {
                         </div>
                         <div className="text-right">
                           <span className="font-black text-haven-navy">{room.pricePerDay}€</span>
-                          <span className="text-[10px] text-gray-400 uppercase block">/ jour</span>
+                          <span className="text-[10px] text-gray-400 uppercase block">/ nuit</span>
                         </div>
                       </div>
                     ))}
@@ -1206,7 +1124,6 @@ export const PublishListing: React.FC = () => {
                   <div className="relative aspect-[16/10] bg-gray-200 overflow-hidden rounded-2xl">
                     <img src={formData.galleryUrls[0] || "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?ixlib=rb-4.0.3&auto=format&fit=crop&w=1600&q=80"} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" alt="" />
                     <div className="absolute top-4 left-4 bg-white/95 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest text-haven-navy shadow-sm">{formData.type === 'HOUSE' ? 'Maison' : 'Appartement'}</div>
-                    {formData.isMixed && <div className="absolute top-4 right-4 bg-haven-navy/80 backdrop-blur-sm px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest text-white">Mixte</div>}
                   </div>
                   <div className="p-5 space-y-4">
                     <div className="flex justify-between items-start">
@@ -1223,7 +1140,7 @@ export const PublishListing: React.FC = () => {
                        <div>
                          <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest block">À partir de</span>
                          <span className="font-heading font-bold text-2xl text-haven-navy">{minPrice}€</span>
-                         <span className="text-gray-400 text-xs font-bold"> / jour</span>
+                         <span className="text-gray-400 text-xs font-bold"> / nuit</span>
                        </div>
                        <div className="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center text-haven-navy group-hover:bg-haven-red group-hover:text-white transition-all duration-300">
                          <ArrowRight size={18} />
@@ -1443,7 +1360,7 @@ export const PublishListing: React.FC = () => {
               {isSubmitting ? (<><Loader2 className="animate-spin mr-2" size={20} /> Publication...</>) : ("Finaliser et Publier")}
             </Button>
           ) : (
-            <Button size="lg" onClick={handleNext} disabled={!isStepValid()} className="px-12 py-4 text-lg gap-2">
+            <Button size="lg" onClick={handleNext} disabled={currentStep === 'ROOMS' ? hasIncompleteRoom(formData.rooms) : !isStepValid()} className="px-12 py-4 text-lg gap-2">
               Suivant <ArrowRight size={20} />
             </Button>
           )}

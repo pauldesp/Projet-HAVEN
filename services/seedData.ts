@@ -71,7 +71,6 @@ export const seedListings = async (ownerId: string = 'seed-owner-id') => {
       rooms: rooms,
       rating: Number((Math.random() * 2 + 3).toFixed(1)),
       reviewsCount: getRandomInt(0, 50),
-      isMixed: Math.random() > 0.3,
       bathrooms: getRandomInt(1, 3),
       cleaningFee: getRandomInt(10, 50),
       views: getRandomInt(100, 2000)

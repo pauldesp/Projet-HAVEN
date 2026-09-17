@@ -475,10 +475,7 @@ export const OwnerDashboard: React.FC = () => {
                     </div>
                     <div className="p-6">
                       <h4 className="font-bold text-haven-navy group-hover:text-haven-red transition-colors">{listing.title}</h4>
-                      <div className="mt-4 flex justify-between items-center">
-                        <div className="flex items-center gap-2 text-gray-400 text-xs font-bold">
-                          <Users size={14} /> {ownerBookings.filter(b => b.listingId === listing.id && b.status === 'CONFIRMED').length} locataires
-                        </div>
+                      <div className="mt-4 flex justify-end items-center">
                         <div className="flex gap-2">
                           <Button size="sm" variant="ghost" className="rounded-xl hover:bg-gray-100" onClick={() => navigate(`/listing/${listing.id}`)}><Eye size={18} /></Button>
                           <Button size="sm" variant="ghost" className="rounded-xl hover:bg-gray-100" onClick={() => navigate(`/owner/edit/${listing.id}`)}><Edit size={18} /></Button>

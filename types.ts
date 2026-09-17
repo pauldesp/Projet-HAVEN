@@ -46,6 +46,7 @@ export interface User {
 export interface Room {
   id: string;
   name: string;
+  /** Tarif par nuit en euros. Nom historique conservé pour les annonces existantes. */
   pricePerDay: number;
   size: number; // m2
   hasPrivateBath: boolean;
@@ -55,7 +56,7 @@ export interface Room {
   hasDesk?: boolean;
   hasLock?: boolean;
   hasWardrobe?: boolean;
-  roomPhotos?: string[]; // Liste de photos spécifique à la chambre (max 3)
+  roomPhotos?: string[]; // Une photo spécifique à la chambre au maximum
   blockedDates?: string[]; // ISO date strings
 }
 
@@ -82,11 +83,10 @@ export interface Listing {
   amenities: string[];
   ownerId: string;
   mainPhotoUrl: string;
-  galleryUrls: string[];
+  galleryUrls: string[]; // Cinq photos de logement au maximum, photo principale comprise
   rooms: Room[];
   rating: number;
   reviewsCount: number;
-  isMixed: boolean;
   bathrooms: number;
   minStay: number; // Minimum number of days
   cleaningFee: number; // Fixed cleaning fee for the listing

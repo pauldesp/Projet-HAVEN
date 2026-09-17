@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ChevronLeft, ChevronRight, Lock } from 'lucide-react';
 import { BookingAvailability } from '../types';
 import { Button } from './Button';
@@ -27,7 +27,7 @@ export const ListingCalendar: React.FC<ListingCalendarProps> = ({
   listingBlockedDates = [],
   onSaveBlockedDates
 }) => {
-  const [currentDate, setCurrentDate] = useState(new Date()); 
+  const [currentDate, setCurrentDate] = useState(new Date());
   const [hoveredDate, setHoveredDate] = useState<string | null>(null);
   const [manualBlockedDates, setManualBlockedDates] = useState<string[]>(blockedDates);
   
@@ -42,6 +42,16 @@ export const ListingCalendar: React.FC<ListingCalendarProps> = ({
   const [tempBlockedDates, setTempBlockedDates] = useState<string[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+
+  // When a stay is passed from the search results, display its arrival month
+  // immediately instead of keeping the calendar on the current month.
+  useEffect(() => {
+    if (!selectedStart) return;
+    const [year, month] = selectedStart.split('-').map(Number);
+    if (Number.isInteger(year) && Number.isInteger(month)) {
+      setCurrentDate(new Date(year, month - 1, 1));
+    }
+  }, [selectedStart]);
 
   // ... rest of the component ...
 
@@ -64,17 +74,17 @@ export const ListingCalendar: React.FC<ListingCalendarProps> = ({
     const hasBooking = activeRoomBookings.some(b => {
       const start = new Date(b.startDate).setHours(0,0,0,0);
       const end = new Date(b.endDate).setHours(0,0,0,0);
-      return checkDate >= start && checkDate <= end;
+      return checkDate >= start && checkDate < end;
     });
 
     if (hasBooking) return true;
 
-    const dateStr = new Date(year, month, day + 1).toISOString().split('T')[0];
+    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
     return manualBlockedDates.includes(dateStr) || listingBlockedDates.includes(dateStr);
   };
 
   const isDateManuallyBlocked = (year: number, month: number, day: number) => {
-    const dateStr = new Date(year, month, day + 1).toISOString().split('T')[0];
+    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
     return manualBlockedDates.includes(dateStr) || listingBlockedDates.includes(dateStr);
   };
 
@@ -83,7 +93,7 @@ export const ListingCalendar: React.FC<ListingCalendarProps> = ({
     return allHouseBookings.filter(b => {
       const start = new Date(b.startDate).setHours(0,0,0,0);
       const end = new Date(b.endDate).setHours(0,0,0,0);
-      return checkDate >= start && checkDate <= end;
+      return checkDate >= start && checkDate < end;
     });
   };
 
@@ -96,10 +106,19 @@ export const ListingCalendar: React.FC<ListingCalendarProps> = ({
     return checkDate >= start && checkDate <= end;
   };
 
+  const isStayNight = (year: number, month: number, day: number) => {
+    if (!selectedStart || !selectedEnd) return false;
+    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    return dateStr >= selectedStart && dateStr < selectedEnd;
+  };
+
+  const isCheckout = (year: number, month: number, day: number) =>
+    Boolean(selectedEnd) && `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}` === selectedEnd;
+
   const handleDayClick = (day: number) => {
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth();
-    const clickedDateStr = new Date(year, month, day + 1).toISOString().split('T')[0];
+    const clickedDateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 
     if (isOwner) {
       if (!isBlockingMode) return;
@@ -108,7 +127,7 @@ export const ListingCalendar: React.FC<ListingCalendarProps> = ({
         const checkDate = new Date(year, month, day).setHours(0,0,0,0);
         const start = new Date(b.startDate).setHours(0,0,0,0);
         const end = new Date(b.endDate).setHours(0,0,0,0);
-        return checkDate >= start && checkDate <= end;
+        return checkDate >= start && checkDate < end;
       });
 
       if (hasRealBooking) return;
@@ -121,16 +140,21 @@ export const ListingCalendar: React.FC<ListingCalendarProps> = ({
       return;
     }
 
-    if (isRoomBooked(year, month, day)) return;
+    const selectingDeparture = selectedStart && !selectedEnd && clickedDateStr > selectedStart;
+    if (isRoomBooked(year, month, day) && !selectingDeparture) return;
 
     if (!selectedStart || (selectedStart && selectedEnd)) {
       onDateSelect(clickedDateStr, '');
     } else {
       const start = new Date(selectedStart);
       const end = new Date(clickedDateStr);
-      if (end < start) {
+      if (end <= start) {
         onDateSelect(clickedDateStr, '');
         return;
+      }
+      // Only occupied nights matter; checkout itself is not part of the stay.
+      for (const date = new Date(`${selectedStart}T12:00:00`); date < new Date(`${clickedDateStr}T12:00:00`); date.setDate(date.getDate() + 1)) {
+        if (isRoomBooked(date.getFullYear(), date.getMonth(), date.getDate())) return;
       }
       onDateSelect(selectedStart, clickedDateStr);
     }
@@ -219,6 +243,12 @@ export const ListingCalendar: React.FC<ListingCalendarProps> = ({
             )}
             
             <div className="flex gap-2 text-[10px] font-bold items-center pr-4">
+              {!isOwner && selectedStart && (
+                <div className="flex items-center gap-1.5 mr-3 text-gray-500">
+                  <div className="w-2.5 h-2.5 rounded-full bg-gray-300 border border-gray-400"></div>
+                  <span>Votre séjour</span>
+                </div>
+              )}
               <div className="flex items-center gap-1.5 mr-3 text-gray-400">
                 <div className="w-2.5 h-2.5 rounded-full bg-white border border-gray-200"></div>
                 <span>Libre</span>
@@ -272,7 +302,7 @@ export const ListingCalendar: React.FC<ListingCalendarProps> = ({
             const day = i + 1;
             const year = currentDate.getFullYear();
             const month = currentDate.getMonth();
-            const dateStr = new Date(year, month, day + 1).toISOString().split('T')[0];
+            const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
             
             const isBooked = isRoomBooked(year, month, day);
             const isManualBlocked = isBlockingMode 
@@ -280,6 +310,8 @@ export const ListingCalendar: React.FC<ListingCalendarProps> = ({
               : manualBlockedDates.includes(dateStr) || listingBlockedDates.includes(dateStr);
 
             const isSelected = isDateSelected(year, month, day);
+            const isSelectedNight = isStayNight(year, month, day);
+            const isCheckoutDay = isCheckout(year, month, day);
             const tenants = getTenantsOnDate(year, month, day);
             const dateKey = `${year}-${month}-${day}`;
 
@@ -291,15 +323,19 @@ export const ListingCalendar: React.FC<ListingCalendarProps> = ({
                 onMouseLeave={() => setHoveredDate(null)}
               >
                 <button
-                  disabled={isBooked && !isOwner}
+                  disabled={isBooked && !isOwner && !(selectedStart && !selectedEnd && new Date(year, month, day) > new Date(`${selectedStart}T00:00:00`))}
                   onClick={() => handleDayClick(day)}
                   className={`
                     h-14 w-full rounded-xl text-sm font-medium flex flex-col items-center justify-start pt-1.5 transition-all relative border overflow-visible
                     ${isToday(year, month, day) && !isSelected ? 'border-haven-red/30 bg-haven-red/[0.02]' : ''}
                     ${isBlockingMode && tempBlockedDates.includes(dateStr)
                       ? 'bg-haven-red/20 text-haven-red border-haven-red shadow-sm scale-105 z-10'
-                      : isBooked 
-                        ? isManualBlocked
+                      : isSelectedNight
+                        ? 'bg-gray-200 text-haven-navy border-gray-300 shadow-sm z-10'
+                        : isCheckoutDay
+                          ? 'bg-gray-100 text-haven-navy border-gray-400 border-dashed shadow-sm z-10'
+                        : isBooked 
+                          ? isManualBlocked
                           ? 'bg-haven-red/5 text-haven-red/40 border-haven-red/10 cursor-pointer hover:bg-haven-red/10'
                           : 'bg-gray-50 text-gray-400 border-transparent cursor-not-allowed opacity-60' 
                         : isSelected 

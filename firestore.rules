@@ -75,6 +75,7 @@ service cloud.firestore {
       return data.keys().hasAll(['id', 'title', 'city', 'ownerId', 'status']) &&
              data.id is string && isValidId(data.id) &&
              data.title is string && data.title.size() > 0 && data.title.size() < 200 &&
+             data.description is string && data.description.size() <= 500 &&
              data.city is string &&
              data.ownerId is string && isValidId(data.ownerId) &&
              data.status in ['PENDING', 'APPROVED', 'REJECTED'];

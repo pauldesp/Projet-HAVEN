@@ -1,3 +1,4 @@
+import { countNights } from '../services/stay';
 import React, { useState, useRef, useEffect } from 'react';
 import { Room, Listing, Booking, LegalDocument } from '../types';
 import { Button } from './Button';
@@ -78,22 +79,21 @@ export const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose, lis
 
   if (!isOpen) return null;
 
-  // Calcul du nombre de jours
-  const days = startDate && endDate 
-    ? Math.max(1, Math.ceil((new Date(endDate).getTime() - new Date(startDate).getTime()) / (1000 * 60 * 60 * 24))) 
-    : 1;
+  const nights = countNights(startDate, endDate);
 
-  const basePrice = room.pricePerDay * days;
+  const basePrice = room.pricePerDay * nights;
   const cleaningFee = listing.cleaningFee || 0;
   const platformFee = Math.round(basePrice * 0.15);
   const total = basePrice + cleaningFee + platformFee;
 
   const handleNext = () => {
+    if (nights < Math.max(1, listing.minStay)) { setError("Choisissez un départ après l’arrivée et respectez le séjour minimum en nuits."); return; }
     setError(null);
     setStep(s => s + 1);
   };
   
   const handlePayment = async () => {
+    if (nights < Math.max(1, listing.minStay)) { setError("Dates de séjour invalides."); return; }
     if (!currentUser) {
       setError("Vous devez être connecté pour réserver.");
       return;
@@ -191,12 +191,12 @@ export const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose, lis
                     <div>
                       <h3 className="font-bold text-haven-navy">{listing.title}</h3>
                       <p className="text-sm text-gray-600">{room.name}</p>
-                      <p className="text-xs text-gray-500 mt-1">{days} Jour(s) • 1 Locataire</p>
+                      <p className="text-xs text-gray-500 mt-1">{nights} nuit(s) • 1 Locataire</p>
                     </div>
                   </div>
                   
                   <div className="space-y-3 text-sm text-gray-600">
-                    <div className="flex justify-between"><span>Loyer ({days} jour(s))</span><span>{basePrice}€</span></div>
+                    <div className="flex justify-between"><span>Loyer ({nights} nuit(s))</span><span>{basePrice}€</span></div>
                   <div className="flex justify-between"><span>Ménage (par location)</span><span>{cleaningFee}€</span></div>
                   <div className="flex justify-between"><span>Frais HAVEN (15%)</span><span>{platformFee}€</span></div>
                   <div className="flex justify-between font-bold text-haven-navy text-lg pt-2 border-t border-gray-100">

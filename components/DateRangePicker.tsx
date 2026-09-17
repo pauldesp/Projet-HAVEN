@@ -39,7 +39,7 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({ startDate, end
     return day === 0 ? 6 : day - 1; // Monday start
   };
 
-  const formatDate = (date: Date) => date.toISOString().split('T')[0];
+  const formatDate = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
   const isSameDay = (dateStr: string, date: Date) => dateStr === formatDate(date);
 
   const isWithinRange = (date: Date) => {

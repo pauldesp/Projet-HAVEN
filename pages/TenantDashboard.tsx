@@ -873,7 +873,7 @@ export const TenantDashboard: React.FC = () => {
                       <h4 className="font-bold text-haven-navy group-hover:text-haven-red transition-colors">{listing.title}</h4>
                       <p className="text-xs text-gray-500 mt-1 flex items-center gap-1"><MapPin size={12}/> {listing.city}</p>
                       <div className="mt-4 flex justify-between items-center">
-                        <span className="text-sm font-black text-haven-navy">{listing.rooms[0]?.pricePerDay}€ <span className="text-[10px] text-gray-400 font-medium">/ jour</span></span>
+                        <span className="text-sm font-black text-haven-navy">{listing.rooms[0]?.pricePerDay}€ <span className="text-[10px] text-gray-400 font-medium">/ nuit</span></span>
                         <ChevronRight className="w-5 h-5 text-gray-300 group-hover:text-haven-navy transition-colors" />
                       </div>
                     </div>

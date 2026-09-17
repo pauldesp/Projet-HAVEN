@@ -17,6 +17,7 @@ export const Home: React.FC = () => {
   const { currentUser } = useAuth();
   
   const [city, setCity] = useState('');
+  const [cityCode, setCityCode] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
 
@@ -24,6 +25,7 @@ export const Home: React.FC = () => {
     e.preventDefault();
     const params = new URLSearchParams();
     if (city) params.append('city', city);
+    if (cityCode) params.append('cityCode', cityCode);
     if (startDate) params.append('start', startDate);
     if (endDate) params.append('end', endDate);
     navigate(`/search?${params.toString()}`);
@@ -75,10 +77,10 @@ export const Home: React.FC = () => {
               className="bg-white p-1.5 rounded-2xl md:rounded-full shadow-[0_20px_50px_rgba(0,0,0,0.15)] flex flex-col md:flex-row items-stretch max-w-full border border-gray-100 relative group/form"
             >
               {/* Where Section */}
-              <div className="flex-1 px-8 py-4 w-full border-b md:border-b-0 md:border-r border-gray-100 text-left hover:bg-gray-50/80 transition-colors cursor-pointer rounded-t-2xl md:rounded-l-full md:rounded-tr-none group">
+              <div className="flex-1 px-8 py-4 w-full border-b md:border-b-0 md:border-r border-gray-100 text-left bg-transparent cursor-pointer rounded-t-2xl md:rounded-l-full md:rounded-tr-none group">
                 <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-[0.15em] mb-1.5 group-hover:text-haven-navy transition-colors">{t('search.label_where')}</label>
                 <div className="h-8 flex items-center">
-                  <CityAutocomplete value={city} onChange={setCity} placeholder={t('search.placeholder_where')} />
+                  <CityAutocomplete value={city} onChange={(value) => { setCity(value); setCityCode(''); }} onSelect={(place) => setCityCode(place.cityCode || '')} placeholder={t('search.placeholder_where')} />
                 </div>
               </div>
 

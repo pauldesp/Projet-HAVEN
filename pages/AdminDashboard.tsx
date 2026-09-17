@@ -2029,7 +2029,7 @@ export const AdminDashboard: React.FC = () => {
                               <img src={listing.mainPhotoUrl} className="w-16 h-16 rounded-xl object-cover" alt=""/>
                               <div className="flex-1 min-w-0">
                                 <p className="font-bold text-haven-navy truncate text-sm">{listing.title}</p>
-                                <p className="text-xs text-gray-400">{listing.city} • {listing.rooms[0]?.pricePerDay || 0}€/jour</p>
+                                <p className="text-xs text-gray-400">{listing.city} • {listing.rooms[0]?.pricePerDay || 0}€/nuit</p>
                               </div>
                               <Button variant="outline" size="sm" onClick={() => window.open(`/#/listing/${listing.id}`, '_blank')}>
                                 <Eye size={14} />

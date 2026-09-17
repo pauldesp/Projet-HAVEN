@@ -2,7 +2,7 @@
 import React from 'react';
 import { Listing } from '../types';
 import { MapPin, Users, Star, ArrowRight } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useLanguage } from '../contexts/LanguageContext';
 
 interface ListingCardProps {
@@ -14,10 +14,17 @@ export const ListingCard: React.FC<ListingCardProps> = ({ listing }) => {
     ? Math.min(...listing.rooms.map(r => r.pricePerDay))
     : 0;
   const { t } = useLanguage();
+  const [searchParams] = useSearchParams();
+  const stayParams = new URLSearchParams();
+  for (const key of ['start', 'end']) {
+    const value = searchParams.get(key);
+    if (value) stayParams.set(key, value);
+  }
+  const stayQuery = stayParams.toString();
 
   return (
     <Link 
-      to={`/listing/${listing.id}`}
+      to={`/listing/${listing.id}${stayQuery ? `?${stayQuery}` : ''}`}
       className="group flex flex-col bg-white rounded-[2rem] p-3 transition-all duration-300 border border-transparent hover:border-gray-100 hover:shadow-2xl hover:-translate-y-1"
     >
       <div className="relative aspect-[16/10] overflow-hidden rounded-2xl mb-4">
@@ -29,11 +36,6 @@ export const ListingCard: React.FC<ListingCardProps> = ({ listing }) => {
         <div className="absolute top-3 left-3 bg-white/95 backdrop-blur-sm px-3 py-1 rounded-full text-[10px] font-bold text-haven-navy uppercase tracking-wider shadow-sm">
           {listing.type === 'HOUSE' ? 'Maison' : 'Appartement'}
         </div>
-        {listing.isMixed && (
-          <div className="absolute top-3 right-3 bg-haven-navy/10 backdrop-blur-sm px-3 py-1 rounded-full text-[10px] font-bold text-white uppercase tracking-wider">
-            {t('card.mixed')}
-          </div>
-        )}
       </div>
 
       <div className="flex-1 px-2">
@@ -66,7 +68,7 @@ export const ListingCard: React.FC<ListingCardProps> = ({ listing }) => {
             <span className="text-[10px] text-gray-400 uppercase font-black tracking-widest">{t('card.from')}</span>
             <div className="flex items-baseline gap-1">
               <span className="font-heading font-bold text-xl text-haven-navy">{minPrice}€</span>
-              <span className="text-gray-400 text-xs font-medium">/ jour</span>
+              <span className="text-gray-400 text-xs font-medium">/ nuit</span>
             </div>
           </div>
           <div className="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center text-haven-navy group-hover:bg-haven-red group-hover:text-white transition-all duration-300">

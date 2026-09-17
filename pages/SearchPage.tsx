@@ -2,46 +2,15 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { ListingCard } from '../components/ListingCard';
-import { Listing } from '../types';
+import { BookingAvailability, Listing } from '../types';
 import { MapPin, SlidersHorizontal, Check, Info, Route, Loader2, AlertCircle } from 'lucide-react';
 import { useListings } from '../contexts/ListingContext';
-import { aiService } from '../services/ai';
+import { resolveCityCoordinates, sortByDistance } from '../services/proximity';
 import { auth, seedFirestore } from '../firebase';
 import { Button } from '../components/Button';
 import { toast } from 'sonner';
-
-// --- Utilitaires de Géolocalisation Mockés ---
-const MOCK_CITY_COORDINATES: Record<string, { lat: number; lng: number }> = {
-  "paris": { lat: 48.8566, lng: 2.3522 },
-  "lyon": { lat: 45.7640, lng: 4.8357 },
-  "bordeaux": { lat: 44.8378, lng: -0.5792 },
-  "jouy-en-josas": { lat: 48.7667, lng: 2.1667 },
-  "marseille": { lat: 43.2965, lng: 5.3698 },
-  "lille": { lat: 50.6292, lng: 3.0573 },
-  "nantes": { lat: 47.2184, lng: -1.5536 },
-  "strasbourg": { lat: 48.5734, lng: 7.7521 },
-  "montpellier": { lat: 43.6108, lng: 3.8767 },
-  "toulouse": { lat: 43.6047, lng: 1.4442 },
-  "nice": { lat: 43.7102, lng: 7.2620 },
-  "versailles": { lat: 48.8014, lng: 2.1301 },
-};
-
-function getDistanceFromLatLonInKm(lat1: number, lon1: number, lat2: number, lon2: number) {
-  const R = 6371; 
-  const dLat = deg2rad(lat2 - lat1);
-  const dLon = deg2rad(lon2 - lon1);
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat1)) *
-    Math.sin(dLon / 2) * Math.sin(dLon / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  const d = R * c; 
-  return d;
-}
-
-function deg2rad(deg: number) {
-  return deg * (Math.PI / 180);
-}
+import { isRoomAvailableForStay, listingHasAvailableRoom } from '../services/availability';
+import { apiService } from '../services/api';
 
 interface ListingWithDistance extends Listing {
   distance?: number;
@@ -50,9 +19,27 @@ interface ListingWithDistance extends Listing {
 export const SearchPage: React.FC = () => {
   const [searchParams] = useSearchParams();
   const cityParam = searchParams.get('city') || '';
+  const cityCode = searchParams.get('cityCode') || '';
+  const startDate = searchParams.get('start') || '';
+  const endDate = searchParams.get('end') || '';
+  const [geocodingError, setGeocodingError] = useState(false);
   
   // Consommation du contexte global
-  const { listings: allListings } = useListings();
+  const { listings: allListings, isLoading: listingsLoading, error: listingsError } = useListings();
+  const [availability, setAvailability] = useState<BookingAvailability[]>([]);
+  const [isAvailabilityLoading, setIsAvailabilityLoading] = useState(Boolean(startDate || endDate));
+
+  useEffect(() => {
+    if (!startDate && !endDate) {
+      setIsAvailabilityLoading(false);
+      return;
+    }
+    setIsAvailabilityLoading(true);
+    return apiService.availability.listenAll(items => {
+      setAvailability(items);
+      setIsAvailabilityLoading(false);
+    });
+  }, [startDate, endDate]);
 
   // Dynamic Geocoding State
   const [dynamicCityCoords, setDynamicCityCoords] = useState<{ lat: number; lng: number } | null>(null);
@@ -61,43 +48,35 @@ export const SearchPage: React.FC = () => {
   // Local Filter State
   const [priceRange, setPriceRange] = useState(300);
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
-  const [isMixedOnly, setIsMixedOnly] = useState(false);
 
-  // Fetch Coordinates when city changes
   useEffect(() => {
-    if (!cityParam) {
-      setDynamicCityCoords(null);
-      return;
-    }
-    
-    const normalizedCity = cityParam.split(',')[0].trim().toLowerCase();
-    if (MOCK_CITY_COORDINATES[normalizedCity]) {
-      setDynamicCityCoords(MOCK_CITY_COORDINATES[normalizedCity]);
-      return;
-    }
-
-    // Fetch from AI
-    setIsGeocoding(true);
-    aiService.getCityCoordinates(cityParam)
-      .then(coords => {
-        if (coords) setDynamicCityCoords(coords);
-        else setDynamicCityCoords(null);
-      })
-      .catch(() => setDynamicCityCoords(null))
-      .finally(() => setIsGeocoding(false));
-  }, [cityParam]);
+    const controller = new AbortController();
+    setDynamicCityCoords(null);
+    setGeocodingError(false);
+    setIsGeocoding(Boolean(cityParam));
+    if (!cityParam) return () => controller.abort();
+    resolveCityCoordinates(cityParam, cityCode, controller.signal)
+      .then(coords => { if (!controller.signal.aborted) setDynamicCityCoords(coords); })
+      .catch(() => { if (!controller.signal.aborted) setGeocodingError(true); })
+      .finally(() => { if (!controller.signal.aborted) setIsGeocoding(false); });
+    return () => controller.abort();
+  }, [cityParam, cityCode]);
 
   // Filter Logic
   const { exactMatches, nearbyMatches, isFallbackMode } = useMemo(() => {
     // 0. Security Filter: ONLY APPROVED LISTINGS
     const approvedListings = allListings.filter(l => l.status === 'APPROVED');
 
-    // 1. Base Filtering (Prix, Type, Mixité)
+    // 1. Base Filtering (Prix, Type)
     const baseListings = approvedListings.filter(listing => {
       // Handle case where rooms might be empty
       if (!listing.rooms || listing.rooms.length === 0) return false;
       
-      const minRoomPrice = Math.min(...listing.rooms.map(r => r.pricePerDay));
+      const availableRooms = listing.rooms.filter(room =>
+        isRoomAvailableForStay(room, listing, availability, startDate, endDate)
+      );
+      if (availableRooms.length === 0) return false;
+      const minRoomPrice = Math.min(...availableRooms.map(r => r.pricePerDay));
       // Comparison logic: priceRange is weekly, rooms are daily. 
       // 300€/week is roughly 42€/day. 
       // We should probably convert priceRange to daily for comparison or vice versa.
@@ -105,7 +84,6 @@ export const SearchPage: React.FC = () => {
       if (minRoomPrice > dailyPriceLimit + 5) return false; // Added +5 margin for flexibility
       
       if (selectedTypes.length > 0 && !selectedTypes.includes(listing.type)) return false;
-      if (isMixedOnly && !listing.isMixed) return false;
       return true;
     });
 
@@ -113,7 +91,7 @@ export const SearchPage: React.FC = () => {
 
     // 2. Exact City Match (Available only)
     const exactMatches = baseListings.filter(listing => {
-      if (listing.availableRooms <= 0) return false;
+      if (!listingHasAvailableRoom(listing, availability, startDate, endDate)) return false;
       if (!normalizedParam) return true;
       
       const listingCityNormalized = listing.city.toLowerCase().trim();
@@ -127,18 +105,10 @@ export const SearchPage: React.FC = () => {
     // 3. Proximity Search (only available listings not in exactMatches)
     let nearbyMatches: ListingWithDistance[] = [];
     if (cityParam && dynamicCityCoords) {
-      nearbyMatches = baseListings
-        .filter(listing => listing.availableRooms > 0 && !exactMatches.find(em => em.id === listing.id))
-        .map(listing => ({
-          ...listing,
-          distance: getDistanceFromLatLonInKm(
-            dynamicCityCoords.lat, 
-            dynamicCityCoords.lng, 
-            listing.coordinates.lat, 
-            listing.coordinates.lng
-          )
-        }))
-        .sort((a, b) => (a.distance || 0) - (b.distance || 0));
+      nearbyMatches = sortByDistance(
+        baseListings.filter(listing => listingHasAvailableRoom(listing, availability, startDate, endDate) && !exactMatches.some(em => em.id === listing.id)),
+        dynamicCityCoords
+      );
       // Distance limit removed as requested
     }
 
@@ -147,7 +117,7 @@ export const SearchPage: React.FC = () => {
       nearbyMatches,
       isFallbackMode: exactMatches.length === 0 && nearbyMatches.length > 0 
     };
-  }, [allListings, cityParam, priceRange, selectedTypes, isMixedOnly, dynamicCityCoords]);
+  }, [allListings, availability, cityParam, startDate, endDate, priceRange, selectedTypes, dynamicCityCoords]);
 
   const toggleType = (type: string) => {
     setSelectedTypes(prev => 
@@ -180,8 +150,7 @@ export const SearchPage: React.FC = () => {
             <div>
               <h3 className="font-bold text-orange-900 text-lg">Pas de logement disponible exactement à "{cityParam.split(',')[0]}"</h3>
               <p className="text-orange-800/70 text-sm mt-1 max-w-2xl">
-                C'est le moment d'être explorateur ! Nous n'avons pas de colocations à cette adresse précise, 
-                mais voici les meilleures options disponibles à proximité immédiate.
+                Voici les logements disponibles dans les autres villes, classés du plus proche au plus éloigné. Les distances sont calculées à vol d’oiseau depuis la ville recherchée.
               </p>
             </div>
           </div>
@@ -233,15 +202,6 @@ export const SearchPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Mixed Filter */}
-            <div className="pt-6 border-t border-gray-50">
-               <label className="flex items-center cursor-pointer group">
-                  <div className={`w-10 h-6 rounded-full p-1 transition-all ${isMixedOnly ? 'bg-haven-navy' : 'bg-gray-100'}`} onClick={() => setIsMixedOnly(!isMixedOnly)}>
-                    <div className={`bg-white w-4 h-4 rounded-full shadow-sm transform transition-transform ${isMixedOnly ? 'translate-x-4' : ''}`}></div>
-                  </div>
-                  <span className="ml-3 text-xs font-bold text-gray-500 group-hover:text-haven-navy transition-colors">Colocation mixte</span>
-               </label>
-            </div>
           </aside>
 
           {/* Results Grid */}
@@ -274,7 +234,7 @@ export const SearchPage: React.FC = () => {
                       <ListingCard listing={listing} />
                       <div className="absolute top-4 left-4 z-10 bg-white/95 backdrop-blur-sm text-haven-navy px-4 py-2 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl flex items-center gap-2 border border-gray-100">
                         <Route size={14} className="text-haven-red" />
-                        À {Math.round(listing.distance || 0)} km
+                        À {Math.round(listing.distance || 0)} km à vol d’oiseau
                       </div>
                     </div>
                   ))}
@@ -282,7 +242,10 @@ export const SearchPage: React.FC = () => {
               </div>
             )}
 
-            {exactMatches.length === 0 && nearbyMatches.length === 0 && (
+            {(isGeocoding || listingsLoading || isAvailabilityLoading) && <p role="status" className="text-gray-500">Recherche des logements disponibles…</p>}
+            {listingsError && <p role="alert" className="text-haven-red">{listingsError}</p>}
+            {geocodingError && <p role="alert" className="text-haven-red">La localisation de cette ville est indisponible. Réessayez la recherche pour afficher les logements à proximité.</p>}
+            {!isGeocoding && !listingsLoading && !isAvailabilityLoading && !listingsError && !geocodingError && exactMatches.length === 0 && nearbyMatches.length === 0 && (
               <div className="text-center py-24 bg-white rounded-[3rem] border border-gray-100 shadow-premium">
                 <div className="w-24 h-24 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-6">
                   <MapPin size={40} className="text-gray-200" />
@@ -293,7 +256,7 @@ export const SearchPage: React.FC = () => {
                   <Button 
                     variant="outline" 
                     className="rounded-2xl px-8 h-12 text-[10px] font-black uppercase tracking-widest"
-                    onClick={() => { setPriceRange(500); setSelectedTypes([]); setIsMixedOnly(false); }}
+                    onClick={() => { setPriceRange(500); setSelectedTypes([]); }}
                   >
                     Réinitialiser les filtres
                   </Button>
