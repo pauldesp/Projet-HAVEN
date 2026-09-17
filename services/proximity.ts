@@ -13,6 +13,18 @@ export function sortByDistance<T extends { coordinates: Coordinates }>(items: T[
     .map(item => ({ ...item, distance: distanceKm(origin, item.coordinates) }))
     .sort((a, b) => a.distance - b.distance);
 }
+
+export function nearbyListings<T extends { id: string; availableRooms: number; coordinates: Coordinates }>(
+  listings: T[],
+  origin: Coordinates,
+  exactIds: Set<string>,
+  radius = 50
+): (T & { distance: number })[] {
+  return sortByDistance(
+    listings.filter(listing => listing.availableRooms > 0 && !exactIds.has(listing.id)),
+    origin
+  ).filter(listing => listing.distance <= radius);
+}
 export async function resolveCityCoordinates(city: string, code: string, signal: AbortSignal): Promise<Coordinates> {
   const params = new URLSearchParams({ fields: 'nom,centre', limit: '5', boost: 'population' });
   params.set(code ? 'code' : 'nom', code || city.split(',')[0].trim());

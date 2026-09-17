@@ -43,6 +43,7 @@ import {
 } from 'lucide-react';
 import { Button } from '../components/Button';
 import { CityAutocomplete, PlaceData } from '../components/CityAutocomplete';
+import { DEFAULT_MINIMUM_NIGHTS, isValidMinimumNights } from '../services/minimumStay';
 import { useListings } from '../contexts/ListingContext';
 import { useAuth } from '../contexts/AuthContext';
 import { aiService } from '../services/ai';
@@ -220,6 +221,7 @@ export const PublishListing: React.FC = () => {
     totalRooms: 1,
     bathrooms: 1,
     cleaningFee: 15,
+    minStay: DEFAULT_MINIMUM_NIGHTS,
     amenities: [] as string[],
     bookingMode: 'INSTANT' as 'INSTANT' | 'MANUAL',
     galleryUrls: [] as string[],
@@ -296,7 +298,7 @@ export const PublishListing: React.FC = () => {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
       const { formData: savedData, currentStep: savedStep } = JSON.parse(saved);
-      setFormData(savedData);
+      setFormData({ ...savedData, minStay: savedData.minStay ?? DEFAULT_MINIMUM_NIGHTS });
       setCurrentStep(savedStep);
     }
     setShowResumePrompt(false);
@@ -507,6 +509,10 @@ export const PublishListing: React.FC = () => {
 
   const handleSubmit = async () => {
     if (!currentUser) return;
+    if (!isValidMinimumNights(formData.minStay)) {
+      toast.error('Le minimum doit être un nombre entier d’au moins 1 nuit.');
+      return;
+    }
     setIsSubmitting(true);
     
     // Tentative de géocodage de la ville pour la recherche de proximité
@@ -530,7 +536,7 @@ export const PublishListing: React.FC = () => {
       totalRooms: formData.totalRooms,
       availableRooms: formData.rooms.length,
       surface: formData.surface,
-      minStay: 2, // Default to 2 days
+      minStay: formData.minStay,
       amenities: formData.amenities,
       ownerId: currentUser.id,
       mainPhotoUrl: formData.galleryUrls[0] || 'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?ixlib=rb-4.0.3&auto=format&fit=crop&w=1600&q=80',
@@ -757,6 +763,9 @@ export const PublishListing: React.FC = () => {
               </div>
               
               <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-soft">
+                <label htmlFor="minimum-nights" className="block text-sm font-bold text-haven-navy mb-2">Durée minimale (nuits)</label>
+                <input id="minimum-nights" type="number" min="1" step="1" value={formData.minStay || ''} onChange={event => setFormData(prev => ({ ...prev, minStay: Number(event.target.value) }))} className="w-full rounded-xl border border-gray-200 p-3 mb-2" />
+                <p className="text-sm text-gray-500 mb-6">4 nuits par défaut. Vous pouvez choisir une durée plus courte ou plus longue, et la modifier après publication.</p>
                 <label className="block text-[10px] font-black text-haven-stone uppercase tracking-widest mb-4">Frais de ménage (€ par location)</label>
                 <div className="flex items-center gap-4 mt-2">
                   <button 

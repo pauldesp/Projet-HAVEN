@@ -88,7 +88,7 @@ export interface Listing {
   rating: number;
   reviewsCount: number;
   bathrooms: number;
-  minStay: number; // Minimum number of days
+  minStay: number; // Minimum number of nights; default 4, owner-configurable (>= 1).
   cleaningFee: number; // Fixed cleaning fee for the listing
   bookingMode?: 'INSTANT' | 'MANUAL'; // Mode de réservation (Instantannée ou Manuelle)
   blockedDates?: string[]; // ISO date strings (blocked for entire house)

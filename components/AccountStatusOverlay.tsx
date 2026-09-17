@@ -16,7 +16,7 @@ export const AccountStatusOverlay: React.FC<AccountStatusOverlayProps> = ({
   onClose,
   forced = false 
 }) => {
-  const { currentUser, logout } = useAuth();
+  const { currentUser, accountRole, logout } = useAuth();
   const [isUploading, setIsUploading] = useState(false);
   const [uploadSuccess, setUploadSuccess] = useState(false);
 
@@ -38,6 +38,7 @@ export const AccountStatusOverlay: React.FC<AccountStatusOverlayProps> = ({
       const mockIdUrl = `https://api.dicebear.com/7.x/initials/svg?seed=${currentUser.lastName}&backgroundColor=f1f5f9&fontSize=30&bold=true`;
       await apiService.users.updateProfile({
         ...currentUser,
+        role: accountRole ?? currentUser.role,
         idDocumentUrl: mockIdUrl,
         status: 'PENDING' // Reset to pending if they were rejected and are re-uploading
       });

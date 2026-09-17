@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useEffect, useMemo } from 'react';
 import { User, UserRole, UserStatus } from '../types';
 import { auth, db, googleProvider, seedFirestore } from '../firebase';
 import { onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, signInWithPopup, sendPasswordResetEmail } from 'firebase/auth';
@@ -6,12 +6,13 @@ import { doc, getDoc, setDoc, updateDoc, onSnapshot, query, where, collection, g
 
 interface AuthContextType {
   currentUser: User | null;
+  accountRole: UserRole | null;
   isLoading: boolean;
   login: (email: string, password?: string) => Promise<boolean>;
   register: (userData: User, password?: string) => Promise<boolean>;
   loginWithGoogle: () => Promise<boolean>;
   logout: () => void;
-  updateUserRole: (role: UserRole) => void;
+  updateUserRole: (role: UserRole) => Promise<void>;
   refreshUser: () => Promise<void>;
   checkUserExists: (identifier: string) => Promise<{ exists: boolean; email?: string; phone?: string }>;
   resetPassword: (email: string) => Promise<void>;
@@ -20,7 +21,19 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [accountUser, setCurrentUser] = useState<User | null>(null);
+  // Display preference only: never changes the account's database permissions.
+  const [modeChoice, setModeChoice] = useState<{ uid: string; role: UserRole } | null>(null);
+  const currentUser = useMemo(() => {
+    if (!accountUser || accountUser.role === UserRole.ADMIN) return accountUser;
+    let mode: string | null = modeChoice?.uid === accountUser.id ? modeChoice.role : null;
+    if (!mode) {
+      try { mode = localStorage.getItem(`haven-mode:${accountUser.id}`); } catch { /* Storage is optional. */ }
+    }
+    return mode === UserRole.TENANT || mode === UserRole.OWNER
+      ? { ...accountUser, role: mode }
+      : accountUser;
+  }, [accountUser, modeChoice]);
   const [isLoading, setIsLoading] = useState(true);
 
   // Vérifier la session au chargement
@@ -172,9 +185,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       return true;
     } catch (e) {
       console.error("Google Login error", e);
+      throw e;
+    } finally {
+      setIsLoading(false);
     }
-    setIsLoading(false);
-    return false;
   };
 
   const logout = async () => {
@@ -183,11 +197,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const updateUserRole = async (role: UserRole) => {
-    if (currentUser) {
-      const updatedUser = { ...currentUser, role };
-      await updateDoc(doc(db, 'users', currentUser.id), { role });
-      setCurrentUser(updatedUser);
-    }
+    if (!accountUser || accountUser.role === UserRole.ADMIN) return;
+    if (role !== UserRole.TENANT && role !== UserRole.OWNER) return;
+    setModeChoice({ uid: accountUser.id, role });
+    try { localStorage.setItem(`haven-mode:${accountUser.id}`, role); } catch { /* Switching still works without storage. */ }
   };
 
   const refreshUser = async () => {
@@ -242,6 +255,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   return (
     <AuthContext.Provider value={{ 
       currentUser, 
+      accountRole: accountUser?.role ?? null,
       isLoading, 
       login, 
       register,

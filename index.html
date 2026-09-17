@@ -4,7 +4,14 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/png" href="/logo.png" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#FDFCFB" />
+    <meta name="application-name" content="HAVEN" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="HAVEN" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="/logo.png" />
     <title>HAVEN | La colocation flexible</title>
     
     <!-- Fonts: DM Sans (Headings) & Inter (Body) -->
@@ -45,7 +52,11 @@
         color: #1E293B;
         font-family: 'Inter', sans-serif;
         -webkit-font-smoothing: antialiased;
+        min-height: 100dvh;
+        overscroll-behavior-y: none;
+        -webkit-tap-highlight-color: transparent;
       }
+      .mobile-bottom-nav { padding-bottom: env(safe-area-inset-bottom); }
       h1, h2, h3, h4, h5, h6 {
         font-family: 'DM Sans', sans-serif;
       }
@@ -69,6 +80,10 @@
       .animate-fade-in-up {
         animation: fade-in-up 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
       }
+      @keyframes haven-breathe {
+        0%, 100% { transform: scale(0.97); opacity: 0.78; }
+        50% { transform: scale(1.03); opacity: 1; }
+      }
     </style>
     
     <script>
@@ -77,15 +92,12 @@
   </head>
   <body>
     <div id="root">
-      <div style="display: flex; align-items: center; justify-content: center; height: 100vh; font-family: sans-serif; color: #1E293B;">
-        <div style="text-align: center;">
-          <div style="width: 40px; height: 40px; border: 4px solid #f3f3f3; border-top: 4px solid #A34343; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 20px;"></div>
-          <p>Chargement de HAVEN...</p>
+      <div style="display:flex;align-items:center;justify-content:center;height:100dvh;background:#FDFCFB;font-family:Inter,sans-serif;color:#1E293B;">
+        <div style="text-align:center;">
+          <img src="/logo.png" alt="HAVEN" style="width:190px;height:auto;animation:haven-breathe 1.8s ease-in-out infinite;" />
+          <p style="margin:18px 0 0;font-size:11px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:#78716C;">La colocation flexible</p>
         </div>
       </div>
-      <style>
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-      </style>
     </div>
     <script type="module" src="/index.tsx"></script>
   </body>
