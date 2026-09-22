@@ -37,6 +37,7 @@ import { ProtectedRoute } from './components/ProtectedRoute';
 import { UserRole } from './types';
 
 import { Toaster, toast } from 'sonner';
+import { classifyError, reportError } from './services/errorHandling';
 
 const GOOGLE_MAPS_KEY = (typeof process !== 'undefined' && process.env?.GOOGLE_MAPS_PLATFORM_KEY) || '';
 const hasValidMapsKey = Boolean(GOOGLE_MAPS_KEY) && GOOGLE_MAPS_KEY !== 'YOUR_API_KEY';
@@ -90,6 +91,30 @@ const AppContent: React.FC = () => {
     return () => clearTimeout(timer);
   }, []);
 
+  useEffect(() => {
+    const showUnexpectedError = (error: unknown, context: string) => {
+      const userError = reportError(error, context);
+      toast.error(userError.title, {
+        description: `${userError.message} Erreur ${userError.code}.`,
+      });
+    };
+    const onUnhandledRejection = (event: PromiseRejectionEvent) => {
+      event.preventDefault();
+      showUnexpectedError(event.reason, 'Erreur asynchrone non gérée');
+    };
+    const onWindowError = (event: ErrorEvent) => {
+      event.preventDefault();
+      showUnexpectedError(event.error ?? event.message, 'Erreur navigateur non gérée');
+    };
+
+    window.addEventListener('unhandledrejection', onUnhandledRejection);
+    window.addEventListener('error', onWindowError);
+    return () => {
+      window.removeEventListener('unhandledrejection', onUnhandledRejection);
+      window.removeEventListener('error', onWindowError);
+    };
+  }, []);
+
   return (
     <div className="flex flex-col min-h-screen bg-haven-cream font-body text-haven-navy">
       <Toaster position="top-right" richColors />
@@ -136,33 +161,46 @@ interface ErrorBoundaryProps {
 
 interface ErrorBoundaryState {
   hasError: boolean;
-  error: any;
+  errorCode: string;
+  errorMessage: string;
 }
 
 class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   constructor(props: ErrorBoundaryProps) {
     super(props);
-    this.state = { hasError: false, error: null };
+    this.state = { hasError: false, errorCode: '500', errorMessage: 'Une difficulté imprévue est survenue.' };
   }
 
-  static getDerivedStateFromError(error: any) {
-    return { hasError: true, error };
+  static getDerivedStateFromError(error: unknown) {
+    const userError = classifyError(error);
+    return { hasError: true, errorCode: userError.code, errorMessage: userError.message };
+  }
+
+  componentDidCatch(error: unknown) {
+    reportError(error, 'Erreur d’affichage');
   }
 
   render() {
     if (this.state.hasError) {
       return (
         <div className="p-10 text-center font-sans">
-          <h1 className="text-haven-red text-2xl font-bold mb-4">Une erreur est survenue</h1>
-          <pre className="text-xs bg-gray-100 p-4 rounded overflow-auto max-w-full text-left inline-block">
-            {this.state.error?.message || String(this.state.error)}
-          </pre>
-          <button 
-            onClick={() => window.location.reload()}
-            className="block mx-auto mt-6 px-6 py-2 bg-haven-navy text-white rounded-xl"
-          >
-            Réessayer
-          </button>
+          <h1 className="text-haven-red text-2xl font-bold mb-3">Un problème temporaire est survenu</h1>
+          <p className="mx-auto max-w-md text-haven-stone">{this.state.errorMessage}</p>
+          <p className="mt-3 text-sm font-semibold text-haven-stone">Erreur {this.state.errorCode}</p>
+          <div className="mt-6 flex justify-center gap-3">
+            <button 
+              onClick={() => window.location.hash = '#/'}
+              className="px-6 py-2 border border-haven-navy text-haven-navy rounded-xl"
+            >
+              Accueil
+            </button>
+            <button 
+              onClick={() => window.location.reload()}
+              className="px-6 py-2 bg-haven-navy text-white rounded-xl"
+            >
+              Réessayer
+            </button>
+          </div>
         </div>
       );
     }

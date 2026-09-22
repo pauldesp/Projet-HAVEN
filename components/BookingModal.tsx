@@ -6,6 +6,7 @@ import { X, Check, FileText, CreditCard, ShieldCheck, Shield, ArrowLeft, ArrowRi
 import { useAuth } from '../contexts/AuthContext';
 import { apiService } from '../services/api';
 import { authenticatedFetch } from '../services/serverApi';
+import { userFacingErrorMessage } from '../services/errorHandling';
 import { sanitizeHtml } from '../services/sanitizeHtml';
 
 interface BookingModalProps {
@@ -159,9 +160,9 @@ export const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose, lis
       } else {
         throw new Error("URL de session non reçue");
       }
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error("Erreur de réservation/paiement", e);
-      setError(e.message || "Une erreur est survenue lors de l'initialisation du paiement.");
+      setError(userFacingErrorMessage(e));
     } finally {
       setIsProcessing(false);
     }
@@ -323,8 +324,8 @@ export const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose, lis
                         }
 
                         setStep(5);
-                      } catch (err: any) {
-                        setError(err.message || "Erreur lors de la soumission de votre demande.");
+                      } catch (err: unknown) {
+                        setError(userFacingErrorMessage(err));
                       } finally {
                         setIsProcessing(false);
                       }

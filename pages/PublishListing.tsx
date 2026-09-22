@@ -222,6 +222,8 @@ export const PublishListing: React.FC = () => {
     bathrooms: 1,
     cleaningFee: 15,
     minStay: DEFAULT_MINIMUM_NIGHTS,
+    checkInTime: '15:00',
+    checkOutTime: '11:00',
     amenities: [] as string[],
     bookingMode: 'INSTANT' as 'INSTANT' | 'MANUAL',
     galleryUrls: [] as string[],
@@ -537,6 +539,8 @@ export const PublishListing: React.FC = () => {
       availableRooms: formData.rooms.length,
       surface: formData.surface,
       minStay: formData.minStay,
+      checkInTime: formData.checkInTime,
+      checkOutTime: formData.checkOutTime,
       amenities: formData.amenities,
       ownerId: currentUser.id,
       mainPhotoUrl: formData.galleryUrls[0] || 'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?ixlib=rb-4.0.3&auto=format&fit=crop&w=1600&q=80',
@@ -766,6 +770,16 @@ export const PublishListing: React.FC = () => {
                 <label htmlFor="minimum-nights" className="block text-sm font-bold text-haven-navy mb-2">Durée minimale (nuits)</label>
                 <input id="minimum-nights" type="number" min="1" step="1" value={formData.minStay || ''} onChange={event => setFormData(prev => ({ ...prev, minStay: Number(event.target.value) }))} className="w-full rounded-xl border border-gray-200 p-3 mb-2" />
                 <p className="text-sm text-gray-500 mb-6">4 nuits par défaut. Vous pouvez choisir une durée plus courte ou plus longue, et la modifier après publication.</p>
+                <div className="grid grid-cols-2 gap-4 mb-6">
+                  <div>
+                    <label className="block text-[10px] font-black text-haven-stone uppercase tracking-widest mb-2">Heure d’arrivée</label>
+                    <input type="time" value={formData.checkInTime} onChange={event => setFormData(prev => ({ ...prev, checkInTime: event.target.value }))} className="w-full rounded-xl border border-gray-200 p-3" />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-black text-haven-stone uppercase tracking-widest mb-2">Heure de départ</label>
+                    <input type="time" value={formData.checkOutTime} onChange={event => setFormData(prev => ({ ...prev, checkOutTime: event.target.value }))} className="w-full rounded-xl border border-gray-200 p-3" />
+                  </div>
+                </div>
                 <label className="block text-[10px] font-black text-haven-stone uppercase tracking-widest mb-4">Frais de ménage (€ par location)</label>
                 <div className="flex items-center gap-4 mt-2">
                   <button 

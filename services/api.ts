@@ -6,6 +6,8 @@ import { authenticatedFetch } from './serverApi';
 import { hasMissingRoomPhoto, normalizeListingPhotos } from './media';
 import { normalizeListingDescription } from './listingDescription';
 import { hasIncompleteRoom, hasRoomWithoutOption } from './roomValidation';
+import { reportError, userFacingErrorMessage } from './errorHandling';
+import { formatScheduledMoment, getInventoryTiming } from './inventoryTiming';
 
 const toAvailability = (booking: Booking): BookingAvailability => ({
   id: booking.id,
@@ -39,8 +41,33 @@ const handleFirestoreError = (error: any, operation: string, path: string) => {
       })) || []
     }
   };
-  console.error(`Firestore Error [${operation}]:`, JSON.stringify(errInfo));
-  throw new Error(JSON.stringify(errInfo));
+  reportError(errInfo, `Firebase ${operation} ${path}`);
+  throw new Error(userFacingErrorMessage(error));
+};
+
+// A real-time listener can fail transiently while a mobile browser reconnects.
+// Never throw from its error callback: doing so would take down the entire UI.
+const logFirestoreListenerError = (error: unknown, operation: string, path: string) => {
+  reportError(error, `Écoute Firebase ${operation} ${path}`);
+};
+
+const isTransientFirestoreError = (error: unknown) => {
+  const detail = error instanceof Error ? `${(error as { code?: string }).code ?? ''} ${error.message}` : String(error);
+  return /unavailable|offline|network|timeout|internal assertion|unexpected state/i.test(detail);
+};
+
+const retryFirestoreWrite = async <T>(operation: () => Promise<T>, attempts = 2): Promise<T> => {
+  let lastError: unknown;
+  for (let attempt = 0; attempt <= attempts; attempt += 1) {
+    try {
+      return await operation();
+    } catch (error) {
+      lastError = error;
+      if (!isTransientFirestoreError(error) || attempt === attempts) throw error;
+      await new Promise(resolve => window.setTimeout(resolve, 300 * (attempt + 1)));
+    }
+  }
+  throw lastError;
 };
 
 // Helper helper function to reactive cleanup expired bookings (48h manual approval, 72h manual payment)
@@ -278,37 +305,24 @@ export const apiService = {
     },
     async create(booking: Booking) {
       try {
-        await setDoc(doc(db, 'bookings', booking.id), booking);
-        await setDoc(doc(db, 'booking_availability', booking.id), toAvailability(booking));
-        
-        // Dynamic chat message creation based on booking mode
         const msgId = `m-${crypto.randomUUID()}`;
-        if (booking.bookingMode === 'MANUAL') {
+        await retryFirestoreWrite(async () => {
+          await setDoc(doc(db, 'bookings', booking.id), booking);
+          await setDoc(doc(db, 'booking_availability', booking.id), toAvailability(booking));
           const initialMessage: Message = {
             id: msgId,
             senderId: booking.tenantId,
             receiverId: booking.ownerId,
             bookingId: booking.id,
-            content: `Bonjour, j'ai introduit une demande de colocation pour la chambre "${booking.roomName || 'Chambre'}" du ${new Date(booking.startDate).toLocaleDateString()} au ${new Date(booking.endDate).toLocaleDateString()}. Merci de valider ma demande sous 48 heures.`,
+            content: booking.bookingMode === 'MANUAL'
+              ? `Bonjour, j'ai introduit une demande de colocation pour la chambre "${booking.roomName || 'Chambre'}" du ${new Date(booking.startDate).toLocaleDateString()} au ${new Date(booking.endDate).toLocaleDateString()}. Merci de valider ma demande sous 48 heures.`
+              : `Bonjour, je souhaite réserver la chambre "${booking.roomName || 'Chambre'}" du ${new Date(booking.startDate).toLocaleDateString()} au ${new Date(booking.endDate).toLocaleDateString()}.`,
             timestamp: new Date().toISOString(),
             isRead: false,
             participants: [booking.tenantId, booking.ownerId]
           };
           await setDoc(doc(db, 'messages', msgId), initialMessage);
-        } else {
-          // Instant booking
-          const initialMessage: Message = {
-            id: msgId,
-            senderId: booking.tenantId,
-            receiverId: booking.ownerId,
-            bookingId: booking.id,
-            content: `Bonjour, je souhaite réserver la chambre "${booking.roomName || 'Chambre'}" du ${new Date(booking.startDate).toLocaleDateString()} au ${new Date(booking.endDate).toLocaleDateString()}.`,
-            timestamp: new Date().toISOString(),
-            isRead: false,
-            participants: [booking.tenantId, booking.ownerId]
-          };
-          await setDoc(doc(db, 'messages', msgId), initialMessage);
-        }
+        });
 
         return booking;
       } catch (e) {
@@ -416,13 +430,13 @@ export const apiService = {
     listenAll(callback: (items: BookingAvailability[]) => void) {
       return onSnapshot(collection(db, 'booking_availability'), snapshot => {
         callback(snapshot.docs.map(item => item.data() as BookingAvailability));
-      }, error => handleFirestoreError(error, 'LIST_AVAILABILITY', 'booking_availability'));
+      }, error => logFirestoreListenerError(error, 'LIST_AVAILABILITY', 'booking_availability'));
     },
     listenByListingId(listingId: string, callback: (items: BookingAvailability[]) => void) {
       const q = query(collection(db, 'booking_availability'), where('listingId', '==', listingId));
       return onSnapshot(q, snapshot => {
         callback(snapshot.docs.map(item => item.data() as BookingAvailability));
-      }, error => handleFirestoreError(error, 'LIST_AVAILABILITY', `booking_availability?listingId=${listingId}`));
+      }, error => logFirestoreListenerError(error, 'LIST_AVAILABILITY', `booking_availability?listingId=${listingId}`));
     }
   },
 
@@ -542,7 +556,7 @@ export const apiService = {
         callback(conversations.sort((a, b) => new Date(b.latestMessage.timestamp).getTime() - new Date(a.latestMessage.timestamp).getTime()));
       }, (error) => {
         console.error('onSnapshot error in listenToConversations:', error);
-        handleFirestoreError(error, 'LISTEN_CONVERSATIONS', `messages_inbox_${userId}`);
+        logFirestoreListenerError(error, 'LISTEN_CONVERSATIONS', `messages_inbox_${userId}`);
       });
     }
   },
@@ -689,7 +703,7 @@ export const apiService = {
         const docs = snapshot.docs.map(doc => doc.data());
         callback(docs);
       }, (error) => {
-        handleFirestoreError(error, 'LISTEN_LEGAL_DOCUMENTS', 'settings');
+        logFirestoreListenerError(error, 'LISTEN_LEGAL_DOCUMENTS', 'settings');
       });
     },
     async getLegalDocument(id: string) {
@@ -720,6 +734,19 @@ export const apiService = {
   inventory: {
     async create(report: InventoryReport) {
       try {
+        const bookingSnap = await getDoc(doc(db, 'bookings', report.bookingId));
+        if (!bookingSnap.exists()) throw new Error('Réservation introuvable.');
+        const booking = bookingSnap.data() as Booking;
+        const listingSnap = await getDoc(doc(db, 'listings', booking.listingId));
+        const listing = listingSnap.exists() ? listingSnap.data() as Listing : undefined;
+        const timing = getInventoryTiming(booking, listing, report.type);
+        const earlyDepartureAllowed = report.type === 'OUT'
+          && timing.isEarlyDeparture
+          && report.isEarlyDeparture
+          && (report.earlyDepartureReason?.trim().length ?? 0) >= 10;
+        if (!timing.isAvailable && !earlyDepartureAllowed) {
+          throw new Error(`État des lieux disponible à partir du ${formatScheduledMoment(timing.scheduledAt)}.`);
+        }
         await setDoc(doc(db, 'inventory', report.id), report);
         // Link to booking
         const bookingDoc = doc(db, 'bookings', report.bookingId);
@@ -782,7 +809,7 @@ export const apiService = {
           .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
         callback(docs);
       }, (error) => {
-        handleFirestoreError(error, 'LISTEN_DOCUMENTS_BY_USER', `documents?userId=${userId}`);
+        logFirestoreListenerError(error, 'LISTEN_DOCUMENTS_BY_USER', `documents?userId=${userId}`);
       });
     }
   },

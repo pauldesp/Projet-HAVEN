@@ -91,6 +91,9 @@ export interface Listing {
   minStay: number; // Minimum number of nights; default 4, owner-configurable (>= 1).
   cleaningFee: number; // Fixed cleaning fee for the listing
   bookingMode?: 'INSTANT' | 'MANUAL'; // Mode de réservation (Instantannée ou Manuelle)
+  /** Horaires locaux définis par le propriétaire pour les états des lieux. */
+  checkInTime?: string;
+  checkOutTime?: string;
   blockedDates?: string[]; // ISO date strings (blocked for entire house)
   views?: number;
   occupants?: {
@@ -166,6 +169,9 @@ export interface InventoryReport {
   comments: string;
   signature: string; // Signature data
   status: 'DRAFT' | 'COMPLETED';
+  isEarlyDeparture?: boolean;
+  earlyDepartureReason?: string;
+  scheduledDepartureAt?: string;
 }
 
 // Type Message

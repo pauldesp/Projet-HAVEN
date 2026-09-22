@@ -42,6 +42,7 @@ import { MAX_LISTING_DESCRIPTION_LENGTH } from '../services/listingDescription';
 import { hasIncompleteRoom, hasRoomWithoutOption, roomHasAtLeastOneOption } from '../services/roomValidation';
 import { AMENITIES_LIST } from '../services/amenities';
 import { WardrobeIcon } from '../components/WardrobeIcon';
+import { userFacingErrorMessage } from '../services/errorHandling';
 
 export const EditListing: React.FC = () => {
   const { id } = useParams();
@@ -82,6 +83,8 @@ export const EditListing: React.FC = () => {
         galleryUrls: [],
         mainPhotoUrl: '',
         cleaningFee: 15,
+        checkInTime: '15:00',
+        checkOutTime: '11:00',
         bookingMode: 'INSTANT',
         status: 'PENDING',
         ...JSON.parse(JSON.stringify(data))
@@ -141,7 +144,7 @@ export const EditListing: React.FC = () => {
       navigate('/owner/dashboard');
     } catch (e) {
       console.error(e);
-      toast.error("Erreur lors de la mise à jour.");
+      toast.error(userFacingErrorMessage(e));
     } finally {
       setIsSaving(false);
     }
@@ -343,6 +346,17 @@ export const EditListing: React.FC = () => {
                       onChange={(e) => setListing({...listing, bathrooms: Math.max(1, parseInt(e.target.value) || 1)})}
                       className="w-full bg-gray-50 border-none rounded-2xl px-5 py-4 text-haven-navy font-bold focus:ring-2 focus:ring-haven-navy/20 outline-none transition-all"
                     />
+                  </div>
+               </div>
+
+               <div className="grid md:grid-cols-2 gap-8">
+                  <div className="space-y-3">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-haven-stone">Heure d’arrivée</label>
+                    <input type="time" value={listing.checkInTime || '15:00'} onChange={(e) => setListing({ ...listing, checkInTime: e.target.value })} className="w-full bg-gray-50 border-none rounded-2xl px-5 py-4 text-haven-navy font-bold focus:ring-2 focus:ring-haven-navy/20 outline-none transition-all" />
+                  </div>
+                  <div className="space-y-3">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-haven-stone">Heure de départ</label>
+                    <input type="time" value={listing.checkOutTime || '11:00'} onChange={(e) => setListing({ ...listing, checkOutTime: e.target.value })} className="w-full bg-gray-50 border-none rounded-2xl px-5 py-4 text-haven-navy font-bold focus:ring-2 focus:ring-haven-navy/20 outline-none transition-all" />
                   </div>
                </div>
 

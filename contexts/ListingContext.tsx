@@ -2,6 +2,7 @@
 import React, { createContext, useState, useContext, ReactNode, useEffect } from 'react';
 import { Listing, ListingStatus } from '../types';
 import { apiService } from '../services/api';
+import { userFacingErrorMessage } from '../services/errorHandling';
 
 interface ListingContextType {
   listings: Listing[];
@@ -44,8 +45,8 @@ export const ListingProvider: React.FC<{ children: ReactNode }> = ({ children })
     try {
       const createdListing = await apiService.listings.create(newListing);
       setListings(prev => [createdListing, ...prev]);
-    } catch (e: any) {
-      setError(e.message || "Erreur lors de la création du logement.");
+    } catch (e: unknown) {
+      setError(userFacingErrorMessage(e));
       throw e;
     }
   };
@@ -55,8 +56,8 @@ export const ListingProvider: React.FC<{ children: ReactNode }> = ({ children })
     try {
       const savedListing = await apiService.listings.update(updatedListing);
       setListings(prev => prev.map(l => l.id === savedListing.id ? savedListing : l));
-    } catch (e: any) {
-      setError(e.message || "Erreur lors de la mise à jour du logement.");
+    } catch (e: unknown) {
+      setError(userFacingErrorMessage(e));
       throw e;
     }
   };

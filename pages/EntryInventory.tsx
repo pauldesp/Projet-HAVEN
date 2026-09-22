@@ -29,6 +29,7 @@ import {
 import { toast } from 'sonner';
 import SignatureCanvas from 'react-signature-canvas';
 import { motion, AnimatePresence } from 'motion/react';
+import { formatScheduledMoment, getInventoryTiming } from '../services/inventoryTiming';
 
 const AMENITY_LABELS: Record<string, string> = {
   'wifi': 'Wi-Fi Haut débit',
@@ -181,6 +182,11 @@ export const EntryInventory = () => {
 
   const handleSubmit = async (signature: string) => {
     if (!booking || !currentUser) return;
+    const timing = getInventoryTiming(booking, listing ?? undefined, 'IN');
+    if (!timing.isAvailable) {
+      toast.info(`L’état des lieux d’entrée sera disponible le ${formatScheduledMoment(timing.scheduledAt)}.`);
+      return;
+    }
     
     try {
       const report: InventoryReport = {
@@ -218,20 +224,16 @@ export const EntryInventory = () => {
     );
   }
 
-  // Check if today is the check-in day
-  const today = new Date().toISOString().split('T')[0];
-  const checkInDate = booking?.startDate.split('T')[0];
-  const isCheckInDay = today === checkInDate;
+  const entryTiming = booking ? getInventoryTiming(booking, listing ?? undefined, 'IN') : null;
 
-  // For testing, we might want to override this, but per requirement:
-  if (!isCheckInDay && booking?.status !== 'COMPLETED') {
+  if (entryTiming && !entryTiming.isAvailable) {
     return (
       <div className="min-h-screen bg-haven-cream flex items-center justify-center p-6 text-center">
         <div className="max-w-md w-full p-10 bg-white rounded-[3rem] shadow-premium">
           <Calendar className="mx-auto text-haven-stone mb-6" size={64} />
           <h1 className="text-3xl font-heading font-bold text-haven-navy mb-4">Accès non autorisé</h1>
           <p className="text-haven-stone mb-8">
-            L'état des lieux d'entrée n'est accessible que le jour de votre arrivée prévue ({new Date(booking?.startDate || '').toLocaleDateString('fr-FR')}).
+            L’état des lieux d’entrée sera accessible à partir du {formatScheduledMoment(entryTiming.scheduledAt)}.
           </p>
           <Button fullWidth onClick={() => navigate('/dashboard')}>Retour au tableau de bord</Button>
         </div>

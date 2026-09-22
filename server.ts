@@ -25,15 +25,19 @@ const sensitiveApiLimiter = rateLimit({ windowMs: 60_000, limit: 30, standardHea
 
 interface AuthenticatedRequest extends Request { user?: { uid: string; email?: string } }
 
+const sendApiError = (res: Response, status: number, message: string) => {
+  res.status(status).json({ error: message, code: String(status) });
+};
+
 async function requireAuth(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   const token = req.headers.authorization?.match(/^Bearer (.+)$/)?.[1];
-  if (!token) return res.status(401).json({ error: "Authentification requise" });
+  if (!token) return sendApiError(res, 401, "Authentification requise");
   try {
     const decoded = await adminAuth.verifyIdToken(token);
     req.user = { uid: decoded.uid, email: decoded.email };
     next();
   } catch {
-    return res.status(401).json({ error: "Session invalide ou expirée" });
+    return sendApiError(res, 401, "Session invalide ou expirée");
   }
 }
 
@@ -164,13 +168,13 @@ async function startServer() {
           });
         }
         
-        return res.status(500).json({ error: error.message });
+        return sendApiError(res, 503, "Le service d’envoi d’e-mails est temporairement indisponible.");
       }
 
       res.json({ success: true, data });
     } catch (err: any) {
       console.error("Server error:", err);
-      res.status(500).json({ error: err.message });
+      sendApiError(res, 503, "Le service d’envoi d’e-mails est temporairement indisponible.");
     }
   });
 
@@ -430,7 +434,7 @@ Details:`, JSON.stringify(details, null, 2));
         console.log("STRIPE_SECRET_KEY not set or invalid placeholder. Using MOCK mode.");
         // Redirect directly to success URL for testing purposes
         if (process.env.NODE_ENV === "production") return res.status(503).json({ error: "Stripe non configuré" });
-        return res.json({ id: "mock_session_id", url: cancelUrl, isMock: true });
+        return res.json({ id: "mock_session_id", url: successUrl, isMock: true });
       }
 
       const stripe = getStripe();
@@ -484,13 +488,7 @@ Details:`, JSON.stringify(details, null, 2));
       }
     } catch (err: any) {
       console.error("Stripe error details:", err);
-      
-      let errorMessage = err.message;
-      if (err.type === 'StripeAuthenticationError') {
-        errorMessage = "La clé API Stripe est incorrecte. Veuillez vérifier la variable STRIPE_SECRET_KEY dans vos paramètres.";
-      }
-      
-      res.status(500).json({ error: errorMessage });
+      sendApiError(res, 451, "Le paiement est momentanément indisponible.");
     }
   });
 

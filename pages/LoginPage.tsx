@@ -25,6 +25,7 @@ import {
 import { useAuth } from '../contexts/AuthContext';
 import { UserRole, User, LegalDocument } from '../types';
 import { apiService } from '../services/api';
+import { userFacingErrorMessage } from '../services/errorHandling';
 import ReactMarkdown from 'react-markdown';
 
 type AuthStep = 'IDENTIFIER' | 'LOGIN' | 'VERIFY' | 'PROFILE' | 'LEGAL' | 'FORGOT_PASSWORD' | 'FORGOT_PASSWORD_SUCCESS';
@@ -101,15 +102,15 @@ export const LoginPage: React.FC = () => {
             }
             
             setStep('VERIFY');
-          } catch (err: any) {
-            setError(err.message || "Impossible d'envoyer l'email de vérification.");
+          } catch (err: unknown) {
+            setError(userFacingErrorMessage(err));
           }
         } else {
           setError("L'inscription par téléphone n'est pas encore disponible. Utilisez une adresse e-mail.");
         }
       }
-    } catch (err: any) {
-      setError(err.message || "Une erreur est survenue.");
+    } catch (err: unknown) {
+      setError(userFacingErrorMessage(err));
     } finally {
       setIsLoading(false);
     }
@@ -150,7 +151,7 @@ export const LoginPage: React.FC = () => {
       } else if (errorCode === 'auth/too-many-requests' || errorMessage.includes('too-many-requests')) {
         setError('Trop de tentatives de connexion. Veuillez réessayer plus tard.');
       } else {
-        setError(errorMessage || "Erreur de connexion.");
+        setError(userFacingErrorMessage(err));
       }
     } finally {
       setIsLoading(false);
@@ -168,8 +169,8 @@ export const LoginPage: React.FC = () => {
       });
       if (!response.ok) throw new Error((await response.json()).error || 'Code invalide.');
       setStep('PROFILE');
-    } catch (err: any) {
-      setError(err.message || 'Code invalide. Vérifiez vos e-mails.');
+    } catch (err: unknown) {
+      setError(userFacingErrorMessage(err));
     }
   };
 
@@ -240,7 +241,7 @@ export const LoginPage: React.FC = () => {
       } else if (errorCode === 'auth/weak-password' || errorMessage.includes('weak-password')) {
         setError('Le mot de passe est trop faible. Veuillez utiliser au moins 6 caractères.');
       } else {
-        setError(errorMessage || "Erreur d'inscription.");
+        setError(userFacingErrorMessage(err));
       }
     } finally {
       setIsLoading(false);
@@ -252,8 +253,8 @@ export const LoginPage: React.FC = () => {
     setIsLoading(true);
     try {
       await loginWithGoogle();
-    } catch (err: any) {
-      setError(err.message || "Erreur Google Login.");
+    } catch (err: unknown) {
+      setError(userFacingErrorMessage(err));
     } finally {
       setIsLoading(false);
     }
@@ -272,9 +273,9 @@ export const LoginPage: React.FC = () => {
     try {
       await resetPassword(identifier);
       setStep('FORGOT_PASSWORD_SUCCESS');
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Forgot password error", err);
-      setError(err.message || "Erreur lors de l'envoi de l'email de réinitialisation.");
+      setError(userFacingErrorMessage(err));
     } finally {
       setIsLoading(false);
     }

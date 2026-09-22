@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '../components/Button';
 import { ShieldCheck, Lock, Mail, ArrowRight, Building, AlertCircle, Loader2 } from 'lucide-react';
 import { Logo } from '../components/Logo';
+import { userFacingErrorMessage } from '../services/errorHandling';
 
 export const AdminLoginPage: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -42,7 +43,7 @@ export const AdminLoginPage: React.FC = () => {
       } else if (errorCode === 'auth/too-many-requests' || errorMessage.includes('too-many-requests')) {
         setError('Trop de tentatives de connexion. Veuillez réessayer plus tard.');
       } else {
-        setError(errorMessage || "Une erreur est survenue lors de l'authentification.");
+        setError(userFacingErrorMessage(err));
       }
     } finally {
       setIsSubmitting(false);
@@ -56,8 +57,8 @@ export const AdminLoginPage: React.FC = () => {
     try {
       await resetPassword(email);
       setResetSent(true);
-    } catch (err: any) {
-      setError(err.message || "Erreur lors de l'envoi de l'email de réinitialisation.");
+    } catch (err: unknown) {
+      setError(userFacingErrorMessage(err));
     } finally {
       setIsSubmitting(false);
     }

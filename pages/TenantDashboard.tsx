@@ -38,6 +38,8 @@ import { AccountStatusOverlay } from '../components/AccountStatusOverlay';
 import { ConversationsList } from '../components/ConversationsList';
 import { toast } from 'sonner';
 import { authenticatedFetch } from '../services/serverApi';
+import { userFacingErrorMessage } from '../services/errorHandling';
+import { formatScheduledMoment, getInventoryTiming } from '../services/inventoryTiming';
 
 const BookingCountdown: React.FC<{ booking: Booking }> = ({ booking }) => {
   const [timeLeft, setTimeLeft] = useState<string>('');
@@ -270,9 +272,9 @@ export const TenantDashboard: React.FC = () => {
       } else {
         throw new Error("URL de session non reçue");
       }
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error("Erreur de paiement", e);
-      toast.error(e.message || "Une erreur est survenue lors de l'initialisation du paiement.");
+      toast.error(userFacingErrorMessage(e));
     } finally {
       setIsPayingBookingId(null);
     }
@@ -308,12 +310,22 @@ export const TenantDashboard: React.FC = () => {
           date: new Date().toISOString(),
           identityValidated: true,
           items: [], 
-          comments: JSON.stringify({ checklist: data.checklist, incident: data.incidentReport }),
+          comments: JSON.stringify({
+            checklist: data.checklist,
+            incident: data.incidentReport,
+            earlyDeparture: data.isEarlyDeparture ? {
+              reason: data.earlyDepartureReason,
+              scheduledDepartureAt: data.scheduledDepartureAt,
+            } : undefined,
+          }),
           status: 'COMPLETED',
           roomRating: data.reviews?.listing?.rating || 5,
           houseRating: data.reviews?.haven?.rating || 5,
           cleanlinessRating: 5,
-          signature: 'USER_SIGNED'
+          signature: 'USER_SIGNED',
+          isEarlyDeparture: Boolean(data.isEarlyDeparture),
+          earlyDepartureReason: data.earlyDepartureReason,
+          scheduledDepartureAt: data.scheduledDepartureAt,
         });
 
         // 2. Create Incident if any
@@ -384,11 +396,16 @@ export const TenantDashboard: React.FC = () => {
   };
 
   const handleOpenInventory = (booking: Booking & { listing?: Listing }, type: 'IN' | 'OUT') => {
+    const timing = getInventoryTiming(booking, booking.listing, type);
     if (type === 'IN') {
       const alreadyDone = documents.some(d => d.bookingId === booking.id && d.type === 'INVENTORY_IN');
       if (alreadyDone) {
         toast.info("L'état des lieux d'entrée a déjà été réalisé. Vous pouvez le retrouver dans l'onglet 'Mes Documents'.");
         setActiveTab('DOCUMENTS');
+        return;
+      }
+      if (!timing.isAvailable) {
+        toast.info(`L’état des lieux d’entrée sera disponible le ${formatScheduledMoment(timing.scheduledAt)}.`);
         return;
       }
     }
@@ -893,15 +910,17 @@ export const TenantDashboard: React.FC = () => {
       </div>
 
       {/* RENDER MODAL */}
-      <InventoryModal 
-        isOpen={inventoryState.isOpen}
-        onClose={() => setInventoryState(prev => ({ ...prev, isOpen: false }))}
-        type={inventoryState.type}
-        booking={inventoryState.selectedBooking!}
-        listing={inventoryState.selectedBooking?.listing}
-        room={inventoryState.selectedBooking?.listing?.rooms[0]} 
-        onComplete={handleInventoryComplete}
-      />
+      {inventoryState.selectedBooking && (
+        <InventoryModal 
+          isOpen={inventoryState.isOpen}
+          onClose={() => setInventoryState(prev => ({ ...prev, isOpen: false }))}
+          type={inventoryState.type}
+          booking={inventoryState.selectedBooking}
+          listing={inventoryState.selectedBooking.listing}
+          room={inventoryState.selectedBooking.listing?.rooms[0]} 
+          onComplete={handleInventoryComplete}
+        />
+      )}
       {/* ... ReviewModal, AccountStatusOverlay, ReportModal remain ... */}
       <ReviewModal 
         isOpen={reviewState.isOpen}

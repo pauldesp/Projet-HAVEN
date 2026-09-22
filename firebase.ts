@@ -1,15 +1,19 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider } from 'firebase/auth';
-import { getFirestore, doc, getDocFromServer, collection, getDocs, setDoc } from 'firebase/firestore';
+import { initializeFirestore, doc, getDocFromServer, collection, getDocs, setDoc } from 'firebase/firestore';
 import firebaseConfig from './firebase-applet-config.json';
 import { MOCK_USERS_DB, MOCK_LISTINGS, SEED_BOOKINGS } from './services/mockData';
 import { BookingAvailability, User, UserRole } from './types';
+import { reportError, userFacingErrorMessage } from './services/errorHandling';
 
 // Initialize Firebase SDK
 const app = initializeApp(firebaseConfig);
 
-// Initialize Firestore with the named database from config
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+// Safari and some local Wi-Fi networks can interrupt Firestore's streaming
+// transport. Auto-detection lets the SDK fall back to long polling when needed.
+export const db = initializeFirestore(app, {
+  experimentalAutoDetectLongPolling: true,
+}, firebaseConfig.firestoreDatabaseId);
 
 // Initialize Auth
 export const auth = getAuth(app);
@@ -62,8 +66,8 @@ function handleFirestoreError(error: unknown, operationType: OperationType, path
     operationType,
     path
   };
-  console.error('Firestore Error Detail:', JSON.stringify(errInfo, null, 2));
-  throw new Error(JSON.stringify(errInfo));
+  reportError(errInfo, `Firebase ${operationType} ${path ?? 'inconnu'}`);
+  throw new Error(userFacingErrorMessage(error));
 }
 
 // Seed Firestore if empty or forced

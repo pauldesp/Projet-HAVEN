@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import {
+import { 
   AlertTriangle,
   Camera,
   Check,
@@ -17,6 +17,8 @@ import {
 import { Button } from './Button';
 import { AppDocument, Booking, Listing, Room } from '../types';
 import { apiService } from '../services/api';
+import { userFacingErrorMessage } from '../services/errorHandling';
+import { formatScheduledMoment, getInventoryTiming } from '../services/inventoryTiming';
 import { useAuth } from '../contexts/AuthContext';
 
 interface InventoryModalProps {
@@ -75,6 +77,7 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isForcedOverride, setIsForcedOverride] = useState(false);
+  const [earlyDepartureReason, setEarlyDepartureReason] = useState('');
 
   const [checkoutChecklist, setCheckoutChecklist] = useState<Record<CheckoutChecklistKey, boolean>>({
     private_clean: false,
@@ -112,18 +115,17 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
     setStep(1);
     setError(null);
     setIsForcedOverride(false);
+    setEarlyDepartureReason('');
     document.body.style.overflow = 'hidden';
     return () => {
       document.body.style.overflow = '';
     };
   }, [isOpen, type, booking.id]);
 
-  const endDate = useMemo(() => {
-    const [year, month, day] = booking.endDate.split('-').map(Number);
-    return new Date(year, month - 1, day);
-  }, [booking.endDate]);
-
-  const isLastDayOrLater = new Date().getTime() >= endDate.getTime();
+  const inventoryTiming = useMemo(
+    () => getInventoryTiming(booking, listing, type),
+    [booking, listing, type],
+  );
 
   if (!isOpen) return null;
 
@@ -235,6 +237,12 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
     setError(null);
 
     try {
+      if (!inventoryTiming.isAvailable && !(type === 'OUT' && isForcedOverride)) {
+        throw new Error(`L’état des lieux est disponible à partir du ${formatScheduledMoment(inventoryTiming.scheduledAt)}.`);
+      }
+      if (type === 'OUT' && inventoryTiming.isEarlyDeparture && earlyDepartureReason.trim().length < 10) {
+        throw new Error('Indiquez le motif de votre départ anticipé.');
+      }
       if (type === 'IN') {
         if (!checkinAreaComplete('ROOM') || !checkinAreaComplete('COMMONS')) {
           throw new Error('Merci de valider la chambre et les espaces communs.');
@@ -287,14 +295,17 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
           incidentReport,
           reviews,
           documentId,
+          isEarlyDeparture: inventoryTiming.isEarlyDeparture,
+          earlyDepartureReason: inventoryTiming.isEarlyDeparture ? earlyDepartureReason.trim() : undefined,
+          scheduledDepartureAt: inventoryTiming.scheduledAt.toISOString(),
         });
       }
 
       setStep(1);
       onClose();
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error('Error creating inventory report', e);
-      setError(e?.message || 'Une erreur est survenue.');
+      setError(userFacingErrorMessage(e));
     } finally {
       setIsSubmitting(false);
     }
@@ -332,7 +343,19 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
         </div>
 
         <div className="flex-1 overflow-y-auto p-5 md:p-8">
-          {type === 'OUT' && !isLastDayOrLater && !isForcedOverride ? (
+          {type === 'IN' && !inventoryTiming.isAvailable ? (
+            <div className="min-h-[420px] flex flex-col items-center justify-center text-center max-w-xl mx-auto space-y-6">
+              <div className="w-20 h-20 rounded-full bg-haven-navy/5 text-haven-navy flex items-center justify-center">
+                <KeyRound size={36} />
+              </div>
+              <div>
+                <h3 className="text-2xl font-heading font-bold text-haven-navy">Arrivée bientôt disponible</h3>
+                <p className="text-gray-600 mt-3 leading-relaxed">
+                  Votre état des lieux d’entrée sera disponible à partir du {formatScheduledMoment(inventoryTiming.scheduledAt)}.
+                </p>
+              </div>
+            </div>
+          ) : type === 'OUT' && !inventoryTiming.isAvailable && !isForcedOverride ? (
             <div className="min-h-[420px] flex flex-col items-center justify-center text-center max-w-xl mx-auto space-y-6">
               <div className="w-20 h-20 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center">
                 <AlertTriangle size={36} />
@@ -340,11 +363,28 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
               <div>
                 <h3 className="text-2xl font-heading font-bold text-haven-navy">Départ anticipé</h3>
                 <p className="text-gray-600 mt-3 leading-relaxed">
-                  Le parcours de départ est normalement accessible le dernier jour du séjour ({endDate.toLocaleDateString('fr-FR')}).
-                  Si vous quittez définitivement le logement avant cette date, vous pouvez poursuivre.
+                  Le parcours de départ est normalement accessible à partir du {formatScheduledMoment(inventoryTiming.scheduledAt)}.
+                  Si vous quittez définitivement le logement avant cette échéance, indiquez votre motif pour poursuivre.
                 </p>
               </div>
-              <Button onClick={() => setIsForcedOverride(true)}>Je quitte définitivement le logement</Button>
+              <div className="w-full max-w-md space-y-3 text-left">
+                <label className="block text-sm font-bold text-haven-navy" htmlFor="early-departure-reason">Motif du départ anticipé</label>
+                <textarea
+                  id="early-departure-reason"
+                  value={earlyDepartureReason}
+                  onChange={event => setEarlyDepartureReason(event.target.value)}
+                  placeholder="Expliquez brièvement pourquoi vous devez quitter le logement plus tôt."
+                  rows={4}
+                  className="w-full rounded-2xl border border-gray-200 p-4 text-sm outline-none focus:ring-2 focus:ring-haven-navy/20"
+                />
+                <Button
+                  fullWidth
+                  disabled={earlyDepartureReason.trim().length < 10}
+                  onClick={() => setIsForcedOverride(true)}
+                >
+                  Continuer avec un départ anticipé
+                </Button>
+              </div>
             </div>
           ) : type === 'IN' ? (
             <>
@@ -524,7 +564,7 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
           )}
         </div>
 
-        {!(type === 'OUT' && !isLastDayOrLater && !isForcedOverride) && (
+        {!((type === 'IN' && !inventoryTiming.isAvailable) || (type === 'OUT' && !inventoryTiming.isAvailable && !isForcedOverride)) && (
           <div className="border-t border-gray-100 bg-white p-4 md:px-8 md:py-5 flex items-center justify-between gap-3">
             <Button
               variant="outline"
