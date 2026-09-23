@@ -770,15 +770,41 @@ export const TenantDashboard: React.FC = () => {
             {activeTab === 'HISTORY' && (
               <div className="grid md:grid-cols-2 gap-6">
                 {history.map(booking => (
-                  <div key={booking.id} className="bg-white border border-gray-100 rounded-[2.5rem] p-8 flex items-center gap-6 hover:shadow-card transition-all">
-                    <img src={booking.listing?.mainPhotoUrl} className="w-24 h-24 object-cover rounded-3xl" alt="" />
-                    <div className="flex-1 space-y-2">
-                       <div className={`px-2 py-1 text-[9px] font-black uppercase rounded-lg inline-block ${booking.status === 'CANCELLED' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>{booking.status === 'CANCELLED' ? 'Annulé' : 'Terminé'}</div>
-                       <h4 className="font-bold text-haven-navy text-xl leading-tight">{booking.listing?.title}</h4>
-                       <p className="text-xs text-gray-400 font-medium italic">{booking.status === 'CANCELLED' ? `Annulé le ${new Date(booking.cancellation?.cancelledAt || booking.createdAt).toLocaleDateString('fr-FR')}` : `Fin du séjour le ${new Date(booking.endDate).toLocaleDateString('fr-FR')}`}</p>
-                       {booking.status !== 'CANCELLED' && <div className="flex gap-2 pt-2">
-                         <Button variant="ghost" size="sm" className="text-[10px] font-black uppercase bg-gray-50 rounded-xl" onClick={() => setReviewState({isOpen: true, targetId: booking.listingId, targetName: booking.listing?.title || 'Logement', targetType: 'LISTING'})}>Noter</Button>
-                       </div>}
+                  <div key={booking.id} className="overflow-hidden rounded-[2rem] border border-gray-100 bg-white p-5 shadow-sm transition-all hover:border-haven-navy/15 hover:shadow-xl sm:p-6">
+                    <div className="flex items-start gap-4">
+                      <img src={booking.listing?.mainPhotoUrl} className="h-24 w-24 flex-shrink-0 rounded-2xl object-cover sm:h-28 sm:w-28" alt="" />
+                      <div className="min-w-0 flex-1">
+                        <div className={`mb-2 inline-block rounded-full px-2.5 py-1 text-[9px] font-black uppercase tracking-wider ${booking.status === 'CANCELLED' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>{booking.status === 'CANCELLED' ? 'Annulé' : 'Terminé'}</div>
+                        <h4 className="truncate font-heading text-xl font-bold text-haven-navy">{booking.listing?.title}</h4>
+                        <p className="mt-1 flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-gray-400"><MapPin size={12} className="text-haven-red" /> {booking.listing?.city || 'Ville non renseignée'}</p>
+                        <p className="mt-2 text-xs font-medium text-gray-500">{booking.status === 'CANCELLED' ? `Annulé le ${new Date(booking.cancellation?.cancelledAt || booking.createdAt).toLocaleDateString('fr-FR')}` : `Terminé le ${new Date(booking.endDate).toLocaleDateString('fr-FR')}`}</p>
+                      </div>
+                    </div>
+
+                    <div className="mt-5 grid grid-cols-2 gap-3 border-t border-gray-100 pt-5 text-sm">
+                      <div className="rounded-xl bg-gray-50 px-3 py-2.5">
+                        <p className="text-[9px] font-black uppercase tracking-widest text-gray-400">Séjour</p>
+                        <p className="mt-1 font-bold text-haven-navy">{new Date(booking.startDate).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
+                        <p className="text-xs text-gray-500">au {new Date(booking.endDate).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
+                      </div>
+                      <div className="rounded-xl bg-haven-navy/[0.03] px-3 py-2.5">
+                        <p className="text-[9px] font-black uppercase tracking-widest text-gray-400">Montant</p>
+                        <p className="mt-1 text-lg font-black text-haven-navy">{booking.totalPrice}€ <span className="text-[10px] text-gray-400">TTC</span></p>
+                        <p className="text-xs text-gray-500">{booking.roomName || 'Chambre réservée'}</p>
+                      </div>
+                    </div>
+
+                    {booking.status === 'CANCELLED' && booking.cancellation && (
+                      <div className="mt-3 rounded-xl border border-red-100 bg-red-50 px-3 py-2 text-xs text-red-800">
+                        Remboursement : <strong>{booking.cancellation.refundAmount} €</strong> ({booking.cancellation.refundPercent} %)
+                      </div>
+                    )}
+
+                    <div className="mt-5 flex flex-wrap gap-2">
+                      <Link to={`/listing/${booking.listingId}`}>
+                        <Button variant="outline" size="sm" className="h-10 rounded-xl text-[10px] font-black uppercase tracking-widest">Voir le logement</Button>
+                      </Link>
+                      {booking.status !== 'CANCELLED' && <Button variant="ghost" size="sm" className="h-10 rounded-xl bg-gray-50 text-[10px] font-black uppercase tracking-widest" onClick={() => setReviewState({isOpen: true, targetId: booking.listingId, targetName: booking.listing?.title || 'Logement', targetType: 'LISTING'})}>Noter</Button>}
                     </div>
                   </div>
                 ))}
