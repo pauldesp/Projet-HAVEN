@@ -3,16 +3,16 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { ListingCard } from '../components/ListingCard';
 import { BookingAvailability, Listing } from '../types';
-import { MapPin, SlidersHorizontal, Check, Info, Route, Loader2, AlertCircle } from 'lucide-react';
+import { MapPin, SlidersHorizontal, Check, Route, Loader2, ChevronDown, RotateCcw } from 'lucide-react';
 import { useListings } from '../contexts/ListingContext';
 import { resolveCityCoordinates, sortByDistance } from '../services/proximity';
-import { auth, seedFirestore } from '../firebase';
 import { Button } from '../components/Button';
-import { toast } from 'sonner';
-import { isRoomAvailableForStay, listingHasAvailableRoom } from '../services/availability';
+import { listingHasAvailableRoom } from '../services/availability';
 import { apiService } from '../services/api';
 import { readSearchDates } from '../services/searchDates';
 import { findClosestAvailableStay, NearbyStay } from '../services/nearbyStays';
+import { countNights } from '../services/stay';
+import { AMENITIES_LIST } from '../services/amenities';
 
 interface ListingWithDistance extends Listing {
   distance?: number;
@@ -21,6 +21,28 @@ interface ListingWithDistance extends Listing {
 interface ListingWithNearbyStay extends Listing {
   nearbyStay: NearbyStay;
 }
+
+const ROOM_OPTIONS = [
+  { id: 'hasPrivateBath', label: 'Salle de bain privée' },
+  { id: 'hasDesk', label: 'Bureau' },
+  { id: 'hasLock', label: 'Verrou porte' },
+  { id: 'hasWardrobe', label: 'Armoire / dressing' },
+] as const;
+
+const FilterSection: React.FC<{
+  title: string;
+  isOpen: boolean;
+  onToggle: () => void;
+  children: React.ReactNode;
+}> = ({ title, isOpen, onToggle, children }) => (
+  <section className="border-t border-gray-100 first:border-t-0">
+    <button type="button" onClick={onToggle} className="flex w-full items-center justify-between py-5 text-left">
+      <span className="font-heading text-base font-bold text-haven-navy">{title}</span>
+      <ChevronDown size={20} className={`text-haven-navy transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+    </button>
+    {isOpen && <div className="pb-5">{children}</div>}
+  </section>
+);
 
 export const SearchPage: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -51,8 +73,47 @@ export const SearchPage: React.FC = () => {
   const [isGeocoding, setIsGeocoding] = useState(false);
   
   // Local Filter State
-  const [priceRange, setPriceRange] = useState(300);
+  const [priceMin, setPriceMin] = useState(0);
+  const [priceMax, setPriceMax] = useState(5000);
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
+  const [minRooms, setMinRooms] = useState(1);
+  const [maxRooms, setMaxRooms] = useState(20);
+  const [selectedAmenities, setSelectedAmenities] = useState<string[]>([]);
+  const [selectedRoomOptions, setSelectedRoomOptions] = useState<string[]>([]);
+  const [openFilter, setOpenFilter] = useState<string | null>('PRICE');
+
+  const stayNights = countNights(startDate, endDate) || 1;
+  const listingStayPrice = (listing: Listing) => {
+    const roomPrice = Math.min(...listing.rooms.map(room => room.pricePerDay)) * stayNights;
+    return roomPrice + (Number(listing.cleaningFee) || 0) + Math.round(roomPrice * 0.15);
+  };
+
+  const priceCeiling = useMemo(() => {
+    const highest = Math.max(0, ...allListings.filter(listing => listing.rooms?.length).map(listingStayPrice));
+    return Math.max(100, Math.ceil(highest / 100) * 100);
+  }, [allListings, stayNights]);
+
+  const maxRoomCount = useMemo(() => Math.max(1, ...allListings.map(listing => listing.totalRooms || listing.rooms?.length || 1)), [allListings]);
+  const sortedAmenities = useMemo(() => [...AMENITIES_LIST].sort((a, b) => a.id.localeCompare(b.id, 'fr')), []);
+  const histogram = useMemo(() => {
+    const bins = Array.from({ length: 20 }, () => 0);
+    allListings.filter(listing => listing.rooms?.length).forEach(listing => {
+      const index = Math.min(bins.length - 1, Math.floor((listingStayPrice(listing) / priceCeiling) * bins.length));
+      bins[index] += 1;
+    });
+    const peak = Math.max(1, ...bins);
+    return bins.map(value => Math.max(8, Math.round((value / peak) * 100)));
+  }, [allListings, stayNights, priceCeiling]);
+
+  useEffect(() => {
+    setPriceMax(current => Math.min(current, priceCeiling));
+    setPriceMin(current => Math.min(current, priceCeiling));
+  }, [priceCeiling]);
+
+  useEffect(() => {
+    setMaxRooms(current => Math.min(current, maxRoomCount));
+    setMinRooms(current => Math.min(current, maxRoomCount));
+  }, [maxRoomCount]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -77,14 +138,15 @@ export const SearchPage: React.FC = () => {
     const listingsMatchingFilters = approvedListings.filter(listing => {
       // Handle case where rooms might be empty
       if (!listing.rooms || listing.rooms.length === 0) return false;
-      const minRoomPrice = Math.min(...listing.rooms.map(room => room.pricePerDay));
-      // Comparison logic: priceRange is weekly, rooms are daily. 
-      // 300€/week is roughly 42€/day. 
-      // We should probably convert priceRange to daily for comparison or vice versa.
-      const dailyPriceLimit = priceRange / 7;
-      if (minRoomPrice > dailyPriceLimit + 5) return false; // Added +5 margin for flexibility
-      
+      const stayPrice = listingStayPrice(listing);
+      if (stayPrice < priceMin || stayPrice > priceMax) return false;
       if (selectedTypes.length > 0 && !selectedTypes.includes(listing.type)) return false;
+      const roomCount = listing.totalRooms || listing.rooms.length;
+      if (roomCount < minRooms || roomCount > maxRooms) return false;
+      if (selectedAmenities.some(amenity => !listing.amenities?.includes(amenity))) return false;
+      if (selectedRoomOptions.length > 0 && !listing.rooms.some(room =>
+        selectedRoomOptions.every(option => Boolean(room[option as keyof typeof room]))
+      )) return false;
       return true;
     });
 
@@ -129,12 +191,30 @@ export const SearchPage: React.FC = () => {
       nearbyMatches,
       nearbyDateMatches,
     };
-  }, [allListings, availability, cityParam, startDate, endDate, priceRange, selectedTypes, dynamicCityCoords]);
+  }, [allListings, availability, cityParam, startDate, endDate, priceMin, priceMax, selectedTypes, minRooms, maxRooms, selectedAmenities, selectedRoomOptions, dynamicCityCoords]);
 
   const toggleType = (type: string) => {
     setSelectedTypes(prev => 
       prev.includes(type) ? prev.filter(t => t !== type) : [...prev, type]
     );
+  };
+
+  const toggleAmenity = (amenity: string) => {
+    setSelectedAmenities(previous => previous.includes(amenity) ? previous.filter(item => item !== amenity) : [...previous, amenity]);
+  };
+
+  const toggleRoomOption = (option: string) => {
+    setSelectedRoomOptions(previous => previous.includes(option) ? previous.filter(item => item !== option) : [...previous, option]);
+  };
+
+  const resetFilters = () => {
+    setPriceMin(0);
+    setPriceMax(priceCeiling);
+    setSelectedTypes([]);
+    setMinRooms(1);
+    setMaxRooms(maxRoomCount);
+    setSelectedAmenities([]);
+    setSelectedRoomOptions([]);
   };
 
   return (
@@ -171,49 +251,112 @@ export const SearchPage: React.FC = () => {
         <div className="flex flex-col lg:flex-row gap-8">
           {/* Sidebar Filters */}
           <aside className="w-full lg:w-1/4 h-fit bg-white p-6 rounded-3xl shadow-premium border border-gray-100 sticky top-24">
-            <div className="flex items-center gap-2 mb-6 text-haven-navy">
-              <SlidersHorizontal size={20} />
-              <h2 className="font-bold text-lg">Ajuster ma recherche</h2>
-            </div>
-
-            {/* Price Filter */}
-            <div className="mb-8">
-              <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-3">
-                Budget / semaine : <span className="text-haven-navy">{priceRange}€</span>
-              </label>
-              <input 
-                type="range" 
-                min="100" 
-                max="1000" 
-                step="10" 
-                value={priceRange} 
-                onChange={(e) => setPriceRange(Number(e.target.value))}
-                className="w-full h-1.5 bg-gray-100 rounded-lg appearance-none cursor-pointer accent-haven-navy"
-              />
-              <div className="flex justify-between text-[9px] font-bold text-gray-300 mt-2">
-                <span>100€</span>
-                <span>1000€</span>
+            <div className="mb-2 flex items-center justify-between gap-3 text-haven-navy">
+              <div className="flex items-center gap-2">
+                <SlidersHorizontal size={20} />
+                <h2 className="font-bold text-lg">Ajuster ma recherche</h2>
               </div>
+              <button
+                type="button"
+                onClick={resetFilters}
+                className="inline-flex items-center gap-1 text-xs font-bold text-haven-red transition-opacity hover:opacity-70"
+              >
+                <RotateCcw size={14} /> Réinitialiser
+              </button>
             </div>
 
-            {/* Type Filter */}
-            <div className="mb-8">
-              <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-3">Type de bien</label>
+            <FilterSection title="Prix du séjour" isOpen={openFilter === 'PRICE'} onToggle={() => setOpenFilter(openFilter === 'PRICE' ? null : 'PRICE')}>
+              <p className="text-sm text-gray-500">{stayNights} nuit{stayNights > 1 ? 's' : ''}, tous frais compris</p>
+              <div className="mt-5 flex h-20 items-end gap-0.5 px-1" aria-hidden="true">
+                {histogram.map((height, index) => (
+                  <span key={index} className="flex-1 rounded-t-sm bg-haven-red" style={{ height: `${height}%` }} />
+                ))}
+              </div>
+              <div className="mt-2 space-y-2">
+                <label className="sr-only" htmlFor="price-min">Prix minimum du séjour</label>
+                <input
+                  id="price-min"
+                  type="range"
+                  min="0"
+                  max={priceCeiling}
+                  step="10"
+                  value={priceMin}
+                  onChange={(event) => setPriceMin(Math.min(Number(event.target.value), priceMax))}
+                  className="block w-full accent-haven-red"
+                />
+                <label className="sr-only" htmlFor="price-max">Prix maximum du séjour</label>
+                <input
+                  id="price-max"
+                  type="range"
+                  min="0"
+                  max={priceCeiling}
+                  step="10"
+                  value={priceMax}
+                  onChange={(event) => setPriceMax(Math.max(Number(event.target.value), priceMin))}
+                  className="block w-full accent-haven-red"
+                />
+              </div>
+              <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
+                <label className="text-gray-500">Minimum
+                  <input type="number" min="0" max={priceMax} value={priceMin} onChange={(event) => setPriceMin(Math.min(Math.max(0, Number(event.target.value)), priceMax))} className="mt-1 block w-full rounded-xl border border-gray-200 px-3 py-2 font-bold text-haven-navy" />
+                </label>
+                <label className="text-right text-gray-500">Maximum
+                  <input type="number" min={priceMin} max={priceCeiling} value={priceMax} onChange={(event) => setPriceMax(Math.max(priceMin, Math.min(priceCeiling, Number(event.target.value))))} className="mt-1 block w-full rounded-xl border border-gray-200 px-3 py-2 text-right font-bold text-haven-navy" />
+                </label>
+              </div>
+            </FilterSection>
+
+            <FilterSection title="Type de logement" isOpen={openFilter === 'TYPE'} onToggle={() => setOpenFilter(openFilter === 'TYPE' ? null : 'TYPE')}>
               <div className="space-y-3">
                 {[
                   { id: 'APARTMENT', label: 'Appartement' },
-                  { id: 'HOUSE', label: 'Maison' }
+                  { id: 'HOUSE', label: 'Maison' },
                 ].map(type => (
-                  <div key={type.id} className="flex items-center cursor-pointer group" onClick={() => toggleType(type.id)}>
-                     <div className={`w-5 h-5 rounded-lg border-2 flex items-center justify-center mr-3 transition-all ${selectedTypes.includes(type.id) ? 'bg-haven-navy border-haven-navy shadow-lg shadow-haven-navy/20' : 'border-gray-200 group-hover:border-haven-navy/30'}`}>
-                        {selectedTypes.includes(type.id) && <Check size={12} className="text-white stroke-[3px]"/>}
-                     </div>
-                     <span className={`text-sm font-bold transition-colors ${selectedTypes.includes(type.id) ? 'text-haven-navy' : 'text-gray-400 group-hover:text-gray-600'}`}>{type.label}</span>
-                  </div>
+                  <label key={type.id} className="flex cursor-pointer items-center gap-3 text-sm font-medium text-gray-700">
+                    <input type="checkbox" checked={selectedTypes.includes(type.id)} onChange={() => toggleType(type.id)} className="h-4 w-4 rounded border-gray-300 accent-haven-red" />
+                    {type.label}
+                  </label>
                 ))}
               </div>
-            </div>
+            </FilterSection>
 
+            <FilterSection title="Taille de la colocation" isOpen={openFilter === 'SIZE'} onToggle={() => setOpenFilter(openFilter === 'SIZE' ? null : 'SIZE')}>
+              <p className="mb-3 text-sm text-gray-500">Nombre de chambres dans le logement</p>
+              <div className="grid grid-cols-2 gap-3">
+                <label className="text-xs font-bold text-gray-500">Minimum
+                  <select value={minRooms} onChange={(event) => setMinRooms(Math.min(Number(event.target.value), maxRooms))} className="mt-1 block w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-haven-navy">
+                    {Array.from({ length: maxRoomCount }, (_, index) => index + 1).map(value => <option key={value} value={value}>{value}</option>)}
+                  </select>
+                </label>
+                <label className="text-xs font-bold text-gray-500">Maximum
+                  <select value={maxRooms} onChange={(event) => setMaxRooms(Math.max(Number(event.target.value), minRooms))} className="mt-1 block w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-haven-navy">
+                    {Array.from({ length: maxRoomCount }, (_, index) => index + 1).map(value => <option key={value} value={value}>{value}</option>)}
+                  </select>
+                </label>
+              </div>
+            </FilterSection>
+
+            <FilterSection title="Équipements souhaités" isOpen={openFilter === 'AMENITIES'} onToggle={() => setOpenFilter(openFilter === 'AMENITIES' ? null : 'AMENITIES')}>
+              <div className="max-h-64 space-y-3 overflow-y-auto pr-1">
+                {sortedAmenities.map(amenity => (
+                  <label key={amenity.id} className="flex cursor-pointer items-center gap-3 text-sm font-medium text-gray-700">
+                    <input type="checkbox" checked={selectedAmenities.includes(amenity.id)} onChange={() => toggleAmenity(amenity.id)} className="h-4 w-4 rounded border-gray-300 accent-haven-red" />
+                    {amenity.id}
+                  </label>
+                ))}
+              </div>
+            </FilterSection>
+
+            <FilterSection title="Options de la chambre" isOpen={openFilter === 'ROOM'} onToggle={() => setOpenFilter(openFilter === 'ROOM' ? null : 'ROOM')}>
+              <div className="space-y-3">
+                {ROOM_OPTIONS.map(option => (
+                  <label key={option.id} className="flex cursor-pointer items-center gap-3 text-sm font-medium text-gray-700">
+                    <input type="checkbox" checked={selectedRoomOptions.includes(option.id)} onChange={() => toggleRoomOption(option.id)} className="h-4 w-4 rounded border-gray-300 accent-haven-red" />
+                    {option.label}
+                  </label>
+                ))}
+              </div>
+            </FilterSection>
           </aside>
 
           {/* Results Grid */}
@@ -284,7 +427,7 @@ export const SearchPage: React.FC = () => {
                   <Button 
                     variant="outline" 
                     className="rounded-2xl px-8 h-12 text-[10px] font-black uppercase tracking-widest"
-                    onClick={() => { setPriceRange(500); setSelectedTypes([]); }}
+                    onClick={resetFilters}
                   >
                     Réinitialiser les filtres
                   </Button>
