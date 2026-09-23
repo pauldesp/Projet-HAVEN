@@ -1,7 +1,7 @@
 
 import { db, auth } from '../firebase';
 import { collection, getDocs, getDoc, doc, setDoc, updateDoc, query, where, deleteField, onSnapshot, or } from 'firebase/firestore';
-import { Listing, User, Booking, BookingAvailability, ListingStatus, UserStatus, Message, ContactRequest, Report, Incident, Payment, InventoryReport, AppDocument } from '../types';
+import { Listing, User, Booking, BookingAvailability, ListingStatus, UserStatus, Message, ContactRequest, Report, Incident, Payment, InventoryReport, AppDocument, HousematePreview } from '../types';
 import { authenticatedFetch } from './serverApi';
 import { hasMissingRoomPhoto, normalizeListingPhotos } from './media';
 import { normalizeListingDescription } from './listingDescription';
@@ -175,6 +175,20 @@ export const apiService = {
         await setDoc(doc(db, 'users', user.id), user);
       } catch (e) {
         handleFirestoreError(e, 'UPDATE', `users/${user.id}`);
+      }
+    },
+    async setHousemateVisibility(shareProfileWithHousemates: boolean) {
+      try {
+        const response = await authenticatedFetch('/api/users/me/housemate-visibility', {
+          method: 'PUT',
+          body: JSON.stringify({ shareProfileWithHousemates })
+        });
+        if (!response.ok) {
+          const payload = await response.json().catch(() => ({}));
+          throw new Error(payload.error || `Erreur ${response.status}`);
+        }
+      } catch (e) {
+        return handleFirestoreError(e, 'UPDATE_HOUSEMATE_VISIBILITY', 'users/me/housemate-visibility');
       }
     },
     async updateStatus(id: string, status: UserStatus, rejectionReason?: string) {
@@ -497,6 +511,23 @@ export const apiService = {
       return onSnapshot(q, snapshot => {
         callback(snapshot.docs.map(item => item.data() as BookingAvailability));
       }, error => logFirestoreListenerError(error, 'LIST_AVAILABILITY', `booking_availability?listingId=${listingId}`));
+    }
+  },
+
+  housemates: {
+    async getForStay(listingId: string, roomId: string, startDate: string, endDate: string): Promise<HousematePreview[]> {
+      try {
+        const params = new URLSearchParams({ roomId, start: startDate, end: endDate });
+        const response = await authenticatedFetch(`/api/listings/${encodeURIComponent(listingId)}/housemates?${params.toString()}`);
+        if (!response.ok) {
+          const payload = await response.json().catch(() => ({}));
+          throw new Error(payload.error || `Erreur ${response.status}`);
+        }
+        const payload = await response.json() as { housemates?: HousematePreview[] };
+        return Array.isArray(payload.housemates) ? payload.housemates : [];
+      } catch (e) {
+        return handleFirestoreError(e, 'GET_HOUSEMATES', `listings/${listingId}/housemates`);
+      }
     }
   },
 

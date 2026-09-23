@@ -6,14 +6,17 @@ import { User, Listing } from '../types';
 import { ShieldCheck, Star, Calendar, Briefcase, GraduationCap, Loader2, Home, CheckCircle2, FileText, HelpCircle, LogOut, ChevronRight, UserRound } from 'lucide-react';
 import { Button } from '../components/Button';
 import { useAuth } from '../contexts/AuthContext';
+import { toast } from 'sonner';
+import { userFacingErrorMessage } from '../services/errorHandling';
 
 export const ProfilePage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { currentUser, logout } = useAuth();
+  const { currentUser, logout, refreshUser } = useAuth();
   const [user, setUser] = useState<User | null>(null);
   const [listings, setListings] = useState<Listing[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isVisibilityUpdating, setIsVisibilityUpdating] = useState(false);
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -67,6 +70,23 @@ export const ProfilePage: React.FC = () => {
   const handleLogout = async () => {
     await logout();
     navigate('/');
+  };
+
+  const handleHousemateVisibility = async () => {
+    if (!isOwnProfile) return;
+    setIsVisibilityUpdating(true);
+    try {
+      const nextVisibility = !user.shareProfileWithHousemates;
+      await apiService.users.setHousemateVisibility(nextVisibility);
+      setUser(current => current ? { ...current, shareProfileWithHousemates: nextVisibility } : current);
+      await refreshUser();
+      toast.success(nextVisibility ? 'Votre profil peut désormais être présenté aux futurs colocataires.' : 'Votre profil n’est plus présenté aux futurs colocataires.');
+    } catch (error) {
+      console.error('Impossible de mettre à jour la visibilité du profil', error);
+      toast.error(userFacingErrorMessage(error));
+    } finally {
+      setIsVisibilityUpdating(false);
+    }
   };
 
   return (
@@ -194,6 +214,26 @@ export const ProfilePage: React.FC = () => {
                 </div>
               </div>
             </div>
+
+            {isOwnProfile && (
+              <section className="rounded-3xl border border-gray-100 bg-white p-5 shadow-soft md:rounded-[2.5rem] md:p-10 md:shadow-premium">
+                <h2 className="font-heading text-xl font-bold text-haven-navy md:text-2xl">Visibilité avec les futurs colocataires</h2>
+                <p className="mt-2 max-w-2xl text-sm leading-relaxed text-gray-500">Autorisez HAVEN à présenter votre prénom, votre photo, votre activité et votre âge aux personnes dont le séjour confirmé chevauche le vôtre. Vos coordonnées restent privées.</p>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={Boolean(user.shareProfileWithHousemates)}
+                  disabled={isVisibilityUpdating}
+                  onClick={handleHousemateVisibility}
+                  className={`mt-5 inline-flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-bold transition-colors disabled:cursor-wait ${user.shareProfileWithHousemates ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-600'}`}
+                >
+                  <span className={`h-5 w-9 rounded-full p-0.5 transition-colors ${user.shareProfileWithHousemates ? 'bg-green-500' : 'bg-gray-300'}`}>
+                    <span className={`block h-4 w-4 rounded-full bg-white transition-transform ${user.shareProfileWithHousemates ? 'translate-x-4' : ''}`} />
+                  </span>
+                  {isVisibilityUpdating ? 'Mise à jour…' : user.shareProfileWithHousemates ? 'Mon profil est visible' : 'Mon profil est privé'}
+                </button>
+              </section>
+            )}
 
             {/* Listings Section (if owner) */}
             {listings.length > 0 && (

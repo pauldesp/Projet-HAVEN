@@ -245,7 +245,7 @@ service cloud.firestore {
           incoming().email == existing().email &&
           incoming().status == existing().status &&
           isSafeMemberRole(incoming().role) &&
-          incoming().diff(existing()).affectedKeys().hasOnly(['firstName', 'lastName', 'avatarUrl', 'bio', 'school', 'favorites', 'documents', 'city', 'job', 'phone', 'role'])
+          incoming().diff(existing()).affectedKeys().hasOnly(['firstName', 'lastName', 'avatarUrl', 'bio', 'school', 'favorites', 'documents', 'city', 'job', 'phone', 'role', 'shareProfileWithHousemates'])
         )
       );
     }

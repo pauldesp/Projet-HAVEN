@@ -117,6 +117,97 @@ async function startServer() {
     });
   });
 
+  // Shows only the voluntary public profiles of confirmed tenants whose stay
+  // overlaps the dates requested by a signed-in future housemate. Contacts,
+  // legal identity and payment information never leave the server here.
+  app.get("/api/listings/:listingId/housemates", sensitiveApiLimiter, requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      const listingId = String(req.params.listingId || "");
+      const startDate = typeof req.query.start === "string" ? req.query.start : "";
+      const endDate = typeof req.query.end === "string" ? req.query.end : "";
+      const roomId = typeof req.query.roomId === "string" ? req.query.roomId : "";
+      if (!/^[a-zA-Z0-9_-]{1,128}$/.test(listingId) || !isBookableStay(startDate, endDate)) {
+        return sendApiError(res, 422, "Dates ou logement invalides");
+      }
+
+      const listingSnap = await adminDb.collection("listings").doc(listingId).get();
+      if (!listingSnap.exists || listingSnap.data()?.status !== "APPROVED") {
+        return sendApiError(res, 404, "Logement introuvable");
+      }
+
+      const bookingsSnapshot = await adminDb.collection("bookings").where("listingId", "==", listingId).get();
+      const candidates = bookingsSnapshot.docs
+        .map(item => item.data())
+        .filter(booking =>
+          booking.status === "CONFIRMED" &&
+          booking.tenantId !== req.user?.uid &&
+          booking.roomId !== roomId &&
+          typeof booking.startDate === "string" &&
+          typeof booking.endDate === "string" &&
+          booking.startDate < endDate && booking.endDate > startDate
+        );
+
+      const uniqueTenantIds = [...new Set(candidates.map(booking => String(booking.tenantId)))];
+      const profiles = await Promise.all(uniqueTenantIds.map(async tenantId => {
+        const profile = await adminDb.collection("users").doc(tenantId).get();
+        return profile.exists ? profile.data() : undefined;
+      }));
+      const profilesById = new Map(profiles.filter(Boolean).map(profile => [String(profile!.id), profile!]));
+
+      const ageOf = (birthDate: unknown) => {
+        if (typeof birthDate !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(birthDate)) return undefined;
+        const date = new Date(`${birthDate}T12:00:00`);
+        if (Number.isNaN(date.getTime())) return undefined;
+        const today = new Date();
+        let age = today.getFullYear() - date.getFullYear();
+        const birthdayThisYear = new Date(today.getFullYear(), date.getMonth(), date.getDate());
+        if (birthdayThisYear > today) age -= 1;
+        return age >= 18 && age <= 120 ? age : undefined;
+      };
+
+      const housemates = candidates.flatMap(booking => {
+        const profile = profilesById.get(String(booking.tenantId));
+        if (!profile?.shareProfileWithHousemates) return [];
+        return [{
+          id: String(profile.id),
+          firstName: String(profile.firstName || "Membre HAVEN").slice(0, 100),
+          avatarUrl: typeof profile.avatarUrl === "string" ? profile.avatarUrl : "",
+          age: ageOf(profile.birthDate),
+          activity: typeof profile.job === "string" && profile.job.trim()
+            ? profile.job.trim().slice(0, 120)
+            : typeof profile.school === "string" && profile.school.trim()
+              ? `Étudie à ${profile.school.trim().slice(0, 100)}`
+              : undefined,
+          startDate: booking.startDate,
+          endDate: booking.endDate,
+          overlapStart: booking.startDate > startDate ? booking.startDate : startDate,
+          overlapEnd: booking.endDate < endDate ? booking.endDate : endDate,
+        }];
+      }).sort((a, b) => a.overlapStart.localeCompare(b.overlapStart));
+
+      return res.json({ housemates });
+    } catch (error) {
+      console.error("Housemate preview failed", error);
+      return sendApiError(res, 500, "Impossible de charger les futurs colocataires");
+    }
+  });
+
+  app.put("/api/users/me/housemate-visibility", sensitiveApiLimiter, requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      if (typeof req.body?.shareProfileWithHousemates !== "boolean") {
+        return sendApiError(res, 422, "Préférence de visibilité invalide");
+      }
+      const userRef = adminDb.collection("users").doc(req.user!.uid);
+      const userSnap = await userRef.get();
+      if (!userSnap.exists) return sendApiError(res, 404, "Profil introuvable");
+      await userRef.update({ shareProfileWithHousemates: req.body.shareProfileWithHousemates });
+      return res.json({ shareProfileWithHousemates: req.body.shareProfileWithHousemates });
+    } catch (error) {
+      console.error("Housemate visibility update failed", error);
+      return sendApiError(res, 500, "Impossible de mettre à jour la visibilité du profil");
+    }
+  });
+
   // API route for sending verification email
   app.post("/api/send-verification", verificationLimiter, async (req, res) => {
     const email = normalizeEmail(req.body.email);

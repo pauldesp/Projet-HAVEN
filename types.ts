@@ -35,6 +35,8 @@ export interface User {
   rating?: number;
   reviewsCount?: number;
   favorites?: string[]; // Array of listing IDs
+  /** Consentement explicite pour apparaître auprès des futurs colocataires. */
+  shareProfileWithHousemates?: boolean;
   documents?: {
     idCard?: string;
     proofOfIncome?: string;
@@ -142,6 +144,19 @@ export interface BookingAvailability {
   endDate: string;
   status: Booking['status'];
   updatedAt: string;
+}
+
+/** Safe public subset shown to a logged-in future housemate. */
+export interface HousematePreview {
+  id: string;
+  firstName: string;
+  avatarUrl: string;
+  age?: number;
+  activity?: string;
+  startDate: string;
+  endDate: string;
+  overlapStart: string;
+  overlapEnd: string;
 }
 
 // Type État des Lieux

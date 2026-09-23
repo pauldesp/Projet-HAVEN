@@ -9,7 +9,7 @@ import ReactMarkdown from 'react-markdown';
 import { Star, MapPin, Wifi, Layout, Users, Check, Share, Heart, Calendar, Lock, Maximize2, ShieldCheck, AlertCircle, Loader2 } from 'lucide-react';
 import { useListings } from '../contexts/ListingContext';
 import { apiService } from '../services/api';
-import { BookingAvailability, User } from '../types';
+import { BookingAvailability, HousematePreview, Room, User } from '../types';
 import { toast } from 'sonner';
 
 import { useAuth } from '../contexts/AuthContext';
@@ -39,6 +39,9 @@ export const ListingDetails: React.FC = () => {
   const [isOwnerMode, setIsOwnerMode] = useState(false);
   const [availability, setAvailability] = useState<BookingAvailability[]>([]);
   const [isFavoriteUpdating, setIsFavoriteUpdating] = useState(false);
+  const [housemates, setHousemates] = useState<HousematePreview[]>([]);
+  const [isHousematesLoading, setIsHousematesLoading] = useState(false);
+  const [housematesError, setHousematesError] = useState<string | null>(null);
   
   const isApproved = currentUser?.status === 'APPROVED' || currentUser?.role === 'ADMIN';
   const isListingOwner = currentUser?.id === listing?.ownerId;
@@ -85,17 +88,40 @@ export const ListingDetails: React.FC = () => {
     return apiService.availability.listenByListingId(listing.id, setAvailability);
   }, [listing?.id]);
 
-  if (!listing) return <div className="pt-24 text-center">Logement non trouvé</div>;
-
-  const isRoomAvailable = (room: typeof listing.rooms[number]) =>
-    isRoomAvailableForStay(room, listing, availability, startDate, endDate);
-  const defaultRoom = listing.rooms.find(isRoomAvailable) || listing.rooms[0];
-  const requestedRoom = selectedRoomId ? listing.rooms.find(r => r.id === selectedRoomId) : undefined;
+  const isRoomAvailable = (room: Room) =>
+    Boolean(listing) && isRoomAvailableForStay(room, listing, availability, startDate, endDate);
+  const defaultRoom = listing?.rooms.find(isRoomAvailable) || listing?.rooms[0];
+  const requestedRoom = selectedRoomId ? listing?.rooms.find(r => r.id === selectedRoomId) : undefined;
   // Keep the room chosen by the visitor even when it is unavailable. This lets
   // them see its booked dates in the calendar instead of silently switching to
   // another room with a different availability.
   const activeRoom = requestedRoom || defaultRoom;
-  const activeRoomIsAvailable = isRoomAvailable(activeRoom);
+  const activeRoomIsAvailable = activeRoom ? isRoomAvailable(activeRoom) : false;
+
+  useEffect(() => {
+    if (!currentUser || !listing?.id || !activeRoom || !isBookableStay(startDate, endDate)) {
+      setHousemates([]);
+      setHousematesError(null);
+      setIsHousematesLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setIsHousematesLoading(true);
+    setHousematesError(null);
+    apiService.housemates.getForStay(listing.id, activeRoom.id, startDate, endDate)
+      .then(items => {
+        if (!cancelled) setHousemates(items);
+      })
+      .catch(error => {
+        if (!cancelled) setHousematesError(userFacingErrorMessage(error));
+      })
+      .finally(() => {
+        if (!cancelled) setIsHousematesLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [currentUser?.id, listing?.id, activeRoom?.id, startDate, endDate]);
+
+  if (!listing || !activeRoom) return <div className="pt-24 text-center">Logement non trouvé</div>;
 
   const activeRoomBookings = availability.filter(
     b => b.roomId === activeRoom.id && ['PENDING', 'APPROVED', 'CONFIRMED'].includes(b.status)
@@ -420,7 +446,7 @@ export const ListingDetails: React.FC = () => {
                   <p className="text-gray-500 mb-6 text-sm">
                     Sélectionnez vos dates pour <span className="font-bold text-haven-navy">{activeRoom.name}</span>. 
                     Séjour minimum : <span className="font-bold text-haven-navy">{listing.minStay} nuits</span>.
-                    Les jours occupés sont indiqués sans exposer l'identité des locataires.
+                    Les jours réservés sont indiqués sur le calendrier. Les profils ayant choisi d’être visibles apparaissent ci-dessous.
                   </p>
                 )}
                 
@@ -435,6 +461,45 @@ export const ListingDetails: React.FC = () => {
                   listingBlockedDates={listing.blockedDates || []}
                   onSaveBlockedDates={handleSaveBlockedDates}
                 />
+
+                {!isListingOwner && startDate && endDate && (
+                  <section className="mt-6 rounded-2xl border border-gray-100 bg-white p-5 shadow-sm" aria-live="polite">
+                    <div className="flex items-start gap-3">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-700"><Users size={20} /></div>
+                      <div>
+                        <h3 className="font-heading font-bold text-lg text-haven-navy">Vos futurs colocataires pendant ce séjour</h3>
+                        <p className="mt-1 text-sm text-gray-500">Voici les profils qui partagent au moins une nuit avec les dates choisies.</p>
+                      </div>
+                    </div>
+
+                    {!currentUser ? (
+                      <p className="mt-4 text-sm text-gray-500">Connectez-vous pour découvrir les profils qui ont choisi d’être visibles.</p>
+                    ) : isHousematesLoading ? (
+                      <div className="mt-4 flex items-center gap-2 text-sm text-gray-500"><Loader2 size={16} className="animate-spin" /> Chargement des profils…</div>
+                    ) : housematesError ? (
+                      <p className="mt-4 text-sm text-haven-red">{housematesError}</p>
+                    ) : housemates.length === 0 ? (
+                      <p className="mt-4 text-sm text-gray-500">Aucun futur colocataire n’a choisi de partager son profil pour ces dates.</p>
+                    ) : (
+                      <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                        {housemates.map(housemate => (
+                          <Link key={`${housemate.id}-${housemate.startDate}`} to={`/profile/${housemate.id}`} className="flex items-center gap-3 rounded-xl border border-gray-100 p-3 transition-colors hover:border-haven-navy/30 hover:bg-gray-50">
+                            {housemate.avatarUrl ? (
+                              <img src={housemate.avatarUrl} alt={`Profil de ${housemate.firstName}`} className="h-11 w-11 rounded-full object-cover" />
+                            ) : (
+                              <div className="flex h-11 w-11 items-center justify-center rounded-full bg-haven-navy text-sm font-bold text-white">{housemate.firstName.charAt(0)}</div>
+                            )}
+                            <div className="min-w-0">
+                              <p className="font-bold text-haven-navy">{housemate.firstName}{housemate.age ? `, ${housemate.age} ans` : ''}</p>
+                              {housemate.activity && <p className="truncate text-xs text-gray-500">{housemate.activity}</p>}
+                              <p className="mt-0.5 text-xs text-gray-400">Présent du {new Date(`${housemate.overlapStart}T12:00:00`).toLocaleDateString('fr-FR')} au {new Date(`${housemate.overlapEnd}T12:00:00`).toLocaleDateString('fr-FR')}</p>
+                            </div>
+                          </Link>
+                        ))}
+                      </div>
+                    )}
+                  </section>
+                )}
               </div>
 
               {/* REVIEWS SECTION */}
