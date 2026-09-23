@@ -683,13 +683,6 @@ export const TenantDashboard: React.FC = () => {
                             <AlertTriangle size={13} /> Signaler un incident
                           </Button>
 
-                          {/* Modify Dates */}
-                          <button 
-                            onClick={() => alert("Demande de modification des dates envoyée au propriétaire.")}
-                            className="w-full h-10 text-[10px] text-haven-stone hover:text-haven-navy font-black uppercase tracking-tighter transition-colors underline underline-offset-4"
-                          >
-                            Modifier le séjour
-                          </button>
                           <button
                             onClick={() => setCancellationBooking(booking)}
                             className="w-full h-10 text-[10px] text-haven-red hover:bg-red-50 font-black uppercase tracking-tighter transition-colors rounded-xl"
