@@ -272,7 +272,15 @@ export const SearchPage: React.FC = () => {
                   <span key={index} className="flex-1 rounded-t-sm bg-haven-red" style={{ height: `${height}%` }} />
                 ))}
               </div>
-              <div className="mt-2 space-y-2">
+              <div className="haven-dual-range mt-4">
+                <div className="haven-dual-range-track" />
+                <div
+                  className="haven-dual-range-selection"
+                  style={{
+                    left: `${(priceMin / priceCeiling) * 100}%`,
+                    width: `${((priceMax - priceMin) / priceCeiling) * 100}%`,
+                  }}
+                />
                 <label className="sr-only" htmlFor="price-min">Prix minimum du séjour</label>
                 <input
                   id="price-min"
@@ -282,7 +290,7 @@ export const SearchPage: React.FC = () => {
                   step="10"
                   value={priceMin}
                   onChange={(event) => setPriceMin(Math.min(Number(event.target.value), priceMax))}
-                  className="block w-full accent-haven-red"
+                  className="haven-dual-range-input haven-dual-range-min"
                 />
                 <label className="sr-only" htmlFor="price-max">Prix maximum du séjour</label>
                 <input
@@ -293,7 +301,7 @@ export const SearchPage: React.FC = () => {
                   step="10"
                   value={priceMax}
                   onChange={(event) => setPriceMax(Math.max(Number(event.target.value), priceMin))}
-                  className="block w-full accent-haven-red"
+                  className="haven-dual-range-input haven-dual-range-max"
                 />
               </div>
               <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
