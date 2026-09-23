@@ -91,7 +91,10 @@ export const ListingDetails: React.FC = () => {
     isRoomAvailableForStay(room, listing, availability, startDate, endDate);
   const defaultRoom = listing.rooms.find(isRoomAvailable) || listing.rooms[0];
   const requestedRoom = selectedRoomId ? listing.rooms.find(r => r.id === selectedRoomId) : undefined;
-  const activeRoom = requestedRoom && isRoomAvailable(requestedRoom) ? requestedRoom : defaultRoom;
+  // Keep the room chosen by the visitor even when it is unavailable. This lets
+  // them see its booked dates in the calendar instead of silently switching to
+  // another room with a different availability.
+  const activeRoom = requestedRoom || defaultRoom;
   const activeRoomIsAvailable = isRoomAvailable(activeRoom);
 
   const activeRoomBookings = availability.filter(
@@ -353,15 +356,13 @@ export const ListingDetails: React.FC = () => {
                 <div className="space-y-4">
                   {listing.rooms.map(room => {
                     const roomAvailable = isRoomAvailable(room);
-                    const roomIsSelected = roomAvailable && (selectedRoomId === room.id || (!selectedRoomId && room.id === activeRoom.id));
+                    const roomIsSelected = selectedRoomId === room.id || (!selectedRoomId && room.id === activeRoom.id);
                     return (
                     <div 
                       key={room.id} 
-                      aria-disabled={!roomAvailable}
-                      className={`border rounded-2xl p-4 flex flex-col md:flex-row gap-6 items-center transition-all ${roomAvailable ? 'cursor-pointer' : 'cursor-not-allowed opacity-60 bg-gray-50'} ${roomIsSelected ? 'border-haven-navy ring-1 ring-haven-navy bg-blue-50/50' : 'border-gray-200'} ${roomAvailable ? 'hover:border-haven-navy/30' : ''}`}
-                      onClick={() => {
-                        if (roomAvailable) setSelectedRoomId(room.id);
-                      }}
+                      aria-selected={roomIsSelected}
+                      className={`border rounded-2xl p-4 flex flex-col md:flex-row gap-6 items-center transition-all cursor-pointer ${!roomAvailable ? 'bg-gray-50' : ''} ${roomIsSelected ? 'border-haven-navy ring-1 ring-haven-navy bg-blue-50/50' : 'border-gray-200'} hover:border-haven-navy/30`}
+                      onClick={() => setSelectedRoomId(room.id)}
                     >
                       <div className="w-full md:w-48 h-32 rounded-xl overflow-hidden flex-shrink-0">
                         <img src={room.photoUrl} className="w-full h-full object-cover" alt={room.name} />
@@ -542,8 +543,8 @@ export const ListingDetails: React.FC = () => {
                     </div>
                   </div>
 
-                  <Button fullWidth size="lg" onClick={handleBookClick} disabled={!activeRoom.isAvailable || !isBookableStay(startDate, endDate)}>
-                    {activeRoom.isAvailable ? (startDate && endDate ? 'Réserver' : 'Sélectionnez vos dates') : 'Indisponible'}
+                  <Button fullWidth size="lg" onClick={handleBookClick} disabled={!activeRoomIsAvailable || !isBookableStay(startDate, endDate)}>
+                    {!startDate || !endDate ? 'Sélectionnez vos dates' : activeRoomIsAvailable ? 'Réserver' : 'Indisponible'}
                   </Button>
                   <p className="text-center text-xs text-gray-400 mt-4">Vous ne serez débité qu'après validation</p>
                 </div>

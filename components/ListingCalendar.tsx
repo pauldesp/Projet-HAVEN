@@ -45,6 +45,13 @@ export const ListingCalendar: React.FC<ListingCalendarProps> = ({
   const [isSaving, setIsSaving] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
 
+  // The calendar is reused for every room. Synchronize its manual blocks when
+  // the visitor changes room so no dates from the previous room remain shown.
+  useEffect(() => {
+    setManualBlockedDates(blockedDates);
+    if (!isBlockingMode) setTempBlockedDates([]);
+  }, [blockedDates, isBlockingMode]);
+
   // When a stay is passed from the search results, display its arrival month
   // immediately instead of keeping the calendar on the current month.
   useEffect(() => {
@@ -71,16 +78,17 @@ export const ListingCalendar: React.FC<ListingCalendarProps> = ({
     return day === 0 ? 6 : day - 1;
   };
 
-  const isRoomBooked = (year: number, month: number, day: number) => {
+  const isRoomReserved = (year: number, month: number, day: number) => {
     const checkDate = new Date(year, month, day).setHours(0,0,0,0);
-    const hasBooking = activeRoomBookings.some(b => {
+    return activeRoomBookings.some(b => {
       const start = new Date(b.startDate).setHours(0,0,0,0);
       const end = new Date(b.endDate).setHours(0,0,0,0);
       return checkDate >= start && checkDate < end;
     });
+  };
 
-    if (hasBooking) return true;
-
+  const isRoomBooked = (year: number, month: number, day: number) => {
+    if (isRoomReserved(year, month, day)) return true;
     const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
     return manualBlockedDates.includes(dateStr) || listingBlockedDates.includes(dateStr);
   };
@@ -257,6 +265,10 @@ export const ListingCalendar: React.FC<ListingCalendarProps> = ({
                 <div className="w-2.5 h-2.5 rounded-full bg-white border border-gray-200"></div>
                 <span>Libre</span>
               </div>
+              <div className="flex items-center gap-1.5 mr-3 text-gray-600 font-black">
+                <div className="w-2.5 h-2.5 rounded-full bg-gray-300 border border-gray-400"></div>
+                <span>Réservé</span>
+              </div>
               <div className="flex items-center gap-1.5 text-haven-red font-black">
                 <div className="w-2.5 h-2.5 rounded-full bg-haven-red/10 border border-haven-red/20"></div>
                 <span>Bloqué</span>
@@ -309,6 +321,7 @@ export const ListingCalendar: React.FC<ListingCalendarProps> = ({
             const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
             
             const isBooked = isRoomBooked(year, month, day);
+            const isReserved = isRoomReserved(year, month, day);
             const isPast = dateStr < todayKey;
             const isManualBlocked = isBlockingMode 
               ? tempBlockedDates.includes(dateStr) 
@@ -342,7 +355,9 @@ export const ListingCalendar: React.FC<ListingCalendarProps> = ({
                         : isCheckoutDay
                           ? 'bg-gray-100 text-haven-navy border-gray-400 border-dashed shadow-sm z-10'
                         : isBooked 
-                          ? isManualBlocked
+                          ? isReserved
+                            ? 'bg-gray-200 text-gray-600 border-gray-300 cursor-not-allowed opacity-80'
+                            : isManualBlocked
                           ? 'bg-haven-red/5 text-haven-red/40 border-haven-red/10 cursor-pointer hover:bg-haven-red/10'
                           : 'bg-gray-50 text-gray-400 border-transparent cursor-not-allowed opacity-60' 
                         : isSelected 
