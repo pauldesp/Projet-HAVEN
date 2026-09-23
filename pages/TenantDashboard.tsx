@@ -576,38 +576,41 @@ export const TenantDashboard: React.FC = () => {
             {activeTab === 'UPCOMING' && (
               <>
                 {upcoming.map(booking => (
-                  <div key={booking.id} className="group border border-gray-100 rounded-[2rem] p-8 flex flex-col lg:flex-row gap-8 items-start lg:items-center hover:shadow-xl hover:border-gray-200 transition-all duration-500 bg-white">
-                    <div className="relative w-full lg:w-64 h-40 flex-shrink-0 overflow-hidden rounded-3xl">
-                      <img src={booking.listing?.mainPhotoUrl} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000" alt="" />
-                      <div className={`absolute top-4 left-4 backdrop-blur-md px-3 py-1.5 rounded-full text-[10px] font-black uppercase shadow-sm ${
+                  <div key={booking.id} className="group overflow-hidden rounded-[2rem] border border-gray-100 bg-white shadow-sm transition-all duration-500 hover:border-haven-navy/15 hover:shadow-xl lg:grid lg:grid-cols-[minmax(220px,.8fr)_minmax(0,1.45fr)_280px]">
+                    <div className="relative h-56 w-full overflow-hidden lg:h-full lg:min-h-[285px]">
+                      <img src={booking.listing?.mainPhotoUrl} className="h-full w-full object-cover transition-transform duration-1000 group-hover:scale-105" alt="" />
+                      <div className="absolute inset-0 bg-gradient-to-t from-haven-navy/35 via-transparent to-transparent" />
+                      <div className={`absolute left-5 top-5 px-3 py-1.5 rounded-full text-[10px] font-black uppercase shadow-sm ${
                         booking.status === 'CONFIRMED' ? 'bg-green-500/90 text-white' : 
                         booking.status === 'APPROVED' ? 'bg-amber-500/90 text-white animate-pulse' : 
                         'bg-blue-500/90 text-white'
                       }`}>
                         {booking.status === 'CONFIRMED' ? 'Confirmé' : booking.status === 'APPROVED' ? 'À régler' : 'En attente'}
                       </div>
+                      {booking.roomName && <div className="absolute bottom-5 left-5 rounded-full bg-white/90 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-haven-navy backdrop-blur-sm">{booking.roomName}</div>}
                     </div>
 
-                    <div className="flex-1 w-full text-left space-y-4">
+                    <div className="flex min-w-0 flex-col justify-center p-6 text-left sm:p-8">
+                      <p className="mb-3 text-[10px] font-black uppercase tracking-[0.22em] text-haven-red">Votre prochain séjour</p>
                       <div>
-                        <h3 className="font-heading font-bold text-2xl text-haven-navy group-hover:text-haven-red transition-colors mb-1">{booking.listing?.title}</h3>
-                        <p className="text-gray-400 text-[11px] flex items-center gap-1.5 font-black uppercase tracking-widest leading-none"><MapPin size={12} className="text-haven-red"/> {booking.listing?.city}</p>
+                        <h3 className="mb-2 font-heading text-2xl font-bold text-haven-navy transition-colors group-hover:text-haven-red sm:text-3xl">{booking.listing?.title}</h3>
+                        <p className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-widest text-gray-400"><MapPin size={13} className="text-haven-red"/> {booking.listing?.city}</p>
                       </div>
                       
-                      <div className="flex flex-wrap gap-3">
-                        <div className="flex items-center gap-2 bg-gray-50 px-4 py-2.5 rounded-2xl border border-gray-100/50">
-                          <Calendar size={16} className="text-haven-stone"/>
-                          <span className="text-xs font-bold text-haven-navy">{new Date(booking.startDate).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })} — {new Date(booking.endDate).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                      <div className="mt-7 grid gap-3 sm:grid-cols-2">
+                        <div className="rounded-2xl border border-gray-100 bg-gray-50/70 p-4">
+                          <div className="mb-2 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-gray-400"><Calendar size={14} className="text-haven-red" /> Dates du séjour</div>
+                          <span className="text-sm font-bold text-haven-navy">{new Date(booking.startDate).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })} — {new Date(booking.endDate).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
                         </div>
-                        <div className="flex items-center gap-2 bg-haven-navy/5 px-4 py-2.5 rounded-2xl border border-haven-navy/10">
-                          <span className="text-xs font-black text-haven-navy">{booking.totalPrice}€ TTC</span>
+                        <div className="rounded-2xl border border-haven-navy/10 bg-haven-navy/[0.03] p-4">
+                          <div className="mb-2 text-[10px] font-black uppercase tracking-widest text-gray-400">Montant du séjour</div>
+                          <span className="text-lg font-black text-haven-navy">{booking.totalPrice}€ <span className="text-xs font-bold text-gray-400">TTC</span></span>
                         </div>
-                        <BookingCountdown booking={booking} />
                       </div>
-
+                      <div className="mt-4"><BookingCountdown booking={booking} /></div>
                     </div>
                     
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-1 gap-2 w-full lg:w-72 pt-4 lg:pt-0 border-t lg:border-t-0 lg:border-l border-gray-100 lg:pl-8">
+                    <div className="grid w-full grid-cols-1 gap-2 border-t border-gray-100 bg-haven-cream/40 p-5 sm:grid-cols-2 lg:block lg:space-y-2 lg:border-l lg:border-t-0 lg:p-6">
                       {booking.status === 'CONFIRMED' && (
                         <>
                           <Link to={`/messages/${booking.id}`}>
