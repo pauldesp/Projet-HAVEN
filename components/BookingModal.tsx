@@ -172,7 +172,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose, lis
       // message shown to the tenant if the network is unavailable.
       if (createdBookingId) {
         try {
-          await apiService.bookings.updateStatus(createdBookingId, 'CANCELLED');
+          await apiService.bookings.cancel(createdBookingId, 'Échec de la finalisation du paiement');
         } catch (cleanupError) {
           console.error('Impossible de libérer la réservation après un échec de paiement', cleanupError);
         }
@@ -255,6 +255,11 @@ export const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose, lis
                   </div>
                   <h3 className="text-xl font-heading font-bold text-haven-navy">Conditions générales & Accord Tripartite</h3>
                   <p className="text-sm text-haven-stone">Veuillez lire et accepter les Conditions Générales de Réservations. Votre validation et votre paiement vaudront signature de l'accord tripartite (Locataire, Propriétaire, HAVEN) valant contrat officiel.</p>
+                </div>
+
+                <div className="rounded-2xl border border-blue-100 bg-blue-50/60 p-4 text-sm text-gray-600">
+                  <p className="font-bold text-haven-navy">Conditions d’annulation</p>
+                  <p className="mt-1 leading-relaxed">Après confirmation, l’annulation est remboursée intégralement au moins 30 jours avant l’arrivée, à 50 % entre 14 et 29 jours, puis sans remboursement. Si le propriétaire annule, le remboursement est intégral.</p>
                 </div>
 
                 <div className={`p-4 md:p-6 rounded-2xl md:rounded-[2rem] border transition-all ${isSigned ? 'bg-green-50 border-green-200' : 'bg-white border-gray-100 shadow-premium'}`}>

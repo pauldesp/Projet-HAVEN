@@ -36,6 +36,7 @@ import { apiService } from '../services/api';
 import { Booking, Listing, UserRole, Incident, Payment, User } from '../types';
 import { AccountStatusOverlay } from '../components/AccountStatusOverlay';
 import { ConversationsList } from '../components/ConversationsList';
+import { CancellationModal } from '../components/CancellationModal';
 import { toast } from 'sonner';
 import { userFacingErrorMessage } from '../services/errorHandling';
 
@@ -110,6 +111,7 @@ export const OwnerDashboard: React.FC = () => {
   const [unreadCount, setUnreadCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [isVerificationModalOpen, setIsVerificationModalOpen] = useState(false);
+  const [cancellationBooking, setCancellationBooking] = useState<BookingWithTenant | null>(null);
   const [bookingSubTab, setBookingSubTab] = useState<'UPCOMING' | 'CURRENT' | 'PAST'>('UPCOMING');
 
   const ownerListings = listings.filter(l => l.ownerId === currentUser?.id);
@@ -582,7 +584,7 @@ export const OwnerDashboard: React.FC = () => {
                                   size="sm" 
                                   variant="outline" 
                                   className="text-haven-red border-red-100 hover:bg-red-50 flex items-center gap-1.5 font-bold" 
-                                  onClick={() => handleBookingStatus(booking.id, 'CANCELLED')}
+                                  onClick={() => setCancellationBooking(booking)}
                                 >
                                   <XCircle size={14} /> Refuser
                                 </Button>
@@ -592,6 +594,16 @@ export const OwnerDashboard: React.FC = () => {
                                 <Link to={`/messages/${booking.id}`}>
                                   <Button size="sm" variant="ghost" className="text-haven-navy"><MessageCircle size={16} /></Button>
                                 </Link>
+                                {booking.status === 'CONFIRMED' && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="text-haven-red border-red-100 hover:bg-red-50"
+                                    onClick={() => setCancellationBooking(booking)}
+                                  >
+                                    Annuler le séjour
+                                  </Button>
+                                )}
                                 <Button size="sm" variant="ghost" className="text-gray-400"><MoreHorizontal size={16} /></Button>
                               </div>
                             )}
@@ -743,6 +755,17 @@ export const OwnerDashboard: React.FC = () => {
         isOpen={isVerificationModalOpen} 
         onClose={() => setIsVerificationModalOpen(false)} 
       />
+      {cancellationBooking && (
+        <CancellationModal
+          booking={cancellationBooking}
+          actor="OWNER"
+          onClose={() => setCancellationBooking(null)}
+          onCancelled={(bookingId, cancellation) => {
+            setOwnerBookings(previous => previous.map(booking => booking.id === bookingId ? { ...booking, status: 'CANCELLED', cancellation } : booking));
+            toast.success(cancellation.refundAmount > 0 ? `Séjour annulé. ${cancellation.refundAmount} € seront remboursés au locataire.` : 'Demande de réservation annulée.');
+          }}
+        />
+      )}
     </div>
   );
 };

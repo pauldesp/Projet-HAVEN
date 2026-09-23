@@ -1,4 +1,6 @@
 import { countNights, isBookableStay } from './services/stay';
+import { getCancellationTerms } from './services/cancellationPolicy';
+import type { Booking } from './types';
 import express from "express";
 import { createServer as createViteServer } from "vite";
 import path from "path";
@@ -282,6 +284,115 @@ async function startServer() {
     if (!timingSafeEqual(candidate, entry.hash)) return res.status(400).json({ error: "Code invalide ou expiré" });
     verificationCodes.delete(email);
     return res.json({ success: true });
+  });
+
+  // Cancellations are deliberately handled by the server: the applicable
+  // policy, refund and release of availability must form one audited action.
+  app.post("/api/bookings/:bookingId/cancel", sensitiveApiLimiter, requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      const bookingId = String(req.params.bookingId || "");
+      const reason = typeof req.body?.reason === "string" ? req.body.reason.trim().replace(/\s+/g, " ") : "";
+      if (!/^[a-zA-Z0-9_-]{1,128}$/.test(bookingId)) return sendApiError(res, 422, "Réservation invalide");
+      if (reason.length < 3 || reason.length > 500) return sendApiError(res, 422, "Indiquez un motif d’annulation entre 3 et 500 caractères");
+
+      const bookingRef = adminDb.collection("bookings").doc(bookingId);
+      const bookingSnap = await bookingRef.get();
+      if (!bookingSnap.exists) return sendApiError(res, 404, "Réservation introuvable");
+      const booking = bookingSnap.data()!;
+      const actor = booking.tenantId === req.user?.uid ? "TENANT" : booking.ownerId === req.user?.uid ? "OWNER" : null;
+      if (!actor) return sendApiError(res, 403, "Accès refusé");
+
+      const terms = getCancellationTerms(booking as Pick<Booking, 'status' | 'startDate' | 'totalPrice' | 'paymentStatus'>, actor);
+      if (!terms.canCancel) return sendApiError(res, 409, terms.detail);
+
+      let refundStatus: "NOT_REQUIRED" | "SIMULATED" | "COMPLETED" = "NOT_REQUIRED";
+      let refundId: string | undefined;
+      const shouldRefund = booking.paymentStatus === "PAID" && terms.refundAmount > 0;
+      if (shouldRefund) {
+        const stripeKey = process.env.STRIPE_SECRET_KEY?.trim();
+        const isStripeConfigured = Boolean(stripeKey && stripeKey !== "YOUR_STRIPE_SECRET_KEY" && !stripeKey.includes("***") && stripeKey.length >= 15);
+        if (!isStripeConfigured) {
+          if (process.env.NODE_ENV === "production") return sendApiError(res, 503, "Le remboursement est momentanément indisponible. Votre réservation reste active.");
+          refundStatus = "SIMULATED";
+          refundId = `mock_refund_${bookingId}_${Date.now()}`;
+        } else if (!booking.stripeSessionId) {
+          return sendApiError(res, 503, "Le paiement d’origine est introuvable. Contactez HAVEN avec la référence de réservation.");
+        } else {
+          const session = await getStripe().checkout.sessions.retrieve(booking.stripeSessionId);
+          const paymentIntent = typeof session.payment_intent === "string" ? session.payment_intent : session.payment_intent?.id;
+          if (!paymentIntent) return sendApiError(res, 503, "Le paiement d’origine est introuvable. Contactez HAVEN avec la référence de réservation.");
+          const refund = await getStripe().refunds.create({
+            payment_intent: paymentIntent,
+            amount: Math.round(terms.refundAmount * 100),
+            metadata: { bookingId, cancelledBy: actor },
+          });
+          refundStatus = "COMPLETED";
+          refundId = refund.id;
+        }
+      }
+
+      const cancelledAt = new Date().toISOString();
+      const messageId = `m-cancel-${bookingId}-${Date.now()}`;
+      const cancellation = {
+        cancelledAt,
+        cancelledBy: actor,
+        reason,
+        refundPercent: terms.refundPercent,
+        refundAmount: terms.refundAmount,
+        refundStatus,
+        ...(refundId ? { refundId } : {}),
+      };
+
+      await adminDb.runTransaction(async transaction => {
+        const freshSnap = await transaction.get(bookingRef);
+        if (!freshSnap.exists || freshSnap.data()?.status !== booking.status) throw new Error("BOOKING_STATUS_CHANGED");
+        transaction.update(bookingRef, { status: "CANCELLED", cancellation });
+        transaction.set(adminDb.collection("booking_availability").doc(bookingId), {
+          id: bookingId,
+          bookingId,
+          listingId: booking.listingId,
+          roomId: booking.roomId,
+          startDate: booking.startDate,
+          endDate: booking.endDate,
+          status: "CANCELLED",
+          updatedAt: cancelledAt,
+        });
+        if (terms.refundAmount > 0) {
+          const paymentId = (refundId || `refund_${bookingId}_${Date.now()}`).replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 128);
+          transaction.set(adminDb.collection("payments").doc(paymentId), {
+            id: paymentId,
+            bookingId,
+            listingId: booking.listingId,
+            ownerId: booking.ownerId,
+            tenantId: booking.tenantId,
+            amount: terms.refundAmount,
+            status: "REFUNDED",
+            type: "REFUND",
+            createdAt: cancelledAt,
+          });
+        }
+        const receiverId = actor === "TENANT" ? booking.ownerId : booking.tenantId;
+        const refundText = terms.refundAmount > 0
+          ? ` Le remboursement prévu est de ${terms.refundAmount} € (${terms.refundPercent} %).`
+          : " Aucun remboursement n’est prévu selon les conditions d’annulation.";
+        transaction.set(adminDb.collection("messages").doc(messageId), {
+          id: messageId,
+          senderId: req.user!.uid,
+          receiverId,
+          bookingId,
+          content: `La réservation de la chambre \"${booking.roomName || "Chambre"}\" a été annulée. Motif : ${reason}.${refundText}`,
+          timestamp: cancelledAt,
+          isRead: false,
+          participants: [booking.tenantId, booking.ownerId],
+        });
+      });
+
+      return res.json({ success: true, cancellation, status: "CANCELLED" });
+    } catch (error) {
+      if (error instanceof Error && error.message === "BOOKING_STATUS_CHANGED") return sendApiError(res, 409, "Cette réservation vient d’être modifiée. Actualisez la page avant de réessayer.");
+      console.error("Booking cancellation failed", error);
+      return sendApiError(res, 503, "L’annulation n’a pas pu être finalisée. Vos données n’ont pas été modifiées.");
+    }
   });
 
   // API route for sending booking notification emails

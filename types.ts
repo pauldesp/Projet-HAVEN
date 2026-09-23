@@ -106,6 +106,16 @@ export interface Listing {
   }[];
 }
 
+export interface BookingCancellation {
+  cancelledAt: string;
+  cancelledBy: 'TENANT' | 'OWNER';
+  reason: string;
+  refundPercent: number;
+  refundAmount: number;
+  refundStatus: 'NOT_REQUIRED' | 'SIMULATED' | 'COMPLETED';
+  refundId?: string;
+}
+
 // Type de réservation
 export interface Booking {
   id: string;
@@ -132,6 +142,7 @@ export interface Booking {
   paymentStatus?: 'PENDING' | 'PAID';
   bookingMode?: 'INSTANT' | 'MANUAL';
   approvedAt?: string;
+  cancellation?: BookingCancellation;
 }
 
 // Public calendar record. It intentionally contains no user or payment data.

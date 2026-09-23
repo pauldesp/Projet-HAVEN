@@ -36,6 +36,7 @@ import { ReviewModal } from '../components/ReviewModal';
 import { ReportModal } from '../components/ReportModal';
 import { AccountStatusOverlay } from '../components/AccountStatusOverlay';
 import { ConversationsList } from '../components/ConversationsList';
+import { CancellationModal } from '../components/CancellationModal';
 import { toast } from 'sonner';
 import { authenticatedFetch } from '../services/serverApi';
 import { userFacingErrorMessage } from '../services/errorHandling';
@@ -108,6 +109,7 @@ export const TenantDashboard: React.FC = () => {
   const [unreadCount, setUnreadCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [isVerificationModalOpen, setIsVerificationModalOpen] = useState(false);
+  const [cancellationBooking, setCancellationBooking] = useState<Booking | null>(null);
   const [forceEarlyDepartureId, setForceEarlyDepartureId] = useState<string | null>(null);
   const [showEarlyDepartureHintId, setShowEarlyDepartureHintId] = useState<string | null>(null);
 
@@ -168,9 +170,7 @@ export const TenantDashboard: React.FC = () => {
         }
       } else if (bookingResult === 'cancel' && bookingId) {
         try {
-          // If cancelled, we delete the pending booking to free up the room
-          // We need a delete method in apiService or use updateStatus to 'CANCELLED'
-          await apiService.bookings.updateStatus(bookingId, 'CANCELLED');
+          await apiService.bookings.cancel(bookingId, 'Paiement non finalisé');
           toast.info("Réservation annulée. Les dates ont été libérées.");
           const newUrl = window.location.pathname + window.location.hash;
           window.history.replaceState({}, '', newUrl);
@@ -280,15 +280,9 @@ export const TenantDashboard: React.FC = () => {
     }
   };
 
-  const handleCancelRequest = async (bookingId: string) => {
-    try {
-      await apiService.bookings.updateStatus(bookingId, 'CANCELLED');
-      setBookings(prev => prev.map(b => b.id === bookingId ? { ...b, status: 'CANCELLED' } : b));
-      toast.success("Demande de réservation annulée avec succès.");
-    } catch (e) {
-      console.error("Error cancelling request", e);
-      toast.error("Impossible d'annuler la demande.");
-    }
+  const handleBookingCancelled = (bookingId: string, cancellation: NonNullable<Booking['cancellation']>) => {
+    setBookings(previous => previous.map(booking => booking.id === bookingId ? { ...booking, status: 'CANCELLED', cancellation } : booking));
+    toast.success(cancellation.refundAmount > 0 ? `Séjour annulé. ${cancellation.refundAmount} € seront remboursés.` : 'Séjour annulé. Les dates ont été libérées.');
   };
 
   const handleInventoryComplete = async (data: any) => {
@@ -461,7 +455,7 @@ export const TenantDashboard: React.FC = () => {
   };
 
   const upcoming = bookings.filter(b => b.status === 'CONFIRMED' || b.status === 'PENDING' || b.status === 'APPROVED');
-  const history = bookings.filter(b => b.status === 'COMPLETED');
+  const history = bookings.filter(b => b.status === 'COMPLETED' || b.status === 'CANCELLED');
 
   const handleDownload = (doc: AppDocument) => {
     if (!doc || !doc.url) {
@@ -696,6 +690,12 @@ export const TenantDashboard: React.FC = () => {
                           >
                             Modifier le séjour
                           </button>
+                          <button
+                            onClick={() => setCancellationBooking(booking)}
+                            className="w-full h-10 text-[10px] text-haven-red hover:bg-red-50 font-black uppercase tracking-tighter transition-colors rounded-xl"
+                          >
+                            Annuler ce séjour
+                          </button>
                         </>
                       )}
 
@@ -711,7 +711,7 @@ export const TenantDashboard: React.FC = () => {
                           <Button 
                             variant="outline" 
                             size="sm" 
-                            onClick={() => handleCancelRequest(booking.id)}
+                            onClick={() => setCancellationBooking(booking)}
                             className="text-haven-stone border-gray-200 hover:text-haven-red hover:bg-red-50 hover:border-red-100 text-[10px] font-black uppercase tracking-widest h-10 rounded-xl"
                           >
                             Annuler ma demande
@@ -746,7 +746,7 @@ export const TenantDashboard: React.FC = () => {
                           <Button 
                             variant="ghost" 
                             size="sm" 
-                            onClick={() => handleCancelRequest(booking.id)}
+                            onClick={() => setCancellationBooking(booking)}
                             className="text-haven-stone hover:text-haven-red hover:bg-red-50 text-[10px] font-bold h-10 rounded-xl"
                           >
                             Annuler ma demande
@@ -773,12 +773,12 @@ export const TenantDashboard: React.FC = () => {
                   <div key={booking.id} className="bg-white border border-gray-100 rounded-[2.5rem] p-8 flex items-center gap-6 hover:shadow-card transition-all">
                     <img src={booking.listing?.mainPhotoUrl} className="w-24 h-24 object-cover rounded-3xl" alt="" />
                     <div className="flex-1 space-y-2">
-                       <div className="px-2 py-1 bg-green-100 text-green-700 text-[9px] font-black uppercase rounded-lg inline-block">Terminé</div>
+                       <div className={`px-2 py-1 text-[9px] font-black uppercase rounded-lg inline-block ${booking.status === 'CANCELLED' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>{booking.status === 'CANCELLED' ? 'Annulé' : 'Terminé'}</div>
                        <h4 className="font-bold text-haven-navy text-xl leading-tight">{booking.listing?.title}</h4>
-                       <p className="text-xs text-gray-400 font-medium italic">Fin du séjour le {new Date(booking.endDate).toLocaleDateString('fr-FR')}</p>
-                       <div className="flex gap-2 pt-2">
+                       <p className="text-xs text-gray-400 font-medium italic">{booking.status === 'CANCELLED' ? `Annulé le ${new Date(booking.cancellation?.cancelledAt || booking.createdAt).toLocaleDateString('fr-FR')}` : `Fin du séjour le ${new Date(booking.endDate).toLocaleDateString('fr-FR')}`}</p>
+                       {booking.status !== 'CANCELLED' && <div className="flex gap-2 pt-2">
                          <Button variant="ghost" size="sm" className="text-[10px] font-black uppercase bg-gray-50 rounded-xl" onClick={() => setReviewState({isOpen: true, targetId: booking.listingId, targetName: booking.listing?.title || 'Logement', targetType: 'LISTING'})}>Noter</Button>
-                       </div>
+                       </div>}
                     </div>
                   </div>
                 ))}
@@ -1065,6 +1065,14 @@ export const TenantDashboard: React.FC = () => {
           </div>
         )}
       </AnimatePresence>
+      {cancellationBooking && (
+        <CancellationModal
+          booking={cancellationBooking}
+          actor="TENANT"
+          onClose={() => setCancellationBooking(null)}
+          onCancelled={handleBookingCancelled}
+        />
+      )}
     </div>
   );
 };

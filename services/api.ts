@@ -497,6 +497,15 @@ export const apiService = {
       } catch (e) {
         handleFirestoreError(e, 'UPDATE_BOOKING_STATUS', `bookings/${bookingId}`);
       }
+    },
+    async cancel(bookingId: string, reason: string) {
+      const response = await authenticatedFetch(`/api/bookings/${encodeURIComponent(bookingId)}/cancel`, {
+        method: 'POST',
+        body: JSON.stringify({ reason }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(`${payload.error || 'Annulation impossible'}${payload.code ? ` (Erreur ${payload.code})` : ''}`);
+      return payload as { success: true; status: 'CANCELLED'; cancellation: NonNullable<Booking['cancellation']> };
     }
   },
 
