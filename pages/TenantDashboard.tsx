@@ -454,8 +454,12 @@ export const TenantDashboard: React.FC = () => {
     input.click();
   };
 
-  const upcoming = bookings.filter(b => b.status === 'CONFIRMED' || b.status === 'PENDING' || b.status === 'APPROVED');
-  const history = bookings.filter(b => b.status === 'COMPLETED' || b.status === 'CANCELLED');
+  const today = new Date().toISOString().slice(0, 10);
+  const isFinishedStay = (booking: Booking) => booking.status === 'COMPLETED' || (booking.status === 'CONFIRMED' && booking.endDate <= today);
+  const upcoming = bookings.filter(booking =>
+    booking.status === 'PENDING' || booking.status === 'APPROVED' || (booking.status === 'CONFIRMED' && !isFinishedStay(booking))
+  );
+  const history = bookings.filter(booking => booking.status === 'CANCELLED' || isFinishedStay(booking));
 
   const handleDownload = (doc: AppDocument) => {
     if (!doc || !doc.url) {
