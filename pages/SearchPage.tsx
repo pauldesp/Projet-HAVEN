@@ -12,9 +12,14 @@ import { toast } from 'sonner';
 import { isRoomAvailableForStay, listingHasAvailableRoom } from '../services/availability';
 import { apiService } from '../services/api';
 import { readSearchDates } from '../services/searchDates';
+import { findClosestAvailableStay, NearbyStay } from '../services/nearbyStays';
 
 interface ListingWithDistance extends Listing {
   distance?: number;
+}
+
+interface ListingWithNearbyStay extends Listing {
+  nearbyStay: NearbyStay;
 }
 
 export const SearchPage: React.FC = () => {
@@ -63,20 +68,16 @@ export const SearchPage: React.FC = () => {
   }, [cityParam, cityCode]);
 
   // Filter Logic
-  const { exactMatches, nearbyMatches, isFallbackMode } = useMemo(() => {
+  const { exactMatches, nearbyDateMatches, nearbyMatches } = useMemo(() => {
     // 0. Security Filter: ONLY APPROVED LISTINGS
     const approvedListings = allListings.filter(l => l.status === 'APPROVED');
 
-    // 1. Base Filtering (Prix, Type)
-    const baseListings = approvedListings.filter(listing => {
+    // 1. Filters independent from the requested dates. They are also used for
+    // the “nearby dates” section below.
+    const listingsMatchingFilters = approvedListings.filter(listing => {
       // Handle case where rooms might be empty
       if (!listing.rooms || listing.rooms.length === 0) return false;
-      
-      const availableRooms = listing.rooms.filter(room =>
-        isRoomAvailableForStay(room, listing, availability, startDate, endDate)
-      );
-      if (availableRooms.length === 0) return false;
-      const minRoomPrice = Math.min(...availableRooms.map(r => r.pricePerDay));
+      const minRoomPrice = Math.min(...listing.rooms.map(room => room.pricePerDay));
       // Comparison logic: priceRange is weekly, rooms are daily. 
       // 300€/week is roughly 42€/day. 
       // We should probably convert priceRange to daily for comparison or vice versa.
@@ -88,25 +89,36 @@ export const SearchPage: React.FC = () => {
     });
 
     const normalizedParam = cityParam.split(',')[0].trim().toLowerCase();
-
-    // 2. Exact City Match (Available only)
-    const exactMatches = baseListings.filter(listing => {
-      if (!listingHasAvailableRoom(listing, availability, startDate, endDate)) return false;
+    const isInRequestedCity = (listing: Listing) => {
       if (!normalizedParam) return true;
-      
       const listingCityNormalized = listing.city.toLowerCase().trim();
-      const searchParamNormalized = normalizedParam.toLowerCase().trim();
-      
-      // Exact match OR the search param contains the city name OR city name contains search param
-      return listingCityNormalized.includes(searchParamNormalized) || 
-             searchParamNormalized.includes(listingCityNormalized);
-    });
+      return listingCityNormalized.includes(normalizedParam) || normalizedParam.includes(listingCityNormalized);
+    };
+    const isAvailableForRequestedStay = (listing: Listing) =>
+      listingHasAvailableRoom(listing, availability, startDate, endDate);
 
-    // 3. Proximity Search (only available listings not in exactMatches)
+    // 2. Exact city and exact requested stay.
+    const exactCityListings = listingsMatchingFilters.filter(isInRequestedCity);
+    const exactMatches = exactCityListings.filter(isAvailableForRequestedStay);
+
+    // 3. Same city, same duration, at the closest available dates. This section
+    // comes after exact results and never replaces them.
+    const nearbyDateMatches: ListingWithNearbyStay[] = startDate && endDate
+      ? exactCityListings
+        .filter(listing => !isAvailableForRequestedStay(listing))
+        .flatMap(listing => {
+          const nearbyStay = findClosestAvailableStay(listing, availability, startDate, endDate);
+          return nearbyStay ? [{ ...listing, nearbyStay }] : [];
+        })
+        .sort((a, b) => Math.abs(a.nearbyStay.offsetDays) - Math.abs(b.nearbyStay.offsetDays))
+      : [];
+
+    // 4. Proximity search keeps the exact dates and excludes the city already
+    // shown in the first two sections.
     let nearbyMatches: ListingWithDistance[] = [];
     if (cityParam && dynamicCityCoords) {
       nearbyMatches = sortByDistance(
-        baseListings.filter(listing => listingHasAvailableRoom(listing, availability, startDate, endDate) && !exactMatches.some(em => em.id === listing.id)),
+        listingsMatchingFilters.filter(listing => isAvailableForRequestedStay(listing) && !isInRequestedCity(listing)),
         dynamicCityCoords
       );
       // Distance limit removed as requested
@@ -115,7 +127,7 @@ export const SearchPage: React.FC = () => {
     return { 
       exactMatches, 
       nearbyMatches,
-      isFallbackMode: exactMatches.length === 0 && nearbyMatches.length > 0 
+      nearbyDateMatches,
     };
   }, [allListings, availability, cityParam, startDate, endDate, priceRange, selectedTypes, dynamicCityCoords]);
 
@@ -137,20 +149,20 @@ export const SearchPage: React.FC = () => {
             {isGeocoding && <Loader2 className="animate-spin text-haven-stone" size={24} />}
           </div>
           <p className="text-gray-500">
-            {exactMatches.length + nearbyMatches.length} logement(s) disponible(s) 
+            {exactMatches.length + nearbyMatches.length} logement(s) disponible(s) aux dates demandées
           </p>
         </div>
 
-        {/* Banner: No exact matches fallback */}
-        {exactMatches.length === 0 && nearbyMatches.length > 0 && cityParam && (
+        {/* Banner: Exact dates are unavailable in the requested city */}
+        {exactMatches.length === 0 && cityParam && (nearbyDateMatches.length > 0 || nearbyMatches.length > 0) && (
           <div className="mb-8 bg-orange-50 border border-orange-200 rounded-3xl p-6 flex flex-col md:flex-row items-center gap-6 animate-fade-in-up">
             <div className="bg-orange-100 p-4 rounded-2xl text-orange-600">
               <MapPin size={32} />
             </div>
             <div>
-              <h3 className="font-bold text-orange-900 text-lg">Pas de logement disponible exactement à "{cityParam.split(',')[0]}"</h3>
+              <h3 className="font-bold text-orange-900 text-lg">Aucun logement libre à "{cityParam.split(',')[0]}" pour ces dates</h3>
               <p className="text-orange-800/70 text-sm mt-1 max-w-2xl">
-                Voici les logements disponibles dans les autres villes, classés du plus proche au plus éloigné. Les distances sont calculées à vol d’oiseau depuis la ville recherchée.
+                Découvrez d’abord les disponibilités à des dates proches dans cette ville, puis les logements des villes voisines aux dates demandées.
               </p>
             </div>
           </div>
@@ -221,6 +233,22 @@ export const SearchPage: React.FC = () => {
               </div>
             )}
 
+            {nearbyDateMatches.length > 0 && (
+              <div className="space-y-6">
+                <div className="rounded-3xl border border-blue-100 bg-blue-50/60 p-5">
+                  <h2 className="font-heading font-bold text-lg text-haven-navy">Disponibles à des dates proches</h2>
+                  <p className="mt-1 text-sm text-gray-600">Même durée de séjour, dans la ville recherchée. Sélectionnez une proposition pour utiliser ses dates.</p>
+                </div>
+                <div className="grid md:grid-cols-2 gap-8">
+                  {nearbyDateMatches.map(listing => {
+                    const { nearbyStay } = listing;
+                    const label = `Du ${new Date(`${nearbyStay.startDate}T12:00:00`).toLocaleDateString('fr-FR')} au ${new Date(`${nearbyStay.endDate}T12:00:00`).toLocaleDateString('fr-FR')}`;
+                    return <ListingCard key={listing.id} listing={listing} stayOverride={{ start: nearbyStay.startDate, end: nearbyStay.endDate, label }} />;
+                  })}
+                </div>
+              </div>
+            )}
+
             {nearbyMatches.length > 0 && (
               <div className="space-y-6">
                 <div className="flex items-center gap-3">
@@ -245,7 +273,7 @@ export const SearchPage: React.FC = () => {
             {(isGeocoding || listingsLoading || isAvailabilityLoading) && <p role="status" className="text-gray-500">Recherche des logements disponibles…</p>}
             {listingsError && <p role="alert" className="text-haven-red">{listingsError}</p>}
             {geocodingError && <p role="alert" className="text-haven-red">La localisation de cette ville est indisponible. Réessayez la recherche pour afficher les logements à proximité.</p>}
-            {!isGeocoding && !listingsLoading && !isAvailabilityLoading && !listingsError && !geocodingError && exactMatches.length === 0 && nearbyMatches.length === 0 && (
+            {!isGeocoding && !listingsLoading && !isAvailabilityLoading && !listingsError && !geocodingError && exactMatches.length === 0 && nearbyDateMatches.length === 0 && nearbyMatches.length === 0 && (
               <div className="text-center py-24 bg-white rounded-[3rem] border border-gray-100 shadow-premium">
                 <div className="w-24 h-24 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-6">
                   <MapPin size={40} className="text-gray-200" />

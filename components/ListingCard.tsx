@@ -8,16 +8,17 @@ import { readSearchDates } from '../services/searchDates';
 
 interface ListingCardProps {
   listing: Listing;
+  stayOverride?: { start: string; end: string; label?: string };
 }
 
-export const ListingCard: React.FC<ListingCardProps> = ({ listing }) => {
+export const ListingCard: React.FC<ListingCardProps> = ({ listing, stayOverride }) => {
   const minPrice = listing.rooms && listing.rooms.length > 0 
     ? Math.min(...listing.rooms.map(r => r.pricePerDay))
     : 0;
   const { t } = useLanguage();
   const [searchParams] = useSearchParams();
   const stayParams = new URLSearchParams();
-  const dates = readSearchDates(searchParams);
+  const dates = stayOverride || readSearchDates(searchParams);
   if (dates.start) stayParams.set('start', dates.start);
   if (dates.end) stayParams.set('end', dates.end);
   const stayQuery = stayParams.toString();
@@ -36,6 +37,11 @@ export const ListingCard: React.FC<ListingCardProps> = ({ listing }) => {
         <div className="absolute top-3 left-3 bg-white/95 backdrop-blur-sm px-3 py-1 rounded-full text-[10px] font-bold text-haven-navy uppercase tracking-wider shadow-sm">
           {listing.type === 'HOUSE' ? 'Maison' : 'Appartement'}
         </div>
+        {stayOverride?.label && (
+          <div className="absolute bottom-3 left-3 bg-haven-navy/95 px-3 py-1.5 rounded-full text-[10px] font-bold text-white shadow-sm">
+            {stayOverride.label}
+          </div>
+        )}
       </div>
 
       <div className="flex-1 px-2">
