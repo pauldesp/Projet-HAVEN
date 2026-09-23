@@ -20,7 +20,6 @@ import {
   Shield,
   FileText,
   Info,
-  Apple
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { UserRole, User, LegalDocument } from '../types';
@@ -33,7 +32,7 @@ type AuthStep = 'IDENTIFIER' | 'LOGIN' | 'VERIFY' | 'PROFILE' | 'LEGAL' | 'FORGO
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { login, register, loginWithGoogle, logout, currentUser, checkUserExists, resetPassword } = useAuth();
+  const { login, register, loginWithGoogle, logout, currentUser, checkUserExists, resetPassword, authError } = useAuth();
 
   const queryParams = new URLSearchParams(location.search);
   const redirectPath = queryParams.get('redirect');
@@ -71,6 +70,10 @@ export const LoginPage: React.FC = () => {
       }
     }
   }, [currentUser, navigate, redirectPath]);
+
+  useEffect(() => {
+    if (authError) setError(userFacingErrorMessage(authError));
+  }, [authError]);
 
   const handleIdentifierSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -253,8 +256,14 @@ export const LoginPage: React.FC = () => {
     setIsLoading(true);
     try {
       await loginWithGoogle();
-    } catch (err: unknown) {
-      setError(userFacingErrorMessage(err));
+    } catch (err: any) {
+      if (err?.code === 'auth/unauthorized-domain') {
+        setError('La connexion Google n’est pas encore autorisée depuis cette adresse. (Erreur 403)');
+      } else if (err?.code === 'auth/operation-not-allowed') {
+        setError('La connexion Google est momentanément indisponible. (Erreur 503)');
+      } else {
+        setError(userFacingErrorMessage(err));
+      }
     } finally {
       setIsLoading(false);
     }
@@ -648,16 +657,6 @@ export const LoginPage: React.FC = () => {
                     >
                       <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-5 h-5" />
                       <span className="flex-grow text-center text-sm">Continuer avec Google</span>
-                      <div className="w-5" />
-                    </button>
-
-                    <button
-                      type="button"
-                      disabled={isLoading}
-                      className="w-full flex items-center justify-between px-4 py-3 bg-white border border-gray-900 rounded-xl font-bold text-haven-navy hover:bg-gray-50 transition-all active:scale-[0.98]"
-                    >
-                      <Apple size={20} />
-                      <span className="flex-grow text-center text-sm">Continuer avec Apple</span>
                       <div className="w-5" />
                     </button>
                   </div>

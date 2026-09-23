@@ -56,6 +56,7 @@ import { hasIncompleteRoom, hasRoomWithoutOption, roomHasAtLeastOneOption } from
 import { apiService } from '../services/api';
 import { AMENITIES_LIST } from '../services/amenities';
 import { WardrobeIcon } from '../components/WardrobeIcon';
+import { userFacingErrorMessage } from '../services/errorHandling';
 
 type Step = 'TYPE' | 'LOCATION' | 'ADDRESS_CONFIRM' | 'DETAILS' | 'DESCRIPTION' | 'AMENITIES' | 'ROOMS' | 'PHOTOS' | 'REVIEW' | 'LEGAL' | 'SUCCESS';
 
@@ -510,23 +511,27 @@ export const PublishListing: React.FC = () => {
   };
 
   const handleSubmit = async () => {
-    if (!currentUser) return;
+    if (!currentUser) {
+      toast.error('Vous devez être connecté pour publier un logement.');
+      return;
+    }
     if (!isValidMinimumNights(formData.minStay)) {
       toast.error('Le minimum doit être un nombre entier d’au moins 1 nuit.');
       return;
     }
     setIsSubmitting(true);
     
-    // Tentative de géocodage de la ville pour la recherche de proximité
-    let coords = { lat: 48.8566, lng: 2.3522 }; // Default Paris
     try {
-      const aiCoords = await aiService.getCityCoordinates(formData.city);
-      if (aiCoords) coords = aiCoords;
-    } catch (e) {
-      console.error("Erreur geocoding lors de la publication", e);
-    }
+      // Tentative de géocodage de la ville pour la recherche de proximité
+      let coords = { lat: 48.8566, lng: 2.3522 }; // Default Paris
+      try {
+        const aiCoords = await aiService.getCityCoordinates(formData.city);
+        if (aiCoords) coords = aiCoords;
+      } catch (e) {
+        console.error("Erreur geocoding lors de la publication", e);
+      }
 
-    const newListing: Listing = {
+      const newListing: Listing = {
       id: `l-${Date.now()}`,
       title: formData.title || "Nouveau logement",
       description: limitListingDescription(formData.description),
@@ -550,11 +555,16 @@ export const PublishListing: React.FC = () => {
       cleaningFee: formData.cleaningFee,
       rooms: formData.rooms.map(normalizeRoomPhotos),
       galleryUrls: formData.galleryUrls.slice(0, MAX_LISTING_PHOTOS)
-    };
-    await addListing(newListing);
-    setIsSubmitting(false);
-    setCurrentStep('SUCCESS');
-    localStorage.removeItem(STORAGE_KEY);
+      };
+      await addListing(newListing);
+      setCurrentStep('SUCCESS');
+      localStorage.removeItem(STORAGE_KEY);
+    } catch (error) {
+      console.error('Erreur lors de la publication du logement', error);
+      toast.error(userFacingErrorMessage(error));
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const isStepValid = () => {
@@ -586,7 +596,7 @@ export const PublishListing: React.FC = () => {
           </div>
           <div className="flex flex-col gap-3">
             <Button size="lg" fullWidth onClick={handleResume}>Continuer mon annonce</Button>
-            <button onClick={() => setShowResumePrompt(false)} className="py-4 text-sm font-bold text-haven-stone hover:text-haven-red transition-colors">Recommencer une nouvelle annonce</button>
+            <button onClick={handleRestart} className="py-4 text-sm font-bold text-haven-stone hover:text-haven-red transition-colors">Recommencer une nouvelle annonce</button>
           </div>
         </div>
       </div>

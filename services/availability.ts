@@ -10,7 +10,6 @@ export function isRoomAvailableForStay(
   startDate: string,
   endDate: string
 ): boolean {
-  if (!room.isAvailable) return false;
   if (!startDate && !endDate) return true;
   if (countNights(startDate, endDate) < 1) return false;
 

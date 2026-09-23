@@ -11,6 +11,7 @@ import { Button } from '../components/Button';
 import { toast } from 'sonner';
 import { isRoomAvailableForStay, listingHasAvailableRoom } from '../services/availability';
 import { apiService } from '../services/api';
+import { readSearchDates } from '../services/searchDates';
 
 interface ListingWithDistance extends Listing {
   distance?: number;
@@ -20,8 +21,7 @@ export const SearchPage: React.FC = () => {
   const [searchParams] = useSearchParams();
   const cityParam = searchParams.get('city') || '';
   const cityCode = searchParams.get('cityCode') || '';
-  const startDate = searchParams.get('start') || '';
-  const endDate = searchParams.get('end') || '';
+  const { start: startDate, end: endDate } = readSearchDates(searchParams);
   const [geocodingError, setGeocodingError] = useState(false);
   
   // Consommation du contexte global

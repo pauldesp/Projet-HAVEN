@@ -20,6 +20,9 @@ export const auth = getAuth(app);
 
 // Google Auth Provider
 export const googleProvider = new GoogleAuthProvider();
+// Always let the visitor choose the Google account used for HAVEN. This avoids
+// silently reusing the account that happens to be active in the browser.
+googleProvider.setCustomParameters({ prompt: 'select_account' });
 
 enum OperationType {
   CREATE = 'create',

@@ -37,6 +37,7 @@ import { Booking, Listing, UserRole, Incident, Payment, User } from '../types';
 import { AccountStatusOverlay } from '../components/AccountStatusOverlay';
 import { ConversationsList } from '../components/ConversationsList';
 import { toast } from 'sonner';
+import { userFacingErrorMessage } from '../services/errorHandling';
 
 interface BookingWithTenant extends Booking {
   tenant: User;
@@ -253,7 +254,7 @@ export const OwnerDashboard: React.FC = () => {
       }
     } catch (e) {
       console.error("Error updating booking status", e);
-      toast.error("Erreur lors de la modification du statut.");
+      toast.error(userFacingErrorMessage(e));
     }
   };
 

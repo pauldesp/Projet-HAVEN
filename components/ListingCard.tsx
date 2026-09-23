@@ -4,6 +4,7 @@ import { Listing } from '../types';
 import { MapPin, Users, Star, ArrowRight } from 'lucide-react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useLanguage } from '../contexts/LanguageContext';
+import { readSearchDates } from '../services/searchDates';
 
 interface ListingCardProps {
   listing: Listing;
@@ -16,10 +17,9 @@ export const ListingCard: React.FC<ListingCardProps> = ({ listing }) => {
   const { t } = useLanguage();
   const [searchParams] = useSearchParams();
   const stayParams = new URLSearchParams();
-  for (const key of ['start', 'end']) {
-    const value = searchParams.get(key);
-    if (value) stayParams.set(key, value);
-  }
+  const dates = readSearchDates(searchParams);
+  if (dates.start) stayParams.set('start', dates.start);
+  if (dates.end) stayParams.set('end', dates.end);
   const stayQuery = stayParams.toString();
 
   return (

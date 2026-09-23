@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, ReactNode, useEffect, useMemo } from 'react';
 import { User, UserRole, UserStatus } from '../types';
 import { auth, db, googleProvider, seedFirestore } from '../firebase';
-import { onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, signInWithPopup, sendPasswordResetEmail } from 'firebase/auth';
+import { onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, signInWithPopup, signInWithRedirect, getRedirectResult, sendPasswordResetEmail, User as FirebaseUser } from 'firebase/auth';
 import { doc, getDoc, setDoc, updateDoc, onSnapshot, query, where, collection, getDocs } from 'firebase/firestore';
 
 interface AuthContextType {
@@ -12,6 +12,7 @@ interface AuthContextType {
   register: (userData: User, password?: string) => Promise<boolean>;
   loginWithGoogle: () => Promise<boolean>;
   logout: () => void;
+  authError: unknown | null;
   updateUserRole: (role: UserRole) => Promise<void>;
   refreshUser: () => Promise<void>;
   checkUserExists: (identifier: string) => Promise<{ exists: boolean; email?: string; phone?: string }>;
@@ -35,6 +36,35 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       : accountUser;
   }, [accountUser, modeChoice]);
   const [isLoading, setIsLoading] = useState(true);
+  const [authError, setAuthError] = useState<unknown | null>(null);
+
+  const completeSocialSignIn = async (firebaseUser: FirebaseUser) => {
+    const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
+    if (userDoc.exists()) {
+      const user = userDoc.data() as User;
+      setCurrentUser(user);
+      return user;
+    }
+
+    const nameParts = (firebaseUser.displayName || '').trim().split(/\s+/).filter(Boolean);
+    const newUser: User = {
+      id: firebaseUser.uid,
+      firstName: nameParts[0] || 'Utilisateur',
+      // Some Google profiles only have one word. The profile must still comply
+      // with the required HAVEN fields.
+      lastName: nameParts.slice(1).join(' ') || 'HAVEN',
+      email: firebaseUser.email || '',
+      role: UserRole.TENANT,
+      status: 'PENDING',
+      avatarUrl: firebaseUser.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(firebaseUser.displayName || 'Utilisateur')}&background=1E293B&color=fff`,
+      isVerified: true,
+      createdAt: new Date().toISOString(),
+    };
+    await setDoc(doc(db, 'users', firebaseUser.uid), newUser);
+    seedFirestore().catch(console.error);
+    setCurrentUser(newUser);
+    return newUser;
+  };
 
   // Vérifier la session au chargement
   useEffect(() => {
@@ -83,6 +113,21 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     };
   }, []);
 
+  // Safari on iPad blocks or keeps OAuth pop-ups pending. Its redirect flow
+  // displays Google's standard account chooser and returns to HAVEN securely.
+  useEffect(() => {
+    const finishGoogleRedirect = async () => {
+      try {
+        const result = await getRedirectResult(auth);
+        if (result?.user) await completeSocialSignIn(result.user);
+      } catch (error) {
+        console.error('Google redirect error', error);
+        setAuthError(error);
+      }
+    };
+    void finishGoogleRedirect();
+  }, []);
+
   const login = async (email: string, password?: string): Promise<boolean> => {
     if (!password) return false;
     setIsLoading(true);
@@ -103,9 +148,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         console.log("Firestore profile missing. Self-bootstrapping profile document.");
         userData = {
           id: userCredential.user.uid,
-          firstName: userCredential.user.displayName?.split(' ')[0] || 'User',
-          lastName: userCredential.user.displayName?.split(' ').slice(1).join(' ') || '',
-          email: email,
+          firstName: userCredential.user.displayName?.split(' ')[0] || 'Utilisateur',
+          // A profile recreated after a partial Firebase setup must still comply
+          // with the required Firestore profile fields.
+          lastName: userCredential.user.displayName?.split(' ').slice(1).join(' ') || 'HAVEN',
+          email: userCredential.user.email || email,
           role: UserRole.TENANT,
           status: 'PENDING',
           isVerified: userCredential.user.emailVerified,
@@ -159,33 +206,22 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const loginWithGoogle = async (): Promise<boolean> => {
     setIsLoading(true);
+    setAuthError(null);
     try {
-      const result = await signInWithPopup(auth, googleProvider);
-      const userDoc = await getDoc(doc(db, 'users', result.user.uid));
-      
-      if (userDoc.exists()) {
-        setCurrentUser(userDoc.data() as User);
-      } else {
-        // Create new user profile for Google login
-        const newUser: User = {
-          id: result.user.uid,
-          firstName: result.user.displayName?.split(' ')[0] || 'User',
-          lastName: result.user.displayName?.split(' ').slice(1).join(' ') || '',
-          email: result.user.email || '',
-          role: UserRole.TENANT,
-          status: 'PENDING',
-          avatarUrl: result.user.photoURL || `https://ui-avatars.com/api/?name=${result.user.displayName}&background=1E293B&color=fff`,
-          isVerified: true
-        };
-        await setDoc(doc(db, 'users', result.user.uid), newUser);
-        seedFirestore().catch(console.error);
-        setCurrentUser(newUser);
+      const isMobile = /iPad|iPhone|iPod|Android/i.test(navigator.userAgent)
+        || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      if (isMobile) {
+        await signInWithRedirect(auth, googleProvider);
+        return false;
       }
-      setIsLoading(false);
+
+      // The account chooser is intentionally displayed on every click.
+      const result = await signInWithPopup(auth, googleProvider);
+      await completeSocialSignIn(result.user);
       return true;
-    } catch (e) {
-      console.error("Google Login error", e);
-      throw e;
+    } catch (error: any) {
+      console.error("Google Login error", error);
+      throw error;
     } finally {
       setIsLoading(false);
     }
@@ -260,7 +296,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       login, 
       register,
       loginWithGoogle,
-      logout, 
+      logout,
+      authError,
       updateUserRole,
       refreshUser,
       checkUserExists,

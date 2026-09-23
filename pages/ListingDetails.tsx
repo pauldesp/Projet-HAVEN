@@ -1,4 +1,4 @@
-import { countNights } from '../services/stay';
+import { countNights, isBookableStay } from '../services/stay';
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, Link, useSearchParams } from 'react-router-dom';
@@ -18,6 +18,9 @@ import { ReportModal } from '../components/ReportModal';
 import { isRoomAvailableForStay } from '../services/availability';
 import { getListingPhotoUrls } from '../services/media';
 import { shareOrCopy } from '../services/share';
+import { readSearchDates } from '../services/searchDates';
+import { userFacingErrorMessage } from '../services/errorHandling';
+import { minimumNights } from '../services/minimumStay';
 
 export const ListingDetails: React.FC = () => {
   const { id } = useParams();
@@ -49,10 +52,7 @@ export const ListingDetails: React.FC = () => {
   
   // États pour les dates sélectionnées (synchronisés entre calendrier et sidebar)
   const [searchParams, setSearchParams] = useSearchParams();
-  const startParam = searchParams.get('start') || '';
-  const endParam = searchParams.get('end') || '';
-  const startDate = /^\d{4}-\d{2}-\d{2}$/.test(startParam) ? startParam : '';
-  const endDate = countNights(startDate, endParam) > 0 ? endParam : '';
+  const { start: startDate, end: endDate } = readSearchDates(searchParams);
 
   useEffect(() => {
     const fetchOwner = async () => {
@@ -104,6 +104,10 @@ export const ListingDetails: React.FC = () => {
   );
 
   const handleBookClick = () => {
+    if (!isBookableStay(startDate, endDate)) {
+      toast.error('La date d’arrivée doit être aujourd’hui ou ultérieure.');
+      return;
+    }
     if (!activeRoomIsAvailable) {
       toast.error('Cette chambre n’est pas disponible pour les dates sélectionnées.');
       return;
@@ -115,12 +119,12 @@ export const ListingDetails: React.FC = () => {
     }
 
     if (isListingOwner) {
-      alert("Vous ne pouvez pas réserver votre propre logement.");
+      toast.error('Vous ne pouvez pas réserver votre propre logement. (Erreur 403)');
       return;
     }
 
     if (isHost && !isListingOwner) {
-      alert("En mode propriétaire, vous ne pouvez pas réserver de logement. Basculez en mode locataire pour réserver.");
+      toast.error('Basculez en mode locataire pour réserver ce logement. (Erreur 403)');
       return;
     }
     
@@ -129,8 +133,8 @@ export const ListingDetails: React.FC = () => {
       return;
     }
 
-    if (nights < Math.max(1, listing.minStay)) {
-      alert(`Ce logement nécessite un séjour minimum de ${listing.minStay} nuits.`);
+    if (nights < minimumNights(listing.minStay)) {
+      toast.error(`Ce logement nécessite un séjour minimum de ${minimumNights(listing.minStay)} nuits. (Erreur 422)`);
       return;
     }
     
@@ -171,7 +175,7 @@ export const ListingDetails: React.FC = () => {
       toast.success(wasFavorite ? 'Annonce retirée de vos favoris.' : 'Annonce ajoutée à vos favoris.');
     } catch (error) {
       console.error('Erreur lors de la mise à jour des favoris', error);
-      toast.error('Impossible de mettre à jour vos favoris.');
+      toast.error(userFacingErrorMessage(error));
     } finally {
       setIsFavoriteUpdating(false);
     }
@@ -190,7 +194,7 @@ export const ListingDetails: React.FC = () => {
       toast.success("Calendrier mis à jour avec succès !");
     } catch (e) {
       console.error(e);
-      toast.error("Erreur lors de la mise à jour du calendrier.");
+      toast.error(userFacingErrorMessage(e));
     }
   };
 
@@ -538,7 +542,7 @@ export const ListingDetails: React.FC = () => {
                     </div>
                   </div>
 
-                  <Button fullWidth size="lg" onClick={handleBookClick} disabled={!activeRoom.isAvailable || !startDate || !endDate}>
+                  <Button fullWidth size="lg" onClick={handleBookClick} disabled={!activeRoom.isAvailable || !isBookableStay(startDate, endDate)}>
                     {activeRoom.isAvailable ? (startDate && endDate ? 'Réserver' : 'Sélectionnez vos dates') : 'Indisponible'}
                   </Button>
                   <p className="text-center text-xs text-gray-400 mt-4">Vous ne serez débité qu'après validation</p>

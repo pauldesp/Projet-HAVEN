@@ -1,4 +1,4 @@
-import { countNights } from '../services/stay';
+import { countNights, isBookableStay } from '../services/stay';
 import React, { useState, useRef, useEffect } from 'react';
 import { Room, Listing, Booking, LegalDocument } from '../types';
 import { Button } from './Button';
@@ -8,6 +8,7 @@ import { apiService } from '../services/api';
 import { authenticatedFetch } from '../services/serverApi';
 import { userFacingErrorMessage } from '../services/errorHandling';
 import { sanitizeHtml } from '../services/sanitizeHtml';
+import { minimumNights } from '../services/minimumStay';
 
 interface BookingModalProps {
   isOpen: boolean;
@@ -99,13 +100,15 @@ export const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose, lis
   const total = basePrice + cleaningFee + platformFee;
 
   const handleNext = () => {
-    if (nights < Math.max(1, listing.minStay)) { setError("Choisissez un départ après l’arrivée et respectez le séjour minimum en nuits."); return; }
+    if (!isBookableStay(startDate, endDate)) { setError('La date d’arrivée doit être aujourd’hui ou ultérieure.'); return; }
+    if (nights < minimumNights(listing.minStay)) { setError("Choisissez un départ après l’arrivée et respectez le séjour minimum en nuits."); return; }
     setError(null);
     setStep(s => s + 1);
   };
   
   const handlePayment = async () => {
-    if (nights < Math.max(1, listing.minStay)) { setError("Dates de séjour invalides."); return; }
+    if (!isBookableStay(startDate, endDate)) { setError('La date d’arrivée doit être aujourd’hui ou ultérieure.'); return; }
+    if (nights < minimumNights(listing.minStay)) { setError("Dates de séjour invalides."); return; }
     if (!currentUser) {
       setError("Vous devez être connecté pour réserver.");
       return;
@@ -113,6 +116,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose, lis
 
     setIsProcessing(true);
     setError(null);
+    let createdBookingId: string | null = null;
 
     try {
       // 1. Create a PENDING booking in Firestore first to "lock" the dates
@@ -135,6 +139,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose, lis
       };
 
       await apiService.bookings.create(bookingData);
+      createdBookingId = bookingId;
       
       // 2. Call our server to create a Stripe checkout session
       const response = await authenticatedFetch('/api/create-checkout-session', {
@@ -162,6 +167,16 @@ export const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose, lis
       }
     } catch (e: unknown) {
       console.error("Erreur de réservation/paiement", e);
+      // A checkout session that could not be opened must not keep the room blocked.
+      // The cancellation is deliberately best-effort: the original error remains the
+      // message shown to the tenant if the network is unavailable.
+      if (createdBookingId) {
+        try {
+          await apiService.bookings.updateStatus(createdBookingId, 'CANCELLED');
+        } catch (cleanupError) {
+          console.error('Impossible de libérer la réservation après un échec de paiement', cleanupError);
+        }
+      }
       setError(userFacingErrorMessage(e));
     } finally {
       setIsProcessing(false);

@@ -75,7 +75,7 @@ service cloud.firestore {
       return data.keys().hasAll(['id', 'title', 'city', 'ownerId', 'status']) &&
              data.id is string && isValidId(data.id) &&
              data.title is string && data.title.size() > 0 && data.title.size() < 200 &&
-             data.description is string && data.description.size() <= 500 &&
+             data.description is string && data.description.size() <= 1000 &&
              data.city is string &&
              data.ownerId is string && isValidId(data.ownerId) &&
              data.status in ['PENDING', 'APPROVED', 'REJECTED'];
@@ -88,9 +88,35 @@ service cloud.firestore {
              data.roomId is string &&
              data.tenantId is string && isValidId(data.tenantId) &&
              data.ownerId is string && isValidId(data.ownerId) &&
+             data.startDate is string && data.startDate.matches('^\\d{4}-\\d{2}-\\d{2}$') &&
+             data.endDate is string && data.endDate.matches('^\\d{4}-\\d{2}-\\d{2}$') &&
+             data.startDate < data.endDate &&
              data.status in ['PENDING', 'APPROVED', 'CONFIRMED', 'CANCELLED', 'COMPLETED'] &&
-             data.totalPrice is number &&
+             data.totalPrice is number && data.totalPrice >= 0 &&
              data.createdAt is string;
+    }
+
+    function isBookingParticipant(booking) {
+      return isSignedIn() &&
+             (booking.tenantId == request.auth.uid || booking.ownerId == request.auth.uid);
+    }
+
+    function isLinkedInventoryReport(reportId, booking, reportType) {
+      return reportId is string && reportId.size() > 0 &&
+             exists(/databases/$(database)/documents/inventory/$(reportId)) &&
+             get(/databases/$(database)/documents/inventory/$(reportId)).data.bookingId == booking.id &&
+             get(/databases/$(database)/documents/inventory/$(reportId)).data.tenantId == booking.tenantId &&
+             get(/databases/$(database)/documents/inventory/$(reportId)).data.ownerId == booking.ownerId &&
+             get(/databases/$(database)/documents/inventory/$(reportId)).data.type == reportType;
+    }
+
+    function isInventoryForActiveBooking(data) {
+      return exists(/databases/$(database)/documents/bookings/$(data.bookingId)) &&
+             get(/databases/$(database)/documents/bookings/$(data.bookingId)).data.tenantId == data.tenantId &&
+             get(/databases/$(database)/documents/bookings/$(data.bookingId)).data.ownerId == data.ownerId &&
+             get(/databases/$(database)/documents/bookings/$(data.bookingId)).data.status in ['CONFIRMED', 'COMPLETED'] &&
+             ((data.type == 'IN' && get(/databases/$(database)/documents/bookings/$(data.bookingId)).data.get('checkInReportId', '') == '') ||
+              (data.type == 'OUT' && get(/databases/$(database)/documents/bookings/$(data.bookingId)).data.get('checkOutReportId', '') == ''));
     }
 
     function isValidAvailability(data) {
@@ -226,7 +252,8 @@ service cloud.firestore {
 
     match /listings/{listingId} {
       allow read: if true;
-      allow create: if (isSignedIn() || isAdmin()) && isValidListing(incoming()) && (incoming().ownerId == request.auth.uid || isAdmin());
+      allow create: if (isAdmin() && isValidListing(incoming())) ||
+                    (isSignedIn() && isValidListing(incoming()) && incoming().ownerId == request.auth.uid && incoming().status == 'PENDING');
       allow update: if isAdmin() && isValidListing(incoming());
       allow update: if isSignedIn() && existing().ownerId == request.auth.uid && isValidListing(incoming()) &&
                     incoming().id == existing().id && incoming().ownerId == existing().ownerId &&
@@ -239,12 +266,22 @@ service cloud.firestore {
       allow create: if isSignedIn() && isValidBooking(incoming()) &&
                     incoming().tenantId == request.auth.uid && incoming().status == 'PENDING' &&
                     exists(/databases/$(database)/documents/listings/$(incoming().listingId)) &&
-                    get(/databases/$(database)/documents/listings/$(incoming().listingId)).data.ownerId == incoming().ownerId;
+                    get(/databases/$(database)/documents/listings/$(incoming().listingId)).data.status == 'APPROVED' &&
+                    get(/databases/$(database)/documents/listings/$(incoming().listingId)).data.ownerId == incoming().ownerId &&
+                    incoming().ownerId != incoming().tenantId;
       allow update: if isAdmin() || (isSignedIn() && isValidBooking(incoming()) &&
-                    incoming().diff(existing()).affectedKeys().hasOnly(['status', 'approvedAt']) && (
+                    isBookingParticipant(existing()) && (
+                    (incoming().diff(existing()).affectedKeys().hasOnly(['status', 'approvedAt']) && (
                       (existing().ownerId == request.auth.uid && existing().status == 'PENDING' && incoming().status in ['APPROVED', 'CANCELLED']) ||
                       (existing().tenantId == request.auth.uid && incoming().status == 'CANCELLED' && existing().status in ['PENDING', 'APPROVED']) ||
                       (existing().tenantId == request.auth.uid && incoming().status == 'COMPLETED' && existing().status == 'CONFIRMED')
+                    )) ||
+                    (incoming().diff(existing()).affectedKeys().hasOnly(['checkInReportId']) &&
+                     existing().get('checkInReportId', '') == '' &&
+                     isLinkedInventoryReport(incoming().checkInReportId, existing(), 'IN')) ||
+                    (incoming().diff(existing()).affectedKeys().hasOnly(['checkOutReportId']) &&
+                     existing().get('checkOutReportId', '') == '' &&
+                     isLinkedInventoryReport(incoming().checkOutReportId, existing(), 'OUT'))
                     ));
     }
 
@@ -254,7 +291,13 @@ service cloud.firestore {
         isAdmin() || (isSignedIn() && (
           get(/databases/$(database)/documents/bookings/$(bookingId)).data.tenantId == request.auth.uid ||
           get(/databases/$(database)/documents/bookings/$(bookingId)).data.ownerId == request.auth.uid
-        ))
+        )) &&
+        get(/databases/$(database)/documents/bookings/$(bookingId)).data.id == incoming().bookingId &&
+        get(/databases/$(database)/documents/bookings/$(bookingId)).data.listingId == incoming().listingId &&
+        get(/databases/$(database)/documents/bookings/$(bookingId)).data.roomId == incoming().roomId &&
+        get(/databases/$(database)/documents/bookings/$(bookingId)).data.startDate == incoming().startDate &&
+        get(/databases/$(database)/documents/bookings/$(bookingId)).data.endDate == incoming().endDate &&
+        get(/databases/$(database)/documents/bookings/$(bookingId)).data.status == incoming().status
       );
       allow update: if isValidAvailability(incoming()) && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt']) && (
         isAdmin() || (isSignedIn() && (
@@ -282,7 +325,9 @@ service cloud.firestore {
     match /inventory/{reportId} {
       allow get: if isAdmin() || (isSignedIn() && (existing().tenantId == request.auth.uid || existing().ownerId == request.auth.uid));
       allow list: if isAdmin() || (isSignedIn() && (resource.data.tenantId == request.auth.uid || resource.data.ownerId == request.auth.uid));
-      allow create: if (isSignedIn() || isAdmin()) && isValidInventoryReport(incoming()) && (incoming().tenantId == request.auth.uid || incoming().ownerId == request.auth.uid || isAdmin());
+      allow create: if (isSignedIn() || isAdmin()) && isValidInventoryReport(incoming()) &&
+                    isInventoryForActiveBooking(incoming()) &&
+                    (incoming().tenantId == request.auth.uid || incoming().ownerId == request.auth.uid || isAdmin());
       allow update, delete: if isAdmin();
     }
 

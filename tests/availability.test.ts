@@ -19,9 +19,14 @@ test('room and listing blocks prevent a stay, while cancelled bookings do not', 
 });
 
 test('a listing is omitted when every room is unavailable for the requested stay', () => {
-  const rooms = [room, { ...room, id: 'room-2', isAvailable: false }];
-  assert.equal(listingHasAvailableRoom({ ...listing, rooms }, [booking], '2026-10-20', '2026-10-24'), false);
+  const rooms = [room, { ...room, id: 'room-2' }];
+  const bookings = [booking, { ...booking, id: 'booking-2', bookingId: 'booking-2', roomId: 'room-2' }];
+  assert.equal(listingHasAvailableRoom({ ...listing, rooms }, bookings, '2026-10-20', '2026-10-24'), false);
   assert.equal(listingHasAvailableRoom({ ...listing, rooms }, [booking], '2026-10-24', '2026-10-27'), true);
+});
+
+test('a legacy static availability flag does not block a free room', () => {
+  assert.equal(isRoomAvailableForStay({ ...room, isAvailable: false }, listing, [], '2026-10-24', '2026-10-27'), true);
 });
 
 test('booking status updates keep availability range-based', () => {

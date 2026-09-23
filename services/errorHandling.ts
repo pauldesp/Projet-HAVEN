@@ -70,14 +70,15 @@ export const classifyError = (error: unknown): UserFacingError => {
   if (existingCode) return { code: existingCode[1], ...messages[existingCode[1]] };
   let code = '500';
 
-  if (/permission-denied|forbidden|\b403\b/.test(detail)) code = '403';
+  if (/permission-denied|forbidden|unauthorized-domain|\b403\b/.test(detail)) code = '403';
   else if (/unauthenticated|not.?authenticated|session invalide|auth\/user|auth\/invalid|\b401\b/.test(detail)) code = '401';
   else if (/not-found|introuvable|\b404\b/.test(detail)) code = '404';
   else if (/already-exists|already exists|conflict|\b409\b/.test(detail)) code = '409';
   else if (/invalid|validation|malformed|failed-precondition|\b400\b|\b422\b/.test(detail)) code = '422';
   else if (/too-many|rate limit|\b429\b/.test(detail)) code = '429';
   else if (/stripe|checkout|payment|paiement/.test(detail)) code = '451';
-  else if (/unavailable|offline|network|timeout|fetch|firestore|internal assertion|unexpected state|\b502\b|\b503\b|\b504\b/.test(detail)) code = '402';
+  else if (/operation-not-allowed|provider.*disabled|\b503\b/.test(detail)) code = '503';
+  else if (/unavailable|offline|network|timeout|fetch|firestore|internal assertion|unexpected state|\b502\b|\b504\b/.test(detail)) code = '402';
 
   return { code, ...messages[code] };
 };

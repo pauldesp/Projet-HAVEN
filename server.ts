@@ -1,4 +1,4 @@
-import { countNights } from './services/stay';
+import { countNights, isBookableStay } from './services/stay';
 import express from "express";
 import { createServer as createViteServer } from "vite";
 import path from "path";
@@ -407,6 +407,7 @@ Details:`, JSON.stringify(details, null, 2));
       const booking = bookingSnap.data()!;
       if (booking.tenantId !== req.user?.uid) return res.status(403).json({ error: "Accès refusé" });
       if (!["PENDING", "APPROVED"].includes(booking.status)) return res.status(409).json({ error: "Cette réservation ne peut pas être payée" });
+      if (!isBookableStay(booking.startDate, booking.endDate)) return res.status(422).json({ error: "La date d’arrivée ne peut pas être antérieure à aujourd’hui", code: "422" });
 
       const listingSnap = await adminDb.collection("listings").doc(booking.listingId).get();
       if (!listingSnap.exists) return res.status(404).json({ error: "Logement introuvable" });

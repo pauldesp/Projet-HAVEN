@@ -8,6 +8,9 @@ import { normalizeListingDescription } from './listingDescription';
 import { hasIncompleteRoom, hasRoomWithoutOption } from './roomValidation';
 import { reportError, userFacingErrorMessage } from './errorHandling';
 import { formatScheduledMoment, getInventoryTiming } from './inventoryTiming';
+import { countNights, isBookableStay } from './stay';
+import { isRoomAvailableForStay } from './availability';
+import { minimumNights } from './minimumStay';
 
 const toAvailability = (booking: Booking): BookingAvailability => ({
   id: booking.id,
@@ -241,10 +244,15 @@ export const apiService = {
     },
     async create(listing: Listing) {
       try {
+        if (!auth.currentUser || listing.ownerId !== auth.currentUser.uid) throw new Error('Vous devez être connecté en tant que propriétaire pour créer ce logement. (Erreur 401)');
         if (hasIncompleteRoom(listing.rooms)) throw new Error('Chaque chambre doit avoir un nom, un prix par nuit et une surface.');
         if (hasRoomWithoutOption(listing.rooms)) throw new Error('Chaque chambre doit disposer d’au moins une option du cahier des charges HAVEN.');
         if (listing.galleryUrls.length < 3 || hasMissingRoomPhoto(listing.rooms)) throw new Error('Ajoutez au moins trois photos des parties communes et une photo par chambre.');
-        const normalizedListing = normalizeListingDescription(normalizeListingPhotos(listing));
+        const normalizedListing = normalizeListingDescription(normalizeListingPhotos({
+          ...listing,
+          // A proprietor may submit a listing, but only an administrator may publish it.
+          status: 'PENDING'
+        }));
         await setDoc(doc(db, 'listings', listing.id), normalizedListing);
         return normalizedListing;
       } catch (e) {
@@ -253,10 +261,31 @@ export const apiService = {
     },
     async update(listing: Listing) {
       try {
+        if (!auth.currentUser || listing.ownerId !== auth.currentUser.uid) throw new Error('Vous n’êtes pas autorisé à modifier ce logement. (Erreur 403)');
+        const existingSnapshot = await getDoc(doc(db, 'listings', listing.id));
+        if (!existingSnapshot.exists()) throw new Error('Ce logement n’existe plus. (Erreur 404)');
+        const existingListing = existingSnapshot.data() as Listing;
+        if (existingListing.ownerId !== auth.currentUser.uid) throw new Error('Vous n’êtes pas autorisé à modifier ce logement. (Erreur 403)');
         if (hasIncompleteRoom(listing.rooms)) throw new Error('Chaque chambre doit avoir un nom, un prix par nuit et une surface.');
         if (hasRoomWithoutOption(listing.rooms)) throw new Error('Chaque chambre doit disposer d’au moins une option du cahier des charges HAVEN.');
         if (listing.galleryUrls.length < 3 || hasMissingRoomPhoto(listing.rooms)) throw new Error('Ajoutez au moins trois photos des parties communes et une photo par chambre.');
-        const normalizedListing = normalizeListingDescription(normalizeListingPhotos(listing));
+        const removedRoomIds = new Set((existingListing.rooms || [])
+          .filter(existingRoom => !listing.rooms.some(room => room.id === existingRoom.id))
+          .map(room => room.id));
+        if (removedRoomIds.size > 0) {
+          const availabilitySnapshot = await getDocs(query(collection(db, 'booking_availability'), where('listingId', '==', listing.id)));
+          const hasActiveBooking = availabilitySnapshot.docs
+            .map(item => item.data() as BookingAvailability)
+            .some(item => removedRoomIds.has(item.roomId) && ['PENDING', 'APPROVED', 'CONFIRMED'].includes(item.status));
+          if (hasActiveBooking) {
+            throw new Error('Une chambre avec une réservation active ne peut pas être supprimée. Annulez d’abord la réservation concernée. (Erreur 409)');
+          }
+        }
+        const normalizedListing = normalizeListingDescription(normalizeListingPhotos({
+          ...listing,
+          ownerId: existingListing.ownerId,
+          status: existingListing.status
+        }));
         await setDoc(doc(db, 'listings', listing.id), normalizedListing);
         return normalizedListing;
       } catch (e) {
@@ -305,26 +334,57 @@ export const apiService = {
     },
     async create(booking: Booking) {
       try {
+        if (!auth.currentUser || booking.tenantId !== auth.currentUser.uid) {
+          throw new Error('Vous devez être connecté pour réserver. (Erreur 401)');
+        }
+        if (!isBookableStay(booking.startDate, booking.endDate)) {
+          throw new Error('La date d’arrivée ne peut pas être antérieure à aujourd’hui. (Erreur 422)');
+        }
+        const listingDoc = await getDoc(doc(db, 'listings', booking.listingId));
+        if (!listingDoc.exists()) throw new Error('Ce logement n’est plus disponible. (Erreur 404)');
+        const listing = listingDoc.data() as Listing;
+        if (listing.status !== 'APPROVED') throw new Error('Ce logement n’est pas ouvert à la réservation. (Erreur 422)');
+        if (listing.ownerId === booking.tenantId) throw new Error('Vous ne pouvez pas réserver votre propre logement. (Erreur 403)');
+        const room = listing.rooms.find(item => item.id === booking.roomId);
+        if (!room) throw new Error('Cette chambre n’existe plus. (Erreur 404)');
+        const nights = countNights(booking.startDate, booking.endDate);
+        if (nights < minimumNights(listing.minStay)) throw new Error(`Ce logement nécessite un séjour minimum de ${minimumNights(listing.minStay)} nuits. (Erreur 422)`);
+        const availabilitySnapshot = await getDocs(query(collection(db, 'booking_availability'), where('listingId', '==', listing.id)));
+        const availability = availabilitySnapshot.docs.map(item => item.data() as BookingAvailability);
+        if (!isRoomAvailableForStay(room, listing, availability, booking.startDate, booking.endDate)) {
+          throw new Error('Cette chambre n’est pas disponible pour les dates sélectionnées. (Erreur 409)');
+        }
+        const basePrice = room.pricePerDay * nights;
+        const trustedBooking: Booking = {
+          ...booking,
+          ownerId: listing.ownerId,
+          status: 'PENDING',
+          basePrice,
+          cleaningFee: Number(listing.cleaningFee) || 0,
+          platformFee: Math.round(basePrice * 0.15),
+          totalPrice: basePrice + (Number(listing.cleaningFee) || 0) + Math.round(basePrice * 0.15),
+          createdAt: new Date().toISOString()
+        };
         const msgId = `m-${crypto.randomUUID()}`;
         await retryFirestoreWrite(async () => {
-          await setDoc(doc(db, 'bookings', booking.id), booking);
-          await setDoc(doc(db, 'booking_availability', booking.id), toAvailability(booking));
+          await setDoc(doc(db, 'bookings', trustedBooking.id), trustedBooking);
+          await setDoc(doc(db, 'booking_availability', trustedBooking.id), toAvailability(trustedBooking));
           const initialMessage: Message = {
             id: msgId,
-            senderId: booking.tenantId,
-            receiverId: booking.ownerId,
-            bookingId: booking.id,
-            content: booking.bookingMode === 'MANUAL'
-              ? `Bonjour, j'ai introduit une demande de colocation pour la chambre "${booking.roomName || 'Chambre'}" du ${new Date(booking.startDate).toLocaleDateString()} au ${new Date(booking.endDate).toLocaleDateString()}. Merci de valider ma demande sous 48 heures.`
-              : `Bonjour, je souhaite réserver la chambre "${booking.roomName || 'Chambre'}" du ${new Date(booking.startDate).toLocaleDateString()} au ${new Date(booking.endDate).toLocaleDateString()}.`,
+            senderId: trustedBooking.tenantId,
+            receiverId: trustedBooking.ownerId,
+            bookingId: trustedBooking.id,
+            content: trustedBooking.bookingMode === 'MANUAL'
+              ? `Bonjour, j'ai introduit une demande de colocation pour la chambre "${trustedBooking.roomName || 'Chambre'}" du ${new Date(trustedBooking.startDate).toLocaleDateString()} au ${new Date(trustedBooking.endDate).toLocaleDateString()}. Merci de valider ma demande sous 48 heures.`
+              : `Bonjour, je souhaite réserver la chambre "${trustedBooking.roomName || 'Chambre'}" du ${new Date(trustedBooking.startDate).toLocaleDateString()} au ${new Date(trustedBooking.endDate).toLocaleDateString()}.`,
             timestamp: new Date().toISOString(),
             isRead: false,
-            participants: [booking.tenantId, booking.ownerId]
+            participants: [trustedBooking.tenantId, trustedBooking.ownerId]
           };
           await setDoc(doc(db, 'messages', msgId), initialMessage);
         });
 
-        return booking;
+        return trustedBooking;
       } catch (e) {
         return handleFirestoreError(e, 'CREATE_BOOKING', `bookings/${booking.id}`);
       }
@@ -734,9 +794,22 @@ export const apiService = {
   inventory: {
     async create(report: InventoryReport) {
       try {
+        if (!auth.currentUser) throw new Error('Vous devez être connecté pour réaliser un état des lieux. (Erreur 401)');
         const bookingSnap = await getDoc(doc(db, 'bookings', report.bookingId));
         if (!bookingSnap.exists()) throw new Error('Réservation introuvable.');
         const booking = bookingSnap.data() as Booking;
+        if (auth.currentUser.uid !== booking.tenantId && auth.currentUser.uid !== booking.ownerId) {
+          throw new Error('Vous ne participez pas à cette réservation. (Erreur 403)');
+        }
+        if (report.tenantId !== booking.tenantId || report.ownerId !== booking.ownerId) {
+          throw new Error('Les participants de l’état des lieux ne correspondent pas à la réservation. (Erreur 422)');
+        }
+        if (!['CONFIRMED', 'COMPLETED'].includes(booking.status)) {
+          throw new Error('L’état des lieux est disponible après la confirmation de la réservation. (Erreur 422)');
+        }
+        if ((report.type === 'IN' && booking.checkInReportId) || (report.type === 'OUT' && booking.checkOutReportId)) {
+          throw new Error('Cet état des lieux a déjà été réalisé. (Erreur 409)');
+        }
         const listingSnap = await getDoc(doc(db, 'listings', booking.listingId));
         const listing = listingSnap.exists() ? listingSnap.data() as Listing : undefined;
         const timing = getInventoryTiming(booking, listing, report.type);

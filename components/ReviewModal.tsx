@@ -4,6 +4,8 @@ import { X, Star, Loader2, MessageSquare } from 'lucide-react';
 import { Button } from './Button';
 import { apiService } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
+import { toast } from 'sonner';
+import { userFacingErrorMessage } from '../services/errorHandling';
 
 interface ReviewModalProps {
   isOpen: boolean;
@@ -57,6 +59,7 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({
       onClose();
     } catch (e) {
       console.error("Error submitting review", e);
+      toast.error(userFacingErrorMessage(e));
     } finally {
       setIsSubmitting(false);
     }

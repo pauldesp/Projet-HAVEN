@@ -29,7 +29,7 @@ export const ListingProvider: React.FC<{ children: ReactNode }> = ({ children })
       const data = await apiService.listings.getAll();
       setListings(data);
     } catch (e) {
-      setError("Impossible de charger les logements. Le serveur est peut-être indisponible.");
+      setError(userFacingErrorMessage(e));
       console.error("Erreur fetch listings", e);
     } finally {
       setIsLoading(false);
@@ -67,7 +67,7 @@ export const ListingProvider: React.FC<{ children: ReactNode }> = ({ children })
       await apiService.listings.updateStatus(id, status, rejectionReason);
       setListings(prev => prev.map(l => l.id === id ? { ...l, status, rejectionReason: status === 'APPROVED' ? undefined : rejectionReason } : l));
     } catch (e: any) {
-      setError("Erreur lors de la mise à jour du statut.");
+      setError(userFacingErrorMessage(e));
       throw e;
     }
   };

@@ -185,8 +185,8 @@ export const EditListing: React.FC = () => {
     setListing({
       ...listing,
       rooms: [...listing.rooms, newRoom],
-      totalRooms: listing.totalRooms + 1,
-      availableRooms: listing.availableRooms + 1
+      totalRooms: listing.rooms.length + 1,
+      availableRooms: listing.rooms.filter(room => room.isAvailable).length + 1
     });
   };
 
@@ -195,11 +195,15 @@ export const EditListing: React.FC = () => {
       toast.error("Il doit y avoir au moins une chambre.");
       return;
     }
+    const roomToRemove = listing.rooms.find(room => room.id === roomId);
+    if (!roomToRemove) return;
+    if (!window.confirm(`Supprimer définitivement « ${roomToRemove.name || 'cette chambre'} » ?`)) return;
+    const remainingRooms = listing.rooms.filter(room => room.id !== roomId);
     setListing({
       ...listing,
-      rooms: listing.rooms.filter(r => r.id !== roomId),
-      totalRooms: listing.totalRooms - 1,
-      availableRooms: Math.max(0, listing.availableRooms - 1)
+      rooms: remainingRooms,
+      totalRooms: remainingRooms.length,
+      availableRooms: remainingRooms.filter(room => room.isAvailable).length
     });
   };
 
@@ -457,19 +461,25 @@ export const EditListing: React.FC = () => {
 
           {activeTab === 'ROOMS' && (
             <div className="space-y-12">
-               <div className="flex justify-between items-center">
-                  <h3 className="font-heading font-bold text-2xl text-haven-navy">Configuration des chambres</h3>
-                  <Button variant="outline" size="sm" onClick={addRoom} className="gap-2"><Plus size={16} /> Ajouter</Button>
+               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <h3 className="font-heading font-bold text-2xl text-haven-navy">Configuration des chambres</h3>
+                    <p className="mt-1 text-sm text-haven-stone">Ajoutez ou retirez des chambres, puis enregistrez vos modifications.</p>
+                  </div>
+                  <Button variant="outline" size="sm" onClick={addRoom} className="gap-2 self-start sm:self-auto"><Plus size={16} /> Ajouter une chambre</Button>
                </div>
 
                <div className="space-y-8">
                   {listing.rooms.map((room, idx) => (
                     <div key={room.id} className="relative group p-8 rounded-[2rem] border border-gray-100 bg-gray-50/50 hover:bg-white hover:shadow-premium transition-all">
                        <button 
+                        type="button"
                         onClick={() => removeRoom(room.id)}
-                        className="absolute top-6 right-6 w-10 h-10 rounded-xl bg-white text-haven-red flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-50"
+                        disabled={listing.rooms.length <= 1}
+                        aria-label={`Supprimer ${room.name || 'cette chambre'}`}
+                        className="mb-6 ml-auto flex items-center gap-2 rounded-xl border border-red-100 bg-white px-3 py-2 text-xs font-bold text-haven-red shadow-sm transition-colors hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40"
                        >
-                         <Trash2 size={18} />
+                         <Trash2 size={16} /> <span className="hidden sm:inline">Supprimer</span>
                        </button>
 
                        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 items-end">

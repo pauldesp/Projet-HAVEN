@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { ChevronLeft, ChevronRight, Lock } from 'lucide-react';
 import { BookingAvailability } from '../types';
 import { Button } from './Button';
+import { localDateKey } from '../services/stay';
 
 interface ListingCalendarProps {
   activeRoomBookings: BookingAvailability[];
@@ -32,6 +33,7 @@ export const ListingCalendar: React.FC<ListingCalendarProps> = ({
   const [manualBlockedDates, setManualBlockedDates] = useState<string[]>(blockedDates);
   
   const today = new Date();
+  const todayKey = localDateKey(today);
   const isToday = (year: number, month: number, day: number) => {
     return today.getFullYear() === year && 
            today.getMonth() === month && 
@@ -119,6 +121,8 @@ export const ListingCalendar: React.FC<ListingCalendarProps> = ({
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth();
     const clickedDateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+
+    if (!isOwner && clickedDateStr < todayKey) return;
 
     if (isOwner) {
       if (!isBlockingMode) return;
@@ -305,6 +309,7 @@ export const ListingCalendar: React.FC<ListingCalendarProps> = ({
             const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
             
             const isBooked = isRoomBooked(year, month, day);
+            const isPast = dateStr < todayKey;
             const isManualBlocked = isBlockingMode 
               ? tempBlockedDates.includes(dateStr) 
               : manualBlockedDates.includes(dateStr) || listingBlockedDates.includes(dateStr);
@@ -323,12 +328,14 @@ export const ListingCalendar: React.FC<ListingCalendarProps> = ({
                 onMouseLeave={() => setHoveredDate(null)}
               >
                 <button
-                  disabled={isBooked && !isOwner && !(selectedStart && !selectedEnd && new Date(year, month, day) > new Date(`${selectedStart}T00:00:00`))}
+                  disabled={!isOwner && (isPast || (isBooked && !(selectedStart && !selectedEnd && new Date(year, month, day) > new Date(`${selectedStart}T00:00:00`))))}
                   onClick={() => handleDayClick(day)}
                   className={`
                     h-14 w-full rounded-xl text-sm font-medium flex flex-col items-center justify-start pt-1.5 transition-all relative border overflow-visible
                     ${isToday(year, month, day) && !isSelected ? 'border-haven-red/30 bg-haven-red/[0.02]' : ''}
-                    ${isBlockingMode && tempBlockedDates.includes(dateStr)
+                    ${isPast && !isOwner
+                      ? 'bg-gray-50 text-gray-300 border-transparent cursor-not-allowed opacity-60'
+                      : isBlockingMode && tempBlockedDates.includes(dateStr)
                       ? 'bg-haven-red/20 text-haven-red border-haven-red shadow-sm scale-105 z-10'
                       : isSelectedNight
                         ? 'bg-gray-200 text-haven-navy border-gray-300 shadow-sm z-10'

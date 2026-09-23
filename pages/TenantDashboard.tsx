@@ -377,7 +377,7 @@ export const TenantDashboard: React.FC = () => {
       }
     } catch (e) {
       console.error("Error finalizing inventory", e);
-      toast.error("Une erreur est survenue lors de la transmission.");
+      toast.error(userFacingErrorMessage(e));
     }
   };
 

@@ -1,6 +1,6 @@
 import { Listing } from '../types';
 
-export const MAX_LISTING_DESCRIPTION_LENGTH = 500;
+export const MAX_LISTING_DESCRIPTION_LENGTH = 1000;
 
 export function limitListingDescription(description: string): string {
   const normalized = description.trim();

@@ -30,6 +30,7 @@ import { toast } from 'sonner';
 import SignatureCanvas from 'react-signature-canvas';
 import { motion, AnimatePresence } from 'motion/react';
 import { formatScheduledMoment, getInventoryTiming } from '../services/inventoryTiming';
+import { userFacingErrorMessage } from '../services/errorHandling';
 
 const AMENITY_LABELS: Record<string, string> = {
   'wifi': 'Wi-Fi Haut débit',
@@ -135,7 +136,7 @@ export const EntryInventory = () => {
 
       } catch (e) {
         console.error("Error fetching inventory data", e);
-        toast.error("Erreur lors du chargement");
+        toast.error(userFacingErrorMessage(e));
       } finally {
         setLoading(false);
       }
@@ -212,7 +213,7 @@ export const EntryInventory = () => {
       setCurrentStep('SUCCESS');
     } catch (e) {
       console.error("Error submitting inventory", e);
-      toast.error("Erreur lors de la validation");
+      toast.error(userFacingErrorMessage(e));
     }
   };
 

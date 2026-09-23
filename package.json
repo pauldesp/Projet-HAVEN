@@ -8,7 +8,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "lint": "tsc --noEmit",
-    "test": "node --import tsx --test tests/*.test.ts",
+    "test": "node --import tsx --test tests/*.test.ts services/*.test.ts",
     "check": "npm run lint && npm test && npm run build",
     "mobile:sync": "npm run build && cap sync",
     "mobile:ios": "npm run mobile:sync && cap open ios",

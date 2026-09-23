@@ -4,6 +4,8 @@ import { Mail, Send, CheckCircle2, MessageSquare, HelpCircle, ShieldCheck } from
 import { motion } from 'motion/react';
 import { apiService } from '../services/api';
 import { ContactRequest } from '../types';
+import { toast } from 'sonner';
+import { userFacingErrorMessage } from '../services/errorHandling';
 
 export const ContactPage: React.FC = () => {
   const [formData, setFormData] = useState({
@@ -33,7 +35,7 @@ export const ContactPage: React.FC = () => {
       setFormData({ name: '', email: '', phone: '', subject: '', message: '' });
     } catch (error) {
       console.error('Error sending contact request:', error);
-      alert('Une erreur est survenue lors de l\'envoi de votre message. Veuillez réessayer.');
+      toast.error(userFacingErrorMessage(error));
     } finally {
       setIsSubmitting(false);
     }
