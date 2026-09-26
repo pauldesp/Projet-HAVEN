@@ -4,7 +4,6 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { Logo } from '../components/Logo';
 import { Button } from '../components/Button';
 import { 
-  Check, 
   ShieldCheck, 
   ArrowLeft, 
   Mail, 
@@ -547,44 +546,61 @@ export const LoginPage: React.FC = () => {
 
   return (
     <div className="min-h-screen flex flex-col md:flex-row bg-white">
-      {/* Left side: Branding */}
-      <div className="w-full md:w-1/2 relative overflow-hidden flex flex-col justify-center items-center text-white p-12 bg-haven-navy">
-        <div className="absolute inset-0 z-0">
-          <img 
-            src="https://images.unsplash.com/photo-1529156069898-49953e39b3ac?ixlib=rb-4.0.3&auto=format&fit=crop&w=2000&q=80" 
-            className="w-full h-full object-cover opacity-30" 
-            alt="Coliving Life"
-          />
-          <div className="absolute inset-0 bg-haven-navy/40 mix-blend-multiply"></div>
+      {/* Left side: HAVEN introduction */}
+      <aside className="hidden lg:flex lg:w-1/2 relative overflow-hidden flex-col justify-between p-16 text-white bg-haven-navy min-h-screen">
+        <div aria-hidden="true" className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute -top-32 -right-24 w-[28rem] h-[28rem] rounded-full bg-haven-red/35 blur-3xl" />
+          <div className="absolute -bottom-40 -left-24 w-[30rem] h-[30rem] rounded-full bg-blue-400/15 blur-3xl" />
+          <div className="absolute inset-0 opacity-[0.09] bg-[linear-gradient(90deg,transparent_49%,white_50%,transparent_51%)] bg-[length:64px_64px]" />
+          <div className="absolute top-[26%] -right-20 w-80 h-80 border border-white/15 rounded-[4rem] rotate-12" />
         </div>
-        
-        <div className="relative z-10 max-w-md">
-          <div className="mb-12">
-             <Logo className="h-12 w-auto" white={true} />
-          </div>
-          
-          <h1 className="font-heading font-bold text-4xl md:text-5xl mb-6 leading-tight">
-            Vivez, partagez,<br/> profitez.
-          </h1>
-          <p className="text-blue-100 text-lg mb-12 leading-relaxed opacity-90">
-            Rejoignez la première plateforme de colocation courte durée premium. Des réservations simples, une communauté de confiance.
+
+        <div className="relative z-10">
+          <Logo className="h-10 sm:h-12 w-auto" white={true} />
+        </div>
+
+        <div className="relative z-10 max-w-xl py-10 md:py-0">
+          <p className="mb-6 text-[11px] font-black tracking-[0.22em] uppercase text-white/60">
+            HAVEN · colocation flexible
           </p>
-          
-          <div className="space-y-4">
-            <div className="flex items-center gap-4 bg-white/5 backdrop-blur-md p-4 rounded-2xl border border-white/10">
-              <div className="w-10 h-10 rounded-full bg-haven-red flex items-center justify-center text-white"><Check size={20}/></div>
-              <span className="font-medium">Réservation 100% digitale</span>
-            </div>
-            <div className="flex items-center gap-4 bg-white/5 backdrop-blur-md p-4 rounded-2xl border border-white/10">
-              <div className="w-10 h-10 rounded-full bg-green-500 flex items-center justify-center text-white"><ShieldCheck size={20}/></div>
-              <span className="font-medium">Sécurité et confiance garanties</span>
+          <h1 className="font-heading font-bold text-4xl sm:text-5xl lg:text-6xl leading-[1.05] tracking-tight">
+            Trouvez votre place.<br />
+            <span className="text-white/65">Vivez à votre rythme.</span>
+          </h1>
+          <p className="mt-7 max-w-md text-base sm:text-lg leading-relaxed text-blue-100/85">
+            Une chambre accueillante pour quelques jours ou plusieurs semaines, avec tout ce qu’il faut pour vous sentir chez vous.
+          </p>
+
+          <div className="mt-10 rounded-3xl border border-white/15 bg-white/[0.08] p-5 sm:p-6 backdrop-blur-sm shadow-2xl shadow-black/10">
+            <p className="text-xs font-bold uppercase tracking-[0.16em] text-white/60">Votre séjour en trois temps</p>
+            <div className="mt-5 grid grid-cols-3 gap-3">
+              <div className="border-l border-white/20 pl-3">
+                <span className="text-xs font-black text-haven-red">01</span>
+                <p className="mt-1 text-sm font-semibold">Choisissez</p>
+                <p className="mt-1 text-xs leading-relaxed text-white/60">La chambre qui vous correspond.</p>
+              </div>
+              <div className="border-l border-white/20 pl-3">
+                <span className="text-xs font-black text-haven-red">02</span>
+                <p className="mt-1 text-sm font-semibold">Réservez</p>
+                <p className="mt-1 text-xs leading-relaxed text-white/60">Des dates et un prix clairs.</p>
+              </div>
+              <div className="border-l border-white/20 pl-3">
+                <span className="text-xs font-black text-haven-red">03</span>
+                <p className="mt-1 text-sm font-semibold">Installez-vous</p>
+                <p className="mt-1 text-xs leading-relaxed text-white/60">Votre séjour commence sereinement.</p>
+              </div>
             </div>
           </div>
         </div>
-      </div>
+
+        <div className="relative z-10 flex items-center gap-3 text-sm text-white/75">
+          <span className="flex h-9 w-9 items-center justify-center rounded-full border border-white/15 bg-white/10 text-white"><ShieldCheck size={18} /></span>
+          <span>Des logements vérifiés et une réservation sécurisée.</span>
+        </div>
+      </aside>
 
       {/* Right side: Auth Flow */}
-      <div className="w-full md:w-1/2 flex flex-col items-center justify-center p-8 bg-haven-cream relative overflow-y-auto">
+      <div className="w-full lg:w-1/2 flex flex-col items-center justify-center p-8 bg-haven-cream relative overflow-y-auto">
         <button 
           onClick={() => navigate('/')} 
           className="absolute top-8 left-8 flex items-center gap-2 text-haven-stone hover:text-haven-navy font-bold transition-colors"
