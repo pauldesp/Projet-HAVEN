@@ -549,10 +549,11 @@ export const LoginPage: React.FC = () => {
       {/* Left side: HAVEN introduction */}
       <aside className="hidden lg:flex lg:w-1/2 relative overflow-hidden flex-col justify-between p-16 text-white bg-haven-navy min-h-screen">
         <div aria-hidden="true" className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute -top-32 -right-24 w-[28rem] h-[28rem] rounded-full bg-haven-red/35 blur-3xl" />
-          <div className="absolute -bottom-40 -left-24 w-[30rem] h-[30rem] rounded-full bg-blue-400/15 blur-3xl" />
-          <div className="absolute inset-0 opacity-[0.09] bg-[linear-gradient(90deg,transparent_49%,white_50%,transparent_51%)] bg-[length:64px_64px]" />
-          <div className="absolute top-[26%] -right-20 w-80 h-80 border border-white/15 rounded-[4rem] rotate-12" />
+          <div className="absolute inset-0 bg-[linear-gradient(145deg,#102747_0%,#253953_55%,#583e4b_100%)]" />
+          <div className="absolute -top-24 -left-20 h-80 w-80 rounded-full bg-[#d8a178]/20 blur-3xl" />
+          <div className="absolute -bottom-36 right-[-5rem] h-[28rem] w-[28rem] rounded-full bg-haven-red/25 blur-3xl" />
+          <div className="absolute inset-x-0 bottom-0 h-[45%] bg-gradient-to-t from-[#07182e]/45 to-transparent" />
+          <div className="absolute left-16 top-0 h-full w-px bg-white/[0.08]" />
         </div>
 
         <div className="relative z-10">
