@@ -1,7 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Logo } from '../components/Logo';
 import { Button } from '../components/Button';
 import { 
   ShieldCheck, 
@@ -554,10 +553,6 @@ export const LoginPage: React.FC = () => {
           <div className="absolute -bottom-36 right-[-5rem] h-[28rem] w-[28rem] rounded-full bg-haven-red/25 blur-3xl" />
           <div className="absolute inset-x-0 bottom-0 h-[45%] bg-gradient-to-t from-[#07182e]/45 to-transparent" />
           <div className="absolute left-16 top-0 h-full w-px bg-white/[0.08]" />
-        </div>
-
-        <div className="relative z-10">
-          <Logo className="h-10 sm:h-12 w-auto" white={true} />
         </div>
 
         <div className="relative z-10 max-w-xl py-10 md:py-0">
