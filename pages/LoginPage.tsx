@@ -589,7 +589,7 @@ export const LoginPage: React.FC = () => {
           </div>
         </div>
 
-        <div className="relative z-10 mb-8 flex items-center gap-3 text-sm text-white/75">
+        <div className="relative z-10 mb-8 lg:mb-96 flex items-center gap-3 text-sm text-white/75">
           <span className="flex h-9 w-9 items-center justify-center rounded-full border border-white/15 bg-white/10 text-white"><ShieldCheck size={18} /></span>
           <span>Des logements vérifiés et une réservation sécurisée.</span>
         </div>
@@ -604,7 +604,7 @@ export const LoginPage: React.FC = () => {
           <ArrowLeft size={20} /> Retour au site
         </button>
 
-        <div className="w-full max-w-md animate-fade-in-up py-12 -translate-y-10">
+        <div className="w-full max-w-md animate-fade-in-up py-12 -translate-y-10 lg:-translate-y-32">
           <div className="bg-white rounded-3xl shadow-premium border border-gray-100 overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-center relative">
               <button 
