@@ -589,7 +589,7 @@ export const LoginPage: React.FC = () => {
           </div>
         </div>
 
-        <div className="relative z-10 flex items-center gap-3 text-sm text-white/75">
+        <div className="relative z-10 mb-8 flex items-center gap-3 text-sm text-white/75">
           <span className="flex h-9 w-9 items-center justify-center rounded-full border border-white/15 bg-white/10 text-white"><ShieldCheck size={18} /></span>
           <span>Des logements vérifiés et une réservation sécurisée.</span>
         </div>
