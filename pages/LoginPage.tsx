@@ -604,7 +604,7 @@ export const LoginPage: React.FC = () => {
           <ArrowLeft size={20} /> Retour au site
         </button>
 
-        <div className="w-full max-w-md animate-fade-in-up py-12">
+        <div className="w-full max-w-md animate-fade-in-up py-12 -translate-y-10">
           <div className="bg-white rounded-3xl shadow-premium border border-gray-100 overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-center relative">
               <button 
