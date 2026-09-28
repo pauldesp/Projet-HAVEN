@@ -476,9 +476,9 @@ export const EntryInventory = () => {
                   </div>
                   <div className="space-y-2">
                     <div className="flex items-center gap-2 text-haven-stone text-xs font-black uppercase tracking-widest">
-                       <Shield size={14} className="text-haven-red" /> Caution déposée
+                       <Shield size={14} className="text-haven-red" /> Empreinte bancaire
                     </div>
-                    <p className="text-haven-navy font-bold">Empreinte bancaire conservée</p>
+                    <p className="text-haven-navy font-bold">Débit possible en cas de manquement ou de dégradation constatée</p>
                   </div>
                 </div>
 

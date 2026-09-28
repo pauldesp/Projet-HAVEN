@@ -102,7 +102,7 @@ export const FaqPage: React.FC = () => {
             type="text"
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
-            placeholder="Rechercher une question (ex: Stripe, Check-in, Caution...)"
+            placeholder="Rechercher une question (ex: Stripe, Check-in, empreinte bancaire...)"
             className="w-full text-sm font-bold text-haven-navy focus:outline-none placeholder-gray-400 bg-transparent"
           />
         </div>

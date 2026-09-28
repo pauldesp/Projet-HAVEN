@@ -517,12 +517,6 @@ export const TenantDashboard: React.FC = () => {
             >
               <ArrowRightLeft size={16} /> Passer en mode propriétaire
             </Button>
-            <div className="flex gap-2 bg-white/5 p-1.5 rounded-2xl backdrop-blur-sm">
-               <div className="px-4 py-2 text-center">
-                  <span className="block text-[10px] text-white/50 uppercase font-black tracking-widest">Caution</span>
-                  <span className="text-sm font-bold text-green-400">Sécurisée</span>
-               </div>
-            </div>
           </div>
         </div>
       </div>

@@ -78,9 +78,9 @@ export const HelpCenter: React.FC = () => {
     {
       id: 'art-6',
       category: 'BOOKING',
-      title: "Comment récupérer mon dépôt de garantie (caution) ?",
-      excerpt: "Détails sur les modalités et délais légaux de restitution de votre dépôt après le départ.",
-      content: "Après validation de l'état des lieux de sortie autonome (check-out) par vous-même et le propriétaire, votre dépôt de garantie vous est restitué automatiquement sous 14 jours si aucun dégât n'a été constaté ou signalé."
+      title: "Comment fonctionne l’empreinte bancaire ?",
+      excerpt: "Comprendre dans quels cas une empreinte peut être demandée et utilisée.",
+      content: "HAVEN ne demande pas de caution. Une empreinte bancaire peut être autorisée lors de la réservation. Elle n’est débitée qu’en cas de manquement contractuel ou de dégradation constatée et documentée lors de l’état des lieux."
     },
     {
       id: 'art-7',
@@ -133,7 +133,7 @@ export const HelpCenter: React.FC = () => {
               setSearchQuery(e.target.value);
               setSelectedArticle(null); // clear article view on search
             }}
-            placeholder="Rechercher un article, un guide (ex: Stripe, bail, caution...)"
+            placeholder="Rechercher un article, un guide (ex: Stripe, bail, empreinte bancaire...)"
             className="w-full text-sm font-bold text-haven-navy focus:outline-none placeholder-gray-400 bg-transparent"
           />
         </div>
