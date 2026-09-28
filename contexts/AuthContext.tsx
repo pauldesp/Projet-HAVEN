@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, ReactNode, useEffect, useMemo } from 'react';
 import { User, UserRole, UserStatus } from '../types';
 import { auth, db, googleProvider, seedFirestore } from '../firebase';
-import { onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, signInWithPopup, signInWithRedirect, getRedirectResult, sendPasswordResetEmail, User as FirebaseUser } from 'firebase/auth';
+import { onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, signInWithRedirect, getRedirectResult, sendPasswordResetEmail, User as FirebaseUser } from 'firebase/auth';
 import { doc, getDoc, setDoc, updateDoc, onSnapshot, query, where, collection, getDocs } from 'firebase/firestore';
 
 interface AuthContextType {
@@ -113,8 +113,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     };
   }, []);
 
-  // Safari on iPad blocks or keeps OAuth pop-ups pending. Its redirect flow
-  // displays Google's standard account chooser and returns to HAVEN securely.
+  // A redirect works consistently in Safari, on iPad and in browsers that
+  // block pop-ups. Google still displays its standard account chooser.
   useEffect(() => {
     const finishGoogleRedirect = async () => {
       try {
@@ -208,17 +208,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setIsLoading(true);
     setAuthError(null);
     try {
-      const isMobile = /iPad|iPhone|iPod|Android/i.test(navigator.userAgent)
-        || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-      if (isMobile) {
-        await signInWithRedirect(auth, googleProvider);
-        return false;
-      }
-
-      // The account chooser is intentionally displayed on every click.
-      const result = await signInWithPopup(auth, googleProvider);
-      await completeSocialSignIn(result.user);
-      return true;
+      // Popup-based OAuth is unreliable on Safari and can be blocked by a
+      // browser. A same-window redirect is robust across all HAVEN devices.
+      await signInWithRedirect(auth, googleProvider);
+      return false;
     } catch (error: any) {
       console.error("Google Login error", error);
       throw error;
