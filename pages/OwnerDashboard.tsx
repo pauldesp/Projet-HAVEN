@@ -638,7 +638,7 @@ export const OwnerDashboard: React.FC = () => {
 
             {activeTab === 'FINANCES' && (
               <div className="space-y-8">
-                <div className="grid md:grid-cols-3 gap-6">
+                <div className="grid md:grid-cols-2 gap-6">
                   <div className="bg-haven-navy rounded-3xl p-8 text-white min-h-[160px] flex flex-col justify-center">
                     <p className="text-[10px] font-black uppercase tracking-widest opacity-50">Revenus encaissés</p>
                     <p className="text-4xl font-bold mt-2">{stats.totalRevenue}€</p>
@@ -651,15 +651,6 @@ export const OwnerDashboard: React.FC = () => {
                     <p className="text-3xl font-bold text-haven-navy mt-2">{stats.pendingRevenue}€</p>
                     <p className="text-xs text-gray-500 mt-4 italic">
                       Locataires ayant réservé mais pas encore arrivés.
-                    </p>
-                  </div>
-                  <div className="bg-gray-50 rounded-3xl p-8 border border-gray-100 flex flex-col justify-center">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Paiements sécurisés</p>
-                    <p className="text-xl font-bold text-haven-navy mt-2 flex items-center gap-2">
-                      <ShieldCheck className="text-green-500" size={24} /> Validés
-                    </p>
-                    <p className="text-xs text-gray-500 mt-4">
-                      Aucun risque d'impayé.
                     </p>
                   </div>
                 </div>
