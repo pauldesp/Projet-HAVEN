@@ -165,6 +165,8 @@ export const PublishListing: React.FC = () => {
   }, [currentUser, isAuthLoading, navigate]);
 
   const isApproved = currentUser?.status === 'APPROVED' || currentUser?.role === 'ADMIN';
+  const hasOwnerDocuments = Boolean(currentUser?.documents?.idCard && currentUser?.documents?.proofOfOwnership);
+  const canPublish = isApproved && hasOwnerDocuments;
 
   if (isAuthLoading) {
     return (
@@ -178,7 +180,7 @@ export const PublishListing: React.FC = () => {
     return null; // Will redirect via useEffect
   }
 
-  if (currentUser && !isApproved) {
+  if (currentUser && !canPublish) {
     return (
       <div className="min-h-screen bg-haven-cream flex items-center justify-center p-6 text-center">
         <div className="max-w-md w-full animate-fade-in-up">
@@ -187,12 +189,12 @@ export const PublishListing: React.FC = () => {
           </div>
           <h1 className="text-4xl font-heading font-bold text-haven-navy mb-4">Vérification requise</h1>
           <p className="text-haven-stone text-lg mb-10 leading-relaxed">
-            Vous devez faire vérifier votre identité avant de pouvoir publier une annonce sur HAVEN. 
-            Cette étape garantit la sécurité et le sérieux de notre plateforme.
+            Avant toute mise en ligne, HAVEN doit valider votre pièce d’identité et votre justificatif de propriété.
+            Cette étape protège les locataires comme les propriétaires.
           </p>
           <div className="space-y-4">
             <Button fullWidth size="lg" onClick={() => setIsVerificationModalOpen(true)}>
-              {currentUser.status === 'PENDING' ? 'Vérification en cours...' : 'Faire vérifier mon identité'}
+              {currentUser.status === 'PENDING' ? 'Compléter mon dossier' : 'Faire valider mon dossier'}
             </Button>
             <Button fullWidth variant="ghost" onClick={() => navigate('/owner/dashboard')}>
               Retour au tableau de bord

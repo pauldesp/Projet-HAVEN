@@ -39,6 +39,8 @@ export interface User {
   shareProfileWithHousemates?: boolean;
   documents?: {
     idCard?: string;
+    proofOfAddress?: string;
+    proofOfOwnership?: string;
     proofOfIncome?: string;
     studentCard?: string;
   };

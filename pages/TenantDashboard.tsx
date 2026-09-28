@@ -114,6 +114,8 @@ export const TenantDashboard: React.FC = () => {
   const [showEarlyDepartureHintId, setShowEarlyDepartureHintId] = useState<string | null>(null);
 
   const isApproved = currentUser?.status === 'APPROVED';
+  const hasTenantDocuments = Boolean(currentUser?.documents?.idCard && currentUser?.documents?.proofOfAddress);
+  const canBook = isApproved && hasTenantDocuments;
 
   // Modal State
   const [inventoryState, setInventoryState] = useState<{
@@ -406,7 +408,7 @@ export const TenantDashboard: React.FC = () => {
     setInventoryState({ isOpen: true, type, selectedBooking: booking });
   };
 
-  const handleUploadDocument = async (type: 'idCard' | 'proofOfIncome' | 'studentCard') => {
+  const handleUploadDocument = async (type: 'idCard' | 'proofOfAddress' | 'proofOfIncome' | 'studentCard') => {
     if (!currentUser) return;
     
     // Create direct native hidden file picker input
@@ -433,9 +435,15 @@ export const TenantDashboard: React.FC = () => {
         try {
           const fileDataUrl = reader.result as string;
           await apiService.users.uploadDocument(currentUser.id, type, fileDataUrl);
+          const requiredDocumentWasUploaded = type === 'idCard' || type === 'proofOfAddress';
+          const dossierWillBeComplete = (type === 'idCard' || Boolean(currentUser.documents?.idCard)) &&
+            (type === 'proofOfAddress' || Boolean(currentUser.documents?.proofOfAddress));
+          if (requiredDocumentWasUploaded && dossierWillBeComplete) {
+            await apiService.users.submitVerification('TENANT');
+          }
           await refreshUser();
           toast.dismiss(toastId);
-          toast.success("Votre justificatif a été ajouté et sécurisé avec succès !");
+          toast.success(dossierWillBeComplete && requiredDocumentWasUploaded ? "Dossier transmis à HAVEN pour vérification." : "Votre justificatif a été ajouté avec succès !");
         } catch (error) {
           console.error("Error uploading document", error);
           toast.dismiss(toastId);
@@ -523,15 +531,15 @@ export const TenantDashboard: React.FC = () => {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-16">
         {/* Verification Banner */}
-        {!isApproved && currentUser?.role !== 'ADMIN' && (
+        {!canBook && currentUser?.role !== 'ADMIN' && (
           <div className="mb-8 bg-orange-50 border border-orange-100 rounded-[2.5rem] p-6 flex flex-col md:flex-row items-center justify-between gap-6 shadow-sm">
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 bg-orange-100 rounded-2xl flex items-center justify-center text-orange-600">
                 <ShieldCheck size={24} />
               </div>
               <div>
-                <h4 className="font-bold text-haven-navy">Vérification d'identité requise</h4>
-                <p className="text-sm text-gray-500">Vous devez valider votre identité pour effectuer des réservations.</p>
+                <h4 className="font-bold text-haven-navy">Dossier de vérification requis</h4>
+                <p className="text-sm text-gray-500">Votre pièce d’identité et votre justificatif de domicile doivent être validés avant toute réservation.</p>
               </div>
             </div>
             <Button 
@@ -540,7 +548,7 @@ export const TenantDashboard: React.FC = () => {
               className="bg-orange-500 hover:bg-orange-600 border-none px-8 h-12 rounded-xl"
               onClick={() => setIsVerificationModalOpen(true)}
             >
-              Vérifier mon identité
+              Compléter mon dossier
             </Button>
           </div>
         )}
@@ -552,7 +560,7 @@ export const TenantDashboard: React.FC = () => {
               { id: 'HISTORY', label: 'Historique', count: history.length },
               { id: 'MESSAGES', label: 'Messages', count: unreadCount },
               { id: 'FAVORITES', label: 'Mes Favoris', count: favorites.length },
-              { id: 'DOCUMENTS', label: 'Mes Documents', count: documents.length + 3 }
+              { id: 'DOCUMENTS', label: 'Mes Documents', count: documents.length + Object.values(currentUser?.documents || {}).filter(Boolean).length }
             ].map(tab => (
               <button 
                 key={tab.id}
@@ -812,25 +820,32 @@ export const TenantDashboard: React.FC = () => {
                   <h3 className="font-heading font-bold text-xl text-haven-navy flex items-center gap-3">
                     <ShieldCheck size={24} className="text-haven-navy" /> Pièces d'identité & Justificatifs
                   </h3>
-                  <div className="grid md:grid-cols-3 gap-6">
+                  <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-6">
                     {[
-                      { id: 'idCard', label: 'Pièce d\'identité', icon: UserCircle, status: currentUser?.documents?.idCard ? 'Vérifié' : 'Manquant' },
-                      { id: 'proofOfIncome', label: 'Justificatif de revenus', icon: FileText, status: currentUser?.documents?.proofOfIncome ? 'Vérifié' : 'Manquant' },
-                      { id: 'studentCard', label: 'Carte Étudiant', icon: ClipboardCheck, status: currentUser?.documents?.studentCard ? 'Vérifié' : 'Manquant' },
-                    ].map(doc => (
+                      { id: 'idCard' as const, label: 'Pièce d\'identité', icon: UserCircle, required: true },
+                      { id: 'proofOfAddress' as const, label: 'Justificatif de domicile', icon: FileText, required: true },
+                      { id: 'proofOfIncome' as const, label: 'Justificatif de revenus', icon: FileText, required: false },
+                      { id: 'studentCard' as const, label: 'Carte Étudiant', icon: ClipboardCheck, required: false },
+                    ].map(doc => {
+                      const url = currentUser?.documents?.[doc.id];
+                      const status = url ? (canBook ? 'Validé' : 'En attente') : 'Manquant';
+                      return (
                       <div key={doc.id} className="bg-white rounded-[2rem] p-8 border border-gray-100 flex flex-col items-center text-center space-y-4 hover:shadow-card transition-all group">
-                        <div className={`w-16 h-16 rounded-2xl flex items-center justify-center ${doc.status === 'Vérifié' ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-400 group-hover:bg-haven-red/10 group-hover:text-haven-red'} transition-colors`}>
+                        <div className={`w-16 h-16 rounded-2xl flex items-center justify-center ${status === 'Validé' ? 'bg-green-100 text-green-600' : url ? 'bg-orange-100 text-orange-600' : 'bg-gray-100 text-gray-400 group-hover:bg-haven-red/10 group-hover:text-haven-red'} transition-colors`}>
                           <doc.icon size={32} />
                         </div>
                         <div>
-                          <h4 className="font-bold text-haven-navy">{doc.label}</h4>
-                          <p className={`text-[10px] font-black uppercase tracking-widest mt-1 ${doc.status === 'Vérifié' ? 'text-green-600' : 'text-gray-400'}`}>{doc.status}</p>
+                          <h4 className="font-bold text-haven-navy">{doc.label}{doc.required && <span className="ml-1 text-haven-red">*</span>}</h4>
+                          <p className={`text-[10px] font-black uppercase tracking-widest mt-1 ${status === 'Validé' ? 'text-green-600' : status === 'En attente' ? 'text-orange-600' : 'text-gray-400'}`}>{status}</p>
                         </div>
-                        <Button variant="outline" size="sm" className="w-full text-[10px] h-10 font-black uppercase rounded-xl" onClick={() => handleUploadDocument(doc.id as any)}>
-                          <Upload size={14} className="mr-2" /> {doc.status === 'Vérifié' ? 'Remplacer' : 'Télécharger'}
-                        </Button>
+                        <div className="flex w-full gap-2">
+                          {url && <Button variant="ghost" size="sm" className="h-10 px-3" onClick={() => window.open(url, '_blank', 'noopener,noreferrer')}>Voir</Button>}
+                          <Button variant="outline" size="sm" className="flex-1 text-[10px] h-10 font-black uppercase rounded-xl" onClick={() => handleUploadDocument(doc.id)}>
+                            <Upload size={14} className="mr-2" /> {url ? 'Remplacer' : 'Télécharger'}
+                          </Button>
+                        </div>
                       </div>
-                    ))}
+                    )})}
                   </div>
                 </div>
 

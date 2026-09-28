@@ -45,6 +45,8 @@ export const ListingDetails: React.FC = () => {
   const [housematesError, setHousematesError] = useState<string | null>(null);
   
   const isApproved = currentUser?.status === 'APPROVED' || currentUser?.role === 'ADMIN';
+  const hasTenantDocuments = Boolean(currentUser?.documents?.idCard && currentUser?.documents?.proofOfAddress);
+  const canBook = isApproved && hasTenantDocuments;
   const isListingOwner = currentUser?.id === listing?.ownerId;
   const isHost = currentUser?.role === 'OWNER';
 
@@ -172,7 +174,7 @@ export const ListingDetails: React.FC = () => {
       return;
     }
     
-    if (!isApproved) {
+    if (!canBook) {
       setIsVerificationModalOpen(true);
       return;
     }

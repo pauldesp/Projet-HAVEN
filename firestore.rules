@@ -36,6 +36,24 @@ service cloud.firestore {
       );
     }
 
+    // Account approval is necessary but not sufficient: each activity also
+    // requires the matching supporting documents supplied by the member.
+    function hasVerificationDocument(documentType) {
+      return exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data
+               .get('documents', {}).get(documentType, '') is string &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data
+               .get('documents', {}).get(documentType, '').size() > 0;
+    }
+
+    function isTenantVerified() {
+      return isApproved() && hasVerificationDocument('idCard') && hasVerificationDocument('proofOfAddress');
+    }
+
+    function isOwnerVerified() {
+      return isApproved() && hasVerificationDocument('idCard') && hasVerificationDocument('proofOfOwnership');
+    }
+
     // ===============================================================
     // Global Generic Helpers
     // ===============================================================
@@ -253,7 +271,7 @@ service cloud.firestore {
     match /listings/{listingId} {
       allow read: if true;
       allow create: if (isAdmin() && isValidListing(incoming())) ||
-                    (isSignedIn() && isValidListing(incoming()) && incoming().ownerId == request.auth.uid && incoming().status == 'PENDING');
+                    (isOwnerVerified() && isValidListing(incoming()) && incoming().ownerId == request.auth.uid && incoming().status == 'PENDING');
       allow update: if isAdmin() && isValidListing(incoming());
       allow update: if isSignedIn() && existing().ownerId == request.auth.uid && isValidListing(incoming()) &&
                     incoming().id == existing().id && incoming().ownerId == existing().ownerId &&
@@ -263,7 +281,7 @@ service cloud.firestore {
 
     match /bookings/{bookingId} {
       allow get, list: if isAdmin() || (isSignedIn() && (resource.data.tenantId == request.auth.uid || resource.data.ownerId == request.auth.uid));
-      allow create: if isSignedIn() && isValidBooking(incoming()) &&
+      allow create: if isTenantVerified() && isValidBooking(incoming()) &&
                     incoming().tenantId == request.auth.uid && incoming().status == 'PENDING' &&
                     exists(/databases/$(database)/documents/listings/$(incoming().listingId)) &&
                     get(/databases/$(database)/documents/listings/$(incoming().listingId)).data.status == 'APPROVED' &&

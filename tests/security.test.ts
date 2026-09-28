@@ -14,8 +14,20 @@ test('self-created profiles cannot request privileged roles or approval', () => 
 });
 
 test('booking creation and transitions are constrained', () => {
+  assert.match(rules, /allow create: if isTenantVerified\(\) && isValidBooking\(incoming\(\)\)/);
   assert.match(rules, /incoming\(\)\.tenantId == request\.auth\.uid && incoming\(\)\.status == 'PENDING'/);
   assert.match(rules, /affectedKeys\(\)\.hasOnly\(\['status', 'approvedAt'\]\)/);
+});
+
+test('publication requires an approved owner dossier', () => {
+  assert.match(rules, /function isOwnerVerified\(\)/);
+  assert.match(rules, /hasVerificationDocument\('proofOfOwnership'\)/);
+  assert.match(rules, /isOwnerVerified\(\) && isValidListing\(incoming\(\)\)/);
+});
+
+test('dossier submission is authenticated and remains pending for human review', () => {
+  assert.match(server, /submit-verification", sensitiveApiLimiter, requireAuth/);
+  assert.match(server, /await userRef\.update\(\{ status: "PENDING"/);
 });
 
 test('checkout requires authentication and Stripe webhook verification', () => {

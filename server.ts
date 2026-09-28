@@ -210,6 +210,33 @@ async function startServer() {
     }
   });
 
+  // Submitting a dossier only queues it for review. Approval remains an
+  // explicit back-office action and cannot be granted by a browser client.
+  app.post("/api/users/me/submit-verification", sensitiveApiLimiter, requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      const role = req.body?.role;
+      if (role !== "TENANT" && role !== "OWNER") {
+        return sendApiError(res, 422, "Type de dossier invalide");
+      }
+      const userRef = adminDb.collection("users").doc(req.user!.uid);
+      const userSnap = await userRef.get();
+      if (!userSnap.exists) return sendApiError(res, 404, "Profil introuvable");
+
+      const documents = userSnap.data()?.documents || {};
+      const requiredDocuments = role === "OWNER"
+        ? ["idCard", "proofOfOwnership"]
+        : ["idCard", "proofOfAddress"];
+      const missing = requiredDocuments.some(key => typeof documents[key] !== "string" || documents[key].length === 0);
+      if (missing) return sendApiError(res, 422, "Tous les justificatifs requis doivent être transmis");
+
+      await userRef.update({ status: "PENDING", rejectionReason: null });
+      return res.json({ status: "PENDING" });
+    } catch (error) {
+      console.error("Verification submission error", error);
+      return sendApiError(res, 500, "Impossible de transmettre le dossier");
+    }
+  });
+
   // API route for sending verification email
   app.post("/api/send-verification", verificationLimiter, async (req, res) => {
     const email = normalizeEmail(req.body.email);

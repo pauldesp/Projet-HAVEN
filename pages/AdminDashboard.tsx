@@ -1992,9 +1992,11 @@ export const AdminDashboard: React.FC = () => {
                     <h4 className="font-heading font-bold text-xl text-haven-navy flex items-center gap-2">
                       <Shield size={20} className="text-haven-red" /> Documents justificatifs
                     </h4>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">
                       {[
                         { key: 'idCard', label: 'Pièce d\'identité' },
+                        { key: 'proofOfAddress', label: 'Justificatif domicile' },
+                        { key: 'proofOfOwnership', label: 'Justificatif propriété' },
                         { key: 'proofOfIncome', label: 'Justificatif revenus' },
                         { key: 'studentCard', label: 'Carte étudiant' }
                       ].map(doc => {

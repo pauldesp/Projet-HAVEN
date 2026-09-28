@@ -219,13 +219,24 @@ export const apiService = {
         handleFirestoreError(e, 'TOGGLE_FAVORITE', `users/${userId}`);
       }
     },
-    async uploadDocument(userId: string, type: 'idCard' | 'proofOfIncome' | 'studentCard', url: string) {
+    async uploadDocument(userId: string, type: 'idCard' | 'proofOfAddress' | 'proofOfOwnership' | 'proofOfIncome' | 'studentCard', url: string) {
       try {
         const field = `documents.${type}`;
         await updateDoc(doc(db, 'users', userId), { [field]: url });
       } catch (e) {
         handleFirestoreError(e, 'UPLOAD_DOCUMENT', `users/${userId}`);
       }
+    },
+    async submitVerification(role: 'TENANT' | 'OWNER') {
+      const response = await authenticatedFetch('/api/users/me/submit-verification', {
+        method: 'POST',
+        body: JSON.stringify({ role })
+      });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        throw new Error(payload.error || `Erreur ${response.status}`);
+      }
+      return response.json() as Promise<{ status: 'PENDING' }>;
     },
     async delete(id: string) {
       try {

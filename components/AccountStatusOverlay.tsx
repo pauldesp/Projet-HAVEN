@@ -4,6 +4,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { AlertCircle, Clock, XCircle, LogOut, ShieldCheck, Upload, FileText, CheckCircle2 } from 'lucide-react';
 import { Button } from './Button';
 import { apiService } from '../services/api';
+import { UserRole } from '../types';
+import { toast } from 'sonner';
 
 interface AccountStatusOverlayProps {
   isOpen?: boolean;
@@ -16,42 +18,72 @@ export const AccountStatusOverlay: React.FC<AccountStatusOverlayProps> = ({
   onClose,
   forced = false 
 }) => {
-  const { currentUser, accountRole, logout } = useAuth();
+  const { currentUser, accountRole, logout, refreshUser } = useAuth();
   const [isUploading, setIsUploading] = useState(false);
-  const [uploadSuccess, setUploadSuccess] = useState(false);
+  const [uploadedDocumentTypes, setUploadedDocumentTypes] = useState<string[]>([]);
 
   // If not forced and not explicitly open, don't show anything
   if (!currentUser || currentUser.role === 'ADMIN') return null;
   
+  const verificationRole = accountRole ?? currentUser.role;
+  const requiredDocuments = verificationRole === UserRole.OWNER
+    ? [
+        { type: 'idCard' as const, label: 'Pièce d’identité', detail: 'Carte nationale d’identité ou passeport en cours de validité.' },
+        { type: 'proofOfOwnership' as const, label: 'Justificatif de propriété', detail: 'Taxe foncière, acte de propriété ou attestation notariale.' },
+      ]
+    : [
+        { type: 'idCard' as const, label: 'Pièce d’identité', detail: 'Carte nationale d’identité ou passeport en cours de validité.' },
+        { type: 'proofOfAddress' as const, label: 'Justificatif de domicile', detail: 'Document de moins de trois mois à votre nom.' },
+      ];
+
+  const isDocumentUploaded = (type: keyof NonNullable<typeof currentUser.documents>) =>
+    Boolean(currentUser.documents?.[type]) || uploadedDocumentTypes.includes(type);
+  const isComplete = requiredDocuments.every(document => isDocumentUploaded(document.type));
   const isApproved = currentUser.status === 'APPROVED';
-  
-  // If forced mode (like at login if we wanted to block), show if not approved
-  // Otherwise, only show if isOpen is true
-  const shouldShow = forced ? !isApproved : propIsOpen;
+  const isVerifiedForCurrentRole = isApproved && isComplete;
+
+  // A validated account still needs the documents appropriate to the selected
+  // mode. This matters when a tenant later starts publishing as an owner.
+  const shouldShow = forced ? !isVerifiedForCurrentRole : propIsOpen;
 
   if (!shouldShow) return null;
 
-  const handleUploadId = async () => {
-    setIsUploading(true);
-    try {
-      // Simulate ID upload
-      const mockIdUrl = `https://api.dicebear.com/7.x/initials/svg?seed=${currentUser.lastName}&backgroundColor=f1f5f9&fontSize=30&bold=true`;
-      await apiService.users.updateProfile({
-        ...currentUser,
-        role: accountRole ?? currentUser.role,
-        idDocumentUrl: mockIdUrl,
-        status: 'PENDING' // Reset to pending if they were rejected and are re-uploading
-      });
-      setUploadSuccess(true);
-      setTimeout(() => {
-        setUploadSuccess(false);
-        if (onClose) onClose();
-      }, 2000);
-    } catch (e) {
-      console.error("Erreur lors de l'envoi de la pièce d'identité", e);
-    } finally {
-      setIsUploading(false);
-    }
+  const handleUploadDocument = (type: (typeof requiredDocuments)[number]['type']) => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*,application/pdf';
+    input.onchange = async () => {
+      const file = input.files?.[0];
+      if (!file) return;
+      if (file.size > 1.5 * 1024 * 1024) {
+        toast.error('Le fichier dépasse la taille autorisée de 1,5 Mo.');
+        return;
+      }
+      setIsUploading(true);
+      const reader = new FileReader();
+      reader.onload = async () => {
+        try {
+          await apiService.users.uploadDocument(currentUser.id, type, reader.result as string);
+          const dossierWillBeComplete = requiredDocuments.every(document =>
+            document.type === type || isDocumentUploaded(document.type)
+          );
+          if (dossierWillBeComplete) {
+            await apiService.users.submitVerification(verificationRole === UserRole.OWNER ? 'OWNER' : 'TENANT');
+          }
+          await refreshUser();
+          setUploadedDocumentTypes(previous => previous.includes(type) ? previous : [...previous, type]);
+          toast.success(dossierWillBeComplete ? 'Dossier transmis à HAVEN pour vérification.' : 'Justificatif ajouté.');
+        } catch (error) {
+          console.error("Erreur lors de l'envoi du justificatif", error);
+          toast.error("Impossible d’enregistrer le justificatif. Réessayez plus tard.");
+        } finally {
+          setIsUploading(false);
+        }
+      };
+      reader.onerror = () => setIsUploading(false);
+      reader.readAsDataURL(file);
+    };
+    input.click();
   };
 
   return (
@@ -70,14 +102,14 @@ export const AccountStatusOverlay: React.FC<AccountStatusOverlayProps> = ({
 
           <div className={`w-20 h-20 mx-auto rounded-3xl flex items-center justify-center mb-6 shadow-lg ${
             currentUser.status === 'REJECTED' ? 'bg-haven-red text-white' : 
-            isApproved ? 'bg-green-600 text-white' : 'bg-orange-500 text-white'
+            isVerifiedForCurrentRole ? 'bg-green-600 text-white' : 'bg-orange-500 text-white'
           }`}>
             {currentUser.status === 'REJECTED' ? <XCircle size={40} /> : 
-             isApproved ? <ShieldCheck size={40} /> : <Clock size={40} />}
+             isVerifiedForCurrentRole ? <ShieldCheck size={40} /> : <Clock size={40} />}
           </div>
           
           <h2 className="text-3xl font-heading font-bold text-haven-navy mb-4 tracking-tight">
-            {isApproved ? 'Identité Vérifiée' : 
+            {isVerifiedForCurrentRole ? 'Compte validé' :
              currentUser.status === 'REJECTED' ? 'Compte non conforme' : 'Vérification requise'}
           </h2>
 
@@ -87,11 +119,11 @@ export const AccountStatusOverlay: React.FC<AccountStatusOverlayProps> = ({
           </div>
           
           <p className="text-gray-600 leading-relaxed mb-8">
-            {isApproved 
-              ? "Votre identité a été validée. Vous avez désormais accès à toutes les fonctionnalités de la plateforme."
+            {isVerifiedForCurrentRole
+              ? "Vos justificatifs sont validés. Vous avez accès aux fonctionnalités de ce mode."
               : currentUser.status === 'REJECTED' 
-              ? "Désolé, votre pièce d'identité n'a pas pu être validée. Veuillez en fournir une nouvelle plus lisible."
-              : "Pour garantir la sécurité de HAVEN, nous devons vérifier votre identité avant que vous ne puissiez publier une annonce ou effectuer une réservation."
+              ? "Votre dossier n’a pas pu être validé. Veuillez transmettre à nouveau les justificatifs demandés, bien lisibles."
+              : "Avant de publier un logement ou d’effectuer une réservation, vos justificatifs doivent être validés par HAVEN."
             }
           </p>
 
@@ -107,23 +139,39 @@ export const AccountStatusOverlay: React.FC<AccountStatusOverlayProps> = ({
           )}
 
           <div className="space-y-4">
-            {!isApproved && (
-              <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm mb-6">
+            {!isVerifiedForCurrentRole && (
+              <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm mb-6 text-left">
                 <FileText className="mx-auto text-gray-300 mb-3" size={32} />
-                <p className="text-sm text-gray-500 mb-4">
-                  Veuillez télécharger une copie de votre carte d'identité ou passeport (recto-verso).
+                <p className="text-sm text-gray-500 mb-4 text-center">
+                  Les fichiers PNG, JPG ou PDF sont acceptés, dans la limite de 1,5 Mo par document.
                 </p>
-                <Button 
-                  variant={uploadSuccess ? 'secondary' : 'primary'}
-                  fullWidth
-                  onClick={handleUploadId}
-                  disabled={isUploading || uploadSuccess}
-                  className="flex items-center justify-center gap-2"
-                >
-                  {isUploading ? <Clock className="animate-spin" size={18} /> : 
-                   uploadSuccess ? <CheckCircle2 size={18} /> : <Upload size={18} />}
-                  {uploadSuccess ? 'Document envoyé !' : 'Télécharger ma pièce d\'identité'}
-                </Button>
+                <div className="space-y-3">
+                  {requiredDocuments.map(document => {
+                    const uploaded = isDocumentUploaded(document.type);
+                    return (
+                      <div key={document.type} className="rounded-xl border border-gray-100 p-4">
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="text-sm font-bold text-haven-navy">{document.label}</p>
+                            <p className="mt-1 text-xs leading-relaxed text-gray-500">{document.detail}</p>
+                          </div>
+                          {uploaded && <CheckCircle2 className="shrink-0 text-green-600" size={20} />}
+                        </div>
+                        <Button
+                          variant={uploaded ? 'outline' : 'primary'}
+                          fullWidth
+                          onClick={() => handleUploadDocument(document.type)}
+                          disabled={isUploading}
+                          className="mt-3 flex items-center justify-center gap-2"
+                        >
+                          {isUploading ? <Clock className="animate-spin" size={18} /> : <Upload size={18} />}
+                          {uploaded ? 'Remplacer le document' : 'Télécharger le document'}
+                        </Button>
+                      </div>
+                    );
+                  })}
+                </div>
+                {isComplete && <p className="mt-4 text-center text-xs font-bold text-green-600">Dossier complet : vérification en cours.</p>}
               </div>
             )}
 
@@ -139,7 +187,7 @@ export const AccountStatusOverlay: React.FC<AccountStatusOverlayProps> = ({
                 </Button>
               )}
               
-              {!isApproved && (
+              {!isVerifiedForCurrentRole && (
                 <Button 
                   variant="outline" 
                   fullWidth 

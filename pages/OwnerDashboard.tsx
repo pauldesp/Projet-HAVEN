@@ -28,7 +28,9 @@ import {
   Edit,
   MapPin,
   MessageCircle,
-  Inbox
+  Inbox,
+  FileText,
+  Upload
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useListings } from '../contexts/ListingContext';
@@ -105,7 +107,7 @@ export const OwnerDashboard: React.FC = () => {
   const navigate = useNavigate();
   const { currentUser, refreshUser, updateUserRole } = useAuth();
   const { listings } = useListings();
-  const [activeTab, setActiveTab] = useState<'OVERVIEW' | 'LISTINGS' | 'BOOKINGS' | 'MESSAGES' | 'FINANCES' | 'INCIDENTS'>('OVERVIEW');
+  const [activeTab, setActiveTab] = useState<'OVERVIEW' | 'LISTINGS' | 'BOOKINGS' | 'MESSAGES' | 'FINANCES' | 'DOCUMENTS' | 'INCIDENTS'>('OVERVIEW');
   const [ownerBookings, setOwnerBookings] = useState<BookingWithTenant[]>([]);
   const [ownerIncidents, setOwnerIncidents] = useState<Incident[]>([]);
   const [ownerPayments, setOwnerPayments] = useState<Payment[]>([]);
@@ -116,7 +118,9 @@ export const OwnerDashboard: React.FC = () => {
   const [bookingSubTab, setBookingSubTab] = useState<'UPCOMING' | 'CURRENT' | 'PAST'>('UPCOMING');
 
   const ownerListings = listings.filter(l => l.ownerId === currentUser?.id);
-  const isApproved = currentUser?.status === 'APPROVED';
+  const isApproved = currentUser?.status === 'APPROVED' || currentUser?.role === UserRole.ADMIN;
+  const hasOwnerDocuments = Boolean(currentUser?.documents?.idCard && currentUser?.documents?.proofOfOwnership);
+  const canPublish = isApproved && hasOwnerDocuments;
 
   useEffect(() => {
     if (!currentUser) return;
@@ -266,7 +270,7 @@ export const OwnerDashboard: React.FC = () => {
       navigate('/login?redirect=/owner/publish&role=OWNER');
     } else if (currentUser.role !== UserRole.OWNER && currentUser.role !== UserRole.ADMIN) {
       navigate('/login?redirect=/owner/publish&role=OWNER');
-    } else if (currentUser.status !== 'APPROVED') {
+    } else if (!canPublish) {
       setIsVerificationModalOpen(true);
     } else {
       navigate('/owner/publish');
@@ -344,15 +348,15 @@ export const OwnerDashboard: React.FC = () => {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-16">
         {/* Verification Banner */}
-        {!isApproved && (
+        {!canPublish && (
           <div className="mb-8 bg-orange-50 border border-orange-100 rounded-[2.5rem] p-6 flex flex-col md:flex-row items-center justify-between gap-6 shadow-sm">
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 bg-orange-100 rounded-2xl flex items-center justify-center text-orange-600">
                 <ShieldCheck size={24} />
               </div>
               <div>
-                <h4 className="font-bold text-haven-navy">Vérification d'identité requise</h4>
-                <p className="text-sm text-gray-500">Vous devez valider votre identité pour publier de nouvelles annonces.</p>
+                <h4 className="font-bold text-haven-navy">Dossier propriétaire requis</h4>
+                <p className="text-sm text-gray-500">Votre pièce d’identité et votre justificatif de propriété doivent être validés avant toute mise en ligne.</p>
               </div>
             </div>
             <Button 
@@ -361,7 +365,7 @@ export const OwnerDashboard: React.FC = () => {
               className="bg-orange-500 hover:bg-orange-600 border-none px-8"
               onClick={() => setIsVerificationModalOpen(true)}
             >
-              Vérifier mon identité
+              Compléter mon dossier
             </Button>
           </div>
         )}
@@ -394,6 +398,7 @@ export const OwnerDashboard: React.FC = () => {
               { id: 'BOOKINGS', label: 'Réservations', icon: Calendar },
               { id: 'MESSAGES', label: 'Messages', icon: Inbox },
               { id: 'FINANCES', label: 'Finances', icon: DollarSign },
+              { id: 'DOCUMENTS', label: 'Mes Documents', icon: FileText },
               { id: 'INCIDENTS', label: 'Sinistres', icon: AlertTriangle },
             ].map(tab => (
               <button 
@@ -693,6 +698,53 @@ export const OwnerDashboard: React.FC = () => {
                 </div>
               </div>
             )}
+
+            {activeTab === 'DOCUMENTS' && (() => {
+              const verificationDocuments = [
+                { id: 'idCard' as const, label: 'Pièce d’identité', detail: 'Carte nationale d’identité ou passeport.', icon: ShieldCheck },
+                { id: 'proofOfOwnership' as const, label: 'Justificatif de propriété', detail: 'Taxe foncière, acte de propriété ou attestation notariale.', icon: Home },
+              ];
+              return (
+                <div className="space-y-8">
+                  <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+                    <div>
+                      <h3 className="font-heading font-bold text-xl text-haven-navy">Mes documents de vérification</h3>
+                      <p className="mt-1 text-sm text-gray-500">Ces justificatifs sont contrôlés par HAVEN avant la publication de vos logements.</p>
+                    </div>
+                    <Button variant="primary" size="sm" onClick={() => setIsVerificationModalOpen(true)} className="flex items-center gap-2">
+                      <Upload size={15} /> Ajouter ou remplacer
+                    </Button>
+                  </div>
+                  <div className="grid gap-5 md:grid-cols-2">
+                    {verificationDocuments.map(document => {
+                      const url = currentUser?.documents?.[document.id];
+                      const status = url ? (canPublish ? 'Validé' : 'En attente') : 'Manquant';
+                      return (
+                        <div key={document.id} className="rounded-3xl border border-gray-100 bg-gray-50/60 p-6">
+                          <div className="flex items-start gap-4">
+                            <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl ${status === 'Validé' ? 'bg-green-100 text-green-600' : url ? 'bg-orange-100 text-orange-600' : 'bg-white text-gray-400'}`}>
+                              <document.icon size={22} />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex flex-wrap items-center justify-between gap-2">
+                                <h4 className="font-bold text-haven-navy">{document.label}</h4>
+                                <span className={`rounded-full px-2.5 py-1 text-[9px] font-black uppercase tracking-widest ${status === 'Validé' ? 'bg-green-100 text-green-700' : status === 'En attente' ? 'bg-orange-100 text-orange-700' : 'bg-gray-200 text-gray-500'}`}>{status}</span>
+                              </div>
+                              <p className="mt-2 text-sm leading-relaxed text-gray-500">{document.detail}</p>
+                            </div>
+                          </div>
+                          <div className="mt-5 flex gap-3">
+                            {url && <Button variant="outline" size="sm" onClick={() => window.open(url, '_blank', 'noopener,noreferrer')}>Visualiser</Button>}
+                            <Button variant="ghost" size="sm" className="text-haven-navy" onClick={() => setIsVerificationModalOpen(true)}>{url ? 'Remplacer' : 'Télécharger'}</Button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {!canPublish && <div className="rounded-2xl border border-orange-100 bg-orange-50 px-5 py-4 text-sm text-orange-800">Une fois les deux documents transmis, l’équipe HAVEN les valide avant d’autoriser la mise en ligne.</div>}
+                </div>
+              );
+            })()}
 
             {activeTab === 'INCIDENTS' && (
               <div className="space-y-6">
