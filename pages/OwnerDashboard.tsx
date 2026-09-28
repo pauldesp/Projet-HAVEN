@@ -39,6 +39,7 @@ import { ConversationsList } from '../components/ConversationsList';
 import { CancellationModal } from '../components/CancellationModal';
 import { toast } from 'sonner';
 import { userFacingErrorMessage } from '../services/errorHandling';
+import { calculateOwnerFinanceStats } from '../services/ownerFinances';
 
 interface BookingWithTenant extends Booking {
   tenant: User;
@@ -272,11 +273,10 @@ export const OwnerDashboard: React.FC = () => {
     }
   };
 
+  const financeStats = calculateOwnerFinanceStats(ownerBookings, ownerPayments);
   const stats = {
-    totalRevenue: ownerPayments.reduce((acc, p) => acc + p.amount, 0),
-    pendingRevenue: ownerBookings
-      .filter(b => b.status === 'CONFIRMED' && new Date(b.startDate) > new Date())
-      .reduce((acc, b) => acc + b.totalPrice, 0),
+    totalRevenue: financeStats.totalRevenue,
+    pendingRevenue: financeStats.pendingRevenue,
     activeBookings: ownerBookings.filter(b => b.status === 'CONFIRMED').length,
     pendingRequests: ownerBookings.filter(b => b.status === 'PENDING').length,
     openIncidents: ownerIncidents.filter(i => i.status !== 'RESOLVED').length
@@ -643,14 +643,14 @@ export const OwnerDashboard: React.FC = () => {
                     <p className="text-[10px] font-black uppercase tracking-widest opacity-50">Revenus encaissés</p>
                     <p className="text-4xl font-bold mt-2">{stats.totalRevenue}€</p>
                     <p className="text-xs text-blue-200 mt-4 leading-relaxed italic opacity-80">
-                      Virés sur votre compte bancaire.
+                      Revenus des séjours réglés, hors remboursements.
                     </p>
                   </div>
                   <div className="bg-blue-50 rounded-3xl p-8 border border-blue-100 flex flex-col justify-center">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-blue-400">Virements en attente</p>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-blue-400">Revenus à venir</p>
                     <p className="text-3xl font-bold text-haven-navy mt-2">{stats.pendingRevenue}€</p>
                     <p className="text-xs text-gray-500 mt-4 italic">
-                      Locataires ayant réservé mais pas encore arrivés.
+                      Séjours réglés dont l’arrivée est à venir.
                     </p>
                   </div>
                 </div>
@@ -668,16 +668,20 @@ export const OwnerDashboard: React.FC = () => {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-50">
-                        {ownerPayments.map(payment => (
+                        {ownerPayments.map(payment => {
+                          const isRefund = payment.type === 'REFUND';
+                          const paymentStatus = payment.status === 'COMPLETED' ? 'Encaissé' : payment.status === 'REFUNDED' ? 'Remboursé' : payment.status === 'PENDING' ? 'En attente' : 'Échoué';
+                          return (
                           <tr key={payment.id}>
                             <td className="py-4 text-sm text-gray-600">{new Date(payment.createdAt).toLocaleDateString()}</td>
-                            <td className="py-4 text-sm font-bold text-haven-navy">Loyer - {listings.find(l => l.id === payment.listingId)?.title}</td>
-                            <td className="py-4 text-sm font-black text-green-600">+{payment.amount}€</td>
+                            <td className="py-4 text-sm font-bold text-haven-navy">{isRefund ? 'Remboursement' : 'Loyer'} - {listings.find(l => l.id === payment.listingId)?.title || 'Logement supprimé'}</td>
+                            <td className={`py-4 text-sm font-black ${isRefund ? 'text-haven-red' : payment.status === 'COMPLETED' ? 'text-green-600' : 'text-gray-500'}`}>{isRefund ? '-' : '+'}{payment.amount}€</td>
                             <td className="py-4">
-                              <span className="px-3 py-1 rounded-full bg-green-100 text-green-600 text-[10px] font-black uppercase">Versé</span>
+                              <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase ${payment.status === 'COMPLETED' ? 'bg-green-100 text-green-600' : payment.status === 'REFUNDED' ? 'bg-red-50 text-haven-red' : payment.status === 'PENDING' ? 'bg-amber-50 text-amber-700' : 'bg-gray-100 text-gray-600'}`}>{paymentStatus}</span>
                             </td>
                           </tr>
-                        ))}
+                          );
+                        })}
                         {ownerPayments.length === 0 && (
                           <tr>
                             <td colSpan={4} className="py-12 text-center text-gray-400">Aucune transaction enregistrée.</td>

@@ -624,6 +624,54 @@ Details:`, JSON.stringify(details, null, 2));
       const roomName = String(room.name || "Chambre").slice(0, 200);
       const successUrl = safeReturnUrl(req, successPath);
       const cancelUrl = safeReturnUrl(req, cancelPath);
+      const completeMockCheckout = async () => {
+        const paidAt = new Date().toISOString();
+        const mockSessionId = `mock_session_${bookingId}`;
+        const mockPaymentId = `mock_payment_${bookingId}`;
+
+        await adminDb.runTransaction(async transaction => {
+          const freshBookingSnap = await transaction.get(bookingRef);
+          if (!freshBookingSnap.exists) throw new Error("Booking not found");
+          const freshBooking = freshBookingSnap.data()!;
+          if (freshBooking.tenantId !== req.user?.uid || !["PENDING", "APPROVED"].includes(freshBooking.status)) {
+            throw new Error("Booking status changed");
+          }
+
+          transaction.update(bookingRef, {
+            status: "CONFIRMED",
+            paymentStatus: "PAID",
+            paidAt,
+            stripeSessionId: mockSessionId,
+            basePrice,
+            cleaningFee: Number(listing.cleaningFee) || 0,
+            platformFee: Math.round(basePrice * 0.15),
+            totalPrice: amount,
+          });
+          transaction.set(adminDb.collection("payments").doc(mockPaymentId), {
+            id: mockPaymentId,
+            bookingId,
+            listingId: booking.listingId,
+            ownerId: booking.ownerId,
+            tenantId: booking.tenantId,
+            amount,
+            status: "COMPLETED",
+            type: "RENT",
+            createdAt: paidAt,
+          });
+          transaction.set(adminDb.collection("booking_availability").doc(bookingId), {
+            id: bookingId,
+            bookingId,
+            listingId: booking.listingId,
+            roomId: booking.roomId,
+            startDate: booking.startDate,
+            endDate: booking.endDate,
+            status: "CONFIRMED",
+            updatedAt: paidAt,
+          });
+        });
+
+        return res.json({ id: mockSessionId, url: successUrl, isMock: true });
+      };
       
       const stripeKey = process.env.STRIPE_SECRET_KEY?.trim();
       
@@ -635,9 +683,8 @@ Details:`, JSON.stringify(details, null, 2));
           stripeKey.includes("***") ||
           stripeKey.length < 15) {
         console.log("STRIPE_SECRET_KEY not set or invalid placeholder. Using MOCK mode.");
-        // Redirect directly to success URL for testing purposes
         if (process.env.NODE_ENV === "production") return res.status(503).json({ error: "Stripe non configuré" });
-        return res.json({ id: "mock_session_id", url: successUrl, isMock: true });
+        return completeMockCheckout();
       }
 
       const stripe = getStripe();
@@ -680,12 +727,7 @@ Details:`, JSON.stringify(details, null, 2));
         // If the key is invalid, fallback to mock mode in dev/preview environment
         if (stripeErr.type === 'StripeAuthenticationError' && process.env.NODE_ENV !== "production") {
           console.warn("⚠️ Invalid Stripe API key detected. Falling back to MOCK mode for development.");
-          return res.json({ 
-            id: "mock_session_id", 
-            url: cancelUrl,
-            isMock: true,
-            warning: "Clé Stripe invalide, mode simulation activé"
-          });
+          return completeMockCheckout();
         }
         throw stripeErr; // Re-throw to be caught by outer catch
       }

@@ -24,6 +24,12 @@ test('checkout requires authentication and Stripe webhook verification', () => {
   assert.match(server, /payment_status === "paid"/);
 });
 
+test('preview checkout records a server-side simulated payment', () => {
+  assert.match(server, /const completeMockCheckout = async/);
+  assert.match(server, /mock_payment_\$\{bookingId\}/);
+  assert.match(server, /paymentStatus: "PAID"/);
+});
+
 test('the browser cannot confirm a booking from redirect parameters', () => {
   assert.doesNotMatch(dashboard, /bookingResult === 'success'/);
   assert.doesNotMatch(dashboard, /updateStatus\(bookingId, 'CONFIRMED'\)/);
