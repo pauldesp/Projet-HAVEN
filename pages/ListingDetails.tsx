@@ -31,6 +31,7 @@ export const ListingDetails: React.FC = () => {
 
   const [isBookingOpen, setIsBookingOpen] = useState(false);
   const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
+  const [blockTarget, setBlockTarget] = useState<string>('LISTING');
   const [isVerificationModalOpen, setIsVerificationModalOpen] = useState(false);
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [owner, setOwner] = useState<User | null>(null);
@@ -99,6 +100,12 @@ export const ListingDetails: React.FC = () => {
   const activeRoomIsAvailable = activeRoom ? isRoomAvailable(activeRoom) : false;
 
   useEffect(() => {
+    if (blockTarget !== 'LISTING' && !listing?.rooms.some(room => room.id === blockTarget)) {
+      setBlockTarget('LISTING');
+    }
+  }, [blockTarget, listing?.rooms]);
+
+  useEffect(() => {
     if (!currentUser || !listing?.id || !activeRoom || !isBookableStay(startDate, endDate)) {
       setHousemates([]);
       setHousematesError(null);
@@ -123,8 +130,16 @@ export const ListingDetails: React.FC = () => {
 
   if (!listing || !activeRoom) return <div className="pt-24 text-center">Logement non trouvé</div>;
 
-  const activeRoomBookings = availability.filter(
-    b => b.roomId === activeRoom.id && ['PENDING', 'APPROVED', 'CONFIRMED'].includes(b.status)
+  const isBlockingWholeListing = isListingOwner && blockTarget === 'LISTING';
+  const blockedRoom = blockTarget === 'LISTING'
+    ? activeRoom
+    : listing.rooms.find(room => room.id === blockTarget) || activeRoom;
+  const calendarTargetLabel = isBlockingWholeListing
+    ? 'tout le logement'
+    : `la chambre « ${blockedRoom.name} »`;
+  const calendarBookings = availability.filter(booking =>
+    ['PENDING', 'APPROVED', 'CONFIRMED'].includes(booking.status) &&
+    (isBlockingWholeListing || booking.roomId === blockedRoom.id)
   );
 
   // 2. TOUTES les réservations confirmées de la maison (pour afficher les visages sur le calendrier)
@@ -211,16 +226,22 @@ export const ListingDetails: React.FC = () => {
   };
 
   const handleSaveBlockedDates = async (dates: string[]) => {
-    if (!listing || !activeRoom) return;
+    if (!listing) return;
     
-    const updatedListing = { ...listing };
-    updatedListing.rooms = listing.rooms.map(r => 
-      r.id === activeRoom.id ? { ...r, blockedDates: dates } : r
-    );
+    const updatedListing = isBlockingWholeListing
+      ? { ...listing, blockedDates: dates }
+      : {
+          ...listing,
+          rooms: listing.rooms.map(room =>
+            room.id === blockedRoom.id ? { ...room, blockedDates: dates } : room
+          )
+        };
     
     try {
       await updateListing(updatedListing);
-      toast.success("Calendrier mis à jour avec succès !");
+      toast.success(isBlockingWholeListing
+        ? 'Les indisponibilités du logement ont été mises à jour.'
+        : `Les indisponibilités de ${blockedRoom.name} ont été mises à jour.`);
     } catch (e) {
       console.error(e);
       toast.error(userFacingErrorMessage(e));
@@ -438,10 +459,38 @@ export const ListingDetails: React.FC = () => {
                 </div>
                 
                 {isListingOwner ? (
-                  <p className="text-gray-500 mb-6 text-sm italic">
-                    En tant que propriétaire, cliquez sur une date pour la bloquer/débloquer. 
-                    Les périodes réservées restent visibles, sans afficher les données personnelles des locataires.
-                  </p>
+                  <div className="mb-6 space-y-4">
+                    <p className="text-gray-500 text-sm italic">
+                      Choisissez la portée du blocage avant de sélectionner les dates. Les périodes réservées restent visibles, sans afficher les données personnelles des locataires.
+                    </p>
+                    <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4 sm:flex sm:items-end sm:justify-between sm:gap-5">
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Bloquer pour</p>
+                        <p className="mt-1 text-sm font-bold text-haven-navy">
+                          {isBlockingWholeListing ? 'Tout le logement' : blockedRoom.name}
+                        </p>
+                      </div>
+                      <div className="mt-3 flex flex-col gap-2 sm:mt-0 sm:flex-row">
+                        <button
+                          type="button"
+                          onClick={() => setBlockTarget('LISTING')}
+                          className={`rounded-xl px-4 py-2.5 text-sm font-bold transition-colors ${isBlockingWholeListing ? 'bg-haven-navy text-white shadow-sm' : 'bg-white text-haven-navy border border-gray-200 hover:border-haven-navy/40'}`}
+                        >
+                          Tout le logement
+                        </button>
+                        <label className="sr-only" htmlFor="blocking-room">Choisir une chambre à bloquer</label>
+                        <select
+                          id="blocking-room"
+                          value={blockTarget === 'LISTING' ? '' : blockTarget}
+                          onChange={(event) => event.target.value && setBlockTarget(event.target.value)}
+                          className={`rounded-xl border px-4 py-2.5 text-sm font-bold outline-none transition-colors ${!isBlockingWholeListing ? 'border-haven-red bg-white text-haven-red' : 'border-gray-200 bg-white text-haven-navy focus:border-haven-navy'}`}
+                        >
+                          <option value="" disabled>Une chambre précise</option>
+                          {listing.rooms.map(room => <option key={room.id} value={room.id}>{room.name}</option>)}
+                        </select>
+                      </div>
+                    </div>
+                  </div>
                 ) : (
                   <p className="text-gray-500 mb-6 text-sm">
                     Sélectionnez vos dates pour <span className="font-bold text-haven-navy">{activeRoom.name}</span>. 
@@ -451,14 +500,16 @@ export const ListingDetails: React.FC = () => {
                 )}
                 
                 <ListingCalendar 
-                  activeRoomBookings={activeRoomBookings}
+                  key={isListingOwner ? blockTarget : activeRoom.id}
+                  activeRoomBookings={calendarBookings}
                   allHouseBookings={allHouseBookings}
                   selectedStart={startDate}
                   selectedEnd={endDate}
                   onDateSelect={handleDateSelect}
                   isOwner={isListingOwner}
-                  blockedDates={activeRoom.blockedDates || []}
-                  listingBlockedDates={listing.blockedDates || []}
+                  blockedDates={isBlockingWholeListing ? (listing.blockedDates || []) : (blockedRoom.blockedDates || [])}
+                  listingBlockedDates={isBlockingWholeListing ? [] : (listing.blockedDates || [])}
+                  blockTargetLabel={calendarTargetLabel}
                   onSaveBlockedDates={handleSaveBlockedDates}
                 />
 

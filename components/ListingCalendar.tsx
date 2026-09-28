@@ -14,6 +14,8 @@ interface ListingCalendarProps {
   isOwner?: boolean;
   blockedDates?: string[];
   listingBlockedDates?: string[];
+  /** Libellé de la portée actuellement modifiée par le propriétaire. */
+  blockTargetLabel?: string;
   onSaveBlockedDates?: (dates: string[]) => Promise<void>;
 }
 
@@ -26,6 +28,7 @@ export const ListingCalendar: React.FC<ListingCalendarProps> = ({
   isOwner = false,
   blockedDates = [],
   listingBlockedDates = [],
+  blockTargetLabel = 'cette chambre',
   onSaveBlockedDates
 }) => {
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -219,7 +222,7 @@ export const ListingCalendar: React.FC<ListingCalendarProps> = ({
               {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
             </h3>
             {isBlockingMode && (
-              <span className="text-[10px] font-black uppercase text-haven-red animate-pulse">Mode Blocage Actif</span>
+              <span className="text-[10px] font-black uppercase text-haven-red animate-pulse">Blocage : {blockTargetLabel}</span>
             )}
           </div>
 
@@ -295,7 +298,7 @@ export const ListingCalendar: React.FC<ListingCalendarProps> = ({
               </div>
               <h4 className="text-xl font-bold text-haven-navy mb-2">Confirmer le blocage ?</h4>
               <p className="text-gray-500 text-sm mb-6">
-                Voulez-vous vraiment modifier les dates indisponibles pour ce logement ?
+                Voulez-vous vraiment modifier les dates indisponibles pour {blockTargetLabel} ?
               </p>
               <div className="flex gap-3">
                 <Button fullWidth onClick={handleConfirmBlocks} disabled={isSaving}>Confirmer</Button>
