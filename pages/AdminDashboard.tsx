@@ -660,10 +660,8 @@ export const AdminDashboard: React.FC = () => {
              { id: 'REPORTS', label: 'Signalements', icon: Flag, count: reports.filter(r => r.status === 'NEW').length },
              { id: 'CONTACTS', label: 'Contacts', icon: Mail, count: pendingContacts.length },
              { id: 'LEGAL', label: 'Légal', icon: FileText },
-             ...(isPrimaryAdmin ? [
-               { id: 'STAFF', label: 'Administrateurs', icon: UserRoundCog },
-               { id: 'AUDIT', label: 'Historique admin', icon: History }
-             ] : []),
+             { id: 'STAFF', label: 'Gouvernance', icon: UserRoundCog },
+             { id: 'AUDIT', label: 'Journal admin', icon: History },
              { id: 'OVERVIEW', label: 'Stats', icon: TrendingUp }
            ].map((tab) => (
              <button
@@ -1402,7 +1400,7 @@ export const AdminDashboard: React.FC = () => {
           )}
 
           {activeTab === 'STAFF' && (
-            <div className="space-y-8">
+            isPrimaryAdmin ? <div className="space-y-8">
               <div className="bg-white rounded-3xl shadow-card border border-gray-100 p-8">
                 <div className="mb-7">
                   <div className="flex items-center gap-3 text-haven-navy"><Shield className="text-haven-red" /><h2 className="font-heading font-bold text-2xl">Administrateurs HAVEN</h2></div>
@@ -1474,11 +1472,13 @@ export const AdminDashboard: React.FC = () => {
                   ))}
                 </div>
               </div>
+            </div> : <div className="rounded-3xl border border-amber-100 bg-amber-50 p-8 shadow-card">
+              <div className="flex items-start gap-4"><Shield className="mt-1 text-amber-600" /><div><h2 className="font-heading text-2xl font-bold text-haven-navy">Gouvernance administrateur</h2><p className="mt-2 max-w-2xl text-sm leading-relaxed text-gray-600">Cet espace regroupe la création des administrateurs, la gestion de leurs accès et la chaîne de responsabilité. Il sera accessible dès que votre compte aura été activé comme administrateur principal.</p><p className="mt-4 text-xs font-bold text-amber-700">Compte concerné : {currentUser?.email}</p></div></div>
             </div>
           )}
 
           {activeTab === 'AUDIT' && (
-            <div className="space-y-6">
+            isPrimaryAdmin ? <div className="space-y-6">
               <div className="bg-white rounded-3xl shadow-card border border-gray-100 p-8">
                 <div className="flex flex-wrap items-start justify-between gap-5 mb-7">
                   <div>
@@ -1511,6 +1511,8 @@ export const AdminDashboard: React.FC = () => {
                   {isAuditLoading && <div className="py-12 text-center text-sm text-gray-400">Chargement de l’historique…</div>}
                 </div>
               </div>
+            </div> : <div className="rounded-3xl border border-gray-100 bg-white p-8 shadow-card">
+              <div className="flex items-start gap-4"><History className="mt-1 text-haven-red" /><div><h2 className="font-heading text-2xl font-bold text-haven-navy">Journal des actions administratives</h2><p className="mt-2 max-w-2xl text-sm leading-relaxed text-gray-500">Vous retrouverez ici chaque décision prise dans le back-office, son auteur, sa date et l’élément concerné. La consultation est réservée à l’administrateur principal.</p></div></div>
             </div>
           )}
 
