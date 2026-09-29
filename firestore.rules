@@ -21,6 +21,13 @@ service cloud.firestore {
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'ADMIN';
     }
 
+    // The principal administrator is explicitly designated on their profile.
+    // Standard administrators cannot elevate themselves or manage peers.
+    function isPrimaryAdmin() {
+      return isAdmin() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('adminLevel', '') == 'PRIMARY';
+    }
+
     function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
 
     function isMessageParticipant(data) {
@@ -259,7 +266,9 @@ service cloud.firestore {
       allow get: if isAdmin() || (isSignedIn() && resource.data.role != 'ADMIN');
       allow list: if isAdmin();
       allow create: if isOwner(userId) && isValidUser(incoming()) && isSafeSelfProfile(incoming(), userId);
-      allow update: if (isAdmin() || isOwner(userId)) && isValidUser(incoming()) && (
+      allow update: if ((isAdmin() && (
+        (existing().role != 'ADMIN' && incoming().role != 'ADMIN') || isPrimaryAdmin()
+      )) || isOwner(userId)) && isValidUser(incoming()) && (
         isAdmin() || (
           incoming().id == existing().id &&
           incoming().email == existing().email &&
@@ -268,6 +277,13 @@ service cloud.firestore {
           incoming().diff(existing()).affectedKeys().hasOnly(['firstName', 'lastName', 'avatarUrl', 'bio', 'school', 'favorites', 'documents', 'city', 'job', 'phone', 'role', 'shareProfileWithHousemates'])
         )
       );
+    }
+
+    // This collection is written by the trusted server only. It remains
+    // immutable to clients, including administrators, so an audit history
+    // cannot be altered from the browser.
+    match /admin_audit/{entryId} {
+      allow read, write: if false;
     }
 
     match /listings/{listingId} {

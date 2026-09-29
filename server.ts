@@ -27,6 +27,8 @@ const sensitiveApiLimiter = rateLimit({ windowMs: 60_000, limit: 30, standardHea
 
 interface AuthenticatedRequest extends Request { user?: { uid: string; email?: string } }
 
+type AdminActor = { uid: string; name: string; level: 'PRIMARY' | 'STANDARD' };
+
 const sendApiError = (res: Response, status: number, message: string) => {
   res.status(status).json({ error: message, code: String(status) });
 };
@@ -41,6 +43,42 @@ async function requireAuth(req: AuthenticatedRequest, res: Response, next: NextF
   } catch {
     return sendApiError(res, 401, "Session invalide ou expirée");
   }
+}
+
+async function getAdminActor(req: AuthenticatedRequest): Promise<AdminActor | null> {
+  if (!req.user?.uid) return null;
+  const profile = await adminDb.collection('users').doc(req.user.uid).get();
+  const data = profile.data();
+  if (!profile.exists || data?.role !== 'ADMIN') return null;
+  const name = [data.firstName, data.lastName].filter(Boolean).join(' ').trim() || data.email || 'Administrateur HAVEN';
+  return { uid: req.user.uid, name, level: data.adminLevel === 'PRIMARY' ? 'PRIMARY' : 'STANDARD' };
+}
+
+async function requireAdmin(req: AuthenticatedRequest, res: Response): Promise<AdminActor | null> {
+  const actor = await getAdminActor(req);
+  if (!actor) sendApiError(res, 403, 'Accès administrateur requis');
+  return actor;
+}
+
+async function requirePrimaryAdmin(req: AuthenticatedRequest, res: Response): Promise<AdminActor | null> {
+  const actor = await requireAdmin(req, res);
+  if (!actor) return null;
+  if (actor.level !== 'PRIMARY') {
+    sendApiError(res, 403, 'Accès réservé à l’administrateur principal');
+    return null;
+  }
+  return actor;
+}
+
+async function writeAdminAudit(actor: AdminActor, input: {
+  action: string;
+  category: string;
+  targetType: string;
+  targetId: string;
+  summary: string;
+}) {
+  const ref = adminDb.collection('admin_audit').doc();
+  await ref.set({ id: ref.id, actorId: actor.uid, actorName: actor.name, ...input, createdAt: new Date().toISOString() });
 }
 
 function safeReturnUrl(req: Request, pathValue: unknown) {
@@ -117,6 +155,100 @@ async function startServer() {
       env: process.env.NODE_ENV,
       stripe: stripeConfigured ? "configured" : "mock_mode"
     });
+  });
+
+  // Administrative accounts are managed server-side so that elevation,
+  // revocation and every related decision have a durable audit trail.
+  app.get('/api/admin/audit', sensitiveApiLimiter, requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      const actor = await requirePrimaryAdmin(req, res);
+      if (!actor) return;
+      const snapshot = await adminDb.collection('admin_audit').orderBy('createdAt', 'desc').limit(250).get();
+      return res.json({ entries: snapshot.docs.map(item => item.data()) });
+    } catch (error) {
+      console.error('Admin audit list failed', error);
+      return sendApiError(res, 500, 'Impossible de charger le journal administratif');
+    }
+  });
+
+  app.post('/api/admin/audit', sensitiveApiLimiter, requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      const actor = await requireAdmin(req, res);
+      if (!actor) return;
+      const { action, category, targetType, targetId, summary } = req.body || {};
+      if (![action, category, targetType, targetId, summary].every(value => typeof value === 'string' && value.trim().length > 0)) {
+        return sendApiError(res, 422, 'Entrée de journal invalide');
+      }
+      await writeAdminAudit(actor, {
+        action: action.trim().slice(0, 80),
+        category: category.trim().slice(0, 40),
+        targetType: targetType.trim().slice(0, 80),
+        targetId: targetId.trim().slice(0, 160),
+        summary: summary.trim().slice(0, 500)
+      });
+      return res.status(201).json({ recorded: true });
+    } catch (error) {
+      console.error('Admin audit write failed', error);
+      return sendApiError(res, 500, 'Impossible d’enregistrer l’action administrative');
+    }
+  });
+
+  app.post('/api/admin/staff', sensitiveApiLimiter, requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      const actor = await requirePrimaryAdmin(req, res);
+      if (!actor) return;
+      const email = normalizeEmail(req.body?.email);
+      const firstName = typeof req.body?.firstName === 'string' ? req.body.firstName.trim() : '';
+      const lastName = typeof req.body?.lastName === 'string' ? req.body.lastName.trim() : '';
+      if (!email || !firstName || !lastName) return sendApiError(res, 422, 'Prénom, nom et adresse e-mail sont requis');
+
+      const candidates = await adminDb.collection('users').where('email', '==', email).limit(2).get();
+      if (candidates.empty) return sendApiError(res, 404, 'Ce compte HAVEN doit d’abord être créé par son titulaire');
+      const target = candidates.docs[0];
+      if (target.id === actor.uid) return sendApiError(res, 409, 'Votre compte est déjà administrateur principal');
+      if (target.data().adminLevel === 'PRIMARY') return sendApiError(res, 409, 'Un administrateur principal ne peut pas être modifié ici');
+
+      const now = new Date().toISOString();
+      await target.ref.update({
+        firstName,
+        lastName,
+        role: 'ADMIN',
+        status: 'APPROVED',
+        isVerified: true,
+        adminLevel: 'STANDARD',
+        adminCreatedBy: actor.uid,
+        adminCreatedAt: now
+      });
+      await writeAdminAudit(actor, {
+        action: 'ADMIN_GRANTED', category: 'ADMINISTRATION', targetType: 'USER', targetId: target.id,
+        summary: `Accès administrateur accordé à ${firstName} ${lastName} (${email}).`
+      });
+      return res.status(201).json({ user: { id: target.id, ...target.data(), firstName, lastName, role: 'ADMIN', adminLevel: 'STANDARD' } });
+    } catch (error) {
+      console.error('Admin creation failed', error);
+      return sendApiError(res, 500, 'Impossible de créer l’accès administrateur');
+    }
+  });
+
+  app.delete('/api/admin/staff/:userId', sensitiveApiLimiter, requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      const actor = await requirePrimaryAdmin(req, res);
+      if (!actor) return;
+      const target = await adminDb.collection('users').doc(String(req.params.userId)).get();
+      if (!target.exists) return sendApiError(res, 404, 'Compte administrateur introuvable');
+      const data = target.data()!;
+      if (data.adminLevel === 'PRIMARY' || target.id === actor.uid) return sendApiError(res, 409, 'L’administrateur principal ne peut pas retirer son propre accès');
+      if (data.role !== 'ADMIN') return sendApiError(res, 409, 'Ce compte n’est pas administrateur');
+      await target.ref.update({ role: 'TENANT', adminLevel: null, adminCreatedBy: null, adminCreatedAt: null });
+      await writeAdminAudit(actor, {
+        action: 'ADMIN_REVOKED', category: 'ADMINISTRATION', targetType: 'USER', targetId: target.id,
+        summary: `Accès administrateur retiré à ${data.firstName || ''} ${data.lastName || ''}`.trim()
+      });
+      return res.json({ revoked: true });
+    } catch (error) {
+      console.error('Admin revocation failed', error);
+      return sendApiError(res, 500, 'Impossible de retirer l’accès administrateur');
+    }
   });
 
   // Shows only the voluntary public profiles of confirmed tenants whose stay

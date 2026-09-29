@@ -1,7 +1,7 @@
 
 import { db, auth } from '../firebase';
 import { collection, getDocs, getDoc, doc, setDoc, updateDoc, query, where, deleteField, onSnapshot, or } from 'firebase/firestore';
-import { Listing, User, Booking, BookingAvailability, ListingStatus, UserStatus, Message, ContactRequest, Report, Incident, Payment, InventoryReport, AppDocument, HousematePreview } from '../types';
+import { Listing, User, Booking, BookingAvailability, ListingStatus, UserStatus, Message, ContactRequest, Report, Incident, Payment, InventoryReport, AppDocument, HousematePreview, AdminAuditEntry } from '../types';
 import { authenticatedFetch } from './serverApi';
 import { hasMissingRoomPhoto, normalizeListingPhotos } from './media';
 import { normalizeListingDescription } from './listingDescription';
@@ -137,6 +137,38 @@ async function cleanupAndFilterBookings(bookings: Booking[]): Promise<Booking[]>
 }
 
 export const apiService = {
+  admin: {
+    async createAdministrator(input: { email: string; firstName: string; lastName: string }) {
+      const response = await authenticatedFetch('/api/admin/staff', {
+        method: 'POST',
+        body: JSON.stringify(input)
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error || `Erreur ${response.status}`);
+      return payload.user as User;
+    },
+    async revokeAdministrator(userId: string) {
+      const response = await authenticatedFetch(`/api/admin/staff/${encodeURIComponent(userId)}`, { method: 'DELETE' });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error || `Erreur ${response.status}`);
+    },
+    async listAudit(): Promise<AdminAuditEntry[]> {
+      const response = await authenticatedFetch('/api/admin/audit');
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error || `Erreur ${response.status}`);
+      return Array.isArray(payload.entries) ? payload.entries as AdminAuditEntry[] : [];
+    },
+    async recordAudit(entry: Omit<AdminAuditEntry, 'id' | 'actorId' | 'actorName' | 'createdAt'>) {
+      const response = await authenticatedFetch('/api/admin/audit', {
+        method: 'POST',
+        body: JSON.stringify(entry)
+      });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        throw new Error(payload.error || `Erreur ${response.status}`);
+      }
+    }
+  },
   users: {
     async getAll(): Promise<User[]> {
       try {

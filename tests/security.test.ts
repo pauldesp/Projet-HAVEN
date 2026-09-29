@@ -15,6 +15,8 @@ test('self-created profiles cannot request privileged roles or approval', () => 
 
 test('administrative profiles remain private to administrators', () => {
   assert.match(rules, /allow get: if isAdmin\(\) \|\| \(isSignedIn\(\) && resource\.data\.role != 'ADMIN'\)/);
+  assert.match(rules, /function isPrimaryAdmin\(\)/);
+  assert.match(rules, /match \/admin_audit\/\{entryId\}[\s\S]*allow read, write: if false/);
 });
 
 test('booking creation and transitions are constrained', () => {

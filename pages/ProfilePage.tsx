@@ -35,7 +35,7 @@ const AdminProfileView: React.FC<AdminProfileViewProps> = ({ user, memberSince, 
               <div className="absolute bottom-0 right-0 flex h-10 w-10 items-center justify-center rounded-full border-4 border-white bg-haven-navy text-white shadow-lg" title="Accès administrateur actif"><ShieldCheck size={19} /></div>
             </div>
             <h1 className="font-heading text-2xl font-bold text-haven-navy">{user.firstName} {user.lastName}</h1>
-            <p className="mt-2 text-[11px] font-black uppercase tracking-[0.17em] text-haven-red">Administrateur HAVEN</p>
+            <p className="mt-2 text-[11px] font-black uppercase tracking-[0.17em] text-haven-red">{user.adminLevel === 'PRIMARY' ? 'Administrateur principal HAVEN' : 'Administrateur HAVEN'}</p>
 
             <div className="mt-7 space-y-4 border-t border-gray-100 pt-6 text-left">
               <div className="flex items-center gap-3 text-sm text-gray-600"><Mail size={17} className="text-haven-stone" /><span className="truncate">{user.email}</span></div>
@@ -55,8 +55,8 @@ const AdminProfileView: React.FC<AdminProfileViewProps> = ({ user, memberSince, 
             <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="rounded-2xl bg-haven-navy/5 p-5">
                 <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-haven-navy text-white"><ShieldCheck size={20} /></div>
-                <p className="mt-4 text-sm font-bold text-haven-navy">Accès administrateur</p>
-                <p className="mt-1 text-sm text-gray-500">Compte approuvé et accès actif.</p>
+                <p className="mt-4 text-sm font-bold text-haven-navy">{user.adminLevel === 'PRIMARY' ? 'Accès principal' : 'Accès administrateur'}</p>
+                <p className="mt-1 text-sm text-gray-500">{user.adminLevel === 'PRIMARY' ? 'Gestion des accès administrateurs et consultation de leur historique.' : 'Compte approuvé et accès actif.'}</p>
               </div>
               <div className="rounded-2xl bg-blue-50 p-5">
                 <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600 text-white"><LockKeyhole size={19} /></div>
@@ -72,7 +72,7 @@ const AdminProfileView: React.FC<AdminProfileViewProps> = ({ user, memberSince, 
               {[
                 ['Comptes', 'Validation des dossiers et gestion des accès.'],
                 ['Annonces', 'Contrôle des logements et de leur publication.'],
-                ['Assistance', 'Traitement des contacts, incidents et signalements.'],
+                [user.adminLevel === 'PRIMARY' ? 'Supervision' : 'Assistance', user.adminLevel === 'PRIMARY' ? 'Gestion des administrateurs et consultation du journal des actions.' : 'Traitement des contacts, incidents et signalements.'],
               ].map(([title, description]) => (
                 <div key={title} className="rounded-2xl border border-gray-100 p-4">
                   <p className="font-bold text-haven-navy">{title}</p>

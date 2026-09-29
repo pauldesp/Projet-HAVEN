@@ -9,6 +9,20 @@ export enum UserRole {
 
 export type ListingStatus = 'DRAFT' | 'PENDING' | 'APPROVED' | 'REJECTED';
 export type UserStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
+export type AdminLevel = 'PRIMARY' | 'STANDARD';
+
+/** Entrée immuable décrivant une opération effectuée dans le back-office. */
+export interface AdminAuditEntry {
+  id: string;
+  actorId: string;
+  actorName: string;
+  action: string;
+  category: 'ACCOUNT' | 'LISTING' | 'BOOKING' | 'INCIDENT' | 'LEGAL' | 'REPORT' | 'CONTACT' | 'ADMINISTRATION';
+  targetType: string;
+  targetId: string;
+  summary: string;
+  createdAt: string;
+}
 
 // Interface Utilisateur
 export interface User {
@@ -22,6 +36,11 @@ export interface User {
   legalAccepted?: boolean;
   avatarUrl: string;
   role: UserRole;
+  /** Le titulaire principal supervise les administrateurs standard. */
+  adminLevel?: AdminLevel;
+  /** Compte administrateur ayant accordé l'accès, pour la chaîne de responsabilité. */
+  adminCreatedBy?: string;
+  adminCreatedAt?: string;
   status?: UserStatus;
   rejectionReason?: string;
   isVerified?: boolean;

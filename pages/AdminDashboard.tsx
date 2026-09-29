@@ -13,6 +13,7 @@ import {
   LegalDocument,
   Booking,
   Incident
+  , AdminAuditEntry
 } from '../types';
 import { Button } from '../components/Button';
 import { Logo } from '../components/Logo';
@@ -49,7 +50,9 @@ import {
   ArrowUpDown,
   ChevronUp,
   ChevronDown,
-  ChevronRight
+  ChevronRight,
+  History,
+  UserRoundCog
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useListings } from '../contexts/ListingContext';
@@ -60,7 +63,7 @@ import 'react-quill-new/dist/quill.snow.css';
 export const AdminDashboard: React.FC = () => {
   const { currentUser, isLoading: authLoading } = useAuth();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<'LISTINGS' | 'USERS' | 'OVERVIEW' | 'STAFF' | 'CONTACTS' | 'REPORTS' | 'LEGAL' | 'INCIDENTS'>('LISTINGS');
+  const [activeTab, setActiveTab] = useState<'LISTINGS' | 'USERS' | 'OVERVIEW' | 'STAFF' | 'CONTACTS' | 'REPORTS' | 'LEGAL' | 'INCIDENTS' | 'AUDIT'>('LISTINGS');
   const { listings, updateListingStatus, isLoading: listingsLoading } = useListings();
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [users, setUsers] = useState<User[]>([]);
@@ -68,6 +71,8 @@ export const AdminDashboard: React.FC = () => {
   const [reports, setReports] = useState<Report[]>([]);
   const [incidents, setIncidents] = useState<Incident[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
+  const [auditEntries, setAuditEntries] = useState<AdminAuditEntry[]>([]);
+  const [isAuditLoading, setIsAuditLoading] = useState(false);
   const [isUsersLoading, setIsUsersLoading] = useState(false);
   const [isContactsLoading, setIsContactsLoading] = useState(false);
   const [isReportsLoading, setIsReportsLoading] = useState(false);
@@ -93,6 +98,7 @@ export const AdminDashboard: React.FC = () => {
     status: 'ALL' as UserStatus | 'ALL'
   });
   const [reportFilter, setReportFilter] = useState<ReportStatus | 'ALL'>('NEW');
+  const [auditFilters, setAuditFilters] = useState({ actorId: 'ALL', category: 'ALL', query: '' });
 
   // Sorting
   const [listingSort, setListingSort] = useState<{ key: string; direction: 'asc' | 'desc' }>({ key: 'createdAt', direction: 'desc' });
@@ -101,6 +107,7 @@ export const AdminDashboard: React.FC = () => {
   // Staff Management State
   const [newAdmin, setNewAdmin] = useState({ email: '', firstName: '', lastName: '' });
   const [isAddingAdmin, setIsAddingAdmin] = useState(false);
+  const isPrimaryAdmin = currentUser?.role === UserRole.ADMIN && currentUser.adminLevel === 'PRIMARY';
   
   // Legal Management State
   const [legalDocs, setLegalDocs] = useState<LegalDocument[]>([]);
@@ -248,6 +255,28 @@ export const AdminDashboard: React.FC = () => {
     return unsubscribe;
   };
 
+  const fetchAuditEntries = async () => {
+    setIsAuditLoading(true);
+    try {
+      setAuditEntries(await apiService.admin.listAudit());
+    } catch (e) {
+      console.error('Error fetching admin audit', e);
+      setError('Impossible de charger le journal des actions administratives.');
+    } finally {
+      setIsAuditLoading(false);
+    }
+  };
+
+  const recordAdminAction = async (entry: Omit<AdminAuditEntry, 'id' | 'actorId' | 'actorName' | 'createdAt'>) => {
+    try {
+      await apiService.admin.recordAudit(entry);
+      if (isPrimaryAdmin) void fetchAuditEntries();
+    } catch (e) {
+      console.error('Error recording admin audit', e);
+      setError('L’action a été effectuée, mais sa traçabilité n’a pas pu être enregistrée.');
+    }
+  };
+
   useEffect(() => {
     let unsubscribeUsers: (() => void) | null = null;
     let unsubscribeContacts: (() => void) | null = null;
@@ -271,6 +300,7 @@ export const AdminDashboard: React.FC = () => {
       unsubscribeIncidents = fetchIncidents();
       unsubscribeLegal = fetchLegalDocs();
       unsubscribeBookings = fetchBookings();
+      if (currentUser.adminLevel === 'PRIMARY') void fetchAuditEntries();
     }
 
     return () => {
@@ -362,6 +392,10 @@ export const AdminDashboard: React.FC = () => {
     setError(null);
     try {
       await updateListingStatus(id, newStatus, reason);
+      await recordAdminAction({
+        action: `LISTING_${newStatus}`, category: 'LISTING', targetType: 'LISTING', targetId: id,
+        summary: newStatus === 'REJECTED' ? `Annonce refusée : ${reason || 'motif non précisé'}` : `Statut de l’annonce défini sur ${newStatus}.`
+      });
       setRejectionModal({ ...rejectionModal, isOpen: false, error: '' });
     } catch (e: any) {
       console.error("Error updating status", e);
@@ -380,6 +414,10 @@ export const AdminDashboard: React.FC = () => {
     setError(null);
     try {
       await apiService.users.updateStatus(id, newStatus, reason);
+      await recordAdminAction({
+        action: `USER_${newStatus}`, category: 'ACCOUNT', targetType: 'USER', targetId: id,
+        summary: newStatus === 'REJECTED' ? `Compte refusé : ${reason || 'motif non précisé'}` : `Statut du compte défini sur ${newStatus}.`
+      });
       setUsers(prev => prev.map(u => u.id === id ? { ...u, status: newStatus, rejectionReason: newStatus === 'APPROVED' ? undefined : reason } : u));
       
       // Update modal state if open for this user
@@ -407,6 +445,7 @@ export const AdminDashboard: React.FC = () => {
     setProcessingId(id);
     try {
       await apiService.contactRequests.updateStatus(id, newStatus);
+      await recordAdminAction({ action: `CONTACT_${newStatus}`, category: 'CONTACT', targetType: 'CONTACT_REQUEST', targetId: id, summary: `Demande de contact définie sur ${newStatus}.` });
     } catch (e) {
       console.error("Error updating contact status", e);
       setError("Erreur lors de la mise à jour de la demande de contact.");
@@ -419,6 +458,7 @@ export const AdminDashboard: React.FC = () => {
     setProcessingId(id);
     try {
       await apiService.reports.updateStatus(id, newStatus, notes);
+      await recordAdminAction({ action: `REPORT_${newStatus}`, category: 'REPORT', targetType: 'REPORT', targetId: id, summary: `Signalement défini sur ${newStatus}.${notes ? ` Note : ${notes}` : ''}` });
     } catch (e) {
       console.error("Error updating report status", e);
       setError("Erreur lors de la mise à jour du signalement.");
@@ -432,6 +472,7 @@ export const AdminDashboard: React.FC = () => {
     setProcessingId(id);
     try {
       await apiService.users.delete(id);
+      await recordAdminAction({ action: 'USER_BANNED', category: 'ACCOUNT', targetType: 'USER', targetId: id, summary: 'Compte banni depuis le back-office.' });
       alert("Utilisateur banni avec succès.");
     } catch (e) {
       console.error("Error deleting user", e);
@@ -466,33 +507,32 @@ export const AdminDashboard: React.FC = () => {
 
   const handleAddAdmin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newAdmin.email || !newAdmin.firstName) return;
+    if (!newAdmin.email || !newAdmin.firstName || !newAdmin.lastName) return;
     
     setIsAddingAdmin(true);
     try {
-      // We create a placeholder user in Firestore. 
-      // When they login/register with this email, AuthContext will pick up the role.
-      const tempId = `admin-pending-${Date.now()}`;
-      const adminUser: User = {
-        id: tempId,
-        firstName: newAdmin.firstName,
-        lastName: newAdmin.lastName,
-        email: newAdmin.email.toLowerCase(),
-        role: UserRole.ADMIN,
-        status: 'APPROVED',
-        isVerified: true,
-        avatarUrl: `https://ui-avatars.com/api/?name=${newAdmin.firstName}+${newAdmin.lastName}&background=1E293B&color=fff`
-      };
-      
-      await apiService.users.updateProfile(adminUser);
-      setUsers(prev => [...prev, adminUser]);
+      await apiService.admin.createAdministrator(newAdmin);
       setNewAdmin({ email: '', firstName: '', lastName: '' });
-      toast.success(`L'accès administrateur a été préparé pour ${newAdmin.email}.`);
+      toast.success(`Accès administrateur accordé à ${newAdmin.email}.`);
     } catch (e) {
       console.error("Error adding admin", e);
       toast.error("Erreur lors de l'ajout de l'administrateur.");
     } finally {
       setIsAddingAdmin(false);
+    }
+  };
+
+  const handleRevokeAdmin = async (admin: User) => {
+    if (!window.confirm(`Retirer l’accès administrateur de ${admin.firstName} ${admin.lastName} ?`)) return;
+    setProcessingId(admin.id);
+    try {
+      await apiService.admin.revokeAdministrator(admin.id);
+      toast.success(`Accès administrateur retiré pour ${admin.firstName} ${admin.lastName}.`);
+    } catch (e) {
+      console.error('Error revoking administrator', e);
+      setError("Impossible de retirer l'accès administrateur.");
+    } finally {
+      setProcessingId(null);
     }
   };
 
@@ -527,6 +567,11 @@ export const AdminDashboard: React.FC = () => {
         contentToSave,
         currentUser.id
       );
+      await recordAdminAction({
+        action: selectedLegalDoc.id.startsWith('new-') ? 'LEGAL_CREATED' : 'LEGAL_UPDATED',
+        category: 'LEGAL', targetType: 'LEGAL_DOCUMENT', targetId: finalId,
+        summary: `Document légal « ${legalEditForm.title} » enregistré.`
+      });
       setIsEditingLegal(false);
       toast.success("Document enregistré avec succès !");
       
@@ -615,7 +660,10 @@ export const AdminDashboard: React.FC = () => {
              { id: 'REPORTS', label: 'Signalements', icon: Flag, count: reports.filter(r => r.status === 'NEW').length },
              { id: 'CONTACTS', label: 'Contacts', icon: Mail, count: pendingContacts.length },
              { id: 'LEGAL', label: 'Légal', icon: FileText },
-             { id: 'STAFF', label: 'Équipe HAVEN', icon: Shield },
+             ...(isPrimaryAdmin ? [
+               { id: 'STAFF', label: 'Administrateurs', icon: UserRoundCog },
+               { id: 'AUDIT', label: 'Historique admin', icon: History }
+             ] : []),
              { id: 'OVERVIEW', label: 'Stats', icon: TrendingUp }
            ].map((tab) => (
              <button
@@ -1325,6 +1373,7 @@ export const AdminDashboard: React.FC = () => {
                                 onClick={async () => {
                                   setProcessingId(incident.id);
                                   await apiService.incidents.updateStatus(incident.id, 'RESOLVED');
+                                  await recordAdminAction({ action: 'INCIDENT_RESOLVED', category: 'INCIDENT', targetType: 'INCIDENT', targetId: incident.id, summary: `Incident « ${incident.title} » marqué comme résolu.` });
                                   setProcessingId(null);
                                   toast.success("Incident marqué comme résolu.");
                                 }}
@@ -1355,8 +1404,11 @@ export const AdminDashboard: React.FC = () => {
           {activeTab === 'STAFF' && (
             <div className="space-y-8">
               <div className="bg-white rounded-3xl shadow-card border border-gray-100 p-8">
-                <h2 className="font-heading font-bold text-2xl text-haven-navy mb-6">Ajouter un collaborateur</h2>
-                <form onSubmit={handleAddAdmin} className="grid md:grid-cols-3 gap-6 items-end">
+                <div className="mb-7">
+                  <div className="flex items-center gap-3 text-haven-navy"><Shield className="text-haven-red" /><h2 className="font-heading font-bold text-2xl">Administrateurs HAVEN</h2></div>
+                  <p className="text-sm text-gray-500 mt-2">Vous êtes l’administrateur principal. Vous seul pouvez accorder ou retirer les accès administrateurs.</p>
+                </div>
+                <form onSubmit={handleAddAdmin} className="grid md:grid-cols-4 gap-5 items-end">
                   <div className="space-y-2">
                     <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Prénom</label>
                     <input 
@@ -1366,6 +1418,17 @@ export const AdminDashboard: React.FC = () => {
                       onChange={(e) => setNewAdmin({ ...newAdmin, firstName: e.target.value })}
                       className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-xl outline-none focus:border-haven-red transition-all"
                       placeholder="Jean"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Nom</label>
+                    <input
+                      type="text"
+                      required
+                      value={newAdmin.lastName || ''}
+                      onChange={(e) => setNewAdmin({ ...newAdmin, lastName: e.target.value })}
+                      className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-xl outline-none focus:border-haven-red transition-all"
+                      placeholder="Martin"
                     />
                   </div>
                   <div className="space-y-2">
@@ -1387,6 +1450,7 @@ export const AdminDashboard: React.FC = () => {
                     {isAddingAdmin ? <Loader2 className="animate-spin" size={18}/> : "Créer l'accès Admin"}
                   </Button>
                 </form>
+                <p className="mt-4 text-xs text-gray-400">Le collaborateur doit déjà disposer d’un compte HAVEN avec cette adresse e-mail.</p>
               </div>
 
               <div className="bg-white rounded-3xl shadow-card border border-gray-100 p-8">
@@ -1398,12 +1462,53 @@ export const AdminDashboard: React.FC = () => {
                       <div className="flex-1 min-w-0">
                         <p className="font-bold text-haven-navy truncate">{admin.firstName} {admin.lastName}</p>
                         <p className="text-xs text-gray-400 truncate">{admin.email}</p>
-                        <div className="mt-1 flex items-center gap-1 text-[9px] font-black text-haven-red uppercase tracking-widest">
-                          <Shield size={10} /> Administrateur
+                        <div className={`mt-1 flex items-center gap-1 text-[9px] font-black uppercase tracking-widest ${admin.adminLevel === 'PRIMARY' ? 'text-amber-600' : 'text-haven-red'}`}>
+                          <Shield size={10} /> {admin.adminLevel === 'PRIMARY' ? 'Administrateur principal' : 'Administrateur'}
                         </div>
+                        {admin.adminCreatedBy && <p className="mt-1 text-[10px] text-gray-400">Accès attribué le {admin.adminCreatedAt ? new Date(admin.adminCreatedAt).toLocaleDateString('fr-FR') : '—'}</p>}
                       </div>
+                      {admin.adminLevel !== 'PRIMARY' && (
+                        <button onClick={() => handleRevokeAdmin(admin)} disabled={processingId === admin.id} className="rounded-lg border border-red-100 px-3 py-2 text-[10px] font-black uppercase tracking-wider text-haven-red hover:bg-red-50 disabled:opacity-50">Retirer</button>
+                      )}
                     </div>
                   ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'AUDIT' && (
+            <div className="space-y-6">
+              <div className="bg-white rounded-3xl shadow-card border border-gray-100 p-8">
+                <div className="flex flex-wrap items-start justify-between gap-5 mb-7">
+                  <div>
+                    <h2 className="font-heading font-bold text-2xl text-haven-navy">Historique des actions administratives</h2>
+                    <p className="mt-1 text-sm text-gray-500">Journal consultable uniquement par l’administrateur principal. Les entrées ne peuvent pas être modifiées.</p>
+                  </div>
+                  <Button variant="outline" onClick={() => void fetchAuditEntries()} disabled={isAuditLoading}><History size={16} className="mr-2" />Actualiser</Button>
+                </div>
+                <div className="grid gap-4 md:grid-cols-3 mb-6">
+                  <select value={auditFilters.actorId} onChange={e => setAuditFilters(prev => ({ ...prev, actorId: e.target.value }))} className="rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none focus:border-haven-red">
+                    <option value="ALL">Tous les administrateurs</option>
+                    {Array.from(new Map(auditEntries.map(entry => [entry.actorId, entry.actorName])).entries()).map(([id, name]) => <option key={id} value={id}>{name}</option>)}
+                  </select>
+                  <select value={auditFilters.category} onChange={e => setAuditFilters(prev => ({ ...prev, category: e.target.value }))} className="rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none focus:border-haven-red">
+                    <option value="ALL">Toutes les catégories</option>
+                    {Array.from(new Set(auditEntries.map(entry => entry.category))).sort().map(category => <option key={category} value={category}>{category}</option>)}
+                  </select>
+                  <input value={auditFilters.query} onChange={e => setAuditFilters(prev => ({ ...prev, query: e.target.value }))} placeholder="Rechercher une action…" className="rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-haven-red" />
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[760px] text-left">
+                    <thead><tr className="border-b border-gray-100 text-[10px] font-black uppercase tracking-widest text-gray-400"><th className="p-4">Date</th><th className="p-4">Administrateur</th><th className="p-4">Action</th><th className="p-4">Élément concerné</th><th className="p-4">Détail</th></tr></thead>
+                    <tbody>
+                      {auditEntries.filter(entry => (auditFilters.actorId === 'ALL' || entry.actorId === auditFilters.actorId) && (auditFilters.category === 'ALL' || entry.category === auditFilters.category) && `${entry.action} ${entry.summary} ${entry.targetId}`.toLowerCase().includes(auditFilters.query.toLowerCase())).map(entry => (
+                        <tr key={entry.id} className="border-b border-gray-50 text-sm"><td className="p-4 whitespace-nowrap text-gray-500">{new Date(entry.createdAt).toLocaleString('fr-FR')}</td><td className="p-4 font-bold text-haven-navy">{entry.actorName}</td><td className="p-4"><span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-black tracking-wider text-slate-600">{entry.action}</span></td><td className="p-4 text-gray-500">{entry.targetType} · {entry.targetId}</td><td className="p-4 text-gray-600">{entry.summary}</td></tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {!isAuditLoading && auditEntries.length === 0 && <div className="py-12 text-center text-sm text-gray-400">Aucune action administrative enregistrée pour le moment.</div>}
+                  {isAuditLoading && <div className="py-12 text-center text-sm text-gray-400">Chargement de l’historique…</div>}
                 </div>
               </div>
             </div>
