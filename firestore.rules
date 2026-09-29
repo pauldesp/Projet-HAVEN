@@ -268,7 +268,7 @@ service cloud.firestore {
       allow create: if isOwner(userId) && isValidUser(incoming()) && isSafeSelfProfile(incoming(), userId);
       allow update: if ((isAdmin() && (
         (existing().role != 'ADMIN' && incoming().role != 'ADMIN') || isPrimaryAdmin()
-      )) || isOwner(userId)) && isValidUser(incoming()) && (
+      )) || (isOwner(userId) && existing().role != 'ADMIN' && incoming().role != 'ADMIN')) && isValidUser(incoming()) && (
         isAdmin() || (
           incoming().id == existing().id &&
           incoming().email == existing().email &&
