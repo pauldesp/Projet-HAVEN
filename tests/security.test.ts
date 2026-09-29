@@ -13,6 +13,10 @@ test('self-created profiles cannot request privileged roles or approval', () => 
   assert.match(rules, /incoming\(\)\.status == existing\(\)\.status/);
 });
 
+test('administrative profiles remain private to administrators', () => {
+  assert.match(rules, /allow get: if isAdmin\(\) \|\| \(isSignedIn\(\) && resource\.data\.role != 'ADMIN'\)/);
+});
+
 test('booking creation and transitions are constrained', () => {
   assert.match(rules, /allow create: if isTenantVerified\(\) && isValidBooking\(incoming\(\)\)/);
   assert.match(rules, /incoming\(\)\.tenantId == request\.auth\.uid && incoming\(\)\.status == 'PENDING'/);

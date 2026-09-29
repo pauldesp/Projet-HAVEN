@@ -198,15 +198,17 @@ export const Header: React.FC = () => {
                           onClick={() => setIsUserMenuOpen(false)}
                           className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 hover:text-haven-navy rounded-xl transition-colors"
                         >
-                          <UserIcon size={18} /> Mon Profil
+                          {isAdmin ? <Shield size={18} /> : <UserIcon size={18} />} {isAdmin ? 'Mon espace' : 'Mon profil'}
                         </Link>
-                        <Link 
-                          to={`/profile/${currentUser.id}`}
-                          onClick={() => setIsUserMenuOpen(false)}
-                          className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 hover:text-haven-navy rounded-xl transition-colors"
-                        >
-                          <Settings size={18} /> Mon compte
-                        </Link>
+                        {!isAdmin && (
+                          <Link
+                            to={`/profile/${currentUser.id}`}
+                            onClick={() => setIsUserMenuOpen(false)}
+                            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 hover:text-haven-navy rounded-xl transition-colors"
+                          >
+                            <Settings size={18} /> Mon compte
+                          </Link>
+                        )}
                       </div>
 
                       <div className="mt-2 pt-2 border-t border-gray-50">

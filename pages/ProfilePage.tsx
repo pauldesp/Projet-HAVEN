@@ -2,12 +2,90 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { apiService } from '../services/api';
-import { User, Listing } from '../types';
-import { ShieldCheck, Star, Calendar, Briefcase, GraduationCap, Loader2, Home, CheckCircle2, FileText, HelpCircle, LogOut, ChevronRight, UserRound } from 'lucide-react';
+import { User, Listing, UserRole } from '../types';
+import { ShieldCheck, Shield, Star, Calendar, Briefcase, GraduationCap, Loader2, Home, CheckCircle2, FileText, HelpCircle, LogOut, ChevronRight, UserRound, Mail, LockKeyhole, ClipboardCheck } from 'lucide-react';
 import { Button } from '../components/Button';
 import { useAuth } from '../contexts/AuthContext';
 import { toast } from 'sonner';
 import { userFacingErrorMessage } from '../services/errorHandling';
+
+interface AdminProfileViewProps {
+  user: User;
+  memberSince: string;
+  onOpenAdministration: () => void;
+  onLogout: () => void;
+}
+
+const AdminProfileView: React.FC<AdminProfileViewProps> = ({ user, memberSince, onOpenAdministration, onLogout }) => (
+  <div className="min-h-screen bg-haven-cream pb-20 font-body">
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 md:pt-12">
+      <div className="mb-8 flex items-center gap-3 text-haven-red">
+        <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-haven-red/10"><Shield size={22} /></div>
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.18em]">HAVEN</p>
+          <p className="text-sm font-semibold text-haven-navy">Espace administrateur privé</p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3 lg:gap-10">
+        <aside className="lg:col-span-1">
+          <div className="sticky top-24 rounded-3xl border border-gray-100 bg-white p-7 text-center shadow-soft md:rounded-[2.5rem] md:p-8">
+            <div className="relative mx-auto mb-5 h-32 w-32">
+              <img src={user.avatarUrl} alt={`${user.firstName} ${user.lastName}`} className="h-full w-full rounded-full border-4 border-white object-cover shadow-xl" />
+              <div className="absolute bottom-0 right-0 flex h-10 w-10 items-center justify-center rounded-full border-4 border-white bg-haven-navy text-white shadow-lg" title="Accès administrateur actif"><ShieldCheck size={19} /></div>
+            </div>
+            <h1 className="font-heading text-2xl font-bold text-haven-navy">{user.firstName} {user.lastName}</h1>
+            <p className="mt-2 text-[11px] font-black uppercase tracking-[0.17em] text-haven-red">Administrateur HAVEN</p>
+
+            <div className="mt-7 space-y-4 border-t border-gray-100 pt-6 text-left">
+              <div className="flex items-center gap-3 text-sm text-gray-600"><Mail size={17} className="text-haven-stone" /><span className="truncate">{user.email}</span></div>
+              <div className="flex items-center gap-3 text-sm text-gray-600"><Calendar size={17} className="text-haven-stone" /><span>Membre depuis {memberSince}</span></div>
+            </div>
+
+            <button onClick={onOpenAdministration} className="mt-7 w-full rounded-xl bg-haven-navy px-4 py-3 text-sm font-bold text-white transition-colors hover:bg-haven-navy/90">Ouvrir l’administration</button>
+            <button onClick={onLogout} className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-bold text-haven-red transition-colors hover:bg-red-100"><LogOut size={17} /> Se déconnecter</button>
+          </div>
+        </aside>
+
+        <section className="space-y-6 lg:col-span-2">
+          <div className="rounded-3xl border border-gray-100 bg-white p-6 shadow-soft md:rounded-[2.5rem] md:p-10">
+            <h2 className="font-heading text-2xl font-bold text-haven-navy md:text-3xl">Mon compte administrateur</h2>
+            <p className="mt-3 max-w-2xl text-base leading-relaxed text-gray-600">Cet espace est strictement interne à HAVEN. Il n’est pas présenté aux locataires, aux propriétaires ou aux visiteurs de la plateforme.</p>
+
+            <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="rounded-2xl bg-haven-navy/5 p-5">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-haven-navy text-white"><ShieldCheck size={20} /></div>
+                <p className="mt-4 text-sm font-bold text-haven-navy">Accès administrateur</p>
+                <p className="mt-1 text-sm text-gray-500">Compte approuvé et accès actif.</p>
+              </div>
+              <div className="rounded-2xl bg-blue-50 p-5">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600 text-white"><LockKeyhole size={19} /></div>
+                <p className="mt-4 text-sm font-bold text-haven-navy">Profil confidentiel</p>
+                <p className="mt-1 text-sm text-gray-500">Aucune note, aucun avis ni visibilité auprès des membres.</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-3xl border border-gray-100 bg-white p-6 shadow-soft md:rounded-[2.5rem] md:p-10">
+            <div className="flex items-center gap-3"><ClipboardCheck className="text-haven-red" size={24} /><h2 className="font-heading text-xl font-bold text-haven-navy md:text-2xl">Périmètre d’administration</h2></div>
+            <div className="mt-6 grid gap-4 sm:grid-cols-3">
+              {[
+                ['Comptes', 'Validation des dossiers et gestion des accès.'],
+                ['Annonces', 'Contrôle des logements et de leur publication.'],
+                ['Assistance', 'Traitement des contacts, incidents et signalements.'],
+              ].map(([title, description]) => (
+                <div key={title} className="rounded-2xl border border-gray-100 p-4">
+                  <p className="font-bold text-haven-navy">{title}</p>
+                  <p className="mt-2 text-sm leading-relaxed text-gray-500">{description}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+);
 
 export const ProfilePage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -26,10 +104,14 @@ export const ProfilePage: React.FC = () => {
         const userData = await apiService.users.getById(id);
         if (userData) {
           setUser(userData);
-          // If the user is an owner, fetch their listings
-          const allListings = await apiService.listings.getAll();
-          const userListings = allListings.filter(l => l.ownerId === id && l.status === 'APPROVED');
-          setListings(userListings);
+          // Administrative accounts have no public listings or community profile.
+          if (userData.role !== UserRole.ADMIN) {
+            const allListings = await apiService.listings.getAll();
+            const userListings = allListings.filter(l => l.ownerId === id && l.status === 'APPROVED');
+            setListings(userListings);
+          } else {
+            setListings([]);
+          }
         }
       } catch (error) {
         console.error("Error fetching profile:", error);
@@ -66,6 +148,7 @@ export const ProfilePage: React.FC = () => {
     ? new Date(user.createdAt).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })
     : "Mars 2026";
   const isOwnProfile = currentUser?.id === user.id;
+  const isAdminProfile = user.role === UserRole.ADMIN;
 
   const handleLogout = async () => {
     await logout();
@@ -88,6 +171,23 @@ export const ProfilePage: React.FC = () => {
       setIsVisibilityUpdating(false);
     }
   };
+
+  if (isAdminProfile && currentUser?.role !== UserRole.ADMIN) {
+    return (
+      <div className="min-h-screen bg-haven-cream flex items-center justify-center px-6">
+        <div className="max-w-md rounded-3xl border border-gray-100 bg-white p-8 text-center shadow-soft">
+          <LockKeyhole className="mx-auto text-haven-red" size={32} />
+          <h1 className="mt-4 text-xl font-bold text-haven-navy">Profil réservé à l’administration</h1>
+          <p className="mt-2 text-sm leading-relaxed text-gray-500">Les profils administrateurs sont privés et ne sont pas visibles par les membres de HAVEN.</p>
+          <Link to="/" className="mt-6 inline-flex"><Button variant="primary">Retour à l’accueil</Button></Link>
+        </div>
+      </div>
+    );
+  }
+
+  if (isAdminProfile) {
+    return <AdminProfileView user={user} memberSince={memberSince} onOpenAdministration={() => navigate('/admin/dashboard')} onLogout={handleLogout} />;
+  }
 
   return (
     <div className="min-h-screen bg-haven-cream pb-20 font-body">
