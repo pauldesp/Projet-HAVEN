@@ -158,7 +158,7 @@ export const Header: React.FC = () => {
                       
                       <div className="space-y-1">
                         {isAdmin ? (
-                          <Link 
+                          <Link
                             to="/admin/dashboard"
                             onClick={() => setIsUserMenuOpen(false)}
                             className="flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 hover:text-haven-navy rounded-xl transition-colors"
@@ -175,21 +175,23 @@ export const Header: React.FC = () => {
                           </Link>
                         )}
                         
-                        <Link 
-                          to="/inbox"
-                          onClick={() => setIsUserMenuOpen(false)}
-                          className="flex items-center justify-between px-4 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 hover:text-haven-navy rounded-xl transition-colors"
-                        >
-                          <div className="flex items-center gap-3">
-                            <MessageSquare size={18} /> 
-                            <span>Messages</span>
-                          </div>
-                          {unreadCount > 0 && (
-                            <span className="px-2 py-0.5 bg-haven-red text-white text-[10px] font-black rounded-full">
-                              {unreadCount}
-                            </span>
-                          )}
-                        </Link>
+                        {!isAdmin && (
+                          <Link
+                            to="/inbox"
+                            onClick={() => setIsUserMenuOpen(false)}
+                            className="flex items-center justify-between px-4 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 hover:text-haven-navy rounded-xl transition-colors"
+                          >
+                            <div className="flex items-center gap-3">
+                              <MessageSquare size={18} />
+                              <span>Messages</span>
+                            </div>
+                            {unreadCount > 0 && (
+                              <span className="px-2 py-0.5 bg-haven-red text-white text-[10px] font-black rounded-full">
+                                {unreadCount}
+                              </span>
+                            )}
+                          </Link>
+                        )}
 
                         <Link 
                           to={`/profile/${currentUser.id}`}
