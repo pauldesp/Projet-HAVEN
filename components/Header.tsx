@@ -2,7 +2,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { UserRole } from '../types';
 import { Button } from './Button';
-import { Globe, LayoutDashboard, ChevronDown, UserRound, Home, LogIn, LogOut, User as UserIcon, Settings, Shield, MessageSquare } from 'lucide-react';
+import { Globe, LayoutDashboard, ChevronDown, UserRound, Home, LogIn, LogOut, User as UserIcon, Settings, Shield, MessageSquare, UserRoundCog } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Logo } from './Logo';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -157,7 +157,7 @@ export const Header: React.FC = () => {
                       </div>
                       
                       <div className="space-y-1">
-                        {isAdmin ? (
+                        {isAdmin ? (<>
                           <Link
                             to="/admin/dashboard"
                             onClick={() => setIsUserMenuOpen(false)}
@@ -165,7 +165,14 @@ export const Header: React.FC = () => {
                           >
                             <Shield size={18} /> Administration
                           </Link>
-                        ) : (
+                          <Link
+                            to="/admin/governance"
+                            onClick={() => setIsUserMenuOpen(false)}
+                            className="flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 hover:text-haven-navy rounded-xl transition-colors"
+                          >
+                            <UserRoundCog size={18} /> Gouvernance admin
+                          </Link>
+                        </>) : (
                           <Link 
                             to={isOwnerMode ? "/owner/dashboard" : "/dashboard"}
                             onClick={() => setIsUserMenuOpen(false)}

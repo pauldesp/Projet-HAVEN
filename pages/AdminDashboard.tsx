@@ -660,8 +660,6 @@ export const AdminDashboard: React.FC = () => {
              { id: 'REPORTS', label: 'Signalements', icon: Flag, count: reports.filter(r => r.status === 'NEW').length },
              { id: 'CONTACTS', label: 'Contacts', icon: Mail, count: pendingContacts.length },
              { id: 'LEGAL', label: 'Légal', icon: FileText },
-             { id: 'STAFF', label: 'Gouvernance', icon: UserRoundCog },
-             { id: 'AUDIT', label: 'Journal admin', icon: History },
              { id: 'OVERVIEW', label: 'Stats', icon: TrendingUp }
            ].map((tab) => (
              <button

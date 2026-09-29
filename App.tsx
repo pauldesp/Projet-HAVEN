@@ -13,6 +13,7 @@ import { EditListing } from './pages/EditListing';
 import { LoginPage } from './pages/LoginPage';
 import { AdminLoginPage } from './pages/AdminLoginPage';
 import { AdminDashboard } from './pages/AdminDashboard';
+import { AdminGovernancePage } from './pages/AdminGovernancePage';
 import { TestDashboard } from './pages/TestDashboard';
 import { ProfilePage } from './pages/ProfilePage';
 import { ContactPage } from './pages/ContactPage';
@@ -131,6 +132,7 @@ const AppContent: React.FC = () => {
           <Route path="/owner/publish" element={<ProtectedRoute roles={[UserRole.OWNER, UserRole.ADMIN]}><PublishListing /></ProtectedRoute>} />
           <Route path="/owner/edit/:id" element={<ProtectedRoute roles={[UserRole.OWNER, UserRole.ADMIN]}><EditListing /></ProtectedRoute>} />
           <Route path="/admin/dashboard" element={<ProtectedRoute roles={[UserRole.ADMIN]}><AdminDashboard /></ProtectedRoute>} />
+          <Route path="/admin/governance" element={<ProtectedRoute roles={[UserRole.ADMIN]}><AdminGovernancePage /></ProtectedRoute>} />
           <Route path="/admin/login" element={<AdminLoginPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/contact" element={<ContactPage />} />
