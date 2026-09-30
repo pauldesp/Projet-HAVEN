@@ -35,3 +35,9 @@ J'ai respecté scrupuleusement tes couleurs :
 *   `bg-haven-red` (#9A073C) pour les actions importantes.
 
 Pour tester, lance simplement l'application. Tu peux naviguer de l'accueil vers un détail de logement en cliquant sur une carte.
+
+## À reprendre : e-mails Firebase
+
+Le projet Firebase et son nom public ont été renommés **Haven**. La prochaine session doit finaliser les modèles transactionnels dans Firebase Authentication : validation d'adresse e-mail, réinitialisation de mot de passe, changement d'adresse e-mail et notification d'activation MFA.
+
+Pour améliorer durablement la délivrabilité, configurer ensuite un domaine d'envoi personnalisé dans Firebase Authentication ou Resend, puis publier les enregistrements DNS SPF, DKIM et DMARC fournis par le prestataire. Sans cette authentification de domaine, aucun service ne peut garantir que les messages n'iront jamais dans les indésirables.
