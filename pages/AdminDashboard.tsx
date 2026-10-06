@@ -79,6 +79,7 @@ export const AdminDashboard: React.FC = () => {
   const [isIncidentsLoading, setIsIncidentsLoading] = useState(false);
   const [isBookingsLoading, setIsBookingsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [auditError, setAuditError] = useState<string | null>(null);
   
   // Filters
   const [listingFilters, setListingFilters] = useState({
@@ -257,11 +258,13 @@ export const AdminDashboard: React.FC = () => {
 
   const fetchAuditEntries = async () => {
     setIsAuditLoading(true);
+    setAuditError(null);
     try {
       setAuditEntries(await apiService.admin.listAudit());
     } catch (e) {
       console.error('Error fetching admin audit', e);
-      setError('Impossible de charger le journal des actions administratives.');
+      setAuditEntries([]);
+      setAuditError('Le journal administratif est momentanément indisponible. Les outils de gestion restent accessibles.');
     } finally {
       setIsAuditLoading(false);
     }
@@ -1496,6 +1499,7 @@ export const AdminDashboard: React.FC = () => {
                   </select>
                   <input value={auditFilters.query} onChange={e => setAuditFilters(prev => ({ ...prev, query: e.target.value }))} placeholder="Rechercher une action…" className="rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-haven-red" />
                 </div>
+                {auditError && <div className="mb-5 rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-amber-800">{auditError}</div>}
                 <div className="overflow-x-auto">
                   <table className="w-full min-w-[760px] text-left">
                     <thead><tr className="border-b border-gray-100 text-[10px] font-black uppercase tracking-widest text-gray-400"><th className="p-4">Date</th><th className="p-4">Administrateur</th><th className="p-4">Action</th><th className="p-4">Élément concerné</th><th className="p-4">Détail</th></tr></thead>

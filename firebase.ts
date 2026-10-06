@@ -17,6 +17,8 @@ export const db = initializeFirestore(app, {
 
 // Initialize Auth
 export const auth = getAuth(app);
+// Firebase's transactional templates use this locale whenever one is available.
+auth.languageCode = 'fr';
 
 // Google Auth Provider
 export const googleProvider = new GoogleAuthProvider();

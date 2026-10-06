@@ -24,6 +24,18 @@ const normalizeEmail = (value: unknown) => typeof value === "string" ? value.tri
 const hashCode = (email: string, code: string) => createHash("sha256").update(`${email}:${code}`).digest();
 const verificationLimiter = rateLimit({ windowMs: 15 * 60_000, limit: 10, standardHeaders: true, legacyHeaders: false });
 const sensitiveApiLimiter = rateLimit({ windowMs: 60_000, limit: 30, standardHeaders: true, legacyHeaders: false });
+const emailFrom = process.env.EMAIL_FROM?.trim() || "Haven <onboarding@resend.dev>";
+const emailReplyTo = process.env.EMAIL_REPLY_TO?.trim() || undefined;
+const isProduction = process.env.NODE_ENV === "production";
+
+function getEmailProvider() {
+  const apiKey = process.env.RESEND_API_KEY?.trim();
+  if (!apiKey) return { error: "Le service d’envoi d’e-mails n’est pas configuré." } as const;
+  if (isProduction && emailFrom.includes("onboarding@resend.dev")) {
+    return { error: "L’expéditeur professionnel des e-mails n’est pas encore configuré." } as const;
+  }
+  return { resend: new Resend(apiKey) } as const;
+}
 
 interface AuthenticatedRequest extends Request { user?: { uid: string; email?: string } }
 
@@ -381,28 +393,26 @@ async function startServer() {
     const code = randomInt(1000, 10000).toString();
     verificationCodes.set(email, { hash: hashCode(email, code), expiresAt: Date.now() + 10 * 60_000, attempts: 0, lastSentAt: Date.now() });
 
-    const apiKey = process.env.RESEND_API_KEY;
-    if (!apiKey) {
-      console.error("RESEND_API_KEY is missing");
-      return res.status(500).json({ error: "Le service d'envoi d'emails n'est pas configuré." });
-    }
+    const provider = getEmailProvider();
+    if ("error" in provider) return sendApiError(res, 503, provider.error);
 
     try {
-      console.log(`[VERIFICATION] Email: ${email}, Code: ${code}`);
-      
-      const resend = new Resend(apiKey);
-      const { data, error } = await resend.emails.send({
-        from: "HAVEN <onboarding@resend.dev>",
+      const { data, error } = await provider.resend.emails.send({
+        from: emailFrom,
         to: [email],
-        subject: "Votre code de vérification HAVEN",
+        ...(emailReplyTo ? { replyTo: emailReplyTo } : {}),
+        subject: "Votre code de vérification Haven",
         html: `
-          <div style="font-family: sans-serif; padding: 20px; color: #1E293B;">
-            <h1 style="color: #A34343;">Bienvenue sur HAVEN</h1>
-            <p>Voici votre code de vérification pour finaliser votre inscription :</p>
-            <div style="background-color: #F1F5F9; padding: 20px; border-radius: 12px; text-align: center; font-size: 32px; font-weight: bold; letter-spacing: 5px; margin: 20px 0;">
+          <div style="background:#f7f7f5;padding:32px 16px;font-family:Arial,sans-serif;color:#1e293b;">
+            <div style="max-width:560px;margin:0 auto;background:#ffffff;border-radius:16px;padding:36px 32px;">
+              <p style="margin:0 0 20px;font-weight:700;font-size:24px;color:#17253b;">Haven</p>
+              <h1 style="font-size:24px;margin:0 0 16px;color:#17253b;">Confirmez votre adresse e-mail</h1>
+              <p style="line-height:1.6;margin:0 0 20px;">Voici votre code de vérification pour finaliser votre inscription sur Haven&nbsp;:</p>
+              <div style="background:#f4f1ef;padding:20px;border-radius:12px;text-align:center;font-size:32px;font-weight:700;letter-spacing:6px;margin:20px 0;color:#17253b;">
               ${code}
+              </div>
+              <p style="font-size:14px;line-height:1.5;color:#64748b;margin:20px 0 0;">Ce code expire dans 10 minutes. Si vous n’avez pas demandé cette inscription, vous pouvez ignorer cet e-mail.</p>
             </div>
-            <p style="font-size: 14px; color: #78716C;">Si vous n'avez pas demandé ce code, vous pouvez ignorer cet e-mail.</p>
           </div>
         `,
       });
@@ -410,13 +420,13 @@ async function startServer() {
       if (error) {
         console.error("Resend error:", error);
         
-        // Handle Resend trial limitations gracefully for development
-        if (error.name === 'validation_error' || error.message.includes('authorized')) {
-          console.warn("⚠️ Resend sandbox limitation detected. Using mock success because verification code was logged above.");
+        // A sandbox can be useful locally, but production must never claim an email was sent when it was not.
+        if (!isProduction && (error.name === 'validation_error' || error.message.includes('authorized'))) {
+          console.warn("Resend sandbox limitation detected; development verification code was not delivered.");
           return res.json({ 
             success: true, 
-            data: { id: "mock_resend_id" }, 
-            warning: "Email sent via mock mode (Check server console for code)" 
+            data: { id: "development_mock" },
+            warning: "Mode développement : l’e-mail n’a pas été distribué."
           });
         }
         
@@ -575,21 +585,16 @@ async function startServer() {
     const allowedEmails = [tenantSnap.data()?.email, ownerSnap.data()?.email].filter(Boolean);
     if (!allowedEmails.includes(normalizeEmail(email))) return res.status(403).json({ error: "Destinataire non autorisé" });
 
-    const apiKey = process.env.RESEND_API_KEY;
-    if (!apiKey || apiKey === "" || apiKey === "YOUR_RESEND_API_KEY" || apiKey.includes("***")) {
-      console.log(`[EMAIL MOCK - RESEND NOT CONFIGURED]
-To: ${email}
-Type: ${type}
-Details:`, JSON.stringify(details, null, 2));
-      return res.json({ 
-        success: true, 
-        mocked: true, 
-        message: "Email logged to console (mock mode)." 
-      });
+    const provider = getEmailProvider();
+    if ("error" in provider) {
+      if (!isProduction) {
+        console.info("Notification e-mail non distribuée en mode développement.", { type, bookingId });
+        return res.json({ success: true, mocked: true, message: "Mode développement : l’e-mail n’a pas été distribué." });
+      }
+      return sendApiError(res, 503, provider.error);
     }
 
     try {
-      const resend = new Resend(apiKey);
       let subject = "";
       let htmlContent = "";
 
@@ -740,18 +745,24 @@ Details:`, JSON.stringify(details, null, 2));
         `;
       }
 
-      await resend.emails.send({
-        from: "HAVEN <onboarding@resend.dev>",
+      const { error } = await provider.resend.emails.send({
+        from: emailFrom,
         to: [email],
+        ...(emailReplyTo ? { replyTo: emailReplyTo } : {}),
         subject: subject,
         html: htmlContent
       });
 
+      if (error) {
+        console.error("Booking email provider error:", error);
+        return sendApiError(res, 503, "Le service d’envoi d’e-mails est temporairement indisponible.");
+      }
+
       res.json({ success: true });
     } catch (err: any) {
       console.error("Booking email send failed:", err);
-      // Suppress hard errors on development Resend sandboxes and fallback to simulated success
-      res.json({ success: true, warned: true, error: err.message });
+      if (!isProduction) return res.json({ success: true, mocked: true, message: "Mode développement : l’e-mail n’a pas été distribué." });
+      return sendApiError(res, 503, "Le service d’envoi d’e-mails est temporairement indisponible.");
     }
   });
 
