@@ -30,7 +30,7 @@ type AuthStep = 'IDENTIFIER' | 'LOGIN' | 'VERIFY' | 'PROFILE' | 'LEGAL' | 'FORGO
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { login, register, loginWithGoogle, logout, currentUser, checkUserExists, resetPassword, authError } = useAuth();
+  const { login, register, loginWithGoogle, logout, currentUser, resetPassword, authError } = useAuth();
 
   const queryParams = new URLSearchParams(location.search);
   const redirectPath = queryParams.get('redirect');
@@ -76,40 +76,38 @@ export const LoginPage: React.FC = () => {
   const handleIdentifierSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    const normalizedIdentifier = identifier.trim().toLowerCase();
+    setIdentifier(normalizedIdentifier);
+    if (!normalizedIdentifier.includes('@')) {
+      setError("La connexion par téléphone n'est pas encore disponible. Utilisez une adresse e-mail.");
+      return;
+    }
+    // Never query private Firestore profiles before authentication to decide
+    // whether an email is registered. Firebase Auth verifies credentials on
+    // the next step and avoids turning permission-denied into a false signup.
+    setStep('LOGIN');
+  };
+
+  const handleStartRegistration = async () => {
+    setError('');
     setIsLoading(true);
     try {
-      const result = await checkUserExists(identifier);
-      if (result.exists) {
-        setStep('LOGIN');
-      } else {
-        // If it's an email, send a real verification code via Resend
-        if (identifier.includes('@')) {
-          try {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
-
-            const response = await fetch('/api/send-verification', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ email: identifier }),
-              signal: controller.signal
-            });
-            
-            clearTimeout(timeoutId);
-            
-            if (!response.ok) {
-              const data = await response.json();
-              throw new Error(data.error || "Erreur lors de l'envoi de l'email.");
-            }
-            
-            setStep('VERIFY');
-          } catch (err: unknown) {
-            setError(userFacingErrorMessage(err));
-          }
-        } else {
-          setError("L'inscription par téléphone n'est pas encore disponible. Utilisez une adresse e-mail.");
-        }
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+      let response: Response;
+      try {
+        response = await fetch('/api/send-verification', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: identifier }),
+          signal: controller.signal
+        });
+      } finally {
+        clearTimeout(timeoutId);
       }
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || `Erreur ${response.status}`);
+      setStep('VERIFY');
     } catch (err: unknown) {
       setError(userFacingErrorMessage(err));
     } finally {
@@ -122,19 +120,7 @@ export const LoginPage: React.FC = () => {
     setError('');
     setIsLoading(true);
     try {
-      let loginEmail = identifier;
-      // If identifier is a phone number, resolve the associated email first
-      if (!identifier.includes('@')) {
-        const result = await checkUserExists(identifier);
-        if (result.exists && result.email) {
-          loginEmail = result.email;
-        } else {
-          setError('Aucun compte associé à ce numéro.');
-          setIsLoading(false);
-          return;
-        }
-      }
-      const success = await login(loginEmail, password);
+      const success = await login(identifier, password);
       if (!success) {
         setError('Mot de passe incorrect.');
       }
@@ -342,6 +328,9 @@ export const LoginPage: React.FC = () => {
             <Button type="submit" fullWidth size="lg" disabled={isLoading}>
               {isLoading ? <Loader2 className="animate-spin" /> : "Se connecter"}
             </Button>
+            <button type="button" onClick={() => void handleStartRegistration()} disabled={isLoading} className="w-full text-center text-sm font-bold text-haven-red hover:text-haven-red/80 disabled:opacity-50">
+              Créer un compte Haven
+            </button>
             <button type="button" onClick={() => setStep('IDENTIFIER')} className="w-full text-center text-sm font-bold text-haven-stone hover:text-haven-navy">
               Utiliser un autre compte
             </button>
