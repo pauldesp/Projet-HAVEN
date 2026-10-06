@@ -10,6 +10,13 @@ import { userFacingErrorMessage } from '../services/errorHandling';
 import { sanitizeHtml } from '../services/sanitizeHtml';
 import { minimumNights } from '../services/minimumStay';
 
+const bookingErrorMessage = (error: unknown) => {
+  if (error instanceof Error && /\(Erreur (?:401|403|404|409|422|429|500|503)\)$/.test(error.message)) {
+    return error.message.replace(/\s*\(Erreur \d+\)$/, '');
+  }
+  return userFacingErrorMessage(error);
+};
+
 interface BookingModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -177,7 +184,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose, lis
           console.error('Impossible de libérer la réservation après un échec de paiement', cleanupError);
         }
       }
-      setError(userFacingErrorMessage(e));
+      setError(bookingErrorMessage(e));
     } finally {
       setIsProcessing(false);
     }
@@ -230,6 +237,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose, lis
                       <h3 className="font-bold text-haven-navy">{listing.title}</h3>
                       <p className="text-sm text-gray-600">{room.name}</p>
                       <p className="text-xs text-gray-500 mt-1">{nights} nuit(s) • 1 Locataire</p>
+                      <p className="mt-2 text-xs font-semibold text-haven-navy">Arrivée à partir de {listing.checkInTime || '15:00'} · Départ avant {listing.checkOutTime || '11:00'}</p>
                     </div>
                   </div>
                   
@@ -260,6 +268,12 @@ export const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose, lis
                 <div className="rounded-2xl border border-blue-100 bg-blue-50/60 p-4 text-sm text-gray-600">
                   <p className="font-bold text-haven-navy">Conditions d’annulation</p>
                   <p className="mt-1 leading-relaxed">Après confirmation, l’annulation est remboursée intégralement au moins 30 jours avant l’arrivée, à 50 % entre 14 et 29 jours, puis sans remboursement. Si le propriétaire annule, le remboursement est intégral.</p>
+                </div>
+
+                <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4 text-sm text-gray-700">
+                  <p className="font-bold text-haven-navy">Horaires du séjour</p>
+                  <p className="mt-1">Arrivée à partir de <strong>{listing.checkInTime || '15:00'}</strong> · départ avant <strong>{listing.checkOutTime || '11:00'}</strong>.</p>
+                  <p className="mt-1 text-xs text-gray-500">Ces horaires sont ceux définis par le propriétaire et seront joints à votre demande.</p>
                 </div>
 
                 <div className={`p-4 md:p-6 rounded-2xl md:rounded-[2rem] border transition-all ${isSigned ? 'bg-green-50 border-green-200' : 'bg-white border-gray-100 shadow-premium'}`}>
@@ -333,6 +347,8 @@ export const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose, lis
                                 amount: total,
                                 startDate: new Date(startDate).toLocaleDateString('fr-FR'),
                                 endDate: new Date(endDate).toLocaleDateString('fr-FR'),
+                                arrivalTime: listing.checkInTime || '15:00',
+                                departureTime: listing.checkOutTime || '11:00',
                                 tenantName: `${currentUser.firstName} ${currentUser.lastName}`,
                                 ownerName: `${ownerProfile.firstName} ${ownerProfile.lastName}`,
                                 bookingId
@@ -345,7 +361,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose, lis
 
                         setStep(5);
                       } catch (err: unknown) {
-                        setError(userFacingErrorMessage(err));
+                        setError(bookingErrorMessage(err));
                       } finally {
                         setIsProcessing(false);
                       }

@@ -164,8 +164,8 @@ export const PublishListing: React.FC = () => {
     }
   }, [currentUser, isAuthLoading, navigate]);
 
-  const isApproved = currentUser?.status === 'APPROVED' || currentUser?.role === 'ADMIN';
-  const hasOwnerDocuments = Boolean(currentUser?.documents?.idCard && currentUser?.documents?.proofOfOwnership);
+  const isApproved = (currentUser?.status === 'APPROVED' && currentUser.emailVerified === true && currentUser.phoneVerified === true && currentUser.identityVerified === true) || currentUser?.role === 'ADMIN';
+  const hasOwnerDocuments = Boolean(currentUser?.documents?.idCard);
   const canPublish = isApproved && hasOwnerDocuments;
 
   if (isAuthLoading) {

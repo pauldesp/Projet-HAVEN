@@ -9,8 +9,6 @@ import { hasIncompleteRoom, hasRoomWithoutOption } from './roomValidation';
 import { reportError, userFacingErrorMessage } from './errorHandling';
 import { formatScheduledMoment, getInventoryTiming } from './inventoryTiming';
 import { countNights, isBookableStay } from './stay';
-import { isRoomAvailableForStay } from './availability';
-import { minimumNights } from './minimumStay';
 
 const toAvailability = (booking: Booking): BookingAvailability => ({
   id: booking.id,
@@ -52,25 +50,6 @@ const handleFirestoreError = (error: any, operation: string, path: string) => {
 // Never throw from its error callback: doing so would take down the entire UI.
 const logFirestoreListenerError = (error: unknown, operation: string, path: string) => {
   reportError(error, `Écoute Firebase ${operation} ${path}`);
-};
-
-const isTransientFirestoreError = (error: unknown) => {
-  const detail = error instanceof Error ? `${(error as { code?: string }).code ?? ''} ${error.message}` : String(error);
-  return /unavailable|offline|network|timeout|internal assertion|unexpected state/i.test(detail);
-};
-
-const retryFirestoreWrite = async <T>(operation: () => Promise<T>, attempts = 2): Promise<T> => {
-  let lastError: unknown;
-  for (let attempt = 0; attempt <= attempts; attempt += 1) {
-    try {
-      return await operation();
-    } catch (error) {
-      lastError = error;
-      if (!isTransientFirestoreError(error) || attempt === attempts) throw error;
-      await new Promise(resolve => window.setTimeout(resolve, 300 * (attempt + 1)));
-    }
-  }
-  throw lastError;
 };
 
 // Helper helper function to reactive cleanup expired bookings (48h manual approval, 72h manual payment)
@@ -253,10 +232,27 @@ export const apiService = {
     },
     async uploadDocument(userId: string, type: 'idCard' | 'proofOfAddress' | 'proofOfOwnership' | 'proofOfIncome' | 'studentCard', url: string) {
       try {
-        const field = `documents.${type}`;
-        await updateDoc(doc(db, 'users', userId), { [field]: url });
+        if (type !== 'idCard') throw new Error('Seule la pièce d’identité est demandée pour le moment.');
+        if (auth.currentUser?.uid !== userId) throw new Error('Vous ne pouvez transmettre que votre propre pièce d’identité.');
+        const response = await authenticatedFetch('/api/users/me/identity-document', {
+          method: 'POST',
+          body: JSON.stringify({ documentDataUrl: url })
+        });
+        if (!response.ok) {
+          const payload = await response.json().catch(() => ({}));
+          throw new Error(payload.error || `Erreur ${response.status}`);
+        }
+        return response.json() as Promise<{ status: 'PENDING'; identityVerified: false }>;
       } catch (e) {
+        if (e instanceof Error) throw e;
         handleFirestoreError(e, 'UPLOAD_DOCUMENT', `users/${userId}`);
+      }
+    },
+    async updatePersonalDetails(userId: string, details: { firstName: string; lastName: string; birthDate: string; phone: string }) {
+      try {
+        await updateDoc(doc(db, 'users', userId), details);
+      } catch (e) {
+        handleFirestoreError(e, 'UPDATE_PERSONAL_DETAILS', `users/${userId}`);
       }
     },
     async submitVerification(role: 'TENANT' | 'OWNER') {
@@ -269,6 +265,33 @@ export const apiService = {
         throw new Error(payload.error || `Erreur ${response.status}`);
       }
       return response.json() as Promise<{ status: 'PENDING' }>;
+    },
+    async confirmEmail() {
+      const response = await authenticatedFetch('/api/users/me/confirm-email', { method: 'POST', body: '{}' });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        throw new Error(payload.error || `Erreur ${response.status}`);
+      }
+      return response.json() as Promise<{ emailVerified: true; emailVerifiedAt: string }>;
+    },
+    async confirmPhone() {
+      const response = await authenticatedFetch('/api/users/me/confirm-phone', { method: 'POST', body: '{}' });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        throw new Error(payload.error || `Erreur ${response.status}`);
+      }
+      return response.json() as Promise<{ phoneVerified: true; phoneVerifiedAt: string }>;
+    },
+    async verifyIdentity(userId: string) {
+      try {
+        await updateDoc(doc(db, 'users', userId), {
+          identityVerified: true,
+          idVerifiedAt: new Date().toISOString(),
+          isVerified: true
+        });
+      } catch (e) {
+        handleFirestoreError(e, 'VERIFY_IDENTITY', `users/${userId}`);
+      }
     },
     async delete(id: string) {
       try {
@@ -362,19 +385,6 @@ export const apiService = {
         handleFirestoreError(e, 'UPDATE_STATUS', `listings/${id}`);
       }
     },
-    async submitReview(listingId: string, rating: number) {
-      try {
-        const listingDoc = await getDoc(doc(db, 'listings', listingId));
-        if (listingDoc.exists()) {
-          const listing = listingDoc.data() as Listing;
-          const newCount = (listing.reviewsCount || 0) + 1;
-          const newRating = Number((((listing.rating || 0) * (listing.reviewsCount || 0) + rating) / newCount).toFixed(1));
-          await updateDoc(doc(db, 'listings', listingId), { rating: newRating, reviewsCount: newCount });
-        }
-      } catch (e) {
-        handleFirestoreError(e, 'SUBMIT_REVIEW', `listings/${listingId}`);
-      }
-    }
   },
 
   bookings: {
@@ -394,60 +404,26 @@ export const apiService = {
         if (!auth.currentUser || booking.tenantId !== auth.currentUser.uid) {
           throw new Error('Vous devez être connecté pour réserver. (Erreur 401)');
         }
-        if (!isBookableStay(booking.startDate, booking.endDate)) {
-          throw new Error('La date d’arrivée ne peut pas être antérieure à aujourd’hui. (Erreur 422)');
-        }
-        const listingDoc = await getDoc(doc(db, 'listings', booking.listingId));
-        if (!listingDoc.exists()) throw new Error('Ce logement n’est plus disponible. (Erreur 404)');
-        const listing = listingDoc.data() as Listing;
-        if (listing.status !== 'APPROVED') throw new Error('Ce logement n’est pas ouvert à la réservation. (Erreur 422)');
-        if (listing.ownerId === booking.tenantId) throw new Error('Vous ne pouvez pas réserver votre propre logement. (Erreur 403)');
-        const room = listing.rooms.find(item => item.id === booking.roomId);
-        if (!room) throw new Error('Cette chambre n’existe plus. (Erreur 404)');
-        const nights = countNights(booking.startDate, booking.endDate);
-        if (nights < minimumNights(listing.minStay)) throw new Error(`Ce logement nécessite un séjour minimum de ${minimumNights(listing.minStay)} nuits. (Erreur 422)`);
-        const availabilitySnapshot = await getDocs(query(collection(db, 'booking_availability'), where('listingId', '==', listing.id)));
-        const availability = availabilitySnapshot.docs.map(item => item.data() as BookingAvailability);
-        if (!isRoomAvailableForStay(room, listing, availability, booking.startDate, booking.endDate)) {
-          throw new Error('Cette chambre n’est pas disponible pour les dates sélectionnées. (Erreur 409)');
-        }
-        const basePrice = room.pricePerDay * nights;
-        const trustedBooking: Booking = {
-          ...booking,
-          ownerId: listing.ownerId,
-          status: 'PENDING',
-          basePrice,
-          cleaningFee: Number(listing.cleaningFee) || 0,
-          platformFee: Math.round(basePrice * 0.15),
-          totalPrice: basePrice + (Number(listing.cleaningFee) || 0) + Math.round(basePrice * 0.15),
-          createdAt: new Date().toISOString()
-        };
-        const msgId = `m-${crypto.randomUUID()}`;
-        await retryFirestoreWrite(async () => {
-          await setDoc(doc(db, 'bookings', trustedBooking.id), trustedBooking);
-          await setDoc(doc(db, 'booking_availability', trustedBooking.id), toAvailability(trustedBooking));
-          const initialMessage: Message = {
-            id: msgId,
-            senderId: trustedBooking.tenantId,
-            receiverId: trustedBooking.ownerId,
-            bookingId: trustedBooking.id,
-            content: trustedBooking.bookingMode === 'MANUAL'
-              ? `Bonjour, j'ai introduit une demande de colocation pour la chambre "${trustedBooking.roomName || 'Chambre'}" du ${new Date(trustedBooking.startDate).toLocaleDateString()} au ${new Date(trustedBooking.endDate).toLocaleDateString()}. Merci de valider ma demande sous 48 heures.`
-              : `Bonjour, je souhaite réserver la chambre "${trustedBooking.roomName || 'Chambre'}" du ${new Date(trustedBooking.startDate).toLocaleDateString()} au ${new Date(trustedBooking.endDate).toLocaleDateString()}.`,
-            timestamp: new Date().toISOString(),
-            isRead: false,
-            participants: [trustedBooking.tenantId, trustedBooking.ownerId]
-          };
-          await setDoc(doc(db, 'messages', msgId), initialMessage);
+        const response = await authenticatedFetch('/api/bookings', {
+          method: 'POST',
+          body: JSON.stringify({ id: booking.id, listingId: booking.listingId, roomId: booking.roomId, startDate: booking.startDate, endDate: booking.endDate })
         });
-
-        return trustedBooking;
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(`${payload.error || 'Impossible de créer la réservation'} (Erreur ${response.status})`);
+        return payload.booking as Booking;
       } catch (e) {
-        return handleFirestoreError(e, 'CREATE_BOOKING', `bookings/${booking.id}`);
+        throw e;
       }
     },
     async getByUserId(userId: string) {
       try {
+        // Expired review windows are finalized idempotently on the server, even
+        // if its scheduled worker was temporarily unavailable.
+        try {
+          await authenticatedFetch('/api/reviews/finalize-expired', { method: 'POST', body: '{}' });
+        } catch (error) {
+          console.warn('Automatic review catch-up will retry in the background', error);
+        }
         const q = query(collection(db, 'bookings'), where('tenantId', '==', userId));
         const snapshot = await getDocs(q);
         const list = snapshot.docs.map(doc => doc.data() as Booking);
@@ -478,6 +454,16 @@ export const apiService = {
     },
     async updateStatus(bookingId: string, status: Booking['status']) {
       try {
+        if (status === 'COMPLETED') {
+          const bookingDoc = await getDoc(doc(db, 'bookings', bookingId));
+          if (!bookingDoc.exists()) throw new Error('Réservation introuvable.');
+          const booking = bookingDoc.data() as Booking;
+          const response = await authenticatedFetch(`/api/bookings/${encodeURIComponent(bookingId)}/complete`, {
+            method: 'POST', body: JSON.stringify({ checkOutReportId: booking.checkOutReportId })
+          });
+          const result = await response.json() as { completedAt: string };
+          return result.completedAt;
+        }
         const bookingDoc = await getDoc(doc(db, 'bookings', bookingId));
         if (bookingDoc.exists()) {
           const booking = bookingDoc.data() as Booking;
@@ -586,10 +572,21 @@ export const apiService = {
   reviews: {
     async create(review: any) {
       try {
-        await setDoc(doc(db, 'reviews', review.id), review);
-        return review;
+        const response = await authenticatedFetch(`/api/bookings/${encodeURIComponent(review.bookingId)}/review`, {
+          method: 'POST', body: JSON.stringify({ rating: review.rating, comment: review.comment })
+        });
+        return await response.json();
       } catch (e) {
-        return handleFirestoreError(e, 'CREATE_REVIEW', `reviews/${review.id}`);
+        throw e;
+      }
+    },
+    async getByAuthorId(authorId: string) {
+      try {
+        const q = query(collection(db, 'reviews'), where('authorId', '==', authorId));
+        const snapshot = await getDocs(q);
+        return snapshot.docs.map(item => item.data());
+      } catch (e) {
+        return handleFirestoreError(e, 'GET_REVIEWS_BY_AUTHOR', `reviews?authorId=${authorId}`);
       }
     },
     async getByTargetId(targetId: string) {
@@ -977,6 +974,8 @@ export const apiService = {
       amount: number;
       startDate: string;
       endDate: string;
+      arrivalTime?: string;
+      departureTime?: string;
       tenantName: string;
       ownerName: string;
       bookingId: string;

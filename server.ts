@@ -1,6 +1,9 @@
 import { countNights, isBookableStay } from './services/stay';
 import { getCancellationTerms } from './services/cancellationPolicy';
-import type { Booking } from './types';
+import { isStayReviewWindowOpen } from './services/reviewPolicy';
+import type { Booking, BookingAvailability, Listing, Room } from './types';
+import { isRoomAvailableForStay } from './services/availability';
+import { minimumNights } from './services/minimumStay';
 import express from "express";
 import { createServer as createViteServer } from "vite";
 import path from "path";
@@ -9,6 +12,7 @@ import Stripe from "stripe";
 import { applicationDefault, getApps, initializeApp } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
 import { getFirestore } from "firebase-admin/firestore";
+import type { DocumentReference } from "firebase-admin/firestore";
 import type { NextFunction, Request, Response } from "express";
 import firebaseConfig from "./firebase-applet-config.json" with { type: "json" };
 import { createHash, randomInt, timingSafeEqual } from "node:crypto";
@@ -20,6 +24,7 @@ const adminApp = getApps()[0] ?? initializeApp({ credential: applicationDefault(
 const adminAuth = getAuth(adminApp);
 const adminDb = getFirestore(adminApp, firebaseConfig.firestoreDatabaseId);
 const verificationCodes = new Map<string, { hash: Buffer; expiresAt: number; attempts: number; lastSentAt: number }>();
+const verifiedEmailTickets = new Map<string, number>();
 const normalizeEmail = (value: unknown) => typeof value === "string" ? value.trim().toLowerCase() : "";
 const hashCode = (email: string, code: string) => createHash("sha256").update(`${email}:${code}`).digest();
 const verificationLimiter = rateLimit({ windowMs: 15 * 60_000, limit: 10, standardHeaders: true, legacyHeaders: false });
@@ -91,6 +96,61 @@ async function writeAdminAudit(actor: AdminActor, input: {
 }) {
   const ref = adminDb.collection('admin_audit').doc();
   await ref.set({ id: ref.id, actorId: actor.uid, actorName: actor.name, ...input, createdAt: new Date().toISOString() });
+}
+
+const reviewIdForBooking = (bookingId: string) => `stay_${bookingId}`;
+
+async function createAutomaticReviewIfExpired(bookingRef: DocumentReference, now = Date.now()) {
+  const bookingSnap = await bookingRef.get();
+  if (!bookingSnap.exists) return false;
+  const booking = bookingSnap.data()!;
+  if (booking.status !== 'COMPLETED' || isStayReviewWindowOpen(booking.completedAt, booking.endDate, now)) return false;
+
+  const reviewRef = adminDb.collection('reviews').doc(reviewIdForBooking(bookingRef.id));
+  const listingRef = adminDb.collection('listings').doc(booking.listingId);
+  const tenantSnap = await adminDb.collection('users').doc(booking.tenantId).get();
+  const tenant = tenantSnap.data() || {};
+  return adminDb.runTransaction(async transaction => {
+    const [freshBookingSnap, existingReview, listingSnap] = await Promise.all([
+      transaction.get(bookingRef), transaction.get(reviewRef), transaction.get(listingRef)
+    ]);
+    if (!freshBookingSnap.exists || existingReview.exists) return false;
+    const freshBooking = freshBookingSnap.data()!;
+    if (freshBooking.status !== 'COMPLETED' || isStayReviewWindowOpen(freshBooking.completedAt, freshBooking.endDate, now)) return false;
+    const createdAt = new Date(now).toISOString();
+    const previousCount = Number(listingSnap.data()?.reviewsCount) || 0;
+    const previousAverage = Number(listingSnap.data()?.rating) || 0;
+    const newCount = previousCount + 1;
+    transaction.create(reviewRef, {
+      id: reviewRef.id,
+      bookingId: bookingRef.id,
+      authorId: freshBooking.tenantId,
+      authorName: [tenant.firstName, tenant.lastName?.[0] ? `${tenant.lastName[0]}.` : ''].filter(Boolean).join(' ') || 'Locataire',
+      authorAvatarUrl: tenant.avatarUrl || '',
+      targetId: freshBooking.listingId,
+      targetType: 'LISTING',
+      rating: 5,
+      comment: "Note attribuée automatiquement : aucun avis n'a été publié dans les 7 jours suivant le séjour.",
+      isAutomatic: true,
+      createdAt,
+    });
+    if (listingSnap.exists) transaction.update(listingRef, {
+      rating: Number(((previousAverage * previousCount + 5) / newCount).toFixed(1)),
+      reviewsCount: newCount,
+    });
+    return true;
+  });
+}
+
+async function finalizeExpiredStayReviews() {
+  const completed = await adminDb.collection('bookings').where('status', '==', 'COMPLETED').get();
+  for (const booking of completed.docs) {
+    try {
+      await createAutomaticReviewIfExpired(booking.ref);
+    } catch (error) {
+      console.error(`Could not finalize stay review ${booking.id}`, error);
+    }
+  }
 }
 
 function safeReturnUrl(req: Request, pathValue: unknown) {
@@ -167,6 +227,187 @@ async function startServer() {
       env: process.env.NODE_ENV,
       stripe: stripeConfigured ? "configured" : "mock_mode"
     });
+  });
+
+  app.post('/api/bookings', sensitiveApiLimiter, requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      const { id, listingId, roomId, startDate, endDate } = req.body || {};
+      if (![id, listingId, roomId].every(value => typeof value === 'string' && /^[a-zA-Z0-9_-]{1,128}$/.test(value)) ||
+          typeof startDate !== 'string' || typeof endDate !== 'string' || !isBookableStay(startDate, endDate)) {
+        return sendApiError(res, 422, 'Les informations ou les dates du séjour sont invalides');
+      }
+      const userRef = adminDb.collection('users').doc(req.user!.uid);
+      const listingRef = adminDb.collection('listings').doc(listingId);
+      const bookingRef = adminDb.collection('bookings').doc(id);
+      const availabilityRef = adminDb.collection('booking_availability').doc(id);
+      const messageRef = adminDb.collection('messages').doc(`m-${randomInt(1, 2 ** 32).toString(16)}-${Date.now().toString(16)}`);
+      const createdAt = new Date().toISOString();
+      let createdBooking: Record<string, unknown> | null = null;
+
+      await adminDb.runTransaction(async transaction => {
+        const [userSnap, listingSnap, existingBooking, existingAvailability, availabilityQuery] = await Promise.all([
+          transaction.get(userRef), transaction.get(listingRef), transaction.get(bookingRef), transaction.get(availabilityRef),
+          transaction.get(adminDb.collection('booking_availability').where('listingId', '==', listingId))
+        ]);
+        if (!userSnap.exists) throw new Error('COMPTE_INTRouvable');
+        const user = userSnap.data()!;
+        const isAdminAccount = user.role === 'ADMIN';
+        const identityDocument = typeof user.documents?.idCard === 'string' && user.documents.idCard.length > 0;
+        if (!isAdminAccount && (user.status !== 'APPROVED' || user.emailVerified !== true || user.phoneVerified !== true || user.identityVerified !== true || !identityDocument)) {
+          throw new Error('VERIFICATION_REQUISE');
+        }
+        if (!listingSnap.exists || listingSnap.data()?.status !== 'APPROVED') throw new Error('LOGEMENT_INDISPONIBLE');
+        const listing = listingSnap.data() as Listing;
+        if (listing.ownerId === req.user!.uid) throw new Error('PROPRE_LOGEMENT');
+        const room = listing.rooms?.find((item: Room) => item.id === roomId);
+        if (!room || typeof room.pricePerDay !== 'number') throw new Error('CHAMBRE_INVALIDE');
+        const nights = countNights(startDate, endDate);
+        if (nights < minimumNights(listing.minStay) || nights > 366) throw new Error('DATES_INVALIDES');
+        const availability = availabilityQuery.docs.map(item => item.data() as BookingAvailability);
+        if (!isRoomAvailableForStay(room, listing, availability, startDate, endDate)) throw new Error('DATES_INDISPONIBLES');
+        if (existingBooking.exists || existingAvailability.exists) throw new Error('RESERVATION_EXISTANTE');
+
+        const basePrice = room.pricePerDay * nights;
+        const cleaningFee = Number(listing.cleaningFee) || 0;
+        const platformFee = Math.round(basePrice * 0.15);
+        const booking: Booking = {
+          id, listingId, roomId, roomName: room.name || 'Chambre', tenantId: req.user!.uid,
+          ownerId: listing.ownerId, startDate, endDate, status: 'PENDING', basePrice, cleaningFee,
+          platformFee, totalPrice: basePrice + cleaningFee + platformFee, createdAt,
+          paymentStatus: 'PENDING', bookingMode: listing.bookingMode === 'MANUAL' ? 'MANUAL' : 'INSTANT',
+          checkInTime: listing.checkInTime || '15:00', checkOutTime: listing.checkOutTime || '11:00',
+        };
+        transaction.create(bookingRef, booking);
+        transaction.create(availabilityRef, {
+          id, bookingId: id, listingId, roomId, startDate, endDate, status: 'PENDING', updatedAt: createdAt,
+        });
+        transaction.create(messageRef, {
+          id: messageRef.id, senderId: req.user!.uid, receiverId: listing.ownerId, bookingId: id,
+          content: booking.bookingMode === 'MANUAL'
+            ? `Bonjour, je souhaite réserver ${room.name || 'cette chambre'} du ${new Date(startDate).toLocaleDateString('fr-FR')} au ${new Date(endDate).toLocaleDateString('fr-FR')}. Arrivée à partir de ${booking.checkInTime}, départ avant ${booking.checkOutTime}. Merci de valider ma demande.`
+            : `Bonjour, je souhaite réserver ${room.name || 'cette chambre'} du ${new Date(startDate).toLocaleDateString('fr-FR')} au ${new Date(endDate).toLocaleDateString('fr-FR')}. Arrivée à partir de ${booking.checkInTime}, départ avant ${booking.checkOutTime}.`,
+          timestamp: createdAt, isRead: false, participants: [req.user!.uid, listing.ownerId],
+        });
+        createdBooking = booking as unknown as Record<string, unknown>;
+      });
+      return res.status(201).json({ booking: createdBooking });
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : '';
+      if (reason === 'VERIFICATION_REQUISE') return sendApiError(res, 403, 'La validation manuelle de votre compte et de votre pièce d’identité est requise pour réserver');
+      if (reason === 'LOGEMENT_INDISPONIBLE' || reason === 'CHAMBRE_INVALIDE') return sendApiError(res, 404, 'Ce logement ou cette chambre n’est plus disponible');
+      if (reason === 'PROPRE_LOGEMENT') return sendApiError(res, 403, 'Vous ne pouvez pas réserver votre propre logement');
+      if (reason === 'DATES_INVALIDES') return sendApiError(res, 422, 'Ces dates ne respectent pas la durée minimale ou maximale du séjour');
+      if (reason === 'DATES_INDISPONIBLES' || reason === 'RESERVATION_EXISTANTE') return sendApiError(res, 409, 'Ces dates viennent d’être réservées. Choisissez une autre période');
+      console.error('Booking request creation failed', error);
+      return sendApiError(res, 500, 'La demande de réservation n’a pas pu être enregistrée. Réessayez dans quelques instants');
+    }
+  });
+
+  app.post('/api/bookings/:bookingId/complete', sensitiveApiLimiter, requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      const bookingId = String(req.params.bookingId);
+      const bookingRef = adminDb.collection('bookings').doc(bookingId);
+      const bookingSnap = await bookingRef.get();
+      if (!bookingSnap.exists) return sendApiError(res, 404, 'Réservation introuvable');
+      const booking = bookingSnap.data()!;
+      if (booking.tenantId !== req.user?.uid) return sendApiError(res, 403, 'Seul le locataire peut terminer ce séjour');
+      if (booking.status === 'COMPLETED' && booking.completedAt) return res.json({ completedAt: booking.completedAt });
+      if (booking.status !== 'CONFIRMED') return sendApiError(res, 409, 'Seul un séjour confirmé peut être terminé');
+      const reportId = typeof booking.checkOutReportId === 'string' ? booking.checkOutReportId : '';
+      if (!reportId || (req.body?.checkOutReportId && req.body.checkOutReportId !== reportId)) {
+        return sendApiError(res, 409, 'Terminez d’abord l’état des lieux de sortie');
+      }
+      const reportSnap = await adminDb.collection('inventory').doc(reportId).get();
+      const report = reportSnap.data();
+      if (!reportSnap.exists || report?.bookingId !== bookingId || report?.tenantId !== req.user.uid || report?.type !== 'OUT') {
+        return sendApiError(res, 409, 'L’état des lieux de sortie doit être validé avant de terminer le séjour');
+      }
+      const completedAt = new Date().toISOString();
+      await adminDb.runTransaction(async transaction => {
+        const current = await transaction.get(bookingRef);
+        if (!current.exists || current.data()?.tenantId !== req.user?.uid) throw new Error('Réservation introuvable ou accès refusé');
+        if (current.data()?.status === 'COMPLETED' && current.data()?.completedAt) return;
+        if (current.data()?.status !== 'CONFIRMED' || current.data()?.checkOutReportId !== reportId) throw new Error('Le séjour ne peut plus être terminé');
+        transaction.update(bookingRef, { status: 'COMPLETED', completedAt });
+      });
+      const refreshed = await bookingRef.get();
+      return res.json({ completedAt: refreshed.data()?.completedAt || completedAt });
+    } catch (error) {
+      console.error('Booking completion failed', error);
+      return sendApiError(res, 500, 'Impossible de terminer le séjour');
+    }
+  });
+
+  app.post('/api/bookings/:bookingId/review', sensitiveApiLimiter, requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      const bookingId = String(req.params.bookingId);
+      const bookingRef = adminDb.collection('bookings').doc(bookingId);
+      const reviewRef = adminDb.collection('reviews').doc(reviewIdForBooking(bookingId));
+      const rating = req.body?.rating;
+      const comment = typeof req.body?.comment === 'string' ? req.body.comment.trim() : '';
+      if (!Number.isInteger(rating) || rating < 1 || rating > 5 || comment.length > 2000) {
+        return sendApiError(res, 422, 'La note ou le commentaire est invalide');
+      }
+      const [bookingSnap, tenantSnap] = await Promise.all([
+        bookingRef.get(), adminDb.collection('users').doc(req.user!.uid).get()
+      ]);
+      if (!bookingSnap.exists) return sendApiError(res, 404, 'Réservation introuvable');
+      const booking = bookingSnap.data()!;
+      if (booking.tenantId !== req.user?.uid) return sendApiError(res, 403, 'Seul le locataire peut noter ce séjour');
+      if (booking.status !== 'COMPLETED' || !booking.completedAt) return sendApiError(res, 409, 'Le séjour doit être terminé avant de pouvoir être noté');
+      if (!isStayReviewWindowOpen(booking.completedAt, booking.endDate)) return sendApiError(res, 409, 'Le délai de 7 jours pour noter ce séjour est écoulé');
+
+      const createdAt = new Date().toISOString();
+      const tenant = tenantSnap.data() || {};
+      const listingRef = adminDb.collection('listings').doc(booking.listingId);
+      await adminDb.runTransaction(async transaction => {
+        const [currentBooking, existingReview, listingSnap] = await Promise.all([
+          transaction.get(bookingRef), transaction.get(reviewRef), transaction.get(listingRef)
+        ]);
+        if (!currentBooking.exists || currentBooking.data()?.tenantId !== req.user?.uid || currentBooking.data()?.status !== 'COMPLETED') {
+          throw new Error('Séjour non admissible');
+        }
+        const current = currentBooking.data()!;
+        if (!isStayReviewWindowOpen(current.completedAt, current.endDate)) throw new Error('Délai de notation écoulé');
+        if (existingReview.exists) throw new Error('Un avis définitif existe déjà pour ce séjour');
+        const previousCount = Number(listingSnap.data()?.reviewsCount) || 0;
+        const previousAverage = Number(listingSnap.data()?.rating) || 0;
+        const newCount = previousCount + 1;
+        transaction.create(reviewRef, {
+          id: reviewRef.id,
+          bookingId,
+          authorId: req.user!.uid,
+          authorName: [tenant.firstName, tenant.lastName?.[0] ? `${tenant.lastName[0]}.` : ''].filter(Boolean).join(' ') || 'Locataire',
+          authorAvatarUrl: tenant.avatarUrl || '',
+          targetId: current.listingId,
+          targetType: 'LISTING',
+          rating,
+          comment,
+          isAutomatic: false,
+          createdAt,
+        });
+        if (listingSnap.exists) transaction.update(listingRef, {
+          rating: Number(((previousAverage * previousCount + rating) / newCount).toFixed(1)),
+          reviewsCount: newCount,
+        });
+      });
+      return res.status(201).json({ id: reviewRef.id, bookingId, rating, comment, createdAt, isAutomatic: false });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : '';
+      if (message.includes('définitif') || message.includes('écoulé') || message.includes('admissible')) return sendApiError(res, 409, message);
+      console.error('Stay review creation failed', error);
+      return sendApiError(res, 500, 'Impossible d’enregistrer cet avis');
+    }
+  });
+
+  app.post('/api/reviews/finalize-expired', sensitiveApiLimiter, requireAuth, async (_req: AuthenticatedRequest, res) => {
+    try {
+      await finalizeExpiredStayReviews();
+      return res.json({ finalized: true });
+    } catch (error) {
+      console.error('Expired stay reviews finalization failed', error);
+      return sendApiError(res, 500, 'Impossible de finaliser les avis arrivés à échéance');
+    }
   });
 
   // Administrative accounts are managed server-side so that elevation,
@@ -294,11 +535,19 @@ async function startServer() {
         );
 
       const uniqueTenantIds = [...new Set(candidates.map(booking => String(booking.tenantId)))];
-      const profiles = await Promise.all(uniqueTenantIds.map(async tenantId => {
-        const profile = await adminDb.collection("users").doc(tenantId).get();
-        return profile.exists ? profile.data() : undefined;
+      const profiles = await Promise.all(uniqueTenantIds.map(async (tenantId): Promise<Record<string, any> | null> => {
+        // A stale or malformed profile must not make the whole listing page fail.
+        if (!/^[a-zA-Z0-9_-]{1,128}$/.test(tenantId)) return null;
+        try {
+          const snapshot = await adminDb.collection("users").doc(tenantId).get();
+          return snapshot.exists ? { ...snapshot.data(), id: tenantId } : null;
+        } catch (error) {
+          console.warn("Skipping unavailable housemate profile", tenantId, error);
+          return null;
+        }
       }));
-      const profilesById = new Map(profiles.filter(Boolean).map(profile => [String(profile!.id), profile!]));
+      const profilesById = new Map<string, Record<string, any>>(profiles.filter((profile): profile is Record<string, any> => Boolean(profile))
+        .map(profile => [profile.id, profile]));
 
       const ageOf = (birthDate: unknown) => {
         if (typeof birthDate !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(birthDate)) return undefined;
@@ -354,6 +603,93 @@ async function startServer() {
     }
   });
 
+  // Complete email ownership verification only after the one-time code was
+  // validated. The ticket is short-lived and tied to the authenticated email.
+  app.post("/api/users/me/confirm-email", sensitiveApiLimiter, requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      const email = normalizeEmail(req.user?.email);
+      const expiresAt = verifiedEmailTickets.get(email) || 0;
+      if (!email || expiresAt < Date.now()) return sendApiError(res, 400, "Le code de validation a expiré. Recommencez la validation de l’adresse e-mail.");
+      const authUser = await adminAuth.getUser(req.user!.uid);
+      if (normalizeEmail(authUser.email) !== email) return sendApiError(res, 403, "L’adresse e-mail du compte ne correspond pas à celle vérifiée.");
+      await adminAuth.updateUser(req.user!.uid, { emailVerified: true });
+      const userRef = adminDb.collection("users").doc(req.user!.uid);
+      const userSnap = await userRef.get();
+      if (!userSnap.exists) return sendApiError(res, 404, "Profil introuvable");
+      const profile = userSnap.data()!;
+      const emailVerifiedAt = new Date().toISOString();
+      await userRef.update({
+        emailVerified: true,
+        emailVerifiedAt,
+        isVerified: profile.phoneVerified === true && profile.identityVerified === true
+      });
+      verifiedEmailTickets.delete(email);
+      return res.json({ emailVerified: true, emailVerifiedAt });
+    } catch (error) {
+      console.error("Email verification completion failed", error);
+      return sendApiError(res, 500, "Impossible de confirmer l’adresse e-mail pour le moment.");
+    }
+  });
+
+  // Firebase Phone Auth links the SMS-verified number to the signed-in
+  // account. The server independently checks that Firebase holds that number.
+  app.post("/api/users/me/confirm-phone", sensitiveApiLimiter, requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      const [authUser, userSnap] = await Promise.all([
+        adminAuth.getUser(req.user!.uid),
+        adminDb.collection("users").doc(req.user!.uid).get()
+      ]);
+      if (!userSnap.exists) return sendApiError(res, 404, "Profil introuvable");
+      const profile = userSnap.data()!;
+      const normalizePhone = (value: unknown) => typeof value === "string" ? value.replace(/[\\s().-]/g, "") : "";
+      if (!authUser.phoneNumber || normalizePhone(authUser.phoneNumber) !== normalizePhone(profile.phone)) {
+        return sendApiError(res, 403, "Le numéro confirmé ne correspond pas au numéro du profil.");
+      }
+      const phoneVerifiedAt = new Date().toISOString();
+      await userSnap.ref.update({
+        phoneVerified: true,
+        phoneVerifiedAt,
+        isVerified: profile.emailVerified === true && profile.identityVerified === true
+      });
+      return res.json({ phoneVerified: true, phoneVerifiedAt });
+    } catch (error) {
+      console.error("Phone verification completion failed", error);
+      return sendApiError(res, 500, "Impossible de confirmer le numéro de téléphone pour le moment.");
+    }
+  });
+
+  // Uploading or replacing an identity document always returns the account to
+  // manual review. A previously approved account must not stay approved after
+  // the evidence supporting that decision changes.
+  app.post("/api/users/me/identity-document", sensitiveApiLimiter, requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      const dataUrl = typeof req.body?.documentDataUrl === "string" ? req.body.documentDataUrl : "";
+      if (!/^data:(image\/(jpeg|png)|application\/pdf);base64,[A-Za-z0-9+/=]+$/.test(dataUrl)) {
+        return sendApiError(res, 422, "Le fichier de pièce d’identité est invalide");
+      }
+      if (Buffer.byteLength(dataUrl, "utf8") > 850 * 1024) {
+        return sendApiError(res, 413, "Le fichier optimisé dépasse la taille autorisée");
+      }
+      const userRef = adminDb.collection("users").doc(req.user!.uid);
+      const userSnap = await userRef.get();
+      if (!userSnap.exists) return sendApiError(res, 404, "Profil introuvable");
+      if (userSnap.data()?.role === "ADMIN") return sendApiError(res, 403, "Un compte administrateur ne peut pas transmettre de dossier de membre");
+
+      await userRef.update({
+        "documents.idCard": dataUrl,
+        status: "PENDING",
+        identityVerified: false,
+        isVerified: false,
+        idVerifiedAt: null,
+        rejectionReason: null
+      });
+      return res.json({ status: "PENDING", identityVerified: false });
+    } catch (error) {
+      console.error("Identity document upload failed", error);
+      return sendApiError(res, 500, "Impossible d’enregistrer la pièce d’identité");
+    }
+  });
+
   // Submitting a dossier only queues it for review. Approval remains an
   // explicit back-office action and cannot be granted by a browser client.
   app.post("/api/users/me/submit-verification", sensitiveApiLimiter, requireAuth, async (req: AuthenticatedRequest, res) => {
@@ -367,11 +703,16 @@ async function startServer() {
       if (!userSnap.exists) return sendApiError(res, 404, "Profil introuvable");
 
       const documents = userSnap.data()?.documents || {};
-      const requiredDocuments = role === "OWNER"
-        ? ["idCard", "proofOfOwnership"]
-        : ["idCard", "proofOfAddress"];
+      const profile = userSnap.data()!;
+      if (profile.emailVerified !== true || profile.phoneVerified !== true) {
+        return sendApiError(res, 422, "Confirmez votre adresse e-mail et votre numéro de téléphone avant d’envoyer le dossier.");
+      }
+      if (![profile.firstName, profile.lastName, profile.birthDate, profile.phone].every(value => typeof value === "string" && value.trim())) {
+        return sendApiError(res, 422, "Complétez votre prénom, votre nom, votre date de naissance et votre téléphone avant d’envoyer le dossier.");
+      }
+      const requiredDocuments = ["idCard"];
       const missing = requiredDocuments.some(key => typeof documents[key] !== "string" || documents[key].length === 0);
-      if (missing) return sendApiError(res, 422, "Tous les justificatifs requis doivent être transmis");
+      if (missing) return sendApiError(res, 422, "La pièce d’identité doit être transmise");
 
       await userRef.update({ status: "PENDING", rejectionReason: null });
       return res.json({ status: "PENDING" });
@@ -452,6 +793,7 @@ async function startServer() {
     const candidate = hashCode(email, code);
     if (!timingSafeEqual(candidate, entry.hash)) return res.status(400).json({ error: "Code invalide ou expiré" });
     verificationCodes.delete(email);
+    verifiedEmailTickets.set(email, Date.now() + 10 * 60_000);
     return res.json({ success: true });
   });
 
@@ -620,6 +962,10 @@ async function startServer() {
                 <tr>
                   <td style="padding: 6px 0; color: #64748b; font-weight: 500;">Période :</td>
                   <td style="padding: 6px 0; text-align: right; color: #0f172a; font-weight: bold;">${startDate} au ${endDate}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 6px 0; color: #64748b; font-weight: 500;">Arrivée / départ :</td>
+                  <td style="padding: 6px 0; text-align: right; color: #0f172a; font-weight: bold;">à partir de ${booking.checkInTime || '15:00'} / avant ${booking.checkOutTime || '11:00'}</td>
                 </tr>
                 <tr>
                   <td style="padding: 6px 0; color: #64748b; font-weight: 500;">Tarif total :</td>
@@ -910,6 +1256,12 @@ async function startServer() {
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on http://0.0.0.0:${PORT}`);
   });
+
+  // Run a catch-up sweep at startup and hourly. The authenticated history read
+  // also triggers the same idempotent sweep so downtime never loses a rating.
+  void finalizeExpiredStayReviews();
+  const reviewSweep = setInterval(() => void finalizeExpiredStayReviews(), 60 * 60 * 1000);
+  reviewSweep.unref();
 
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {

@@ -118,8 +118,8 @@ export const OwnerDashboard: React.FC = () => {
   const [bookingSubTab, setBookingSubTab] = useState<'UPCOMING' | 'CURRENT' | 'PAST'>('UPCOMING');
 
   const ownerListings = listings.filter(l => l.ownerId === currentUser?.id);
-  const isApproved = currentUser?.status === 'APPROVED' || currentUser?.role === UserRole.ADMIN;
-  const hasOwnerDocuments = Boolean(currentUser?.documents?.idCard && currentUser?.documents?.proofOfOwnership);
+  const isApproved = (currentUser?.status === 'APPROVED' && currentUser.emailVerified === true && currentUser.phoneVerified === true && currentUser.identityVerified === true) || currentUser?.role === UserRole.ADMIN;
+  const hasOwnerDocuments = Boolean(currentUser?.documents?.idCard);
   const canPublish = isApproved && hasOwnerDocuments;
 
   useEffect(() => {
@@ -702,14 +702,13 @@ export const OwnerDashboard: React.FC = () => {
             {activeTab === 'DOCUMENTS' && (() => {
               const verificationDocuments = [
                 { id: 'idCard' as const, label: 'Pièce d’identité', detail: 'Carte nationale d’identité ou passeport.', icon: ShieldCheck },
-                { id: 'proofOfOwnership' as const, label: 'Justificatif de propriété', detail: 'Taxe foncière, acte de propriété ou attestation notariale.', icon: Home },
               ];
               return (
                 <div className="space-y-8">
                   <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
                     <div>
-                      <h3 className="font-heading font-bold text-xl text-haven-navy">Mes documents de vérification</h3>
-                      <p className="mt-1 text-sm text-gray-500">Ces justificatifs sont contrôlés par HAVEN avant la publication de vos logements.</p>
+                      <h3 className="font-heading font-bold text-xl text-haven-navy">Ma pièce d’identité</h3>
+                      <p className="mt-1 text-sm text-gray-500">Elle est contrôlée par HAVEN avant la publication de vos logements.</p>
                     </div>
                     <Button variant="primary" size="sm" onClick={() => setIsVerificationModalOpen(true)} className="flex items-center gap-2">
                       <Upload size={15} /> Ajouter ou remplacer
@@ -741,7 +740,7 @@ export const OwnerDashboard: React.FC = () => {
                       );
                     })}
                   </div>
-                  {!canPublish && <div className="rounded-2xl border border-orange-100 bg-orange-50 px-5 py-4 text-sm text-orange-800">Une fois les deux documents transmis, l’équipe HAVEN les valide avant d’autoriser la mise en ligne.</div>}
+                  {!canPublish && <div className="rounded-2xl border border-orange-100 bg-orange-50 px-5 py-4 text-sm text-orange-800">Transmettez votre pièce d’identité et complétez les confirmations de votre e-mail et de votre téléphone. HAVEN examinera ensuite votre identité.</div>}
                 </div>
               );
             })()}

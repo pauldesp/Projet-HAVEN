@@ -13,6 +13,7 @@ interface ReviewModalProps {
   targetId: string;
   targetName: string;
   targetType: 'LISTING' | 'USER';
+  bookingId: string;
   onComplete?: () => void;
 }
 
@@ -22,6 +23,7 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({
   targetId, 
   targetName, 
   targetType,
+  bookingId,
   onComplete 
 }) => {
   const { currentUser } = useAuth();
@@ -35,25 +37,7 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({
     if (!currentUser) return;
     setIsSubmitting(true);
     try {
-      const reviewData = {
-        id: `rev-${Date.now()}`,
-        authorId: currentUser.id,
-        targetId,
-        targetType,
-        rating,
-        comment,
-        createdAt: new Date().toISOString(),
-        authorName: `${currentUser.firstName} ${currentUser.lastName.charAt(0)}.`,
-        authorAvatarUrl: currentUser.avatarUrl
-      };
-      
-      // API call
-      await apiService.reviews.create(reviewData);
-      
-      // If it's a listing review, update the listing's average rating
-      if (targetType === 'LISTING') {
-        await apiService.listings.submitReview(targetId, rating);
-      }
+      await apiService.reviews.create({ bookingId, targetId, targetType, rating, comment });
       
       if (onComplete) onComplete();
       onClose();
@@ -114,7 +98,7 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({
               fullWidth 
               size="lg" 
               onClick={handleSubmit} 
-              disabled={!comment || isSubmitting}
+              disabled={isSubmitting}
             >
               {isSubmitting ? <><Loader2 className="animate-spin mr-2"/> Envoi...</> : "Publier mon avis"}
             </Button>

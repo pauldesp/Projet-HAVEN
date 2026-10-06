@@ -413,6 +413,21 @@ export const AdminDashboard: React.FC = () => {
   };
 
   const handleUpdateUserStatus = async (id: string, newStatus: UserStatus, reason?: string) => {
+    if (newStatus === 'APPROVED') {
+      const candidate = users.find(user => user.id === id) || (userDetailModal.user?.id === id ? userDetailModal.user : null);
+      if (!candidate) {
+        setError('Impossible de vérifier les critères du compte. Rechargez la liste des utilisateurs avant de l’approuver.');
+        return;
+      }
+      const complete = candidate && candidate.role !== UserRole.ADMIN &&
+        Boolean(candidate.firstName?.trim() && candidate.lastName?.trim() && candidate.birthDate && candidate.phone) &&
+        candidate.emailVerified === true && candidate.phoneVerified === true && candidate.identityVerified === true &&
+        Boolean(candidate.documents?.idCard);
+      if (candidate && candidate.role !== UserRole.ADMIN && !complete) {
+        setError('Le compte ne peut pas être approuvé : e-mail et téléphone confirmés, identité examinée et pièce d’identité transmise sont requis.');
+        return;
+      }
+    }
     setProcessingId(id);
     setError(null);
     try {
@@ -439,6 +454,30 @@ export const AdminDashboard: React.FC = () => {
       if (rejectionModal.isOpen) {
         setRejectionModal(prev => ({ ...prev, error: msg }));
       }
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  const handleVerifyUserIdentity = async (user: User) => {
+    if (!user.documents?.idCard || user.emailVerified !== true || user.phoneVerified !== true || !user.birthDate || !user.firstName || !user.lastName) {
+      setError('Avant de valider l’identité, confirmez l’e-mail et le téléphone, vérifiez la pièce d’identité et complétez les informations personnelles.');
+      return;
+    }
+    setProcessingId(user.id);
+    setError(null);
+    try {
+      await apiService.users.verifyIdentity(user.id);
+      await recordAdminAction({
+        action: 'USER_IDENTITY_VERIFIED', category: 'ACCOUNT', targetType: 'USER', targetId: user.id,
+        summary: `Identité vérifiée après examen de la pièce d’identité de ${user.firstName} ${user.lastName}.`
+      });
+      const updated = { ...user, identityVerified: true, isVerified: true, idVerifiedAt: new Date().toISOString() };
+      setUsers(prev => prev.map(item => item.id === user.id ? updated : item));
+      setUserDetailModal(prev => prev.user?.id === user.id ? { ...prev, user: updated } : prev);
+    } catch (e) {
+      console.error('Identity verification failed', e);
+      setError('Impossible d’enregistrer la validation de l’identité. Vérifiez vos autorisations.');
     } finally {
       setProcessingId(null);
     }
@@ -629,6 +668,13 @@ export const AdminDashboard: React.FC = () => {
       </div>
     );
   }
+
+  const detailUser = userDetailModal.user;
+  const canApproveDetailUser = detailUser?.role === UserRole.ADMIN || Boolean(
+    detailUser && detailUser.emailVerified === true && detailUser.phoneVerified === true &&
+    detailUser.firstName?.trim() && detailUser.lastName?.trim() && detailUser.birthDate && detailUser.phone &&
+    detailUser.identityVerified === true && detailUser.documents?.idCard
+  );
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
@@ -2053,11 +2099,16 @@ export const AdminDashboard: React.FC = () => {
                           <Button 
                             className="bg-green-600 hover:bg-green-700 text-white text-xs py-2"
                             onClick={() => handleUpdateUserStatus(userDetailModal.user!.id, 'APPROVED')}
-                            disabled={processingId === userDetailModal.user.id}
+                            disabled={processingId === userDetailModal.user.id || !canApproveDetailUser}
                           >
                             {processingId === userDetailModal.user.id ? <Loader2 className="animate-spin" size={14}/> : <UserCheck size={14} className="mr-2"/>}
                             Approuver
                           </Button>
+                        )}
+                        {!canApproveDetailUser && userDetailModal.user.role !== UserRole.ADMIN && (
+                          <p className="text-xs leading-relaxed text-amber-700 bg-amber-50 rounded-xl p-3">
+                            Pour approuver : e-mail et téléphone confirmés, identité examinée et pièce d’identité transmise.
+                          </p>
                         )}
                         {(userDetailModal.user.status || 'PENDING') !== 'REJECTED' && (
                           <Button 
@@ -2073,7 +2124,7 @@ export const AdminDashboard: React.FC = () => {
                     </div>
 
                     <div className="md:col-span-2 space-y-6">
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-2 xl:grid-cols-3 gap-4">
                         <div className="p-4 bg-white border border-gray-100 rounded-2xl">
                           <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-1">Membre depuis</span>
                           <span className="font-bold text-haven-navy">
@@ -2081,10 +2132,38 @@ export const AdminDashboard: React.FC = () => {
                           </span>
                         </div>
                         <div className="p-4 bg-white border border-gray-100 rounded-2xl">
-                          <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-1">Vérifié</span>
-                          <span className={`font-bold ${userDetailModal.user.isVerified ? 'text-green-600' : 'text-amber-600'}`}>
-                            {userDetailModal.user.isVerified ? 'OUI' : 'NON'}
+                          <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-1">Date de naissance</span>
+                          <span className="font-bold text-haven-navy">
+                            {userDetailModal.user.birthDate ? new Date(`${userDetailModal.user.birthDate}T00:00:00`).toLocaleDateString('fr-FR') : 'Non renseignée'}
                           </span>
+                        </div>
+                        <div className="p-4 bg-white border border-gray-100 rounded-2xl">
+                          <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-1">Adresse e-mail</span>
+                          <span className="font-bold text-haven-navy break-all">{userDetailModal.user.email || 'Non renseignée'}</span>
+                          <span className={`block mt-1 text-xs font-bold ${userDetailModal.user.emailVerified ? 'text-green-600' : 'text-amber-600'}`}>
+                            {userDetailModal.user.emailVerified ? 'Confirmée' : 'À confirmer'}
+                          </span>
+                        </div>
+                        <div className="p-4 bg-white border border-gray-100 rounded-2xl">
+                          <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-1">Téléphone</span>
+                          <span className="font-bold text-haven-navy">{userDetailModal.user.phone || 'Non renseigné'}</span>
+                          <span className={`block mt-1 text-xs font-bold ${userDetailModal.user.phoneVerified ? 'text-green-600' : 'text-amber-600'}`}>
+                            {userDetailModal.user.phoneVerified ? 'Confirmé par SMS' : 'Non confirmé'}
+                          </span>
+                        </div>
+                        <div className="p-4 bg-white border border-gray-100 rounded-2xl xl:col-span-2">
+                          <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-1">Vérification d’identité</span>
+                          <div className="flex flex-wrap items-center justify-between gap-3">
+                            <span className={`font-bold ${userDetailModal.user.identityVerified ? 'text-green-600' : 'text-amber-600'}`}>
+                              {userDetailModal.user.identityVerified ? `Validée${userDetailModal.user.idVerifiedAt ? ` le ${new Date(userDetailModal.user.idVerifiedAt).toLocaleDateString('fr-FR')}` : ''}` : 'En attente de contrôle'}
+                            </span>
+                            {!userDetailModal.user.identityVerified && userDetailModal.user.role !== UserRole.ADMIN && (
+                              <Button size="sm" variant="outline" disabled={processingId === userDetailModal.user.id || !userDetailModal.user.documents?.idCard || !userDetailModal.user.emailVerified || !userDetailModal.user.phoneVerified || !userDetailModal.user.birthDate || !userDetailModal.user.firstName || !userDetailModal.user.lastName} onClick={() => void handleVerifyUserIdentity(userDetailModal.user!)}>
+                                <UserCheck size={14} className="mr-2"/> Valider l’identité
+                              </Button>
+                            )}
+                          </div>
+                          <p className="mt-2 text-xs text-gray-500">Comparez le nom et la date de naissance du profil avec la pièce d’identité avant validation.</p>
                         </div>
                       </div>
                       <div className="p-6 bg-white border border-gray-100 rounded-2xl">
@@ -2099,15 +2178,11 @@ export const AdminDashboard: React.FC = () => {
                   {/* Documents Section */}
                   <div className="space-y-4">
                     <h4 className="font-heading font-bold text-xl text-haven-navy flex items-center gap-2">
-                      <Shield size={20} className="text-haven-red" /> Documents justificatifs
+                      <Shield size={20} className="text-haven-red" /> Pièce d’identité
                     </h4>
                     <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">
                       {[
                         { key: 'idCard', label: 'Pièce d\'identité' },
-                        { key: 'proofOfAddress', label: 'Justificatif domicile' },
-                        { key: 'proofOfOwnership', label: 'Justificatif propriété' },
-                        { key: 'proofOfIncome', label: 'Justificatif revenus' },
-                        { key: 'studentCard', label: 'Carte étudiant' }
                       ].map(doc => {
                         const url = userDetailModal.user?.documents?.[doc.key as keyof typeof userDetailModal.user.documents];
                         return (

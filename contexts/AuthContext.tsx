@@ -57,7 +57,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       role: UserRole.TENANT,
       status: 'PENDING',
       avatarUrl: firebaseUser.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(firebaseUser.displayName || 'Utilisateur')}&background=1E293B&color=fff`,
-      isVerified: true,
+      phone: firebaseUser.phoneNumber || undefined,
+      emailVerified: firebaseUser.emailVerified,
+      phoneVerified: Boolean(firebaseUser.phoneNumber),
+      identityVerified: false,
+      isVerified: false,
       createdAt: new Date().toISOString(),
     };
     await setDoc(doc(db, 'users', firebaseUser.uid), newUser);

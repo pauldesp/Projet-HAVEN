@@ -24,8 +24,10 @@ import { UserRole, User, LegalDocument } from '../types';
 import { apiService } from '../services/api';
 import { userFacingErrorMessage } from '../services/errorHandling';
 import ReactMarkdown from 'react-markdown';
+import { RecaptchaVerifier, linkWithPhoneNumber, type ConfirmationResult } from 'firebase/auth';
+import { auth } from '../firebase';
 
-type AuthStep = 'IDENTIFIER' | 'LOGIN' | 'VERIFY' | 'PROFILE' | 'LEGAL' | 'FORGOT_PASSWORD' | 'FORGOT_PASSWORD_SUCCESS';
+type AuthStep = 'IDENTIFIER' | 'LOGIN' | 'VERIFY' | 'PROFILE' | 'LEGAL' | 'PHONE_VERIFY' | 'FORGOT_PASSWORD' | 'FORGOT_PASSWORD_SUCCESS';
 
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
@@ -41,6 +43,12 @@ export const LoginPage: React.FC = () => {
   const [identifier, setIdentifier] = useState(''); // Email or Phone
   const [password, setPassword] = useState('');
   const [verificationCode, setVerificationCode] = useState('');
+  const [phoneVerificationCode, setPhoneVerificationCode] = useState('');
+  const [phoneConfirmation, setPhoneConfirmation] = useState<ConfirmationResult | null>(null);
+  const [registrationUserCreated, setRegistrationUserCreated] = useState(false);
+  const [registrationEmailConfirmed, setRegistrationEmailConfirmed] = useState(false);
+  const [registrationVerificationPending, setRegistrationVerificationPending] = useState(false);
+  const recaptchaVerifier = useRef<RecaptchaVerifier | null>(null);
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [birthDate, setBirthDate] = useState('');
@@ -58,7 +66,7 @@ export const LoginPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    if (currentUser) {
+    if (currentUser && !registrationVerificationPending) {
       if (redirectPath) {
         navigate(redirectPath);
       } else {
@@ -67,7 +75,9 @@ export const LoginPage: React.FC = () => {
         navigate(path);
       }
     }
-  }, [currentUser, navigate, redirectPath]);
+  }, [currentUser, navigate, redirectPath, registrationVerificationPending]);
+
+  useEffect(() => () => recaptchaVerifier.current?.clear(), []);
 
   useEffect(() => {
     if (authError) setError(userFacingErrorMessage(authError));
@@ -163,7 +173,55 @@ export const LoginPage: React.FC = () => {
 
   const handleProfileSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!identifier.includes('@')) {
+      setError('L’inscription nécessite une adresse e-mail.');
+      return;
+    }
+    if (!/^\+?[1-9]\d{7,14}$/.test(normalizePhone(otherContact))) {
+      setError('Saisissez un numéro de téléphone valide avec son indicatif, par exemple +33 6 12 34 56 78.');
+      return;
+    }
+    setError('');
     setStep('LEGAL');
+  };
+
+  const normalizePhone = (value: string) => {
+    const compact = value.trim().replace(/[\\s().-]/g, '');
+    if (compact.startsWith('+')) return compact;
+    if (compact.startsWith('00')) return `+${compact.slice(2)}`;
+    if (compact.startsWith('0')) return `+33${compact.slice(1)}`;
+    return `+${compact}`;
+  };
+
+  const startPhoneVerification = async () => {
+    const signedInUser = auth.currentUser;
+    if (!signedInUser) throw new Error('Connectez-vous de nouveau pour confirmer votre numéro.');
+    recaptchaVerifier.current?.clear();
+    setStep('PHONE_VERIFY');
+    recaptchaVerifier.current = new RecaptchaVerifier(auth, 'registration-recaptcha', { size: 'invisible' });
+    const result = await linkWithPhoneNumber(signedInUser, normalizePhone(otherContact), recaptchaVerifier.current);
+    setPhoneConfirmation(result);
+    setStep('PHONE_VERIFY');
+  };
+
+  const handlePhoneVerification = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!phoneConfirmation) {
+      setError('Demandez un nouveau code SMS pour continuer.');
+      return;
+    }
+    setIsLoading(true);
+    setError('');
+    try {
+      await phoneConfirmation.confirm(phoneVerificationCode.trim());
+      await apiService.users.confirmPhone();
+      recaptchaVerifier.current?.clear();
+      setRegistrationVerificationPending(false);
+    } catch (err: unknown) {
+      setError(userFacingErrorMessage(err));
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const openLegalModal = async () => {
@@ -203,20 +261,35 @@ export const LoginPage: React.FC = () => {
         firstName,
         lastName,
         email: isEmail ? identifier : otherContact,
-        phone: isEmail ? otherContact : identifier,
+        phone: normalizePhone(otherContact),
         birthDate,
         marketingOptIn,
         legalAccepted: true,
         role: initialRole,
         avatarUrl: `https://ui-avatars.com/api/?name=${firstName}+${lastName}&background=1E293B&color=fff`,
-        isVerified: true,
-        status: 'APPROVED'
+        isVerified: false,
+        emailVerified: false,
+        phoneVerified: false,
+        identityVerified: false,
+        status: 'PENDING'
       };
-      // Use the password set in the PROFILE step
-      const success = await register(newUser, password); 
-      if (!success) {
-        setError('Erreur lors de la création du compte.');
+      setRegistrationVerificationPending(true);
+      if (!registrationUserCreated) {
+        // Use the password set in the PROFILE step. New profiles stay pending
+        // until the user proves their email, phone and identity.
+        const success = await register(newUser, password);
+        if (!success) {
+          setRegistrationVerificationPending(false);
+          setError('Erreur lors de la création du compte.');
+          return;
+        }
+        setRegistrationUserCreated(true);
       }
+      if (!registrationEmailConfirmed) {
+        await apiService.users.confirmEmail();
+        setRegistrationEmailConfirmed(true);
+      }
+      await startPhoneVerification();
     } catch (err: any) {
       console.error("Register catch", err);
       const errorCode = err.code || (err.error && err.error.code);
@@ -224,11 +297,13 @@ export const LoginPage: React.FC = () => {
 
       if (errorCode === 'auth/email-already-in-use' || errorMessage.includes('email-already-in-use')) {
         setError("Un compte existe déjà avec cette adresse e-mail. Veuillez vous connecter à l'aide de votre mot de passe.");
+        setRegistrationVerificationPending(false);
         setStep('LOGIN');
       } else if (errorCode === 'auth/weak-password' || errorMessage.includes('weak-password')) {
         setError('Le mot de passe est trop faible. Veuillez utiliser au moins 6 caractères.');
       } else {
         setError(userFacingErrorMessage(err));
+        if (!registrationUserCreated) setRegistrationVerificationPending(false);
       }
     } finally {
       setIsLoading(false);
@@ -469,6 +544,29 @@ export const LoginPage: React.FC = () => {
           </div>
         );
 
+      case 'PHONE_VERIFY':
+        return (
+          <form onSubmit={handlePhoneVerification} className="space-y-6">
+            <div className="text-center space-y-2">
+              <div className="w-16 h-16 bg-green-50 rounded-2xl flex items-center justify-center text-green-600 mx-auto"><Phone size={30} /></div>
+              <h3 className="text-xl font-heading font-bold text-haven-navy">Confirmez votre téléphone</h3>
+              <p className="text-sm text-haven-stone">Saisissez le code envoyé par SMS au <strong>{normalizePhone(otherContact)}</strong>.</p>
+            </div>
+            <input
+              type="text" inputMode="numeric" autoComplete="one-time-code" required
+              value={phoneVerificationCode} onChange={(e) => setPhoneVerificationCode(e.target.value.replace(/\\D/g, '').slice(0, 6))}
+              placeholder="Code à 6 chiffres" maxLength={6}
+              className="w-full px-4 py-4 bg-gray-50 rounded-2xl border border-gray-100 outline-none focus:border-haven-navy text-center text-2xl tracking-[0.5em] font-bold"
+            />
+            <Button type="submit" fullWidth size="lg" disabled={isLoading || phoneVerificationCode.length < 6}>
+              {isLoading ? <Loader2 className="animate-spin" /> : 'Confirmer mon numéro'}
+            </Button>
+            <button type="button" disabled={isLoading} onClick={() => { void startPhoneVerification().catch((err: unknown) => setError(userFacingErrorMessage(err))); }} className="w-full text-center text-sm font-bold text-haven-red disabled:opacity-50">
+              Renvoyer un code SMS
+            </button>
+          </form>
+        );
+
       case 'FORGOT_PASSWORD':
         return (
           <div className="space-y-6">
@@ -594,6 +692,7 @@ export const LoginPage: React.FC = () => {
         </button>
 
         <div className="w-full max-w-md animate-fade-in-up py-12 -translate-y-10 lg:-translate-y-48">
+          <div id="registration-recaptcha" aria-hidden="true" />
           <div className="bg-white rounded-3xl shadow-premium border border-gray-100 overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-center relative">
               <button 

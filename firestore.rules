@@ -54,11 +54,18 @@ service cloud.firestore {
     }
 
     function isTenantVerified() {
-      return isApproved() && hasVerificationDocument('idCard') && hasVerificationDocument('proofOfAddress');
+      return isAdmin() || (isApproved() && hasAccountChecks() && hasVerificationDocument('idCard'));
     }
 
     function isOwnerVerified() {
-      return isApproved() && hasVerificationDocument('idCard') && hasVerificationDocument('proofOfOwnership');
+      return isAdmin() || (isApproved() && hasAccountChecks() && hasVerificationDocument('idCard'));
+    }
+
+    function hasAccountChecks() {
+      return exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('emailVerified', false) == true &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('phoneVerified', false) == true &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('identityVerified', false) == true;
     }
 
     // ===============================================================
@@ -89,7 +96,11 @@ service cloud.firestore {
       return data.id == userId &&
              data.role == 'TENANT' &&
              data.status == 'PENDING' &&
-             data.email == request.auth.token.email;
+             data.email == request.auth.token.email &&
+             data.get('emailVerified', false) == false &&
+             data.get('phoneVerified', false) == false &&
+             data.get('identityVerified', false) == false &&
+             data.get('isVerified', false) == false;
     }
 
     function isSafeMemberRole(role) {
@@ -274,7 +285,10 @@ service cloud.firestore {
           incoming().email == existing().email &&
           incoming().status == existing().status &&
           isSafeMemberRole(incoming().role) &&
-          incoming().diff(existing()).affectedKeys().hasOnly(['firstName', 'lastName', 'avatarUrl', 'bio', 'school', 'favorites', 'documents', 'city', 'job', 'phone', 'role', 'shareProfileWithHousemates'])
+          incoming().diff(existing()).affectedKeys().hasOnly(['firstName', 'lastName', 'birthDate', 'avatarUrl', 'bio', 'school', 'favorites', 'documents', 'city', 'job', 'phone', 'role', 'shareProfileWithHousemates']) &&
+          (!existing().get('identityVerified', false) || incoming().diff(existing()).affectedKeys().hasNone(['firstName', 'lastName', 'birthDate'])) &&
+          (!existing().get('phoneVerified', false) || incoming().phone == existing().phone) &&
+          (!existing().get('identityVerified', false) || incoming().get('documents', {}).get('idCard', '') == existing().get('documents', {}).get('idCard', ''))
         )
       );
     }
@@ -377,8 +391,9 @@ service cloud.firestore {
 
     match /reviews/{reviewId} {
       allow read: if true;
-      allow create: if (isSignedIn() || isAdmin()) && isValidReview(incoming()) && (incoming().authorId == request.auth.uid || isAdmin());
-      allow update, delete: if isAdmin() || (isSignedIn() && existing().authorId == request.auth.uid);
+      // Reviews are created by the trusted server after validating the completed
+      // stay and its seven-day deadline. They are immutable once written.
+      allow create, update, delete: if false;
     }
 
     match /payments/{paymentId} {

@@ -44,6 +44,12 @@ export interface User {
   status?: UserStatus;
   rejectionReason?: string;
   isVerified?: boolean;
+  /** Vérifications indépendantes du compte, renseignées par des flux de confiance. */
+  emailVerified?: boolean;
+  emailVerifiedAt?: string;
+  phoneVerified?: boolean;
+  phoneVerifiedAt?: string;
+  identityVerified?: boolean;
   city?: string;
   bio?: string;
   school?: string;
@@ -153,6 +159,8 @@ export interface Booking {
   totalPrice: number; // Sum of all
   checkInReportId?: string;
   checkOutReportId?: string;
+  checkInTime?: string;
+  checkOutTime?: string;
   createdAt: string;
   listing?: {
     title: string;
@@ -163,6 +171,7 @@ export interface Booking {
   paymentStatus?: 'PENDING' | 'PAID';
   bookingMode?: 'INSTANT' | 'MANUAL';
   approvedAt?: string;
+  completedAt?: string;
   cancellation?: BookingCancellation;
 }
 
@@ -294,6 +303,7 @@ export interface Payment {
 // Type Avis / Review
 export interface Review {
   id: string;
+  bookingId?: string;
   authorId: string;
   targetId: string; // listingId or userId (roommate)
   targetType: 'LISTING' | 'USER';
@@ -302,6 +312,7 @@ export interface Review {
   createdAt: string;
   authorName?: string;
   authorAvatarUrl?: string;
+  isAutomatic?: boolean;
 }
 
 // Type Document Légal (CGR, Privacy, etc.)

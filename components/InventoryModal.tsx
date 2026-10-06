@@ -11,7 +11,6 @@ import {
   KeyRound,
   Loader2,
   Sparkles,
-  Star,
   X,
 } from 'lucide-react';
 import { Button } from './Button';
@@ -102,12 +101,6 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
   const [checkinAssessments, setCheckinAssessments] = useState<Record<CheckinArea, CheckinAssessment>>({
     ROOM: { clean: null, tidy: null, conditionOk: null, comment: '', photos: [] },
     COMMONS: { clean: null, tidy: null, conditionOk: null, comment: '', photos: [] },
-  });
-
-  const [reviews, setReviews] = useState({
-    listing: { rating: 5, comment: '' },
-    roommates: { rating: 5, comment: '' },
-    haven: { rating: 5, comment: '' },
   });
 
   useEffect(() => {
@@ -293,7 +286,6 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
           photos: checkoutPhotos,
           allPhotos: flatPhotos,
           incidentReport,
-          reviews,
           documentId,
           isEarlyDeparture: inventoryTiming.isEarlyDeparture,
           earlyDepartureReason: inventoryTiming.isEarlyDeparture ? earlyDepartureReason.trim() : undefined,
@@ -547,10 +539,8 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
                     </p>
                   </div>
 
-                  <div className="grid md:grid-cols-3 gap-4">
-                    <RatingCard title="Le logement" value={reviews.listing.rating} onChange={rating => setReviews(prev => ({ ...prev, listing: { ...prev.listing, rating } }))} />
-                    <RatingCard title="La colocation" value={reviews.roommates.rating} onChange={rating => setReviews(prev => ({ ...prev, roommates: { ...prev.roommates, rating } }))} />
-                    <RatingCard title="HAVEN" value={reviews.haven.rating} onChange={rating => setReviews(prev => ({ ...prev, haven: { ...prev.haven, rating } }))} />
+                  <div className="rounded-2xl border border-haven-red/10 bg-haven-red/[0.04] p-5 text-sm text-gray-600">
+                    Après la fin de votre séjour, vous aurez 7 jours pour noter le logement et laisser un commentaire. Une note de 5/5 sera attribuée automatiquement à l’expiration du délai si aucun avis n’est publié.
                   </div>
                 </div>
               )}
@@ -731,18 +721,5 @@ const SummaryStatus: React.FC<{ label: string; ok: boolean }> = ({ label, ok }) 
   <div className={`rounded-2xl border p-4 ${ok ? 'bg-green-50 border-green-100' : 'bg-amber-50 border-amber-100'}`}>
     <div className={`text-xs font-black uppercase tracking-wider ${ok ? 'text-green-700' : 'text-amber-700'}`}>{ok ? 'Conforme' : 'Signalement'}</div>
     <div className="font-bold text-haven-navy mt-1">{label}</div>
-  </div>
-);
-
-const RatingCard: React.FC<{ title: string; value: number; onChange: (value: number) => void }> = ({ title, value, onChange }) => (
-  <div className="rounded-2xl border border-gray-100 p-5 text-center">
-    <div className="font-bold text-haven-navy mb-3">{title}</div>
-    <div className="flex justify-center gap-1">
-      {[1, 2, 3, 4, 5].map(star => (
-        <button key={star} type="button" onClick={() => onChange(star)} className="p-0.5" aria-label={`${star} étoiles`}>
-          <Star size={22} className={star <= value ? 'fill-amber-400 text-amber-400' : 'text-gray-300'} />
-        </button>
-      ))}
-    </div>
   </div>
 );

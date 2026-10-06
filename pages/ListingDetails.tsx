@@ -44,8 +44,8 @@ export const ListingDetails: React.FC = () => {
   const [isHousematesLoading, setIsHousematesLoading] = useState(false);
   const [housematesError, setHousematesError] = useState<string | null>(null);
   
-  const isApproved = currentUser?.status === 'APPROVED' || currentUser?.role === 'ADMIN';
-  const hasTenantDocuments = Boolean(currentUser?.documents?.idCard && currentUser?.documents?.proofOfAddress);
+  const isApproved = (currentUser?.status === 'APPROVED' && currentUser.emailVerified === true && currentUser.phoneVerified === true && currentUser.identityVerified === true) || currentUser?.role === 'ADMIN';
+  const hasTenantDocuments = Boolean(currentUser?.documents?.idCard);
   const canBook = isApproved && hasTenantDocuments;
   const isListingOwner = currentUser?.id === listing?.ownerId;
   const isHost = currentUser?.role === 'OWNER';

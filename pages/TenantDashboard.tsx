@@ -40,6 +40,8 @@ import { CancellationModal } from '../components/CancellationModal';
 import { toast } from 'sonner';
 import { authenticatedFetch } from '../services/serverApi';
 import { userFacingErrorMessage } from '../services/errorHandling';
+import { stayReviewDeadline } from '../services/reviewPolicy';
+import { prepareVerificationDocument } from '../services/verificationDocument';
 import { formatScheduledMoment, getInventoryTiming } from '../services/inventoryTiming';
 
 const BookingCountdown: React.FC<{ booking: Booking }> = ({ booking }) => {
@@ -108,14 +110,15 @@ export const TenantDashboard: React.FC = () => {
   const [documents, setDocuments] = useState<AppDocument[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+  const [reviewedBookingIds, setReviewedBookingIds] = useState<Set<string>>(() => new Set());
   const [isVerificationModalOpen, setIsVerificationModalOpen] = useState(false);
   const [cancellationBooking, setCancellationBooking] = useState<Booking | null>(null);
   const [forceEarlyDepartureId, setForceEarlyDepartureId] = useState<string | null>(null);
   const [showEarlyDepartureHintId, setShowEarlyDepartureHintId] = useState<string | null>(null);
 
-  const isApproved = currentUser?.status === 'APPROVED';
-  const hasTenantDocuments = Boolean(currentUser?.documents?.idCard && currentUser?.documents?.proofOfAddress);
-  const canBook = isApproved && hasTenantDocuments;
+  const isApproved = currentUser?.status === 'APPROVED' && currentUser.emailVerified === true && currentUser.phoneVerified === true && currentUser.identityVerified === true;
+  const hasTenantDocuments = Boolean(currentUser?.documents?.idCard);
+  const canBook = currentUser?.role === UserRole.ADMIN || (isApproved && hasTenantDocuments);
 
   // Modal State
   const [inventoryState, setInventoryState] = useState<{
@@ -133,11 +136,13 @@ export const TenantDashboard: React.FC = () => {
     targetId: string;
     targetName: string;
     targetType: 'LISTING' | 'USER';
+    bookingId: string;
   }>({
     isOpen: false,
     targetId: '',
     targetName: '',
-    targetType: 'LISTING'
+    targetType: 'LISTING',
+    bookingId: ''
   });
 
   const [reportState, setReportState] = useState({
@@ -200,6 +205,8 @@ export const TenantDashboard: React.FC = () => {
       setIsLoading(true);
       try {
         const myBookings = await apiService.bookings.getByUserId(currentUser.id);
+        const myReviews = await apiService.reviews.getByAuthorId(currentUser.id);
+        setReviewedBookingIds(new Set(myReviews.map((review: any) => review.bookingId).filter(Boolean)));
         const enrichedBookings = myBookings.map(b => ({
           ...b,
           listing: allListings.find(l => l.id === b.listingId)
@@ -315,8 +322,8 @@ export const TenantDashboard: React.FC = () => {
             } : undefined,
           }),
           status: 'COMPLETED',
-          roomRating: data.reviews?.listing?.rating || 5,
-          houseRating: data.reviews?.haven?.rating || 5,
+          roomRating: 5,
+          houseRating: 5,
           cleanlinessRating: 5,
           signature: 'USER_SIGNED',
           isEarlyDeparture: Boolean(data.isEarlyDeparture),
@@ -340,25 +347,9 @@ export const TenantDashboard: React.FC = () => {
           });
         }
 
-        // 3. Create Reviews
-        if (data.reviews) {
-          await apiService.reviews.create({
-            id: `rev_l_${bookingId}`,
-            authorId: currentUser.id,
-            targetId: inventoryState.selectedBooking.listingId,
-            targetType: 'LISTING',
-            rating: data.reviews.listing.rating,
-            comment: data.reviews.listing.comment,
-            createdAt: new Date().toISOString(),
-            authorName: `${currentUser.firstName} ${currentUser.lastName[0]}.`,
-            authorAvatarUrl: currentUser.avatarUrl
-          });
-
-        }
-
         // Update Booking Status
-        await apiService.bookings.updateStatus(bookingId, 'COMPLETED');
-        setBookings(prev => prev.map(b => b.id === bookingId ? { ...b, status: 'COMPLETED' } : b));
+        const completedAt = await apiService.bookings.updateStatus(bookingId, 'COMPLETED');
+        setBookings(prev => prev.map(b => b.id === bookingId ? { ...b, status: 'COMPLETED', completedAt: typeof completedAt === 'string' ? completedAt : new Date().toISOString() } : b));
         
         // Refresh docs
         const userDocs = await apiService.documents.getByUserId(currentUser.id);
@@ -408,7 +399,7 @@ export const TenantDashboard: React.FC = () => {
     setInventoryState({ isOpen: true, type, selectedBooking: booking });
   };
 
-  const handleUploadDocument = async (type: 'idCard' | 'proofOfAddress' | 'proofOfIncome' | 'studentCard') => {
+  const handleUploadDocument = async (type: 'idCard') => {
     if (!currentUser) return;
     
     // Create direct native hidden file picker input
@@ -422,41 +413,29 @@ export const TenantDashboard: React.FC = () => {
       
       const file = target.files[0];
       
-      // Limit to 1.5MB to maintain smooth Firestore sync
-      if (file.size > 1.5 * 1024 * 1024) {
-        toast.error("Le fichier est trop volumineux. La taille maximale autorisée est de 1.5 Mo.");
+      if (file.size > 10 * 1024 * 1024) {
+        toast.error("Le fichier est trop volumineux. La taille maximale autorisée est de 10 Mo.");
         return;
       }
       
       const toastId = toast.loading("Finalisation de l'analyse et import du fichier...");
-      const reader = new FileReader();
-      
-      reader.onload = async () => {
+      void (async () => {
         try {
-          const fileDataUrl = reader.result as string;
+          const fileDataUrl = await prepareVerificationDocument(file);
           await apiService.users.uploadDocument(currentUser.id, type, fileDataUrl);
-          const requiredDocumentWasUploaded = type === 'idCard' || type === 'proofOfAddress';
-          const dossierWillBeComplete = (type === 'idCard' || Boolean(currentUser.documents?.idCard)) &&
-            (type === 'proofOfAddress' || Boolean(currentUser.documents?.proofOfAddress));
-          if (requiredDocumentWasUploaded && dossierWillBeComplete) {
+          const dossierWillBeComplete = type === 'idCard' || Boolean(currentUser.documents?.idCard);
+          if (dossierWillBeComplete && currentUser.emailVerified && currentUser.phoneVerified) {
             await apiService.users.submitVerification('TENANT');
           }
           await refreshUser();
           toast.dismiss(toastId);
-          toast.success(dossierWillBeComplete && requiredDocumentWasUploaded ? "Dossier transmis à HAVEN pour vérification." : "Votre justificatif a été ajouté avec succès !");
+          toast.success(dossierWillBeComplete && currentUser.emailVerified && currentUser.phoneVerified ? "Dossier transmis à HAVEN pour vérification." : "Votre pièce d'identité a été ajoutée avec succès !");
         } catch (error) {
           console.error("Error uploading document", error);
           toast.dismiss(toastId);
-          toast.error("Une erreur est survenue lors de l'enregistrement de votre fichier.");
+          toast.error(error instanceof Error ? error.message : "Une erreur est survenue lors de l'enregistrement de votre fichier.");
         }
-      };
-      
-      reader.onerror = () => {
-        toast.dismiss(toastId);
-        toast.error("Impossible de lire ce format de fichier.");
-      };
-      
-      reader.readAsDataURL(file);
+      })();
     };
     
     input.click();
@@ -806,7 +785,12 @@ export const TenantDashboard: React.FC = () => {
                       <Link to={`/listing/${booking.listingId}`}>
                         <Button variant="outline" size="sm" className="h-10 rounded-xl text-[10px] font-black uppercase tracking-widest">Voir le logement</Button>
                       </Link>
-                      {booking.status !== 'CANCELLED' && <Button variant="ghost" size="sm" className="h-10 rounded-xl bg-gray-50 text-[10px] font-black uppercase tracking-widest" onClick={() => setReviewState({isOpen: true, targetId: booking.listingId, targetName: booking.listing?.title || 'Logement', targetType: 'LISTING'})}>Noter</Button>}
+                      {booking.status === 'COMPLETED' && (() => {
+                        const deadline = stayReviewDeadline(booking.completedAt, booking.endDate);
+                        if (reviewedBookingIds.has(booking.id)) return <span className="self-center text-xs font-bold text-green-700">Avis définitif publié</span>;
+                        if (Date.now() >= deadline) return <span className="self-center text-xs font-bold text-gray-500">Note automatique : 5/5</span>;
+                        return <div className="flex flex-col gap-1"><Button variant="ghost" size="sm" className="h-10 rounded-xl bg-gray-50 text-[10px] font-black uppercase tracking-widest" onClick={() => setReviewState({isOpen: true, targetId: booking.listingId, targetName: booking.listing?.title || 'Logement', targetType: 'LISTING', bookingId: booking.id})}>Noter</Button><span className="text-[10px] text-gray-500">Jusqu’au {new Date(deadline).toLocaleDateString('fr-FR')}</span></div>;
+                      })()}
                     </div>
                   </div>
                 ))}
@@ -818,14 +802,11 @@ export const TenantDashboard: React.FC = () => {
                 {/* Official IDs Section */}
                 <div className="space-y-6">
                   <h3 className="font-heading font-bold text-xl text-haven-navy flex items-center gap-3">
-                    <ShieldCheck size={24} className="text-haven-navy" /> Pièces d'identité & Justificatifs
+                    <ShieldCheck size={24} className="text-haven-navy" /> Pièce d'identité
                   </h3>
                   <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-6">
                     {[
                       { id: 'idCard' as const, label: 'Pièce d\'identité', icon: UserCircle, required: true },
-                      { id: 'proofOfAddress' as const, label: 'Justificatif de domicile', icon: FileText, required: true },
-                      { id: 'proofOfIncome' as const, label: 'Justificatif de revenus', icon: FileText, required: false },
-                      { id: 'studentCard' as const, label: 'Carte Étudiant', icon: ClipboardCheck, required: false },
                     ].map(doc => {
                       const url = currentUser?.documents?.[doc.id];
                       const status = url ? (canBook ? 'Validé' : 'En attente') : 'Manquant';
@@ -963,6 +944,8 @@ export const TenantDashboard: React.FC = () => {
         targetId={reviewState.targetId}
         targetName={reviewState.targetName}
         targetType={reviewState.targetType}
+        bookingId={reviewState.bookingId}
+        onComplete={() => setReviewedBookingIds(previous => new Set(previous).add(reviewState.bookingId))}
       />
 
       <AccountStatusOverlay 
