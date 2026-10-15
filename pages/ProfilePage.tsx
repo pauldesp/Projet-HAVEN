@@ -318,7 +318,7 @@ export const ProfilePage: React.FC = () => {
             {isOwnProfile && (
               <section className="rounded-3xl border border-gray-100 bg-white p-5 shadow-soft md:rounded-[2.5rem] md:p-10 md:shadow-premium">
                 <h2 className="font-heading text-xl font-bold text-haven-navy md:text-2xl">Visibilité avec les futurs colocataires</h2>
-                <p className="mt-2 max-w-2xl text-sm leading-relaxed text-gray-500">Autorisez HAVEN à présenter votre prénom, votre photo, votre activité et votre âge aux personnes dont le séjour confirmé chevauche le vôtre. Vos coordonnées restent privées.</p>
+                <p className="mt-2 max-w-2xl text-sm leading-relaxed text-gray-500">Autorisez HAVEN à présenter votre prénom, votre photo, votre activité et votre âge aux membres connectés qui consultent un séjour aux mêmes dates que le vôtre. Vos coordonnées et vos dates précises restent privées.</p>
                 <button
                   type="button"
                   role="switch"

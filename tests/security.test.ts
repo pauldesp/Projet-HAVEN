@@ -47,7 +47,7 @@ test('reservation creation is atomic and snapshots owner arrival and departure h
 test('housemate preview tolerates stale individual profiles without failing the whole listing', () => {
   assert.match(server, /Skipping unavailable housemate profile/);
   assert.match(server, /profilesById = new Map/);
-  assert.match(server, /shareProfileWithHousemates/);
+  assert.match(server, /buildHousematePreviews\(candidates, profilesById, stay\)/);
 });
 
 test('publication requires an approved owner dossier', () => {

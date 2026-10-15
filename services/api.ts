@@ -249,22 +249,35 @@ export const apiService = {
       }
     },
     async updatePersonalDetails(userId: string, details: { firstName: string; lastName: string; birthDate: string; phone: string }) {
-      try {
-        await updateDoc(doc(db, 'users', userId), details);
-      } catch (e) {
-        handleFirestoreError(e, 'UPDATE_PERSONAL_DETAILS', `users/${userId}`);
-      }
-    },
-    async submitVerification(role: 'TENANT' | 'OWNER') {
-      const response = await authenticatedFetch('/api/users/me/submit-verification', {
-        method: 'POST',
-        body: JSON.stringify({ role })
+      if (auth.currentUser?.uid !== userId) throw new Error('Session invalide. Reconnectez-vous puis réessayez.');
+      const response = await authenticatedFetch('/api/users/me/personal-details', {
+        method: 'POST', body: JSON.stringify(details)
       });
       if (!response.ok) {
         const payload = await response.json().catch(() => ({}));
         throw new Error(payload.error || `Erreur ${response.status}`);
       }
-      return response.json() as Promise<{ status: 'PENDING' }>;
+    },
+    async updatePhoneForVerification(userId: string, phone: string) {
+      if (auth.currentUser?.uid !== userId) throw new Error('Session invalide. Reconnectez-vous puis réessayez.');
+      const response = await authenticatedFetch('/api/users/me/phone-for-verification', {
+        method: 'POST', body: JSON.stringify({ phone })
+      });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        throw new Error(payload.error || `Erreur ${response.status}`);
+      }
+    },
+    async submitVerification(role: 'TENANT' | 'OWNER', terms?: { accepted: boolean; version: string }) {
+      const response = await authenticatedFetch('/api/users/me/submit-verification', {
+        method: 'POST',
+        body: JSON.stringify({ role, acceptTerms: terms?.accepted, termsVersion: terms?.version })
+      });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        throw new Error(payload.error || `Erreur ${response.status}`);
+      }
+      return response.json() as Promise<{ status: 'PENDING'; verificationSubmittedAt: string }>;
     },
     async confirmEmail() {
       const response = await authenticatedFetch('/api/users/me/confirm-email', { method: 'POST', body: '{}' });
@@ -832,7 +845,7 @@ export const apiService = {
     async getAllLegalDocuments() {
       try {
         const snapshot = await getDocs(collection(db, 'settings'));
-        return snapshot.docs.map(doc => doc.data() as any);
+        return snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }) as any);
       } catch (e) {
         return handleFirestoreError(e, 'GET_ALL_LEGAL_DOCUMENTS', 'settings');
       }

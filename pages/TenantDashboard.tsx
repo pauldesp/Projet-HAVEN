@@ -423,13 +423,9 @@ export const TenantDashboard: React.FC = () => {
         try {
           const fileDataUrl = await prepareVerificationDocument(file);
           await apiService.users.uploadDocument(currentUser.id, type, fileDataUrl);
-          const dossierWillBeComplete = type === 'idCard' || Boolean(currentUser.documents?.idCard);
-          if (dossierWillBeComplete && currentUser.emailVerified && currentUser.phoneVerified) {
-            await apiService.users.submitVerification('TENANT');
-          }
           await refreshUser();
           toast.dismiss(toastId);
-          toast.success(dossierWillBeComplete && currentUser.emailVerified && currentUser.phoneVerified ? "Dossier transmis à HAVEN pour vérification." : "Votre pièce d'identité a été ajoutée avec succès !");
+          toast.success("Pièce d’identité ajoutée. Ouvrez la vérification du profil pour transmettre votre dossier.");
         } catch (error) {
           console.error("Error uploading document", error);
           toast.dismiss(toastId);

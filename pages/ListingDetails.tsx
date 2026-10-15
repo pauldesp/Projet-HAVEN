@@ -108,13 +108,14 @@ export const ListingDetails: React.FC = () => {
   }, [blockTarget, listing?.rooms]);
 
   useEffect(() => {
-    if (!currentUser || !listing?.id || !activeRoom || !isBookableStay(startDate, endDate)) {
+    if (!currentUser || isListingOwner || !listing?.id || !activeRoom || !isBookableStay(startDate, endDate)) {
       setHousemates([]);
       setHousematesError(null);
       setIsHousematesLoading(false);
       return;
     }
     let cancelled = false;
+    setHousemates([]);
     setIsHousematesLoading(true);
     setHousematesError(null);
     apiService.housemates.getForStay(listing.id, activeRoom.id, startDate, endDate)
@@ -128,7 +129,7 @@ export const ListingDetails: React.FC = () => {
         if (!cancelled) setIsHousematesLoading(false);
       });
     return () => { cancelled = true; };
-  }, [currentUser?.id, listing?.id, activeRoom?.id, startDate, endDate]);
+  }, [currentUser?.id, isListingOwner, listing?.id, activeRoom?.id, startDate, endDate]);
 
   if (!listing || !activeRoom) return <div className="pt-24 text-center">Logement non trouvé</div>;
 
@@ -446,6 +447,59 @@ export const ListingDetails: React.FC = () => {
                 </div>
               </div>
 
+              {!isListingOwner && (
+                <section className="mb-10 rounded-3xl border border-slate-200 bg-slate-50/70 p-5 sm:p-6" aria-labelledby="housemates-heading" aria-live="polite">
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-slate-200 bg-white text-haven-navy">
+                      <Users size={19} strokeWidth={1.8} />
+                    </div>
+                    <div>
+                      <h2 id="housemates-heading" className="font-heading text-lg font-bold text-haven-navy">Avec qui partagerez-vous le logement ?</h2>
+                      <p className="mt-1 text-sm leading-relaxed text-slate-500">Un aperçu des personnes présentes aux dates de votre séjour.</p>
+                    </div>
+                  </div>
+
+                  {!isBookableStay(startDate, endDate) ? (
+                    <div className="mt-5 rounded-2xl border border-dashed border-slate-200 bg-white px-4 py-4 text-sm text-slate-600">
+                      <p>Choisissez vos dates pour découvrir les profils partagés par les autres voyageurs.</p>
+                      <button type="button" onClick={() => calendarRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })} className="mt-2 font-bold text-haven-navy underline underline-offset-4 hover:text-haven-red">Voir le calendrier</button>
+                    </div>
+                  ) : !currentUser ? (
+                    <div className="mt-5 rounded-2xl border border-slate-200 bg-white px-4 py-4 text-sm text-slate-600">
+                      <p>Connectez-vous pour voir les profils des voyageurs qui ont choisi de se présenter.</p>
+                      <Link to={`/login?redirect=${encodeURIComponent(`/listing/${id}?${searchParams.toString()}`)}`} className="mt-2 inline-block font-bold text-haven-navy underline underline-offset-4 hover:text-haven-red">Se connecter</Link>
+                    </div>
+                  ) : isHousematesLoading ? (
+                    <div className="mt-5 flex items-center gap-2 text-sm text-slate-500"><Loader2 size={16} className="animate-spin" /> Recherche des profils disponibles…</div>
+                  ) : housematesError ? (
+                    <p className="mt-5 text-sm text-haven-red">L’aperçu des profils est momentanément indisponible.</p>
+                  ) : housemates.length === 0 ? (
+                    <p className="mt-5 rounded-2xl border border-slate-200 bg-white px-4 py-4 text-sm text-slate-600">Aucun profil partagé pour ces dates. D’autres voyageurs peuvent néanmoins séjourner sur place.</p>
+                  ) : (
+                    <>
+                      <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                        {housemates.slice(0, 4).map(housemate => (
+                          <div key={housemate.id} className="flex min-w-0 items-center gap-3 rounded-2xl border border-slate-200 bg-white p-3.5">
+                            {housemate.avatarUrl ? (
+                              <img src={housemate.avatarUrl} alt="" className="h-12 w-12 shrink-0 rounded-full object-cover" />
+                            ) : (
+                              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-haven-navy text-sm font-bold text-white" aria-hidden="true">{housemate.firstName.charAt(0)}</div>
+                            )}
+                            <div className="min-w-0">
+                              <p className="truncate font-bold text-haven-navy">{housemate.firstName}{housemate.age ? ` · ${housemate.age} ans` : ''}</p>
+                              {housemate.activity && <p className="truncate text-sm text-slate-500">{housemate.activity}</p>}
+                              <p className="mt-0.5 text-xs text-slate-400">{housemate.coverage === 'FULL' ? 'Présent tout votre séjour' : 'Quelques nuits en commun'}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      {housemates.length > 4 && <p className="mt-3 text-sm text-slate-500">Et {housemates.length - 4} autre{housemates.length - 4 > 1 ? 's' : ''} profil{housemates.length - 4 > 1 ? 's' : ''} partagé{housemates.length - 4 > 1 ? 's' : ''}.</p>}
+                    </>
+                  )}
+                  <p className="mt-4 text-xs text-slate-400">Seuls les voyageurs qui l’ont autorisé apparaissent ici.</p>
+                </section>
+              )}
+
               {/* CALENDAR SECTION */}
               <div ref={calendarRef} className="mb-10">
                 <div className="flex justify-between items-center mb-4">
@@ -497,7 +551,7 @@ export const ListingDetails: React.FC = () => {
                   <p className="text-gray-500 mb-6 text-sm">
                     Sélectionnez vos dates pour <span className="font-bold text-haven-navy">{activeRoom.name}</span>. 
                     Séjour minimum : <span className="font-bold text-haven-navy">{listing.minStay} nuits</span>.
-                    Les jours réservés sont indiqués sur le calendrier. Les profils ayant choisi d’être visibles apparaissent ci-dessous.
+                    Les jours réservés sont indiqués sur le calendrier.
                   </p>
                 )}
                 
@@ -515,44 +569,6 @@ export const ListingDetails: React.FC = () => {
                   onSaveBlockedDates={handleSaveBlockedDates}
                 />
 
-                {!isListingOwner && startDate && endDate && (
-                  <section className="mt-6 rounded-2xl border border-gray-100 bg-white p-5 shadow-sm" aria-live="polite">
-                    <div className="flex items-start gap-3">
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-700"><Users size={20} /></div>
-                      <div>
-                        <h3 className="font-heading font-bold text-lg text-haven-navy">Vos futurs colocataires pendant ce séjour</h3>
-                        <p className="mt-1 text-sm text-gray-500">Voici les profils qui partagent au moins une nuit avec les dates choisies.</p>
-                      </div>
-                    </div>
-
-                    {!currentUser ? (
-                      <p className="mt-4 text-sm text-gray-500">Connectez-vous pour découvrir les profils qui ont choisi d’être visibles.</p>
-                    ) : isHousematesLoading ? (
-                      <div className="mt-4 flex items-center gap-2 text-sm text-gray-500"><Loader2 size={16} className="animate-spin" /> Chargement des profils…</div>
-                    ) : housematesError ? (
-                      <p className="mt-4 text-sm text-haven-red">{housematesError}</p>
-                    ) : housemates.length === 0 ? (
-                      <p className="mt-4 text-sm text-gray-500">Aucun futur colocataire n’a choisi de partager son profil pour ces dates.</p>
-                    ) : (
-                      <div className="mt-5 grid gap-3 sm:grid-cols-2">
-                        {housemates.map(housemate => (
-                          <Link key={`${housemate.id}-${housemate.startDate}`} to={`/profile/${housemate.id}`} className="flex items-center gap-3 rounded-xl border border-gray-100 p-3 transition-colors hover:border-haven-navy/30 hover:bg-gray-50">
-                            {housemate.avatarUrl ? (
-                              <img src={housemate.avatarUrl} alt={`Profil de ${housemate.firstName}`} className="h-11 w-11 rounded-full object-cover" />
-                            ) : (
-                              <div className="flex h-11 w-11 items-center justify-center rounded-full bg-haven-navy text-sm font-bold text-white">{housemate.firstName.charAt(0)}</div>
-                            )}
-                            <div className="min-w-0">
-                              <p className="font-bold text-haven-navy">{housemate.firstName}{housemate.age ? `, ${housemate.age} ans` : ''}</p>
-                              {housemate.activity && <p className="truncate text-xs text-gray-500">{housemate.activity}</p>}
-                              <p className="mt-0.5 text-xs text-gray-400">Présent du {new Date(`${housemate.overlapStart}T12:00:00`).toLocaleDateString('fr-FR')} au {new Date(`${housemate.overlapEnd}T12:00:00`).toLocaleDateString('fr-FR')}</p>
-                            </div>
-                          </Link>
-                        ))}
-                      </div>
-                    )}
-                  </section>
-                )}
               </div>
 
               {/* REVIEWS SECTION */}

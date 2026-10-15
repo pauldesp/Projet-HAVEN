@@ -50,6 +50,8 @@ export interface User {
   phoneVerified?: boolean;
   phoneVerifiedAt?: string;
   identityVerified?: boolean;
+  /** Date à laquelle le dossier complet a été transmis pour contrôle manuel. */
+  verificationSubmittedAt?: string | null;
   city?: string;
   bio?: string;
   school?: string;
@@ -187,17 +189,14 @@ export interface BookingAvailability {
   updatedAt: string;
 }
 
-/** Safe public subset shown to a logged-in future housemate. */
+/** Consent-based subset shown to a signed-in prospective housemate. */
 export interface HousematePreview {
   id: string;
   firstName: string;
   avatarUrl: string;
   age?: number;
   activity?: string;
-  startDate: string;
-  endDate: string;
-  overlapStart: string;
-  overlapEnd: string;
+  coverage: 'FULL' | 'PARTIAL';
 }
 
 // Type État des Lieux

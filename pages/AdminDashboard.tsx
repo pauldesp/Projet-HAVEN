@@ -16,6 +16,7 @@ import {
   , AdminAuditEntry
 } from '../types';
 import { Button } from '../components/Button';
+import { isVerificationReadyForAdminReview } from '../services/profileVerification';
 import { Logo } from '../components/Logo';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -420,11 +421,9 @@ export const AdminDashboard: React.FC = () => {
         return;
       }
       const complete = candidate && candidate.role !== UserRole.ADMIN &&
-        Boolean(candidate.firstName?.trim() && candidate.lastName?.trim() && candidate.birthDate && candidate.phone) &&
-        candidate.emailVerified === true && candidate.phoneVerified === true && candidate.identityVerified === true &&
-        Boolean(candidate.documents?.idCard);
+        isVerificationReadyForAdminReview(candidate) && candidate.identityVerified === true;
       if (candidate && candidate.role !== UserRole.ADMIN && !complete) {
-        setError('Le compte ne peut pas être approuvé : e-mail et téléphone confirmés, identité examinée et pièce d’identité transmise sont requis.');
+        setError('Le compte ne peut pas être approuvé : le dossier doit être transmis, puis l’identité vérifiée par un administrateur.');
         return;
       }
     }
@@ -460,8 +459,8 @@ export const AdminDashboard: React.FC = () => {
   };
 
   const handleVerifyUserIdentity = async (user: User) => {
-    if (!user.documents?.idCard || user.emailVerified !== true || user.phoneVerified !== true || !user.birthDate || !user.firstName || !user.lastName) {
-      setError('Avant de valider l’identité, confirmez l’e-mail et le téléphone, vérifiez la pièce d’identité et complétez les informations personnelles.');
+    if (!isVerificationReadyForAdminReview(user)) {
+      setError('Le membre doit d’abord transmettre un dossier complet. Vérifiez ensuite les informations avec sa pièce d’identité.');
       return;
     }
     setProcessingId(user.id);
@@ -671,9 +670,7 @@ export const AdminDashboard: React.FC = () => {
 
   const detailUser = userDetailModal.user;
   const canApproveDetailUser = detailUser?.role === UserRole.ADMIN || Boolean(
-    detailUser && detailUser.emailVerified === true && detailUser.phoneVerified === true &&
-    detailUser.firstName?.trim() && detailUser.lastName?.trim() && detailUser.birthDate && detailUser.phone &&
-    detailUser.identityVerified === true && detailUser.documents?.idCard
+    detailUser && isVerificationReadyForAdminReview(detailUser) && detailUser.identityVerified === true
   );
 
   return (
@@ -1108,7 +1105,9 @@ export const AdminDashboard: React.FC = () => {
                                 (user.status || 'PENDING') === 'PENDING' ? 'bg-amber-50 text-amber-600 border-amber-100' :
                                 'bg-red-50 text-red-600 border-red-100'
                               }`}>
-                                {user.status || 'PENDING'}
+                                {(user.status || 'PENDING') === 'PENDING' && user.role !== UserRole.ADMIN
+                                  ? user.verificationSubmittedAt ? 'À examiner' : 'À compléter'
+                                  : user.status || 'PENDING'}
                               </span>
                             </td>
                             <td className="p-6">
@@ -2090,7 +2089,9 @@ export const AdminDashboard: React.FC = () => {
                           (userDetailModal.user.status || 'PENDING') === 'PENDING' ? 'bg-amber-50 text-amber-600 border-amber-100' :
                           'bg-red-50 text-red-600 border-red-100'
                         }`}>
-                          {userDetailModal.user.status || 'PENDING'}
+                          {(userDetailModal.user.status || 'PENDING') === 'PENDING' && userDetailModal.user.role !== UserRole.ADMIN
+                            ? userDetailModal.user.verificationSubmittedAt ? 'À examiner' : 'À compléter'
+                            : userDetailModal.user.status || 'PENDING'}
                         </span>
                       </div>
 
@@ -2158,12 +2159,19 @@ export const AdminDashboard: React.FC = () => {
                               {userDetailModal.user.identityVerified ? `Validée${userDetailModal.user.idVerifiedAt ? ` le ${new Date(userDetailModal.user.idVerifiedAt).toLocaleDateString('fr-FR')}` : ''}` : 'En attente de contrôle'}
                             </span>
                             {!userDetailModal.user.identityVerified && userDetailModal.user.role !== UserRole.ADMIN && (
-                              <Button size="sm" variant="outline" disabled={processingId === userDetailModal.user.id || !userDetailModal.user.documents?.idCard || !userDetailModal.user.emailVerified || !userDetailModal.user.phoneVerified || !userDetailModal.user.birthDate || !userDetailModal.user.firstName || !userDetailModal.user.lastName} onClick={() => void handleVerifyUserIdentity(userDetailModal.user!)}>
+                              <Button size="sm" variant="outline" disabled={processingId === userDetailModal.user.id || !isVerificationReadyForAdminReview(userDetailModal.user)} onClick={() => void handleVerifyUserIdentity(userDetailModal.user!)}>
                                 <UserCheck size={14} className="mr-2"/> Valider l’identité
                               </Button>
                             )}
                           </div>
                           <p className="mt-2 text-xs text-gray-500">Comparez le nom et la date de naissance du profil avec la pièce d’identité avant validation.</p>
+                          {userDetailModal.user.role !== UserRole.ADMIN && (
+                            <p className="mt-2 text-xs font-semibold text-gray-600">
+                              {userDetailModal.user.verificationSubmittedAt
+                                ? `Dossier transmis le ${new Date(userDetailModal.user.verificationSubmittedAt).toLocaleDateString('fr-FR')}`
+                                : 'Dossier pas encore transmis par le membre'}
+                            </p>
+                          )}
                         </div>
                       </div>
                       <div className="p-6 bg-white border border-gray-100 rounded-2xl">

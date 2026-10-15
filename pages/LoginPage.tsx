@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '../components/Button';
+import { BirthDateInput } from '../components/BirthDateInput';
 import { 
   ShieldCheck, 
   ArrowLeft, 
@@ -11,7 +12,6 @@ import {
   AlertCircle, 
   User as UserIcon, 
   Phone, 
-  Calendar, 
   CheckCircle, 
   XCircle, 
   ArrowRight, 
@@ -20,14 +20,16 @@ import {
   Info,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import { UserRole, User, LegalDocument } from '../types';
-import { apiService } from '../services/api';
+import { UserRole, User } from '../types';
 import { userFacingErrorMessage } from '../services/errorHandling';
-import ReactMarkdown from 'react-markdown';
-import { RecaptchaVerifier, linkWithPhoneNumber, type ConfirmationResult } from 'firebase/auth';
+import { RecaptchaVerifier, signInWithPhoneNumber, sendEmailVerification, type ConfirmationResult } from 'firebase/auth';
 import { auth } from '../firebase';
+import { normalizeAccountIdentifier } from '../services/accountEntry';
+import { clearPhoneRecaptcha, normalizePhoneForVerification, isValidPhoneForVerification, phoneVerificationErrorMessage } from '../services/phoneVerification';
+import { isValidPastBirthDate } from '../services/profileVerification';
+import { registrationPasswordError } from '../services/accountTerms';
 
-type AuthStep = 'IDENTIFIER' | 'LOGIN' | 'VERIFY' | 'PROFILE' | 'LEGAL' | 'PHONE_VERIFY' | 'FORGOT_PASSWORD' | 'FORGOT_PASSWORD_SUCCESS';
+type AuthStep = 'IDENTIFIER' | 'LOGIN' | 'PROFILE' | 'PHONE_VERIFY' | 'FORGOT_PASSWORD' | 'FORGOT_PASSWORD_SUCCESS';
 
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
@@ -42,12 +44,9 @@ export const LoginPage: React.FC = () => {
   const [step, setStep] = useState<AuthStep>('IDENTIFIER');
   const [identifier, setIdentifier] = useState(''); // Email or Phone
   const [password, setPassword] = useState('');
-  const [verificationCode, setVerificationCode] = useState('');
+  const [passwordConfirmation, setPasswordConfirmation] = useState('');
   const [phoneVerificationCode, setPhoneVerificationCode] = useState('');
   const [phoneConfirmation, setPhoneConfirmation] = useState<ConfirmationResult | null>(null);
-  const [registrationUserCreated, setRegistrationUserCreated] = useState(false);
-  const [registrationEmailConfirmed, setRegistrationEmailConfirmed] = useState(false);
-  const [registrationVerificationPending, setRegistrationVerificationPending] = useState(false);
   const recaptchaVerifier = useRef<RecaptchaVerifier | null>(null);
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -55,18 +54,11 @@ export const LoginPage: React.FC = () => {
   const [otherContact, setOtherContact] = useState(''); // Phone if identifier is email, vice versa
   const [marketingOptIn, setMarketingOptIn] = useState(false);
   
-  // Legal modal state
-  const [isLegalModalOpen, setIsLegalModalOpen] = useState(false);
-  const [legalDoc, setLegalDoc] = useState<LegalDocument | null>(null);
-  const [legalAccepted, setLegalAccepted] = useState(false);
-  const [legalScrolled, setLegalScrolled] = useState(false);
-  const modalScrollRef = useRef<HTMLDivElement>(null);
-
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    if (currentUser && !registrationVerificationPending) {
+    if (currentUser) {
       if (redirectPath) {
         navigate(redirectPath);
       } else {
@@ -75,9 +67,9 @@ export const LoginPage: React.FC = () => {
         navigate(path);
       }
     }
-  }, [currentUser, navigate, redirectPath, registrationVerificationPending]);
+  }, [currentUser, navigate, redirectPath]);
 
-  useEffect(() => () => recaptchaVerifier.current?.clear(), []);
+  useEffect(() => () => clearPhoneRecaptcha(recaptchaVerifier), []);
 
   useEffect(() => {
     if (authError) setError(userFacingErrorMessage(authError));
@@ -86,40 +78,27 @@ export const LoginPage: React.FC = () => {
   const handleIdentifierSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    const normalizedIdentifier = identifier.trim().toLowerCase();
-    setIdentifier(normalizedIdentifier);
-    if (!normalizedIdentifier.includes('@')) {
-      setError("La connexion par téléphone n'est pas encore disponible. Utilisez une adresse e-mail.");
-      return;
-    }
-    // Never query private Firestore profiles before authentication to decide
-    // whether an email is registered. Firebase Auth verifies credentials on
-    // the next step and avoids turning permission-denied into a false signup.
-    setStep('LOGIN');
-  };
-
-  const handleStartRegistration = async () => {
-    setError('');
     setIsLoading(true);
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000);
-      let response: Response;
-      try {
-        response = await fetch('/api/send-verification', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: identifier }),
-          signal: controller.signal
-        });
-      } finally {
-        clearTimeout(timeoutId);
+      const normalized = normalizeAccountIdentifier(identifier);
+      const response = await fetch('/api/auth/identify', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ identifier: normalized.value }), signal: AbortSignal.timeout(10000)
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Impossible de vérifier ce compte.');
+      setIdentifier(normalized.value);
+      setPassword('');
+      setOtherContact('');
+      if (!result.exists) setStep('PROFILE');
+      else if (normalized.kind === 'email') setStep('LOGIN');
+      else {
+        setStep('PHONE_VERIFY');
+        await startPhoneVerification(normalized.value);
       }
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.error || `Erreur ${response.status}`);
-      setStep('VERIFY');
-    } catch (err: unknown) {
-      setError(userFacingErrorMessage(err));
+    } catch (error) {
+      setError((error as { code?: string })?.code ? phoneVerificationErrorMessage(error)
+        : error instanceof Error ? error.message : 'Impossible de vérifier ce compte.');
     } finally {
       setIsLoading(false);
     }
@@ -155,53 +134,42 @@ export const LoginPage: React.FC = () => {
     }
   };
 
-  const handleVerifySubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-    try {
-      const response = await fetch('/api/verify-code', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: identifier, code: verificationCode })
-      });
-      if (!response.ok) throw new Error((await response.json()).error || 'Code invalide.');
-      setStep('PROFILE');
-    } catch (err: unknown) {
-      setError(userFacingErrorMessage(err));
-    }
-  };
-
   const handleProfileSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!identifier.includes('@')) {
-      setError('L’inscription nécessite une adresse e-mail.');
+    const email = identifier.includes('@') ? identifier : otherContact.trim().toLowerCase();
+    const phone = identifier.includes('@') ? normalizePhone(otherContact) : identifier;
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setError('Saisissez une adresse e-mail valide.');
       return;
     }
-    if (!/^\+?[1-9]\d{7,14}$/.test(normalizePhone(otherContact))) {
+    if (!isValidPhoneForVerification(phone)) {
       setError('Saisissez un numéro de téléphone valide avec son indicatif, par exemple +33 6 12 34 56 78.');
       return;
     }
+    if (!isValidPastBirthDate(birthDate)) {
+      setError('Saisissez une date de naissance valide et passée.');
+      return;
+    }
     setError('');
-    setStep('LEGAL');
+    const passwordError = registrationPasswordError(password, passwordConfirmation);
+    if (passwordError) {
+      setError(passwordError);
+      return;
+    }
+    void handleFinalRegister();
   };
 
-  const normalizePhone = (value: string) => {
-    const compact = value.trim().replace(/[\\s().-]/g, '');
-    if (compact.startsWith('+')) return compact;
-    if (compact.startsWith('00')) return `+${compact.slice(2)}`;
-    if (compact.startsWith('0')) return `+33${compact.slice(1)}`;
-    return `+${compact}`;
-  };
+  const normalizePhone = normalizePhoneForVerification;
 
-  const startPhoneVerification = async () => {
-    const signedInUser = auth.currentUser;
-    if (!signedInUser) throw new Error('Connectez-vous de nouveau pour confirmer votre numéro.');
-    recaptchaVerifier.current?.clear();
+  // SMS on this page is only for signing in to an existing phone account.
+  // New members verify their number later in the account-validation form.
+  const startPhoneVerification = async (number = identifier) => {
+    clearPhoneRecaptcha(recaptchaVerifier);
+    setPhoneConfirmation(null);
     setStep('PHONE_VERIFY');
     recaptchaVerifier.current = new RecaptchaVerifier(auth, 'registration-recaptcha', { size: 'invisible' });
-    const result = await linkWithPhoneNumber(signedInUser, normalizePhone(otherContact), recaptchaVerifier.current);
+    const result = await signInWithPhoneNumber(auth, number, recaptchaVerifier.current);
     setPhoneConfirmation(result);
-    setStep('PHONE_VERIFY');
   };
 
   const handlePhoneVerification = async (e: React.FormEvent) => {
@@ -214,40 +182,11 @@ export const LoginPage: React.FC = () => {
     setError('');
     try {
       await phoneConfirmation.confirm(phoneVerificationCode.trim());
-      await apiService.users.confirmPhone();
-      recaptchaVerifier.current?.clear();
-      setRegistrationVerificationPending(false);
+      clearPhoneRecaptcha(recaptchaVerifier);
     } catch (err: unknown) {
       setError(userFacingErrorMessage(err));
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const openLegalModal = async () => {
-    setIsLoading(true);
-    try {
-      const docs = await apiService.settings.getAllLegalDocuments();
-      const terms = docs.find(d => d.id === 'terms') || {
-        id: 'terms',
-        title: 'Conditions Générales d\'Utilisation',
-        content: '# Conditions Générales\n\nBienvenue sur HAVEN...',
-        lastUpdated: new Date().toISOString()
-      };
-      setLegalDoc(terms);
-      setIsLegalModalOpen(true);
-      setLegalScrolled(false);
-    } catch (err) {
-      console.error("Error loading legal docs", err);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
-    const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
-    if (scrollTop + clientHeight >= scrollHeight - 50) {
-      setLegalScrolled(true);
     }
   };
 
@@ -260,11 +199,11 @@ export const LoginPage: React.FC = () => {
         id: '',
         firstName,
         lastName,
-        email: isEmail ? identifier : otherContact,
-        phone: normalizePhone(otherContact),
+        email: isEmail ? identifier : otherContact.trim().toLowerCase(),
+        phone: isEmail ? normalizePhone(otherContact) : identifier,
         birthDate,
         marketingOptIn,
-        legalAccepted: true,
+        legalAccepted: false,
         role: initialRole,
         avatarUrl: `https://ui-avatars.com/api/?name=${firstName}+${lastName}&background=1E293B&color=fff`,
         isVerified: false,
@@ -273,37 +212,30 @@ export const LoginPage: React.FC = () => {
         identityVerified: false,
         status: 'PENDING'
       };
-      setRegistrationVerificationPending(true);
-      if (!registrationUserCreated) {
-        // Use the password set in the PROFILE step. New profiles stay pending
-        // until the user proves their email, phone and identity.
-        const success = await register(newUser, password);
-        if (!success) {
-          setRegistrationVerificationPending(false);
-          setError('Erreur lors de la création du compte.');
-          return;
-        }
-        setRegistrationUserCreated(true);
+      const success = await register(newUser, password);
+      if (!success) {
+        setError('Erreur lors de la création du compte.');
+        return;
       }
-      if (!registrationEmailConfirmed) {
-        await apiService.users.confirmEmail();
-        setRegistrationEmailConfirmed(true);
+      // An e-mail delivery failure must not turn a successfully created
+      // account into a failed registration. It can be retried in validation.
+      if (auth.currentUser && !auth.currentUser.emailVerified) {
+        auth.languageCode = 'fr';
+        void sendEmailVerification(auth.currentUser).catch(error => console.warn('Confirmation e-mail à renvoyer depuis la validation du compte', error));
       }
-      await startPhoneVerification();
     } catch (err: any) {
       console.error("Register catch", err);
       const errorCode = err.code || (err.error && err.error.code);
       const errorMessage = err.message || "";
 
       if (errorCode === 'auth/email-already-in-use' || errorMessage.includes('email-already-in-use')) {
+        setIdentifier(identifier.includes('@') ? identifier : otherContact.trim().toLowerCase());
         setError("Un compte existe déjà avec cette adresse e-mail. Veuillez vous connecter à l'aide de votre mot de passe.");
-        setRegistrationVerificationPending(false);
         setStep('LOGIN');
       } else if (errorCode === 'auth/weak-password' || errorMessage.includes('weak-password')) {
-        setError('Le mot de passe est trop faible. Veuillez utiliser au moins 6 caractères.');
+        setError('Le mot de passe doit contenir au moins 8 caractères, une majuscule et un chiffre.');
       } else {
         setError(userFacingErrorMessage(err));
-        if (!registrationUserCreated) setRegistrationVerificationPending(false);
       }
     } finally {
       setIsLoading(false);
@@ -403,7 +335,7 @@ export const LoginPage: React.FC = () => {
             <Button type="submit" fullWidth size="lg" disabled={isLoading}>
               {isLoading ? <Loader2 className="animate-spin" /> : "Se connecter"}
             </Button>
-            <button type="button" onClick={() => void handleStartRegistration()} disabled={isLoading} className="w-full text-center text-sm font-bold text-haven-red hover:text-haven-red/80 disabled:opacity-50">
+            <button type="button" onClick={() => { setError(''); setStep('PROFILE'); }} disabled={isLoading} className="w-full text-center text-sm font-bold text-haven-red hover:text-haven-red/80 disabled:opacity-50">
               Créer un compte Haven
             </button>
             <button type="button" onClick={() => setStep('IDENTIFIER')} className="w-full text-center text-sm font-bold text-haven-stone hover:text-haven-navy">
@@ -412,31 +344,13 @@ export const LoginPage: React.FC = () => {
           </form>
         );
 
-      case 'VERIFY':
-        return (
-          <form onSubmit={handleVerifySubmit} className="space-y-6">
-            <div className="text-center space-y-2">
-              <p className="text-sm text-haven-stone">Nous avons envoyé un code à <strong>{identifier}</strong></p>
-            </div>
-            <div className="space-y-2">
-              <label className="block text-[10px] font-black text-haven-stone uppercase tracking-widest ml-1">Code de validation</label>
-              <input 
-                type="text" required value={verificationCode} onChange={(e) => setVerificationCode(e.target.value)}
-                placeholder="1234"
-                className="w-full px-4 py-4 bg-gray-50 rounded-2xl border border-gray-100 outline-none focus:border-haven-navy text-center text-2xl tracking-[1em] font-bold"
-                maxLength={4}
-              />
-            </div>
-            <Button type="submit" fullWidth size="lg">Valider le code</Button>
-            <button type="button" onClick={() => setStep('IDENTIFIER')} className="w-full text-center text-sm font-bold text-haven-stone hover:text-haven-navy">
-              Modifier les coordonnées
-            </button>
-          </form>
-        );
-
       case 'PROFILE':
         return (
           <form onSubmit={handleProfileSubmit} className="space-y-6">
+            <div className="space-y-1">
+              <h3 className="text-xl font-heading font-bold text-haven-navy">Créez votre compte Haven</h3>
+              <p className="text-sm text-haven-stone">Complétez vos informations pour vous inscrire avec {identifier}.</p>
+            </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <label className="block text-[10px] font-black text-haven-stone uppercase tracking-widest ml-1">Prénom</label>
@@ -455,13 +369,7 @@ export const LoginPage: React.FC = () => {
             </div>
             <div className="space-y-2">
               <label className="block text-[10px] font-black text-haven-stone uppercase tracking-widest ml-1">Date de naissance</label>
-              <div className="relative">
-                <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300" size={18} />
-                <input 
-                  type="date" required value={birthDate} onChange={(e) => setBirthDate(e.target.value)}
-                  className="w-full pl-12 pr-4 py-3 bg-gray-50 rounded-xl border border-gray-100 outline-none focus:border-haven-navy text-sm"
-                />
-              </div>
+              <BirthDateInput value={birthDate} onChange={setBirthDate} />
             </div>
             <div className="space-y-2">
               <label className="block text-[10px] font-black text-haven-stone uppercase tracking-widest ml-1">
@@ -480,15 +388,23 @@ export const LoginPage: React.FC = () => {
               </div>
             </div>
             <div className="space-y-2">
-              <label className="block text-[10px] font-black text-haven-stone uppercase tracking-widest ml-1">Définir un mot de passe</label>
+              <label htmlFor="registration-password" className="block text-[10px] font-black text-haven-stone uppercase tracking-widest ml-1">Définir un mot de passe</label>
               <div className="relative">
                 <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300" size={18} />
                 <input 
-                  type="password" required value={password} onChange={(e) => setPassword(e.target.value)}
+                  id="registration-password" type="password" autoComplete="new-password" required minLength={8} pattern="(?=.*[A-Z])(?=.*[0-9]).{8,}" title="Au moins 8 caractères, une majuscule et un chiffre" value={password} onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
+                  aria-describedby="registration-password-rules"
                   className="w-full pl-12 pr-4 py-3 bg-gray-50 rounded-xl border border-gray-100 outline-none focus:border-haven-navy text-sm"
                 />
               </div>
+              <p id="registration-password-rules" className="text-xs text-haven-stone">Au moins 8 caractères, une majuscule et un chiffre.</p>
+            </div>
+            <div className="space-y-2">
+              <label htmlFor="registration-password-confirmation" className="block text-[10px] font-black text-haven-stone uppercase tracking-widest ml-1">Confirmer le mot de passe</label>
+              <input id="registration-password-confirmation" type="password" autoComplete="new-password" required minLength={8}
+                value={passwordConfirmation} onChange={e => setPasswordConfirmation(e.target.value)}
+                className="w-full px-4 py-3 bg-gray-50 rounded-xl border border-gray-100 outline-none focus:border-haven-navy text-sm" />
             </div>
             <div className="flex items-start gap-3 p-4 bg-gray-50 rounded-2xl border border-gray-100">
               <input 
@@ -499,49 +415,8 @@ export const LoginPage: React.FC = () => {
                 J'accepte de recevoir des communications marketing, des offres personnalisées et des actualités de la part de HAVEN.
               </label>
             </div>
-            <Button type="submit" fullWidth size="lg">Continuer</Button>
+            <Button type="submit" fullWidth size="lg" disabled={isLoading}>{isLoading ? <Loader2 className="animate-spin" /> : 'Créer mon compte'}</Button>
           </form>
-        );
-
-      case 'LEGAL':
-        return (
-          <div className="space-y-8">
-            <div className="text-center space-y-4">
-              <div className="w-20 h-20 bg-haven-red/10 rounded-[2rem] flex items-center justify-center text-haven-red mx-auto">
-                <Shield size={40} />
-              </div>
-              <h3 className="text-2xl font-heading font-bold text-haven-navy">Dernière étape</h3>
-              <p className="text-haven-stone">Veuillez lire et accepter nos conditions générales pour finaliser votre inscription.</p>
-            </div>
-
-            <div className={`p-6 rounded-[2rem] border transition-all ${legalAccepted ? 'bg-green-50 border-green-200' : 'bg-white border-gray-100 shadow-premium'}`}>
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  <FileText className="text-haven-red" size={24} />
-                  <span className="font-bold text-haven-navy">Conditions Générales</span>
-                </div>
-                {legalAccepted && <CheckCircle className="text-green-600" size={24} />}
-              </div>
-              <Button 
-                fullWidth 
-                variant={legalAccepted ? "outline" : "primary"} 
-                onClick={openLegalModal}
-                className="rounded-xl"
-              >
-                {legalAccepted ? "Relire le document" : "Lire et valider"}
-              </Button>
-            </div>
-
-            <Button 
-              fullWidth 
-              size="lg" 
-              disabled={!legalAccepted || isLoading}
-              onClick={handleFinalRegister}
-              className="py-4 shadow-xl shadow-haven-red/20"
-            >
-              {isLoading ? <Loader2 className="animate-spin" /> : "Créer mon compte"}
-            </Button>
-          </div>
         );
 
       case 'PHONE_VERIFY':
@@ -549,12 +424,12 @@ export const LoginPage: React.FC = () => {
           <form onSubmit={handlePhoneVerification} className="space-y-6">
             <div className="text-center space-y-2">
               <div className="w-16 h-16 bg-green-50 rounded-2xl flex items-center justify-center text-green-600 mx-auto"><Phone size={30} /></div>
-              <h3 className="text-xl font-heading font-bold text-haven-navy">Confirmez votre téléphone</h3>
-              <p className="text-sm text-haven-stone">Saisissez le code envoyé par SMS au <strong>{normalizePhone(otherContact)}</strong>.</p>
+              <h3 className="text-xl font-heading font-bold text-haven-navy">Connexion par SMS</h3>
+              <p className="text-sm text-haven-stone">Saisissez le code envoyé par SMS au <strong>{identifier.includes('@') ? normalizePhone(otherContact) : identifier}</strong>.</p>
             </div>
             <input
               type="text" inputMode="numeric" autoComplete="one-time-code" required
-              value={phoneVerificationCode} onChange={(e) => setPhoneVerificationCode(e.target.value.replace(/\\D/g, '').slice(0, 6))}
+              value={phoneVerificationCode} onChange={(e) => setPhoneVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
               placeholder="Code à 6 chiffres" maxLength={6}
               className="w-full px-4 py-4 bg-gray-50 rounded-2xl border border-gray-100 outline-none focus:border-haven-navy text-center text-2xl tracking-[0.5em] font-bold"
             />
@@ -766,78 +641,6 @@ export const LoginPage: React.FC = () => {
           </div>
         </div>
       </div>
-
-      {/* Legal Modal */}
-      {isLegalModalOpen && legalDoc && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-0 md:p-8">
-          <div className="absolute inset-0 bg-haven-navy/80 backdrop-blur-md animate-fade-in" onClick={() => setIsLegalModalOpen(false)} />
-          <div className="relative bg-white w-full max-w-5xl h-full md:h-[90vh] md:rounded-[3rem] shadow-2xl flex flex-col overflow-hidden animate-fade-in-up">
-            <div className="px-8 py-6 border-b border-gray-100 flex items-center justify-between bg-white sticky top-0 z-10">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-haven-red/10 rounded-2xl flex items-center justify-center text-haven-red">
-                  <Shield size={24} />
-                </div>
-                <div>
-                  <h3 className="font-heading font-bold text-xl text-haven-navy leading-none mb-1">{legalDoc.title}</h3>
-                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Document officiel HAVEN</p>
-                </div>
-              </div>
-              <button onClick={() => setIsLegalModalOpen(false)} className="w-12 h-12 rounded-2xl hover:bg-gray-100 flex items-center justify-center text-haven-stone transition-all hover:rotate-90">
-                <XCircle size={28} />
-              </button>
-            </div>
-
-            <div ref={modalScrollRef} onScroll={handleScroll} className="flex-grow overflow-y-auto p-8 md:p-16 bg-white scroll-smooth">
-              <div className="max-w-3xl mx-auto">
-                <div className="prose prose-slate max-w-none 
-                  prose-headings:font-heading prose-headings:text-haven-navy prose-headings:font-bold
-                  prose-p:text-haven-stone prose-p:text-lg prose-p:leading-relaxed prose-p:mb-6
-                  prose-li:text-haven-stone prose-li:text-lg prose-li:mb-2
-                  prose-strong:text-haven-navy prose-strong:font-bold
-                ">
-                  <ReactMarkdown>{legalDoc.content}</ReactMarkdown>
-                </div>
-              </div>
-            </div>
-
-            <div className="px-8 py-8 border-t border-gray-100 bg-gray-50/50 backdrop-blur-sm flex flex-col md:flex-row items-center justify-between gap-6">
-              <div className="flex flex-col gap-1">
-                {!legalScrolled ? (
-                  <div className="flex items-center gap-3 text-haven-red font-bold text-sm animate-pulse">
-                    <div className="w-8 h-8 rounded-full bg-haven-red/10 flex items-center justify-center">
-                      <ArrowRight size={16} className="rotate-90" />
-                    </div>
-                    Veuillez faire défiler jusqu'en bas pour activer la validation
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-3 text-green-600 font-bold text-sm">
-                    <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center">
-                      <CheckCircle size={16} />
-                    </div>
-                    Lecture terminée, vous pouvez maintenant accepter
-                  </div>
-                )}
-              </div>
-              
-              <div className="flex gap-4 w-full md:w-auto">
-                <Button variant="ghost" onClick={() => setIsLegalModalOpen(false)} className="px-8 py-4 font-bold">
-                  Fermer
-                </Button>
-                <Button 
-                  disabled={!legalScrolled}
-                  onClick={() => {
-                    setLegalAccepted(true);
-                    setIsLegalModalOpen(false);
-                  }}
-                  className="px-12 py-4 font-bold min-w-[240px] shadow-xl shadow-haven-red/20"
-                >
-                  J'accepte et je valide
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       <style>{`
         @keyframes shake {

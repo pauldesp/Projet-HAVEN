@@ -97,10 +97,12 @@ service cloud.firestore {
              data.role == 'TENANT' &&
              data.status == 'PENDING' &&
              data.email == request.auth.token.email &&
-             data.get('emailVerified', false) == false &&
-             data.get('phoneVerified', false) == false &&
+             data.get('emailVerified', false) == (request.auth.token.get('email_verified', false) == true) &&
+             data.get('phoneVerified', false) == (request.auth.token.get('phone_number', '') != '') &&
              data.get('identityVerified', false) == false &&
-             data.get('isVerified', false) == false;
+             data.get('isVerified', false) == false &&
+             data.get('documents', {}).get('idCard', '') == '' &&
+             data.get('verificationSubmittedAt', null) == null;
     }
 
     function isSafeMemberRole(role) {
@@ -190,7 +192,7 @@ service cloud.firestore {
              data.description is string && data.description.size() > 0 && data.description.size() < 5000 &&
              data.status in ['NEW', 'INVESTIGATING', 'RESOLVED', 'DISMISSED'] &&
              data.createdAt is string &&
-             (!data.keys().contains('priority') || data.priority in ['LOW', 'MEDIUM', 'HIGH']);
+             (!data.keys().hasAny(['priority']) || data.priority in ['LOW', 'MEDIUM', 'HIGH']);
     }
 
     function isValidAppDocument(data) {
@@ -285,8 +287,10 @@ service cloud.firestore {
           incoming().email == existing().email &&
           incoming().status == existing().status &&
           isSafeMemberRole(incoming().role) &&
-          incoming().diff(existing()).affectedKeys().hasOnly(['firstName', 'lastName', 'birthDate', 'avatarUrl', 'bio', 'school', 'favorites', 'documents', 'city', 'job', 'phone', 'role', 'shareProfileWithHousemates']) &&
-          (!existing().get('identityVerified', false) || incoming().diff(existing()).affectedKeys().hasNone(['firstName', 'lastName', 'birthDate'])) &&
+          incoming().diff(existing()).affectedKeys().hasOnly(['firstName', 'lastName', 'birthDate', 'avatarUrl', 'bio', 'school', 'favorites', 'city', 'job', 'phone', 'role', 'shareProfileWithHousemates', 'verificationSubmittedAt']) &&
+          (incoming().get('verificationSubmittedAt', null) == existing().get('verificationSubmittedAt', null) || incoming().get('verificationSubmittedAt', null) == null) &&
+          (!incoming().diff(existing()).affectedKeys().hasAny(['firstName', 'lastName', 'birthDate', 'phone']) || incoming().get('verificationSubmittedAt', null) == null) &&
+          (!existing().get('identityVerified', false) || !incoming().diff(existing()).affectedKeys().hasAny(['firstName', 'lastName', 'birthDate'])) &&
           (!existing().get('phoneVerified', false) || incoming().phone == existing().phone) &&
           (!existing().get('identityVerified', false) || incoming().get('documents', {}).get('idCard', '') == existing().get('documents', {}).get('idCard', ''))
         )

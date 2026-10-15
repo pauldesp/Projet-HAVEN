@@ -1,9 +1,17 @@
 import { countNights, isBookableStay } from './services/stay';
 import { getCancellationTerms } from './services/cancellationPolicy';
 import { isStayReviewWindowOpen } from './services/reviewPolicy';
+import { hasCompleteVerificationDetails, isVerificationReadyToSubmit } from './services/profileVerification';
 import type { Booking, BookingAvailability, Listing, Room } from './types';
 import { isRoomAvailableForStay } from './services/availability';
 import { minimumNights } from './services/minimumStay';
+import { canConfirmEmailOwnership } from './services/emailOwnership';
+import { preparePersonalDetails, preparePhoneForVerification } from './services/accountProfileMutation';
+import { normalizeAccountIdentifier, resolveAccountEntry } from './services/accountEntry';
+import { assertAccountTermsConsent, selectAccountTerms } from './services/accountTerms';
+import { normalizePhoneForVerification } from './services/phoneVerification';
+import { buildHousematePreviews, eligibleHousemateBookings } from './services/housemates';
+import type { HousemateProfile } from './services/housemates';
 import express from "express";
 import { createServer as createViteServer } from "vite";
 import path from "path";
@@ -217,6 +225,26 @@ async function startServer() {
   });
 
   app.use(express.json({ limit: "100kb" }));
+
+  app.post('/api/auth/identify', verificationLimiter, async (req, res) => {
+    try {
+      normalizeAccountIdentifier(req.body?.identifier);
+    } catch (error) {
+      return sendApiError(res, 422, (error as Error).message);
+    }
+    try {
+      const result = await resolveAccountEntry(req.body.identifier, {
+        email: value => adminAuth.getUserByEmail(value),
+        phone: value => adminAuth.getUserByPhoneNumber(value)
+      });
+      // Never return an email, phone or profile belonging to an existing user.
+      res.set('Cache-Control', 'no-store');
+      return res.json(result);
+    } catch (error) {
+      console.error('Account identification failed', (error as { code?: string }).code || 'unavailable');
+      return sendApiError(res, 503, 'Impossible de vérifier le compte pour le moment. Réessayez dans quelques instants.');
+    }
+  });
 
   // Health check
   app.get("/api/health", (req, res) => {
@@ -505,7 +533,7 @@ async function startServer() {
   });
 
   // Shows only the voluntary public profiles of confirmed tenants whose stay
-  // overlaps the dates requested by a signed-in future housemate. Contacts,
+  // overlaps the dates requested by a signed-in prospective housemate. Contacts,
   // legal identity and payment information never leave the server here.
   app.get("/api/listings/:listingId/housemates", sensitiveApiLimiter, requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
@@ -521,21 +549,16 @@ async function startServer() {
       if (!listingSnap.exists || listingSnap.data()?.status !== "APPROVED") {
         return sendApiError(res, 404, "Logement introuvable");
       }
+      if (!roomId || !listingSnap.data()?.rooms?.some((room: { id?: string }) => room.id === roomId)) {
+        return sendApiError(res, 422, "Chambre invalide");
+      }
 
       const bookingsSnapshot = await adminDb.collection("bookings").where("listingId", "==", listingId).get();
-      const candidates = bookingsSnapshot.docs
-        .map(item => item.data())
-        .filter(booking =>
-          booking.status === "CONFIRMED" &&
-          booking.tenantId !== req.user?.uid &&
-          booking.roomId !== roomId &&
-          typeof booking.startDate === "string" &&
-          typeof booking.endDate === "string" &&
-          booking.startDate < endDate && booking.endDate > startDate
-        );
+      const stay = { viewerId: req.user!.uid, roomId, startDate, endDate };
+      const candidates = eligibleHousemateBookings(bookingsSnapshot.docs.map(item => item.data()), stay);
 
       const uniqueTenantIds = [...new Set(candidates.map(booking => String(booking.tenantId)))];
-      const profiles = await Promise.all(uniqueTenantIds.map(async (tenantId): Promise<Record<string, any> | null> => {
+      const profiles = await Promise.all(uniqueTenantIds.map(async (tenantId): Promise<HousemateProfile | null> => {
         // A stale or malformed profile must not make the whole listing page fail.
         if (!/^[a-zA-Z0-9_-]{1,128}$/.test(tenantId)) return null;
         try {
@@ -546,39 +569,9 @@ async function startServer() {
           return null;
         }
       }));
-      const profilesById = new Map<string, Record<string, any>>(profiles.filter((profile): profile is Record<string, any> => Boolean(profile))
+      const profilesById = new Map<string, HousemateProfile>(profiles.filter((profile): profile is HousemateProfile => Boolean(profile))
         .map(profile => [profile.id, profile]));
-
-      const ageOf = (birthDate: unknown) => {
-        if (typeof birthDate !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(birthDate)) return undefined;
-        const date = new Date(`${birthDate}T12:00:00`);
-        if (Number.isNaN(date.getTime())) return undefined;
-        const today = new Date();
-        let age = today.getFullYear() - date.getFullYear();
-        const birthdayThisYear = new Date(today.getFullYear(), date.getMonth(), date.getDate());
-        if (birthdayThisYear > today) age -= 1;
-        return age >= 18 && age <= 120 ? age : undefined;
-      };
-
-      const housemates = candidates.flatMap(booking => {
-        const profile = profilesById.get(String(booking.tenantId));
-        if (!profile?.shareProfileWithHousemates) return [];
-        return [{
-          id: String(profile.id),
-          firstName: String(profile.firstName || "Membre HAVEN").slice(0, 100),
-          avatarUrl: typeof profile.avatarUrl === "string" ? profile.avatarUrl : "",
-          age: ageOf(profile.birthDate),
-          activity: typeof profile.job === "string" && profile.job.trim()
-            ? profile.job.trim().slice(0, 120)
-            : typeof profile.school === "string" && profile.school.trim()
-              ? `Étudie à ${profile.school.trim().slice(0, 100)}`
-              : undefined,
-          startDate: booking.startDate,
-          endDate: booking.endDate,
-          overlapStart: booking.startDate > startDate ? booking.startDate : startDate,
-          overlapEnd: booking.endDate < endDate ? booking.endDate : endDate,
-        }];
-      }).sort((a, b) => a.overlapStart.localeCompare(b.overlapStart));
+      const housemates = buildHousematePreviews(candidates, profilesById, stay);
 
       return res.json({ housemates });
     } catch (error) {
@@ -603,20 +596,65 @@ async function startServer() {
     }
   });
 
-  // Complete email ownership verification only after the one-time code was
-  // validated. The ticket is short-lived and tied to the authenticated email.
+  // Personal verification details are written by the authenticated server.
+  // The deployed client rules may lag the form, and a member must never be
+  // able to set their own approval or verification flags.
+  app.post("/api/users/me/personal-details", sensitiveApiLimiter, requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      const ref = adminDb.collection("users").doc(req.user!.uid);
+      await adminDb.runTransaction(async transaction => {
+        const snapshot = await transaction.get(ref);
+        if (!snapshot.exists) throw new Error("Profil introuvable.");
+        if (snapshot.data()?.role === "ADMIN") throw new Error("Action indisponible pour un administrateur.");
+        const update = preparePersonalDetails(snapshot.data()!, req.body || {});
+        if (update) transaction.update(ref, update);
+      });
+      return res.json({ saved: true });
+    } catch (error) {
+      if (error instanceof Error && /invalide|confirmé|confirmée|introuvable|administrateur/i.test(error.message)) {
+        return sendApiError(res, 422, error.message);
+      }
+      console.error("Personal details update failed", error);
+      return sendApiError(res, 500, "Impossible d’enregistrer les coordonnées pour le moment.");
+    }
+  });
+
+  app.post("/api/users/me/phone-for-verification", sensitiveApiLimiter, requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      const ref = adminDb.collection("users").doc(req.user!.uid);
+      await adminDb.runTransaction(async transaction => {
+        const snapshot = await transaction.get(ref);
+        if (!snapshot.exists) throw new Error("Profil introuvable.");
+        if (snapshot.data()?.role === "ADMIN") throw new Error("Action indisponible pour un administrateur.");
+        const update = preparePhoneForVerification(snapshot.data()!, req.body?.phone);
+        if (update) transaction.update(ref, update);
+      });
+      return res.json({ saved: true });
+    } catch (error) {
+      if (error instanceof Error && /valide|confirmé|introuvable|administrateur/i.test(error.message)) {
+        return sendApiError(res, 422, error.message);
+      }
+      console.error("Phone preparation failed", error);
+      return sendApiError(res, 500, "Impossible d’enregistrer le numéro pour le moment.");
+    }
+  });
+
+  // Complete email ownership verification after Firebase confirms its action
+  // link or a short-lived one-time code is redeemed for the same address.
   app.post("/api/users/me/confirm-email", sensitiveApiLimiter, requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
       const email = normalizeEmail(req.user?.email);
-      const expiresAt = verifiedEmailTickets.get(email) || 0;
-      if (!email || expiresAt < Date.now()) return sendApiError(res, 400, "Le code de validation a expiré. Recommencez la validation de l’adresse e-mail.");
       const authUser = await adminAuth.getUser(req.user!.uid);
       if (normalizeEmail(authUser.email) !== email) return sendApiError(res, 403, "L’adresse e-mail du compte ne correspond pas à celle vérifiée.");
-      await adminAuth.updateUser(req.user!.uid, { emailVerified: true });
+      if (!canConfirmEmailOwnership(email, authUser.email, authUser.emailVerified, verifiedEmailTickets.get(email) || 0)) {
+        return sendApiError(res, 400, "Confirmez le lien reçu par e-mail ou saisissez un code de validation encore valide.");
+      }
       const userRef = adminDb.collection("users").doc(req.user!.uid);
       const userSnap = await userRef.get();
       if (!userSnap.exists) return sendApiError(res, 404, "Profil introuvable");
       const profile = userSnap.data()!;
+      if (normalizeEmail(profile.email) !== email) return sendApiError(res, 409, "L’adresse e-mail du profil ne correspond pas à celle du compte.");
+      if (!authUser.emailVerified) await adminAuth.updateUser(req.user!.uid, { emailVerified: true });
       const emailVerifiedAt = new Date().toISOString();
       await userRef.update({
         emailVerified: true,
@@ -641,7 +679,7 @@ async function startServer() {
       ]);
       if (!userSnap.exists) return sendApiError(res, 404, "Profil introuvable");
       const profile = userSnap.data()!;
-      const normalizePhone = (value: unknown) => typeof value === "string" ? value.replace(/[\\s().-]/g, "") : "";
+      const normalizePhone = (value: unknown) => typeof value === "string" ? normalizePhoneForVerification(value) : "";
       if (!authUser.phoneNumber || normalizePhone(authUser.phoneNumber) !== normalizePhone(profile.phone)) {
         return sendApiError(res, 403, "Le numéro confirmé ne correspond pas au numéro du profil.");
       }
@@ -681,6 +719,7 @@ async function startServer() {
         identityVerified: false,
         isVerified: false,
         idVerifiedAt: null,
+        verificationSubmittedAt: null,
         rejectionReason: null
       });
       return res.json({ status: "PENDING", identityVerified: false });
@@ -702,20 +741,31 @@ async function startServer() {
       const userSnap = await userRef.get();
       if (!userSnap.exists) return sendApiError(res, 404, "Profil introuvable");
 
-      const documents = userSnap.data()?.documents || {};
       const profile = userSnap.data()!;
-      if (profile.emailVerified !== true || profile.phoneVerified !== true) {
-        return sendApiError(res, 422, "Confirmez votre adresse e-mail et votre numéro de téléphone avant d’envoyer le dossier.");
+      let termsAcceptance: Record<string, unknown> = {};
+      if (profile.legalAccepted !== true) {
+        const documents = await adminDb.collection('settings').get();
+        const terms = selectAccountTerms(documents.docs.map(document => ({ ...document.data(), id: document.id })) as import('./types').LegalDocument[]);
+        try {
+          assertAccountTermsConsent(req.body?.acceptTerms, req.body?.termsVersion, terms);
+        } catch (error) {
+          return sendApiError(res, 422, (error as Error).message);
+        }
+        termsAcceptance = { legalAccepted: true, legalAcceptedAt: new Date().toISOString(), legalDocumentId: terms!.id, legalVersion: terms!.lastUpdated, legalContentHash: createHash('sha256').update(terms!.content).digest('hex') };
       }
-      if (![profile.firstName, profile.lastName, profile.birthDate, profile.phone].every(value => typeof value === "string" && value.trim())) {
-        return sendApiError(res, 422, "Complétez votre prénom, votre nom, votre date de naissance et votre téléphone avant d’envoyer le dossier.");
+      if (!isVerificationReadyToSubmit(profile)) {
+        if (profile.emailVerified !== true || profile.phoneVerified !== true) {
+          return sendApiError(res, 422, "Confirmez votre adresse e-mail et votre numéro de téléphone avant d’envoyer le dossier.");
+        }
+        if (!hasCompleteVerificationDetails(profile)) {
+          return sendApiError(res, 422, "Complétez votre prénom, votre nom, votre date de naissance et votre téléphone avant d’envoyer le dossier.");
+        }
+        return sendApiError(res, 422, "La pièce d’identité doit être transmise");
       }
-      const requiredDocuments = ["idCard"];
-      const missing = requiredDocuments.some(key => typeof documents[key] !== "string" || documents[key].length === 0);
-      if (missing) return sendApiError(res, 422, "La pièce d’identité doit être transmise");
 
-      await userRef.update({ status: "PENDING", rejectionReason: null });
-      return res.json({ status: "PENDING" });
+      const verificationSubmittedAt = new Date().toISOString();
+      await userRef.update({ status: "PENDING", verificationSubmittedAt, rejectionReason: null, ...termsAcceptance });
+      return res.json({ status: "PENDING", verificationSubmittedAt });
     } catch (error) {
       console.error("Verification submission error", error);
       return sendApiError(res, 500, "Impossible de transmettre le dossier");
@@ -729,13 +779,12 @@ async function startServer() {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       return res.status(400).json({ error: "Adresse e-mail invalide" });
     }
+    const provider = getEmailProvider();
+    if ("error" in provider) return sendApiError(res, 503, provider.error);
     const previous = verificationCodes.get(email);
     if (previous && Date.now() - previous.lastSentAt < 60_000) return res.status(429).json({ error: "Veuillez attendre avant de renvoyer un code" });
     const code = randomInt(1000, 10000).toString();
     verificationCodes.set(email, { hash: hashCode(email, code), expiresAt: Date.now() + 10 * 60_000, attempts: 0, lastSentAt: Date.now() });
-
-    const provider = getEmailProvider();
-    if ("error" in provider) return sendApiError(res, 503, provider.error);
 
     try {
       const { data, error } = await provider.resend.emails.send({
@@ -760,6 +809,7 @@ async function startServer() {
       
       if (error) {
         console.error("Resend error:", error);
+        verificationCodes.delete(email);
         
         // A sandbox can be useful locally, but production must never claim an email was sent when it was not.
         if (!isProduction && (error.name === 'validation_error' || error.message.includes('authorized'))) {
@@ -777,6 +827,7 @@ async function startServer() {
       res.json({ success: true, data });
     } catch (err: any) {
       console.error("Server error:", err);
+      verificationCodes.delete(email);
       sendApiError(res, 503, "Le service d’envoi d’e-mails est temporairement indisponible.");
     }
   });

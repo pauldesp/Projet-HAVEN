@@ -2,7 +2,9 @@ import React, { createContext, useContext, useState, ReactNode, useEffect, useMe
 import { User, UserRole, UserStatus } from '../types';
 import { auth, db, googleProvider, seedFirestore } from '../firebase';
 import { onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, signInWithRedirect, getRedirectResult, sendPasswordResetEmail, User as FirebaseUser } from 'firebase/auth';
-import { doc, getDoc, setDoc, updateDoc, onSnapshot, query, where, collection, getDocs } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, onSnapshot } from 'firebase/firestore';
+import { createPendingMemberProfile } from '../services/memberProfile';
+import { registrationPasswordError } from '../services/accountTerms';
 
 interface AuthContextType {
   currentUser: User | null;
@@ -15,7 +17,6 @@ interface AuthContextType {
   authError: unknown | null;
   updateUserRole: (role: UserRole) => Promise<void>;
   refreshUser: () => Promise<void>;
-  checkUserExists: (identifier: string) => Promise<{ exists: boolean; email?: string; phone?: string }>;
   resetPassword: (email: string) => Promise<void>;
 }
 
@@ -46,24 +47,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       return user;
     }
 
-    const nameParts = (firebaseUser.displayName || '').trim().split(/\s+/).filter(Boolean);
-    const newUser: User = {
-      id: firebaseUser.uid,
-      firstName: nameParts[0] || 'Utilisateur',
-      // Some Google profiles only have one word. The profile must still comply
-      // with the required HAVEN fields.
-      lastName: nameParts.slice(1).join(' ') || 'HAVEN',
-      email: firebaseUser.email || '',
-      role: UserRole.TENANT,
-      status: 'PENDING',
-      avatarUrl: firebaseUser.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(firebaseUser.displayName || 'Utilisateur')}&background=1E293B&color=fff`,
-      phone: firebaseUser.phoneNumber || undefined,
-      emailVerified: firebaseUser.emailVerified,
-      phoneVerified: Boolean(firebaseUser.phoneNumber),
-      identityVerified: false,
-      isVerified: false,
-      createdAt: new Date().toISOString(),
-    };
+    const newUser = createPendingMemberProfile(firebaseUser);
     await setDoc(doc(db, 'users', firebaseUser.uid), newUser);
     seedFirestore().catch(console.error);
     setCurrentUser(newUser);
@@ -150,19 +134,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       } else {
         // Auto-bootstrap Firestore profile if user exists in Firebase Auth but document is missing
         console.log("Firestore profile missing. Self-bootstrapping profile document.");
-        userData = {
-          id: userCredential.user.uid,
-          firstName: userCredential.user.displayName?.split(' ')[0] || 'Utilisateur',
-          // A profile recreated after a partial Firebase setup must still comply
-          // with the required Firestore profile fields.
-          lastName: userCredential.user.displayName?.split(' ').slice(1).join(' ') || 'HAVEN',
-          email: userCredential.user.email || email,
-          role: UserRole.TENANT,
-          status: 'PENDING',
-          isVerified: userCredential.user.emailVerified,
-          avatarUrl: `https://ui-avatars.com/api/?name=User&background=1E293B&color=fff`,
-          createdAt: new Date().toISOString()
-        };
+        userData = createPendingMemberProfile(userCredential.user, email);
         await setDoc(doc(db, 'users', userCredential.user.uid), userData);
       }
       
@@ -182,6 +154,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const register = async (userData: User, password?: string): Promise<boolean> => {
     if (!password) return false;
+    const passwordError = registrationPasswordError(password, password);
+    if (passwordError) throw new Error(passwordError);
     setIsLoading(true);
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, userData.email, password);
@@ -248,31 +222,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
-  const checkUserExists = async (identifier: string): Promise<{ exists: boolean; email?: string; phone?: string }> => {
-    console.log("Checking if user exists:", identifier);
-    const isEmail = identifier.includes('@');
-    const field = isEmail ? 'email' : 'phone';
-    
-    try {
-      const q = query(collection(db, 'users'), where(field, '==', identifier));
-      const querySnapshot = await getDocs(q);
-      console.log("User exists check result:", !querySnapshot.empty);
-      
-      if (!querySnapshot.empty) {
-        const userData = querySnapshot.docs[0].data() as User;
-        return { 
-          exists: true, 
-          email: userData.email, 
-          phone: userData.phone 
-        };
-      }
-    } catch (e) {
-      console.error("Error checking user existence:", e);
-    }
-    
-    return { exists: false };
-  };
-
   const resetPassword = async (email: string) => {
     setIsLoading(true);
     try {
@@ -297,7 +246,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       authError,
       updateUserRole,
       refreshUser,
-      checkUserExists,
       resetPassword
     }}>
       {children}

@@ -189,7 +189,7 @@ export const PublishListing: React.FC = () => {
           </div>
           <h1 className="text-4xl font-heading font-bold text-haven-navy mb-4">Vérification requise</h1>
           <p className="text-haven-stone text-lg mb-10 leading-relaxed">
-            Avant toute mise en ligne, HAVEN doit valider votre pièce d’identité et votre justificatif de propriété.
+            Avant toute mise en ligne, HAVEN doit valider votre identité après vérification de votre dossier.
             Cette étape protège les locataires comme les propriétaires.
           </p>
           <div className="space-y-4">
