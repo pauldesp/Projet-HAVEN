@@ -1,20 +1,20 @@
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { AlertCircle, Clock, XCircle, ShieldCheck, Upload, FileText, CheckCircle2, Phone } from 'lucide-react';
+import { AlertCircle, Clock, XCircle, ShieldCheck, Upload, FileText, CheckCircle2 } from 'lucide-react';
 import { Button } from './Button';
 import { apiService } from '../services/api';
 import { UserRole, LegalDocument } from '../types';
 import ReactMarkdown from 'react-markdown';
 import { selectAccountTerms } from '../services/accountTerms';
 import { toast } from 'sonner';
-import { RecaptchaVerifier, linkWithPhoneNumber, reload, sendEmailVerification, type ConfirmationResult } from 'firebase/auth';
+import { reload, sendEmailVerification } from 'firebase/auth';
 import { auth } from '../firebase';
 import { prepareVerificationDocument } from '../services/verificationDocument';
-import { hasCompleteVerificationDetails, isAccountVerificationComplete, isValidPastBirthDate, isVerificationReadyToSubmit } from '../services/profileVerification';
+import { hasCompleteVerificationDetails, hasRequiredPhoneNumber, isVerificationPending, isAccountVerificationComplete, isValidPastBirthDate, isVerificationReadyToSubmit } from '../services/profileVerification';
 import { BirthDateInput } from './BirthDateInput';
-import { finishAccountEmailVerification, requestAccountEmailVerification } from '../services/accountEmailVerification';
-import { clearPhoneRecaptcha, finishPhoneVerification, isValidPhoneForVerification, normalizePhoneForVerification, phoneVerificationErrorMessage } from '../services/phoneVerification';
+import { EMAIL_LIMIT_BACKOFF_MS, EMAIL_RESEND_DELAY_MS, emailRetrySeconds, finishAccountEmailVerification, requestAccountEmailVerification } from '../services/accountEmailVerification';
+import { isValidPhoneForVerification, normalizePhoneForVerification } from '../services/phoneVerification';
 
 interface AccountStatusOverlayProps {
   isOpen?: boolean;
@@ -33,20 +33,17 @@ export const AccountStatusOverlay: React.FC<AccountStatusOverlayProps> = ({
   const [lastName, setLastName] = useState(currentUser?.lastName || '');
   const [birthDate, setBirthDate] = useState(currentUser?.birthDate || '');
   const [phone, setPhone] = useState(currentUser?.phone || '');
-  const [smsCode, setSmsCode] = useState('');
-  const [smsConfirmation, setSmsConfirmation] = useState<ConfirmationResult | null>(null);
-  const [isVerifyingPhone, setIsVerifyingPhone] = useState(false);
-  const [phoneError, setPhoneError] = useState('');
   const [emailLinkSent, setEmailLinkSent] = useState(false);
   const [emailError, setEmailError] = useState('');
   const [isVerifyingEmail, setIsVerifyingEmail] = useState(false);
+  const [emailRetryAt, setEmailRetryAt] = useState(0);
+  const [emailClock, setEmailClock] = useState(Date.now());
   const [isSavingDetails, setIsSavingDetails] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [verificationError, setVerificationError] = useState('');
   const [terms, setTerms] = useState<LegalDocument | null>(null);
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [termsError, setTermsError] = useState('');
-  const recaptchaVerifier = useRef<RecaptchaVerifier | null>(null);
 
   useEffect(() => {
     if (!currentUser) return;
@@ -56,9 +53,30 @@ export const AccountStatusOverlay: React.FC<AccountStatusOverlayProps> = ({
     setPhone(currentUser.phone || '');
     setEmailLinkSent(false);
     setEmailError('');
-    setPhoneError('');
   }, [currentUser?.id]);
-  useEffect(() => () => clearPhoneRecaptcha(recaptchaVerifier), []);
+
+  useEffect(() => {
+    if (!currentUser) return;
+    try { setEmailRetryAt(Number(localStorage.getItem(`haven-email-retry:${currentUser.id}`)) || 0); } catch { setEmailRetryAt(0); }
+    setEmailClock(Date.now());
+  }, [currentUser?.id, propIsOpen, forced]);
+  useEffect(() => {
+    if (emailRetryAt <= Date.now()) return;
+    const timer = window.setInterval(() => {
+      const now = Date.now();
+      setEmailClock(now);
+      if (now >= emailRetryAt) window.clearInterval(timer);
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [emailRetryAt]);
+
+  const deferEmailRequest = (delay: number) => {
+    const retryAt = Date.now() + delay;
+    setEmailRetryAt(retryAt);
+    setEmailClock(Date.now());
+    try { if (currentUser) localStorage.setItem(`haven-email-retry:${currentUser.id}`, String(retryAt)); } catch { /* The in-memory delay still applies. */ }
+  };
+  const emailWaitSeconds = emailRetrySeconds(emailRetryAt, emailClock);
 
   const loadTerms = async () => {
     setTermsError('');
@@ -76,6 +94,54 @@ export const AccountStatusOverlay: React.FC<AccountStatusOverlayProps> = ({
     if (currentUser && currentUser.legalAccepted !== true && (propIsOpen || forced)) void loadTerms();
   }, [currentUser?.id, currentUser?.legalAccepted, propIsOpen, forced]);
 
+  useEffect(() => {
+    if (!currentUser || currentUser.emailVerified || (!propIsOpen && !forced)) return;
+    let cancelled = false;
+    let running = false;
+    let retryAfter = 0;
+    const profile = { id: currentUser.id, email: currentUser.email };
+    const synchronizeEmail = async () => {
+      if (cancelled || running || document.visibilityState === 'hidden' || Date.now() < retryAfter) return;
+      const firebaseUser = auth.currentUser;
+      if (!firebaseUser || firebaseUser.uid !== profile.id) return;
+      running = true;
+      try {
+        const confirmed = await finishAccountEmailVerification(firebaseUser, profile, {
+          reload: () => reload(firebaseUser),
+          confirm: async () => {
+            if (cancelled || auth.currentUser?.uid !== profile.id) return;
+            await firebaseUser.getIdToken(true);
+            await apiService.users.confirmEmail();
+            if (!cancelled) await refreshUser();
+          }
+        });
+        if (confirmed && !cancelled) {
+          setEmailError('');
+          setEmailLinkSent(false);
+        }
+      } catch (error) {
+        // Quiet background synchronization must not interrupt the form or
+        // trigger another e-mail. Back off if Firebase rate-limits reads.
+        retryAfter = Date.now() + 60_000;
+        console.debug('Confirmation automatique de l’e-mail différée', (error as { code?: string })?.code || 'network');
+      } finally {
+        running = false;
+      }
+    };
+    void synchronizeEmail();
+    window.addEventListener('focus', synchronizeEmail);
+    window.addEventListener('online', synchronizeEmail);
+    document.addEventListener('visibilitychange', synchronizeEmail);
+    const timer = window.setInterval(synchronizeEmail, 10_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+      window.removeEventListener('focus', synchronizeEmail);
+      window.removeEventListener('online', synchronizeEmail);
+      document.removeEventListener('visibilitychange', synchronizeEmail);
+    };
+  }, [currentUser?.id, currentUser?.email, currentUser?.emailVerified, propIsOpen, forced]);
+
   // If not forced and not explicitly open, don't show anything
   if (!currentUser || currentUser.role === 'ADMIN') return null;
   
@@ -89,7 +155,7 @@ export const AccountStatusOverlay: React.FC<AccountStatusOverlayProps> = ({
   const isComplete = requiredDocuments.every(document => isDocumentUploaded(document.type));
   const isVerifiedForCurrentRole = isAccountVerificationComplete(currentUser);
   const hasSavedDetails = hasCompleteVerificationDetails(currentUser);
-  const isSubmittedForReview = Boolean(currentUser.verificationSubmittedAt && currentUser.status === 'PENDING' && currentUser.legalAccepted);
+  const isSubmittedForReview = isVerificationPending(currentUser);
   const savePersonalDetails = async () => {
     if (!currentUser || !firstName.trim() || !lastName.trim() || !birthDate || !phone.trim()) {
       setVerificationError('Renseignez votre prénom, votre nom, votre date de naissance et votre téléphone.');
@@ -124,6 +190,7 @@ export const AccountStatusOverlay: React.FC<AccountStatusOverlayProps> = ({
     }
   };
   const sendEmailLink = async () => {
+    if (isVerifyingEmail || emailRetrySeconds(emailRetryAt) > 0) return;
     const firebaseUser = auth.currentUser;
     if (!firebaseUser) return setEmailError('Votre session a expiré. Reconnectez-vous puis réessayez.');
     setEmailError('');
@@ -131,10 +198,11 @@ export const AccountStatusOverlay: React.FC<AccountStatusOverlayProps> = ({
     try {
       const result = await requestAccountEmailVerification(firebaseUser, currentUser, {
         reload: () => reload(firebaseUser),
-        send: () => sendEmailVerification(firebaseUser),
+        send: () => { auth.languageCode = 'fr'; return sendEmailVerification(firebaseUser); },
         confirm: async () => { await apiService.users.confirmEmail(); await refreshUser(); },
       });
       if (result === 'sent') {
+        deferEmailRequest(EMAIL_RESEND_DELAY_MS);
         setEmailLinkSent(true);
         toast.success('Lien de validation envoyé par e-mail.');
       } else {
@@ -144,8 +212,9 @@ export const AccountStatusOverlay: React.FC<AccountStatusOverlayProps> = ({
     } catch (error) {
       console.error('Email verification could not start', error);
       const code = (error as { code?: string })?.code;
+      if (code === 'auth/too-many-requests') deferEmailRequest(EMAIL_LIMIT_BACKOFF_MS);
       setEmailError(code === 'auth/too-many-requests'
-        ? 'Trop de demandes ont été envoyées. Réessayez dans quelques minutes.'
+        ? 'Firebase limite temporairement les demandes. Utilisez un lien déjà reçu ou réessayez plus tard ; cette limite peut durer au-delà du délai affiché.'
         : code ? 'Impossible d’envoyer le lien pour le moment. Réessayez dans quelques instants.'
           : error instanceof Error ? error.message : 'Impossible d’envoyer l’e-mail de validation.');
     } finally {
@@ -175,69 +244,6 @@ export const AccountStatusOverlay: React.FC<AccountStatusOverlayProps> = ({
       setIsVerifyingEmail(false);
     }
   };
-  const sendPhoneCode = async () => {
-    if (!currentUser) return;
-    const firebaseUser = auth.currentUser;
-    if (!firebaseUser || firebaseUser.uid !== currentUser.id) {
-      setPhoneError('Votre session a expiré. Reconnectez-vous puis réessayez.');
-      return;
-    }
-    const normalizedPhone = normalizePhoneForVerification(phone);
-    if (!isValidPhoneForVerification(normalizedPhone)) {
-      setPhoneError('Saisissez un numéro valide, par exemple 06 12 34 56 78.');
-      return;
-    }
-    setPhoneError('');
-    setIsVerifyingPhone(true);
-    try {
-      await apiService.users.updatePhoneForVerification(currentUser.id, normalizedPhone);
-      setPhone(normalizedPhone);
-      if (firebaseUser.phoneNumber === normalizedPhone) {
-        await apiService.users.confirmPhone();
-        await refreshUser();
-        toast.success('Numéro de téléphone confirmé.');
-        return;
-      }
-      clearPhoneRecaptcha(recaptchaVerifier);
-      recaptchaVerifier.current = new RecaptchaVerifier(auth, 'account-status-phone-button', { size: 'invisible' });
-      const result = await linkWithPhoneNumber(firebaseUser, normalizedPhone, recaptchaVerifier.current);
-      setSmsConfirmation(result);
-      toast.success('Code SMS envoyé.');
-    } catch (error) {
-      console.error('SMS verification could not start', error);
-      clearPhoneRecaptcha(recaptchaVerifier);
-      recaptchaVerifier.current = null;
-      setPhoneError(phoneVerificationErrorMessage(error));
-    } finally {
-      setIsVerifyingPhone(false);
-    }
-  };
-  const confirmPhoneCode = async () => {
-    if (!currentUser || !smsConfirmation) return;
-    setPhoneError('');
-    setIsVerifyingPhone(true);
-    try {
-      await finishPhoneVerification({
-        confirmCode: () => auth.currentUser?.phoneNumber === normalizePhoneForVerification(phone)
-          ? Promise.resolve() : smsConfirmation.confirm(smsCode.trim()),
-        refreshToken: async () => {
-          if (!auth.currentUser) throw new Error('Votre session a expiré. Reconnectez-vous puis réessayez.');
-          await auth.currentUser.getIdToken(true);
-        },
-        syncProfile: () => apiService.users.confirmPhone(),
-        refreshProfile: refreshUser
-      });
-      clearPhoneRecaptcha(recaptchaVerifier);
-      setSmsConfirmation(null);
-      setSmsCode('');
-      toast.success('Numéro de téléphone confirmé.');
-    } catch (error) {
-      console.error('SMS verification failed', error);
-      setPhoneError(phoneVerificationErrorMessage(error));
-    } finally {
-      setIsVerifyingPhone(false);
-    }
-  };
   const submitDocumentsForReview = async () => {
     setIsSubmitting(true);
     try {
@@ -250,6 +256,7 @@ export const AccountStatusOverlay: React.FC<AccountStatusOverlayProps> = ({
         terms ? { accepted: termsAccepted, version: terms.lastUpdated } : undefined);
       await refreshUser();
       toast.success('Votre dossier a été transmis à HAVEN pour vérification.');
+      onClose?.();
     } catch (error) {
       console.error('Verification dossier submission failed', error);
       setVerificationError(error instanceof Error ? error.message : 'Impossible de transmettre le dossier.');
@@ -263,6 +270,16 @@ export const AccountStatusOverlay: React.FC<AccountStatusOverlayProps> = ({
   const shouldShow = forced ? !isVerifiedForCurrentRole : propIsOpen;
 
   if (!shouldShow) return null;
+  if (currentUser.status === 'BANNED') return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-haven-navy/60 p-4">
+      <div className="max-w-lg rounded-3xl bg-white p-8 space-y-4">
+        <h2 className="text-2xl font-bold text-haven-navy">Compte banni</h2>
+        <p className="text-gray-600">Ce compte ne peut plus réserver, publier ou transmettre de dossier. Contactez Haven pour toute question.</p>
+        {currentUser.rejectionReason && <p className="rounded-xl bg-red-50 p-4 text-red-700">{currentUser.rejectionReason}</p>}
+        {onClose && <Button onClick={onClose}>Fermer</Button>}
+      </div>
+    </div>
+  );
 
   const handleUploadDocument = (type: (typeof requiredDocuments)[number]['type']) => {
     const input = document.createElement('input');
@@ -296,7 +313,7 @@ export const AccountStatusOverlay: React.FC<AccountStatusOverlayProps> = ({
   const verificationSteps = [
     { label: 'Coordonnées', complete: hasSavedDetails },
     { label: 'E-mail', complete: currentUser.emailVerified === true },
-    { label: 'Téléphone', complete: currentUser.phoneVerified === true },
+    { label: 'Téléphone', complete: hasRequiredPhoneNumber(currentUser) },
     { label: 'Document', complete: isComplete },
   ];
 
@@ -311,7 +328,7 @@ export const AccountStatusOverlay: React.FC<AccountStatusOverlayProps> = ({
               </div>
               <div className="min-w-0">
                 <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.18em] text-gray-400">Vérification du compte</p>
-                <h2 id="account-status-title" className="truncate text-xl font-bold tracking-tight text-haven-navy sm:text-2xl">{isVerifiedForCurrentRole ? 'Profil vérifié' : currentUser.status === 'REJECTED' ? 'Dossier à corriger' : isSubmittedForReview ? 'Dossier en cours d’examen' : 'Complétez votre profil'}</h2>
+                <h2 id="account-status-title" className="truncate text-xl font-bold tracking-tight text-haven-navy sm:text-2xl">{isVerifiedForCurrentRole ? 'Profil vérifié' : currentUser.status === 'REJECTED' ? 'Dossier à corriger' : isSubmittedForReview ? 'Dossier en cours de vérification' : 'Complétez votre profil'}</h2>
               </div>
             </div>
             {onClose && <button type="button" onClick={onClose} aria-label="Fermer" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-gray-400 transition hover:bg-gray-100 hover:text-haven-navy"><XCircle size={22} /></button>}
@@ -319,7 +336,7 @@ export const AccountStatusOverlay: React.FC<AccountStatusOverlayProps> = ({
 
           <div className="overflow-y-auto px-5 py-5 sm:px-8 sm:py-7">
             <div className={`mb-6 rounded-2xl border p-4 sm:p-5 ${currentUser.status === 'REJECTED' ? 'border-red-100 bg-red-50' : isVerifiedForCurrentRole ? 'border-green-100 bg-green-50' : 'border-blue-100 bg-blue-50/70'}`}>
-              <p className="text-sm leading-relaxed text-gray-700 sm:text-[15px]">{isVerifiedForCurrentRole ? 'Votre profil est vérifié. Les fonctionnalités de ce mode sont disponibles.' : currentUser.status === 'REJECTED' ? 'Votre dossier nécessite une correction avant de pouvoir être vérifié.' : isSubmittedForReview ? 'Votre dossier a bien été transmis. Un administrateur vérifiera votre identité avant d’ouvrir l’accès aux réservations et à la publication.' : 'Enregistrez vos coordonnées, confirmez votre e-mail et votre téléphone, puis transmettez votre pièce d’identité pour contrôle.'}</p>
+              <p className="text-sm leading-relaxed text-gray-700 sm:text-[15px]">{isVerifiedForCurrentRole ? 'Votre profil est vérifié. Les fonctionnalités de ce mode sont disponibles.' : currentUser.status === 'REJECTED' ? 'Votre dossier nécessite une correction avant de pouvoir être vérifié.' : isSubmittedForReview ? 'Votre dossier a bien été transmis. Un administrateur vérifiera votre identité avant d’ouvrir l’accès aux réservations et à la publication.' : 'Enregistrez vos coordonnées et votre numéro de téléphone, confirmez votre e-mail, puis transmettez votre pièce d’identité pour contrôle.'}</p>
               {!isVerifiedForCurrentRole && <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">{verificationSteps.map((step, index) => <div key={step.label} className="flex min-w-0 items-center gap-2 rounded-xl bg-white/80 px-2.5 py-2 sm:px-3"><span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold ${step.complete ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>{step.complete ? <CheckCircle2 size={15} /> : index + 1}</span><span className="truncate text-[11px] font-semibold text-gray-600 sm:text-xs">{step.label}</span></div>)}</div>}
             </div>
 
@@ -337,17 +354,12 @@ export const AccountStatusOverlay: React.FC<AccountStatusOverlayProps> = ({
                   {!currentUser.emailVerified && <div className="mt-3 space-y-2">
                     {emailLinkSent && <p className="text-xs leading-relaxed text-gray-600">Ouvrez le lien reçu à cette adresse, puis revenez ici pour terminer la confirmation.</p>}
                     {emailError && <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-xs leading-relaxed text-red-700">{emailError}</p>}
-                    <Button fullWidth variant="outline" disabled={isVerifyingEmail} onClick={() => emailLinkSent ? void confirmEmailLink() : void sendEmailLink()} className="rounded-xl">{isVerifyingEmail ? 'Veuillez patienter…' : emailLinkSent ? 'J’ai confirmé mon adresse' : 'Recevoir un e-mail de validation'}</Button>
-                    {emailLinkSent && <button type="button" onClick={() => void sendEmailLink()} disabled={isVerifyingEmail} className="text-xs font-semibold text-haven-navy underline underline-offset-2 disabled:opacity-50">Renvoyer l’e-mail</button>}
+                    <Button fullWidth variant="outline" disabled={isVerifyingEmail || emailWaitSeconds > 0} onClick={() => void sendEmailLink()} className="rounded-xl">{isVerifyingEmail ? 'Veuillez patienter…' : emailWaitSeconds > 0 ? `Nouvel envoi possible dans ${emailWaitSeconds} s` : emailLinkSent ? 'Renvoyer l’e-mail de validation' : 'Recevoir un e-mail de validation'}</Button>
+                    <button type="button" onClick={() => void confirmEmailLink()} disabled={isVerifyingEmail} className="text-xs font-semibold text-haven-navy underline underline-offset-2 disabled:opacity-50">J’ai confirmé mon adresse</button>
                   </div>}
                 </div>
-                <label className="mt-4 block text-xs font-semibold text-gray-500">Téléphone<input autoComplete="tel" type="tel" value={phone} onChange={e => { setPhone(e.target.value); setPhoneError(''); setSmsConfirmation(null); setSmsCode(''); }} disabled={currentUser.phoneVerified === true || isVerifyingPhone} placeholder="+33 6 12 34 56 78" className="mt-1.5 block w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm font-normal text-haven-navy outline-none transition focus:border-haven-navy focus:ring-2 focus:ring-haven-navy/10 disabled:bg-gray-50 disabled:text-gray-500" /></label>
-                {currentUser.phoneVerified ? <p className="mt-2 flex items-center gap-2 text-xs font-semibold text-green-700"><CheckCircle2 size={15} /> Téléphone confirmé par SMS</p> : <div className="mt-2 space-y-2">
-                  {smsConfirmation && <input aria-label="Code de validation SMS" inputMode="numeric" autoComplete="one-time-code" value={smsCode} onChange={e => setSmsCode(e.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="Code SMS à 6 chiffres" maxLength={6} className="block w-full rounded-xl border border-gray-200 px-3 py-2.5 text-center text-sm tracking-[0.4em] text-haven-navy" />}
-                  {phoneError && <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-xs leading-relaxed text-red-700">{phoneError}</p>}
-                  <Button id="account-status-phone-button" fullWidth variant="outline" disabled={isVerifyingPhone || Boolean(smsConfirmation && smsCode.length !== 6)} onClick={() => smsConfirmation ? void confirmPhoneCode() : void sendPhoneCode()} className="flex items-center justify-center gap-2 rounded-xl">{isVerifyingPhone ? <Clock className="animate-spin" size={16}/> : <Phone size={16}/>} {smsConfirmation ? 'Confirmer le code SMS' : 'Recevoir un code SMS'}</Button>
-                  {smsConfirmation && <button type="button" onClick={() => { setSmsConfirmation(null); setSmsCode(''); setPhoneError(''); }} className="text-xs font-semibold text-haven-navy underline underline-offset-2">Demander un nouveau code</button>}
-                </div>}
+                <label className="mt-4 block text-xs font-semibold text-gray-500">Téléphone (obligatoire)<input disabled={currentUser.phoneVerified === true} required autoComplete="tel" type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="+33 6 12 34 56 78" className="mt-1.5 block w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm font-normal text-haven-navy outline-none transition focus:border-haven-navy focus:ring-2 focus:ring-haven-navy/10" /></label>
+                <p className="mt-2 text-xs text-gray-500">Renseignez un numéro auquel vous pouvez être joint.</p>
               </section>
 
               <section className="flex flex-col rounded-2xl border border-gray-200 p-4 sm:p-5">
@@ -371,7 +383,7 @@ export const AccountStatusOverlay: React.FC<AccountStatusOverlayProps> = ({
               ? <p className="mt-5 rounded-xl border border-blue-100 bg-blue-50 p-4 text-sm font-semibold text-haven-navy">Dossier transmis à HAVEN. La validation de votre compte reste en attente de l’examen d’un administrateur.</p>
               : isVerificationReadyToSubmit(currentUser)
                 ? <div className="mt-5 rounded-2xl border border-green-100 bg-green-50 p-4"><p className="mb-3 text-sm text-green-800">Tout est prêt. Envoyez votre dossier pour validation manuelle par HAVEN.</p><Button fullWidth disabled={isSubmitting || (!currentUser.legalAccepted && (!terms || !termsAccepted))} onClick={() => void submitDocumentsForReview()} className="rounded-xl">{isSubmitting ? 'Transmission en cours…' : 'Transmettre mon dossier à HAVEN'}</Button></div>
-                : <p className="mt-4 rounded-xl bg-amber-50 p-3 text-center text-xs font-semibold leading-relaxed text-amber-800">Pièce reçue. Enregistrez vos coordonnées et confirmez votre e-mail et votre téléphone pour transmettre le dossier.</p>)}
+                : <p className="mt-4 rounded-xl bg-amber-50 p-3 text-center text-xs font-semibold leading-relaxed text-amber-800">Pièce reçue. Enregistrez vos coordonnées avec un numéro de téléphone valide et confirmez votre e-mail pour transmettre le dossier.</p>)}
           </div>
 
           {(!isVerifiedForCurrentRole || onClose) && <footer className="shrink-0 border-t border-gray-100 bg-gray-50/70 px-5 py-4 sm:px-8">

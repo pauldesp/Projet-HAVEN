@@ -4,6 +4,10 @@ export function isValidPastBirthDate(value: unknown, today = new Date().toISOStr
   return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value && value < today;
 }
 
+export function hasRequiredPhoneNumber(profile: { phone?: unknown }): boolean {
+  return typeof profile.phone === 'string' && /^\+[1-9]\d{7,14}$/.test(profile.phone);
+}
+
 export function hasCompleteVerificationDetails(profile: {
   firstName?: unknown;
   lastName?: unknown;
@@ -14,7 +18,7 @@ export function hasCompleteVerificationDetails(profile: {
     typeof profile.firstName === 'string' && profile.firstName.trim() &&
     typeof profile.lastName === 'string' && profile.lastName.trim() &&
     isValidPastBirthDate(profile.birthDate) &&
-    typeof profile.phone === 'string' && /^\+[1-9]\d{7,14}$/.test(profile.phone)
+    hasRequiredPhoneNumber(profile)
   );
 }
 
@@ -31,7 +35,6 @@ type VerificationProfile = Parameters<typeof hasCompleteVerificationDetails>[0] 
 export function isVerificationReadyToSubmit(profile: VerificationProfile): boolean {
   return hasCompleteVerificationDetails(profile) &&
     profile.emailVerified === true &&
-    profile.phoneVerified === true &&
     typeof profile.documents?.idCard === 'string' &&
     profile.documents.idCard.length > 0;
 }
@@ -41,6 +44,10 @@ export function isVerificationReadyForAdminReview(profile: VerificationProfile):
     profile.legalAccepted === true &&
     typeof profile.verificationSubmittedAt === 'string' &&
     profile.verificationSubmittedAt.length > 0;
+}
+
+export function isVerificationPending(profile: VerificationProfile): boolean {
+  return profile.status === 'PENDING' && isVerificationReadyForAdminReview(profile);
 }
 
 export function isAccountVerificationComplete(profile: VerificationProfile): boolean {

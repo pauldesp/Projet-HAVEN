@@ -1,5 +1,7 @@
+import { hasRequiredPhoneNumber, isVerificationPending } from '../services/profileVerification';
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { OwnerIncidentDetail, incidentStatusLabel } from '../components/OwnerIncidentDetail';
 import { Button } from '../components/Button';
 import { 
   Plus, 
@@ -110,6 +112,9 @@ export const OwnerDashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'OVERVIEW' | 'LISTINGS' | 'BOOKINGS' | 'MESSAGES' | 'FINANCES' | 'DOCUMENTS' | 'INCIDENTS'>('OVERVIEW');
   const [ownerBookings, setOwnerBookings] = useState<BookingWithTenant[]>([]);
   const [ownerIncidents, setOwnerIncidents] = useState<Incident[]>([]);
+  const [selectedIncidentId, setSelectedIncidentId] = useState<string | null>(null);
+  const [incidentError, setIncidentError] = useState('');
+  const selectedIncident = ownerIncidents.find(item => item.id === selectedIncidentId);
   const [ownerPayments, setOwnerPayments] = useState<Payment[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
@@ -118,7 +123,8 @@ export const OwnerDashboard: React.FC = () => {
   const [bookingSubTab, setBookingSubTab] = useState<'UPCOMING' | 'CURRENT' | 'PAST'>('UPCOMING');
 
   const ownerListings = listings.filter(l => l.ownerId === currentUser?.id);
-  const isApproved = (currentUser?.status === 'APPROVED' && currentUser.emailVerified === true && currentUser.phoneVerified === true && currentUser.identityVerified === true) || currentUser?.role === UserRole.ADMIN;
+  const isApproved = (currentUser?.status === 'APPROVED' && currentUser.emailVerified === true && hasRequiredPhoneNumber(currentUser) && currentUser.identityVerified === true) || currentUser?.role === UserRole.ADMIN;
+  const isSubmittedForReview = Boolean(currentUser && isVerificationPending(currentUser));
   const hasOwnerDocuments = Boolean(currentUser?.documents?.idCard);
   const canPublish = isApproved && hasOwnerDocuments;
 
@@ -165,9 +171,6 @@ export const OwnerDashboard: React.FC = () => {
         
         setOwnerBookings(sortedBookings);
 
-        // Fetch incidents for all owner listings
-        const incidents = await apiService.incidents.getByOwnerId(currentUser.id);
-        setOwnerIncidents(incidents);
 
         // Fetch payments
         const payments = await apiService.payments.getByOwnerId(currentUser.id);
@@ -185,6 +188,13 @@ export const OwnerDashboard: React.FC = () => {
       unsubscribeMessages();
     };
   }, [currentUser, listings]);
+
+  useEffect(() => {
+    setOwnerIncidents([]); setIncidentError(''); setSelectedIncidentId(null);
+    if (!currentUser?.id) return;
+    return apiService.incidents.listenByOwnerId(currentUser.id, setOwnerIncidents,
+      () => setIncidentError('Impossible de charger les incidents. Actualisez la page pour réessayer.'));
+  }, [currentUser?.id]);
 
   const handleSwitchToTenant = async () => {
     if (!currentUser) return;
@@ -283,7 +293,7 @@ export const OwnerDashboard: React.FC = () => {
     pendingRevenue: financeStats.pendingRevenue,
     activeBookings: ownerBookings.filter(b => b.status === 'CONFIRMED').length,
     pendingRequests: ownerBookings.filter(b => b.status === 'PENDING').length,
-    openIncidents: ownerIncidents.filter(i => i.status !== 'RESOLVED').length
+    openIncidents: ownerIncidents.filter(i => i.status === 'NEW' || i.status === 'INVESTIGATING').length
   };
 
   const now = new Date();
@@ -355,8 +365,8 @@ export const OwnerDashboard: React.FC = () => {
                 <ShieldCheck size={24} />
               </div>
               <div>
-                <h4 className="font-bold text-haven-navy">Dossier propriétaire requis</h4>
-                <p className="text-sm text-gray-500">Votre pièce d’identité et votre justificatif de propriété doivent être validés avant toute mise en ligne.</p>
+                <h4 className="font-bold text-haven-navy">{isSubmittedForReview ? 'Dossier en cours de vérification' : 'Dossier propriétaire requis'}</h4>
+                <p className="text-sm text-gray-500">{isSubmittedForReview ? 'Votre dossier a été transmis à Haven. Un administrateur vérifie votre identité avant d’activer la mise en ligne.' : 'Votre pièce d’identité doit être validée avant toute mise en ligne.'}</p>
               </div>
             </div>
             <Button 
@@ -365,7 +375,7 @@ export const OwnerDashboard: React.FC = () => {
               className="bg-orange-500 hover:bg-orange-600 border-none px-8"
               onClick={() => setIsVerificationModalOpen(true)}
             >
-              Compléter mon dossier
+              {isSubmittedForReview ? 'Dossier en cours de validation' : 'Compléter mon dossier'}
             </Button>
           </div>
         )}
@@ -399,7 +409,7 @@ export const OwnerDashboard: React.FC = () => {
               { id: 'MESSAGES', label: 'Messages', icon: Inbox },
               { id: 'FINANCES', label: 'Finances', icon: DollarSign },
               { id: 'DOCUMENTS', label: 'Mes Documents', icon: FileText },
-              { id: 'INCIDENTS', label: 'Sinistres', icon: AlertTriangle },
+              { id: 'INCIDENTS', label: 'Incidents', icon: AlertTriangle },
             ].map(tab => (
               <button 
                 key={tab.id}
@@ -408,6 +418,7 @@ export const OwnerDashboard: React.FC = () => {
               >
                 <tab.icon size={16} />
                 {tab.label}
+                {tab.id === 'INCIDENTS' && stats.openIncidents > 0 && <span className="ml-1 rounded-full bg-haven-red px-2 py-0.5 text-xs text-white">{stats.openIncidents}</span>}
                 {activeTab === tab.id && <div className="absolute bottom-0 left-0 right-0 h-1 bg-haven-navy rounded-full animate-fade-in" />}
               </button>
             ))}
@@ -748,13 +759,15 @@ export const OwnerDashboard: React.FC = () => {
             {activeTab === 'INCIDENTS' && (
               <div className="space-y-6">
                 <div className="flex justify-between items-center">
-                  <h3 className="font-heading font-bold text-xl text-haven-navy">Sinistres et Incidents</h3>
+                  <h3 className="font-heading font-bold text-xl text-haven-navy">Incidents à gérer</h3>
                   <div className="flex gap-2">
                     <Button variant="outline" size="sm" className="flex items-center gap-2"><Filter size={14}/> Filtrer</Button>
                     <Button variant="outline" size="sm" className="flex items-center gap-2"><Download size={14}/> Exporter</Button>
                   </div>
                 </div>
 
+                {incidentError && <p role="alert" className="rounded-xl bg-red-50 p-4 text-red-700">{incidentError}</p>}
+                <p className="text-sm text-gray-500">Les locataires vous transmettent les problèmes du logement. Prenez-les en charge et renseignez leur résolution.</p>
                 <div className="grid gap-4">
                   {ownerIncidents.map(incident => (
                     <div key={incident.id} className="bg-white border border-gray-100 rounded-3xl p-6 flex flex-col md:flex-row gap-6 items-start md:items-center hover:shadow-card transition-all">
@@ -769,7 +782,7 @@ export const OwnerDashboard: React.FC = () => {
                           <span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase ${
                             incident.priority === 'HIGH' ? 'bg-red-500 text-white' : 'bg-orange-500 text-white'
                           }`}>
-                            {incident.priority}
+                            {incidentStatusLabel(incident.status)}
                           </span>
                         </div>
                         <p className="text-sm text-gray-500 line-clamp-1">{incident.description}</p>
@@ -778,8 +791,8 @@ export const OwnerDashboard: React.FC = () => {
                         </p>
                       </div>
                       <div className="flex gap-2 w-full md:w-auto">
-                        <Button variant="outline" size="sm" className="flex-1 md:flex-none">Détails</Button>
-                        <Button variant="primary" size="sm" className="flex-1 md:flex-none">Gérer</Button>
+                        <Button variant="outline" size="sm" className="flex-1 md:flex-none" onClick={() => setSelectedIncidentId(incident.id)}>Détails</Button>
+                        {(incident.status === 'NEW' || incident.status === 'INVESTIGATING') && <Button variant="primary" size="sm" className="flex-1 md:flex-none" onClick={() => setSelectedIncidentId(incident.id)}>Gérer</Button>}
                       </div>
                     </div>
                   ))}
@@ -801,6 +814,10 @@ export const OwnerDashboard: React.FC = () => {
         isOpen={isVerificationModalOpen} 
         onClose={() => setIsVerificationModalOpen(false)} 
       />
+      {selectedIncident && <OwnerIncidentDetail key={selectedIncident.id} incident={selectedIncident}
+        listingTitle={listings.find(item => item.id === selectedIncident.listingId)?.title || 'Logement'}
+        onClose={() => setSelectedIncidentId(null)}
+        onUpdated={update => setOwnerIncidents(previous => previous.map(item => item.id === selectedIncident.id ? { ...item, ...update } : item))} />}
       {cancellationBooking && (
         <CancellationModal
           booking={cancellationBooking}

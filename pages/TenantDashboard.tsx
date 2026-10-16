@@ -1,3 +1,6 @@
+import type { Incident } from '../types';
+import { IncidentMonitor } from '../components/IncidentMonitor';
+import { hasRequiredPhoneNumber, isVerificationPending } from '../services/profileVerification';
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -104,7 +107,7 @@ export const TenantDashboard: React.FC = () => {
   const navigate = useNavigate();
   const { currentUser, refreshUser, updateUserRole } = useAuth();
   const { listings: allListings } = useListings();
-  const [activeTab, setActiveTab] = useState<'UPCOMING' | 'HISTORY' | 'FAVORITES' | 'MESSAGES' | 'DOCUMENTS'>('UPCOMING');
+  const [activeTab, setActiveTab] = useState<'UPCOMING' | 'HISTORY' | 'FAVORITES' | 'MESSAGES' | 'DOCUMENTS' | 'INCIDENTS'>('UPCOMING');
   const [bookings, setBookings] = useState<(Booking & { listing?: Listing })[]>([]);
   const [favorites, setFavorites] = useState<Listing[]>([]);
   const [documents, setDocuments] = useState<AppDocument[]>([]);
@@ -116,7 +119,8 @@ export const TenantDashboard: React.FC = () => {
   const [forceEarlyDepartureId, setForceEarlyDepartureId] = useState<string | null>(null);
   const [showEarlyDepartureHintId, setShowEarlyDepartureHintId] = useState<string | null>(null);
 
-  const isApproved = currentUser?.status === 'APPROVED' && currentUser.emailVerified === true && currentUser.phoneVerified === true && currentUser.identityVerified === true;
+  const isApproved = currentUser?.status === 'APPROVED' && currentUser.emailVerified === true && hasRequiredPhoneNumber(currentUser) && currentUser.identityVerified === true;
+  const isSubmittedForReview = Boolean(currentUser && isVerificationPending(currentUser));
   const hasTenantDocuments = Boolean(currentUser?.documents?.idCard);
   const canBook = currentUser?.role === UserRole.ADMIN || (isApproved && hasTenantDocuments);
 
@@ -145,6 +149,8 @@ export const TenantDashboard: React.FC = () => {
     bookingId: ''
   });
 
+  const [tenantIncidents, setTenantIncidents] = useState<Incident[]>([]);
+  const [incidentError, setIncidentError] = useState('');
   const [reportState, setReportState] = useState({
     isOpen: false,
     targetId: '',
@@ -333,16 +339,16 @@ export const TenantDashboard: React.FC = () => {
 
         // 2. Create Incident if any
         if (data.incidentReport && data.incidentReport.subCategory) {
-          await apiService.incidents.create({
+          await apiService.stayIssues.create({
             id: `inc_${bookingId}_${Date.now()}`,
             bookingId,
             listingId: inventoryState.selectedBooking.listingId,
             reporterId: currentUser.id,
             ownerId: inventoryState.selectedBooking.ownerId,
-            title: `${data.incidentReport.category} - ${data.incidentReport.subCategory}`,
+            category: data.incidentReport.category,
+            subCategory: data.incidentReport.subCategory,
             description: data.incidentReport.description,
-            photos: data.incidentReport.photo ? [data.incidentReport.photo] : [],
-            status: 'NEW',
+            photo: data.incidentReport.photo || '',
             createdAt: new Date().toISOString()
           });
         }
@@ -473,6 +479,13 @@ export const TenantDashboard: React.FC = () => {
     }
   };
 
+  useEffect(() => {
+    setTenantIncidents([]); setIncidentError('');
+    if (!currentUser?.id) return;
+    return apiService.incidents.listenByReporterId(currentUser.id, setTenantIncidents,
+      () => setIncidentError('Impossible de charger vos incidents. Actualisez la page pour réessayer.'));
+  }, [currentUser?.id]);
+
   if (isLoading) return <div className="p-20 text-center flex flex-col items-center gap-4"><Loader2 className="animate-spin text-haven-navy" size={40}/><p className="text-sm font-bold text-gray-400 uppercase tracking-widest">Chargement de votre univers...</p></div>;
 
   return (
@@ -513,8 +526,8 @@ export const TenantDashboard: React.FC = () => {
                 <ShieldCheck size={24} />
               </div>
               <div>
-                <h4 className="font-bold text-haven-navy">Dossier de vérification requis</h4>
-                <p className="text-sm text-gray-500">Votre pièce d’identité et votre justificatif de domicile doivent être validés avant toute réservation.</p>
+                <h4 className="font-bold text-haven-navy">{isSubmittedForReview ? 'Dossier en cours de vérification' : 'Dossier de vérification requis'}</h4>
+                <p className="text-sm text-gray-500">{isSubmittedForReview ? 'Votre dossier a été transmis à Haven. Un administrateur vérifie votre identité avant d’activer les réservations.' : 'Votre pièce d’identité doit être validée avant toute réservation.'}</p>
               </div>
             </div>
             <Button 
@@ -523,7 +536,7 @@ export const TenantDashboard: React.FC = () => {
               className="bg-orange-500 hover:bg-orange-600 border-none px-8 h-12 rounded-xl"
               onClick={() => setIsVerificationModalOpen(true)}
             >
-              Compléter mon dossier
+              {isSubmittedForReview ? 'Dossier en cours de validation' : 'Compléter mon dossier'}
             </Button>
           </div>
         )}
@@ -533,6 +546,7 @@ export const TenantDashboard: React.FC = () => {
             {[
               { id: 'UPCOMING', label: 'Séjours à venir', count: upcoming.length },
               { id: 'HISTORY', label: 'Historique', count: history.length },
+              { id: 'INCIDENTS', label: 'Mes incidents', count: tenantIncidents.length },
               { id: 'MESSAGES', label: 'Messages', count: unreadCount },
               { id: 'FAVORITES', label: 'Mes Favoris', count: favorites.length },
               { id: 'DOCUMENTS', label: 'Mes Documents', count: documents.length + Object.values(currentUser?.documents || {}).filter(Boolean).length }
@@ -554,6 +568,7 @@ export const TenantDashboard: React.FC = () => {
           </div>
 
           <div className="space-y-6">
+            {activeTab === 'INCIDENTS' && <IncidentMonitor tenant incidents={tenantIncidents} listings={allListings} error={incidentError} />}
             {activeTab === 'UPCOMING' && (
               <>
                 {upcoming.map(booking => (
@@ -664,7 +679,7 @@ export const TenantDashboard: React.FC = () => {
                               ownerId: booking.ownerId
                             })}
                           >
-                            <AlertTriangle size={13} /> Signaler un incident
+                            <AlertTriangle size={13} /> Incident / signalement
                           </Button>
 
                           <button

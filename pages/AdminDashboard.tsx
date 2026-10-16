@@ -16,9 +16,13 @@ import {
   , AdminAuditEntry
 } from '../types';
 import { Button } from '../components/Button';
-import { isVerificationReadyForAdminReview } from '../services/profileVerification';
+import { isVerificationPending, isVerificationReadyForAdminReview } from '../services/profileVerification';
+import { AdminAuditJournal } from '../components/AdminAuditJournal';
+import { ReportOwnerWaitDialog } from '../components/ReportOwnerWaitDialog';
+import { IncidentMonitor } from '../components/IncidentMonitor';
+import { AdminListingReview } from '../components/AdminListingReview';
 import { Logo } from '../components/Logo';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { onSnapshot, collection, query, orderBy } from 'firebase/firestore';
 import { db, seedFirestore } from '../firebase';
@@ -64,8 +68,10 @@ import 'react-quill-new/dist/quill.snow.css';
 export const AdminDashboard: React.FC = () => {
   const { currentUser, isLoading: authLoading } = useAuth();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState<'LISTINGS' | 'USERS' | 'OVERVIEW' | 'STAFF' | 'CONTACTS' | 'REPORTS' | 'LEGAL' | 'INCIDENTS' | 'AUDIT'>('LISTINGS');
-  const { listings, updateListingStatus, isLoading: listingsLoading } = useListings();
+  const { listings, refreshListings, isLoading: listingsLoading } = useListings();
+  const [listingReview, setListingReview] = useState<Listing | null>(null);
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [users, setUsers] = useState<User[]>([]);
   const [contactRequests, setContactRequests] = useState<ContactRequest[]>([]);
@@ -99,8 +105,8 @@ export const AdminDashboard: React.FC = () => {
     role: 'ALL' as UserRole | 'ALL',
     status: 'ALL' as UserStatus | 'ALL'
   });
+  const [waitingReport, setWaitingReport] = useState<Report | null>(null);
   const [reportFilter, setReportFilter] = useState<ReportStatus | 'ALL'>('NEW');
-  const [auditFilters, setAuditFilters] = useState({ actorId: 'ALL', category: 'ALL', query: '' });
 
   // Sorting
   const [listingSort, setListingSort] = useState<{ key: string; direction: 'asc' | 'desc' }>({ key: 'createdAt', direction: 'desc' });
@@ -163,7 +169,7 @@ export const AdminDashboard: React.FC = () => {
   // Rejection Modal State
   const [rejectionModal, setRejectionModal] = useState<{
     isOpen: boolean;
-    type: 'LISTING' | 'USER';
+    type: 'LISTING' | 'USER' | 'BAN';
     id: string;
     reason: string;
     error?: string;
@@ -323,9 +329,8 @@ export const AdminDashboard: React.FC = () => {
   };
 
   const pendingListings = listings.filter(l => l.status === 'PENDING');
-  const pendingUsers = users.filter(u => !u.status || u.status === 'PENDING');
+  const pendingUsers = users.filter(user => user.role !== UserRole.ADMIN && isVerificationPending(user));
   const pendingContacts = contactRequests.filter(c => c.status === 'NEW');
-  const pendingIncidents = incidents.filter(i => i.status === 'NEW');
 
   // Sorting logic for listings
   const sortedListings = [...listings]
@@ -391,19 +396,18 @@ export const AdminDashboard: React.FC = () => {
     return currentSort.direction === 'asc' ? <ChevronUp size={14} className="text-haven-red" /> : <ChevronDown size={14} className="text-haven-red" />;
   };
   
-  const handleUpdateStatus = async (id: string, newStatus: ListingStatus, reason?: string) => {
+  const handleUpdateStatus = async (id: string, newStatus: 'APPROVED' | 'REJECTED', reason?: string) => {
+    if (listingReview?.id !== id) return;
     setProcessingId(id);
     setError(null);
     try {
-      await updateListingStatus(id, newStatus, reason);
-      await recordAdminAction({
-        action: `LISTING_${newStatus}`, category: 'LISTING', targetType: 'LISTING', targetId: id,
-        summary: newStatus === 'REJECTED' ? `Annonce refusée : ${reason || 'motif non précisé'}` : `Statut de l’annonce défini sur ${newStatus}.`
-      });
+      await apiService.listings.review(id, newStatus, newStatus === 'APPROVED', reason);
+      await refreshListings();
+      setListingReview(null);
       setRejectionModal({ ...rejectionModal, isOpen: false, error: '' });
     } catch (e: any) {
       console.error("Error updating status", e);
-      const msg = "Erreur lors de la mise à jour du logement. Vérifiez vos permissions.";
+      const msg = e instanceof Error ? e.message : "Impossible de mettre à jour cette annonce.";
       setError(msg);
       if (rejectionModal.isOpen) {
         setRejectionModal(prev => ({ ...prev, error: msg }));
@@ -415,68 +419,50 @@ export const AdminDashboard: React.FC = () => {
 
   const handleUpdateUserStatus = async (id: string, newStatus: UserStatus, reason?: string) => {
     if (newStatus === 'APPROVED') {
-      const candidate = users.find(user => user.id === id) || (userDetailModal.user?.id === id ? userDetailModal.user : null);
+      const candidate = (userDetailModal.user?.id === id ? userDetailModal.user : null) || users.find(user => user.id === id);
       if (!candidate) {
         setError('Impossible de vérifier les critères du compte. Rechargez la liste des utilisateurs avant de l’approuver.');
         return;
       }
+      if (candidate.role !== UserRole.ADMIN && (!userDetailModal.isOpen || userDetailModal.user?.id !== id || !identityReviewConfirmed)) {
+        setError('Ouvrez la pièce d’identité et confirmez son contrôle avant de valider le profil.');
+        return;
+      }
       const complete = candidate && candidate.role !== UserRole.ADMIN &&
-        isVerificationReadyForAdminReview(candidate) && candidate.identityVerified === true;
+        isVerificationReadyForAdminReview(candidate);
       if (candidate && candidate.role !== UserRole.ADMIN && !complete) {
-        setError('Le compte ne peut pas être approuvé : le dossier doit être transmis, puis l’identité vérifiée par un administrateur.');
+        setError('Le dossier doit être complet et transmis avant sa validation par un administrateur.');
         return;
       }
     }
     setProcessingId(id);
     setError(null);
     try {
-      await apiService.users.updateStatus(id, newStatus, reason);
-      await recordAdminAction({
-        action: `USER_${newStatus}`, category: 'ACCOUNT', targetType: 'USER', targetId: id,
-        summary: newStatus === 'REJECTED' ? `Compte refusé : ${reason || 'motif non précisé'}` : `Statut du compte défini sur ${newStatus}.`
-      });
-      setUsers(prev => prev.map(u => u.id === id ? { ...u, status: newStatus, rejectionReason: newStatus === 'APPROVED' ? undefined : reason } : u));
-      
-      // Update modal state if open for this user
-      if (userDetailModal.isOpen && userDetailModal.userId === id && userDetailModal.user) {
-        setUserDetailModal(prev => ({
-          ...prev,
-          user: prev.user ? { ...prev.user, status: newStatus, rejectionReason: newStatus === 'APPROVED' ? undefined : reason } : null
-        }));
+      let changes: Partial<User> = { status: newStatus, rejectionReason: newStatus === 'APPROVED' ? undefined : reason };
+      const candidate = users.find(user => user.id === id) || userDetailModal.user;
+      if (newStatus === 'APPROVED' && candidate?.role !== UserRole.ADMIN) {
+        changes = { ...changes, ...await apiService.users.approveProfile(id) };
+      } else if (candidate?.role !== UserRole.ADMIN && (newStatus === 'REJECTED' || newStatus === 'BANNED')) {
+        changes = { ...changes, ...await apiService.users.moderateProfile(id, newStatus, reason || '') };
+      } else {
+        await apiService.users.updateStatus(id, newStatus, reason);
+        await recordAdminAction({
+          action: `USER_${newStatus}`, category: 'ACCOUNT', targetType: 'USER', targetId: id,
+          summary: newStatus === 'REJECTED' ? `Compte refusé : ${reason || 'motif non précisé'}` : `Statut du compte défini sur ${newStatus}.`
+        });
       }
+      setUsers(prev => prev.map(user => user.id === id ? { ...user, ...changes } : user));
+      setUserDetailModal(prev => prev.user?.id === id
+        ? { ...prev, user: { ...prev.user, ...changes } } : prev);
 
       setRejectionModal({ ...rejectionModal, isOpen: false, error: '' });
     } catch (e: any) {
       console.error("Error updating user status", e);
-      const msg = "Erreur lors de la mise à jour de l'utilisateur. Vérifiez vos permissions.";
+      const msg = e instanceof Error ? e.message : "Impossible de mettre à jour le profil.";
       setError(msg);
       if (rejectionModal.isOpen) {
         setRejectionModal(prev => ({ ...prev, error: msg }));
       }
-    } finally {
-      setProcessingId(null);
-    }
-  };
-
-  const handleVerifyUserIdentity = async (user: User) => {
-    if (!isVerificationReadyForAdminReview(user)) {
-      setError('Le membre doit d’abord transmettre un dossier complet. Vérifiez ensuite les informations avec sa pièce d’identité.');
-      return;
-    }
-    setProcessingId(user.id);
-    setError(null);
-    try {
-      await apiService.users.verifyIdentity(user.id);
-      await recordAdminAction({
-        action: 'USER_IDENTITY_VERIFIED', category: 'ACCOUNT', targetType: 'USER', targetId: user.id,
-        summary: `Identité vérifiée après examen de la pièce d’identité de ${user.firstName} ${user.lastName}.`
-      });
-      const updated = { ...user, identityVerified: true, isVerified: true, idVerifiedAt: new Date().toISOString() };
-      setUsers(prev => prev.map(item => item.id === user.id ? updated : item));
-      setUserDetailModal(prev => prev.user?.id === user.id ? { ...prev, user: updated } : prev);
-    } catch (e) {
-      console.error('Identity verification failed', e);
-      setError('Impossible d’enregistrer la validation de l’identité. Vérifiez vos autorisations.');
     } finally {
       setProcessingId(null);
     }
@@ -499,31 +485,16 @@ export const AdminDashboard: React.FC = () => {
     setProcessingId(id);
     try {
       await apiService.reports.updateStatus(id, newStatus, notes);
-      await recordAdminAction({ action: `REPORT_${newStatus}`, category: 'REPORT', targetType: 'REPORT', targetId: id, summary: `Signalement défini sur ${newStatus}.${notes ? ` Note : ${notes}` : ''}` });
+      setError(null);
     } catch (e) {
       console.error("Error updating report status", e);
-      setError("Erreur lors de la mise à jour du signalement.");
+      setError(e instanceof Error ? e.message : "Impossible de mettre à jour le signalement.");
     } finally {
       setProcessingId(null);
     }
   };
 
-  const handleDeleteUser = async (id: string) => {
-    if (!window.confirm("Êtes-vous sûr de vouloir bannir cet utilisateur ?")) return;
-    setProcessingId(id);
-    try {
-      await apiService.users.delete(id);
-      await recordAdminAction({ action: 'USER_BANNED', category: 'ACCOUNT', targetType: 'USER', targetId: id, summary: 'Compte banni depuis le back-office.' });
-      alert("Utilisateur banni avec succès.");
-    } catch (e) {
-      console.error("Error deleting user", e);
-      setError("Erreur lors du bannissement de l'utilisateur.");
-    } finally {
-      setProcessingId(null);
-    }
-  };
-
-  const openRejectionModal = (type: 'LISTING' | 'USER', id: string) => {
+  const openRejectionModal = (type: 'LISTING' | 'USER' | 'BAN', id: string) => {
     setRejectionModal({
       isOpen: true,
       type,
@@ -542,7 +513,7 @@ export const AdminDashboard: React.FC = () => {
     if (rejectionModal.type === 'LISTING') {
       handleUpdateStatus(rejectionModal.id, 'REJECTED', rejectionModal.reason);
     } else {
-      handleUpdateUserStatus(rejectionModal.id, 'REJECTED', rejectionModal.reason);
+      handleUpdateUserStatus(rejectionModal.id, rejectionModal.type === 'BAN' ? 'BANNED' : 'REJECTED', rejectionModal.reason);
     }
   };
 
@@ -634,7 +605,13 @@ export const AdminDashboard: React.FC = () => {
     setIsEditingLegal(true);
   };
 
+  const [identityDocumentOpened, setIdentityDocumentOpened] = useState(false);
+  const [identityReviewConfirmed, setIdentityReviewConfirmed] = useState(false);
+
   const openUserDetailModal = async (userId: string) => {
+    setError(null);
+    setIdentityDocumentOpened(false);
+    setIdentityReviewConfirmed(false);
     setUserDetailModal(prev => ({ ...prev, isOpen: true, userId, isLoading: true, user: null, listings: [], bookings: [], ownerBookings: [] }));
     try {
       const userData = await apiService.users.getById(userId);
@@ -660,6 +637,22 @@ export const AdminDashboard: React.FC = () => {
     }
   };
 
+  useEffect(() => {
+    if (authLoading || currentUser?.role !== UserRole.ADMIN) return;
+    const userId = searchParams.get('user');
+    const listingId = searchParams.get('listing');
+    if (!userId && !listingId) return;
+    if (listingId && listingsLoading) return;
+    if (userId) void openUserDetailModal(userId);
+    else if (listingId) {
+      const listing = listings.find(item => item.id === listingId);
+      if (listing) { setError(null); setListingReview(listing); }
+      else setError('Cette annonce n’est plus disponible.');
+    }
+    const next = new URLSearchParams(searchParams); next.delete('user'); next.delete('listing');
+    setSearchParams(next, { replace: true });
+  }, [authLoading, currentUser?.id, searchParams, listingsLoading, listings, setSearchParams]);
+
   if (authLoading || (currentUser && currentUser.role !== UserRole.ADMIN)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -670,7 +663,7 @@ export const AdminDashboard: React.FC = () => {
 
   const detailUser = userDetailModal.user;
   const canApproveDetailUser = detailUser?.role === UserRole.ADMIN || Boolean(
-    detailUser && isVerificationReadyForAdminReview(detailUser) && detailUser.identityVerified === true
+    detailUser && isVerificationReadyForAdminReview(detailUser) && identityReviewConfirmed
   );
 
   return (
@@ -702,7 +695,7 @@ export const AdminDashboard: React.FC = () => {
            {[
              { id: 'LISTINGS', label: 'Annonces', icon: CheckCircle, count: pendingListings.length },
              { id: 'USERS', label: 'Utilisateurs', icon: Users, count: pendingUsers.length },
-             { id: 'INCIDENTS', label: 'Incidents', icon: AlertTriangle, count: pendingIncidents.length },
+             { id: 'INCIDENTS', label: 'Incidents', icon: AlertTriangle },
              { id: 'REPORTS', label: 'Signalements', icon: Flag, count: reports.filter(r => r.status === 'NEW').length },
              { id: 'CONTACTS', label: 'Contacts', icon: Mail, count: pendingContacts.length },
              { id: 'LEGAL', label: 'Légal', icon: FileText },
@@ -868,51 +861,25 @@ export const AdminDashboard: React.FC = () => {
                             <div className="text-sm text-gray-600 font-medium">{getUserName(listing.ownerId)}</div>
                           </td>
                           <td className="p-6">
-                            <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${
-                              listing.status === 'DRAFT' ? 'bg-gray-50 text-gray-600 border-gray-100' :
-                              listing.status === 'PENDING' ? 'bg-amber-50 text-amber-600 border-amber-100' :
+                            <span className={`inline-flex whitespace-nowrap px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${
+                              listing.status === 'DRAFT' ? 'bg-orange-50 text-orange-700 border-orange-100' :
+                              listing.status === 'PENDING' ? 'bg-blue-50 text-blue-700 border-blue-100' :
                               listing.status === 'APPROVED' ? 'bg-green-50 text-green-600 border-green-100' :
                               'bg-red-50 text-red-600 border-red-100'
                             }`}>
-                              {listing.status === 'DRAFT' ? 'Brouillon' : listing.status === 'PENDING' ? 'En attente' : listing.status === 'APPROVED' ? 'Validée' : 'Refusée'}
+                              {listing.status === 'DRAFT' ? 'À compléter' : listing.status === 'PENDING' ? 'À examiner' : listing.status === 'APPROVED' ? 'Validée' : 'Refusée'}
                             </span>
                           </td>
                           <td className="p-6">
                             <div className="flex items-center gap-2">
                               <button 
-                                onClick={() => window.open(`/#/listing/${listing.id}`, '_blank')}
+                                onClick={() => { setError(null); setListingReview(listing); }}
                                 className="p-2 text-gray-400 hover:text-haven-navy hover:bg-gray-100 rounded-lg transition-all"
-                                title="Voir l'annonce"
+                                title="Examiner l’annonce"
                               >
                                 <Eye size={16} />
                               </button>
-                              {listing.status !== 'APPROVED' && (
-                                <button 
-                                  onClick={() => handleUpdateStatus(listing.id, 'APPROVED')}
-                                  disabled={processingId === listing.id}
-                                  className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-all disabled:opacity-50"
-                                  title="Approuver"
-                                >
-                                  {processingId === listing.id ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle size={16} />}
-                                </button>
-                              )}
-                              {listing.status !== 'REJECTED' && (
-                                <button 
-                                  onClick={() => openRejectionModal('LISTING', listing.id)}
-                                  disabled={processingId === listing.id}
-                                  className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-all disabled:opacity-50"
-                                  title="Refuser"
-                                >
-                                  <XCircle size={16} />
-                                </button>
-                              )}
-                              <button 
-                                onClick={() => navigate(`/owner/publish?edit=${listing.id}`)}
-                                className="p-2 text-gray-400 hover:text-haven-navy hover:bg-gray-100 rounded-lg transition-all"
-                                title="Modifier"
-                              >
-                                <FileText size={16} />
-                              </button>
+
                             </div>
                           </td>
                         </tr>
@@ -942,7 +909,7 @@ export const AdminDashboard: React.FC = () => {
                     <div className="flex items-center gap-6">
                       <div className="flex items-center gap-4">
                         <div className="flex items-center gap-2 bg-gray-50 p-1 rounded-xl border border-gray-100">
-                          {(['ALL', 'PENDING', 'APPROVED', 'REJECTED'] as const).map(status => (
+                          {(['ALL', 'PENDING', 'APPROVED', 'REJECTED', 'BANNED'] as const).map(status => (
                             <button
                               key={status}
                               onClick={() => setUserFilters(prev => ({ ...prev, status }))}
@@ -952,7 +919,7 @@ export const AdminDashboard: React.FC = () => {
                                 : 'text-gray-400 hover:text-gray-600'
                               }`}
                             >
-                              {status === 'ALL' ? 'Tous' : status === 'PENDING' ? 'En attente' : status === 'APPROVED' ? 'Approuvés' : 'Bannis/Refusés'}
+                              {status === 'ALL' ? 'Tous' : status === 'PENDING' ? 'En attente' : status === 'APPROVED' ? 'Approuvés' : status === 'REJECTED' ? 'Refusés' : 'Bannis'}
                             </button>
                           ))}
                         </div>
@@ -1091,23 +1058,19 @@ export const AdminDashboard: React.FC = () => {
                               <div className="text-sm text-gray-500">{user.city || '-'}</div>
                             </td>
                             <td className="p-6">
-                              <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${
-                                user.role === UserRole.ADMIN ? 'bg-purple-50 text-purple-600 border-purple-100' :
-                                user.role === UserRole.OWNER ? 'bg-haven-red/5 text-haven-red border-haven-red/10' : 
-                                'bg-blue-50 text-blue-600 border-blue-100'
-                              }`}>
+                              <span className="text-sm text-gray-600 whitespace-nowrap">
                                 {user.role === UserRole.ADMIN ? 'Admin' : user.role === UserRole.OWNER ? 'Propriétaire' : 'Locataire'}
                               </span>
                             </td>
                             <td className="p-6">
-                              <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${
+                              <span className={`inline-flex whitespace-nowrap px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${
                                 (user.status || 'PENDING') === 'APPROVED' ? 'bg-green-50 text-green-600 border-green-100' :
-                                (user.status || 'PENDING') === 'PENDING' ? 'bg-amber-50 text-amber-600 border-amber-100' :
+                                (user.status || 'PENDING') === 'PENDING' ? (user.verificationSubmittedAt ? 'bg-blue-50 text-blue-700 border-blue-100' : 'bg-orange-50 text-orange-700 border-orange-100') :
                                 'bg-red-50 text-red-600 border-red-100'
                               }`}>
                                 {(user.status || 'PENDING') === 'PENDING' && user.role !== UserRole.ADMIN
                                   ? user.verificationSubmittedAt ? 'À examiner' : 'À compléter'
-                                  : user.status || 'PENDING'}
+                                  : user.status === 'BANNED' ? 'Banni' : user.status === 'REJECTED' ? 'Refusé' : user.status === 'APPROVED' ? 'Validé' : 'En attente'}
                               </span>
                             </td>
                             <td className="p-6">
@@ -1119,26 +1082,7 @@ export const AdminDashboard: React.FC = () => {
                                 >
                                   <Eye size={16} />
                                 </button>
-                                {(user.status || 'PENDING') !== 'APPROVED' && (
-                                  <button 
-                                    onClick={() => handleUpdateUserStatus(user.id, 'APPROVED')}
-                                    disabled={processingId === user.id}
-                                    className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-all disabled:opacity-50"
-                                    title="Approuver"
-                                  >
-                                    {processingId === user.id ? <Loader2 size={16} className="animate-spin" /> : <UserCheck size={16} />}
-                                  </button>
-                                )}
-                                {(user.status || 'PENDING') !== 'REJECTED' && (
-                                  <button 
-                                    onClick={() => openRejectionModal('USER', user.id)}
-                                    disabled={processingId === user.id}
-                                    className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-all disabled:opacity-50"
-                                    title="Bannir"
-                                  >
-                                    <Ban size={16} />
-                                  </button>
-                                )}
+
                               </div>
                             </td>
                           </tr>
@@ -1161,7 +1105,7 @@ export const AdminDashboard: React.FC = () => {
             <div className="space-y-6">
               <div className="bg-white rounded-3xl shadow-card border border-gray-100 p-6 flex flex-wrap items-center justify-between gap-4">
                 <div className="flex items-center gap-2 bg-gray-50 p-1 rounded-xl border border-gray-100">
-                  {(['ALL', 'NEW', 'INVESTIGATING', 'RESOLVED', 'DISMISSED'] as const).map(status => (
+                  {(['ALL', 'NEW', 'INVESTIGATING', 'WAITING_OWNER', 'RESOLVED', 'DISMISSED'] as const).map(status => (
                     <button
                       key={status}
                       onClick={() => setReportFilter(status)}
@@ -1171,7 +1115,7 @@ export const AdminDashboard: React.FC = () => {
                         : 'text-gray-400 hover:text-gray-600'
                       }`}
                     >
-                      {status === 'ALL' ? 'Tous' : status === 'NEW' ? 'Nouveaux' : status === 'INVESTIGATING' ? 'En cours' : status === 'RESOLVED' ? 'Résolus' : 'Classés'}
+                      {status === 'ALL' ? 'Tous' : status === 'NEW' ? 'Nouveaux' : status === 'INVESTIGATING' ? 'En cours' : status === 'WAITING_OWNER' ? 'En attente du propriétaire' : status === 'RESOLVED' ? 'Résolus' : 'Classés'}
                     </button>
                   ))}
                 </div>
@@ -1207,20 +1151,26 @@ export const AdminDashboard: React.FC = () => {
                                                report.targetType === 'MESSAGE' ? 'Message' : 'Technique'}
                                   </h3>
                                   <p className="text-xs text-gray-400">
-                                    Raison: <span className="font-bold text-gray-600 uppercase tracking-tighter">{report.reason}</span> • {new Date(report.timestamp).toLocaleString('fr-FR')}
+                                    Raison: <span className="font-bold text-gray-600 uppercase tracking-tighter">{report.supportCategory || report.reason}</span> • {new Date(report.timestamp).toLocaleString('fr-FR')}
                                   </p>
                                 </div>
                               </div>
-                              <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${
+                              <span className={`inline-flex whitespace-nowrap px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${
                                 report.status === 'NEW' ? 'bg-red-50 text-red-600 border-red-100' :
+                                report.status === 'WAITING_OWNER' ? 'bg-blue-50 text-blue-700 border-blue-100' :
                                 report.status === 'INVESTIGATING' ? 'bg-amber-50 text-amber-600 border-amber-100' :
                                 'bg-green-50 text-green-600 border-green-100'
                               }`}>
-                                {report.status === 'NEW' ? 'Nouveau' : report.status === 'INVESTIGATING' ? 'En cours' : report.status === 'RESOLVED' ? 'Résolu' : 'Classé'}
+                                {report.status === 'NEW' ? 'Nouveau' : report.status === 'INVESTIGATING' ? 'En cours' : report.status === 'WAITING_OWNER' ? 'En attente du propriétaire' : report.status === 'RESOLVED' ? 'Résolu' : 'Classé'}
                               </span>
                             </div>
                             <div className="bg-gray-50 p-4 rounded-xl border border-gray-100 mb-4">
                               <p className="text-sm text-gray-600 italic">"{report.description}"</p>
+                              {report.photos?.map((photo, index) => <img key={index} src={photo} alt={`Pièce jointe du signalement ${index + 1}`} className="mt-3 max-h-64 rounded-xl object-contain"/>)}
+                              {report.listingId && <button className="mt-3 text-sm font-bold text-haven-red" onClick={() => navigate(`/listing/${report.listingId}`)}>Voir le logement concerné</button>}
+                              {report.ownerMessage && <div className="mt-3 rounded-xl border border-blue-100 bg-blue-50 p-4"><p className="text-sm text-gray-700">{report.ownerMessage}</p>{report.waitingOwnerSince && <p className="mt-2 text-xs text-gray-500">Mis en attente le {new Date(report.waitingOwnerSince).toLocaleString('fr-FR')}</p>}{report.ownerReviewDate && <p className="mt-1 text-xs text-gray-500">Réexamen prévu le {new Date(`${report.ownerReviewDate}T12:00:00`).toLocaleDateString('fr-FR')} · suivi manuel</p>}</div>}
+                              {report.incidentId && <p className="mt-2 text-xs font-semibold text-haven-navy">Incident lié : {report.incidentId}</p>}
+                              {report.bookingId && <p className="mt-2 text-xs text-gray-500">Réservation : {report.bookingId}</p>}
                             </div>
                             <div className="flex items-center gap-4 text-xs text-gray-400">
                               <span>Reporter ID: <span className="font-mono">{report.reporterId}</span></span>
@@ -1228,14 +1178,15 @@ export const AdminDashboard: React.FC = () => {
                             </div>
                           </div>
                           <div className="flex flex-col gap-2 lg:w-48">
-                            {report.status === 'NEW' && (
+                            {report.incidentId && !['RESOLVED', 'DISMISSED'].includes(report.status) && <Button variant="outline" size="sm" disabled={processingId === report.id} onClick={() => setWaitingReport(report)}>{report.status === 'WAITING_OWNER' ? 'Ajuster l’attente' : 'Laisser le propriétaire gérer'}</Button>}
+                            {(report.status === 'NEW' || report.status === 'WAITING_OWNER') && (
                               <Button 
                                 size="sm" 
                                 className="bg-amber-600 hover:bg-amber-700 text-white"
                                 onClick={() => handleUpdateReportStatus(report.id, 'INVESTIGATING')}
                                 disabled={processingId === report.id}
                               >
-                                Enquêter
+                                {report.status === 'WAITING_OWNER' ? 'Reprendre l’examen' : 'Enquêter'}
                               </Button>
                             )}
                             {report.status !== 'RESOLVED' && report.status !== 'DISMISSED' && (
@@ -1287,8 +1238,8 @@ export const AdminDashboard: React.FC = () => {
           {activeTab === 'CONTACTS' && (
             <div className="bg-white rounded-3xl shadow-card border border-gray-100 overflow-hidden">
               <div className="p-8 border-b border-gray-100">
-                <h2 className="font-heading font-bold text-2xl text-haven-navy mb-2">Demandes de contact</h2>
-                <p className="text-gray-500 text-sm">Gérez les messages envoyés via le formulaire de contact.</p>
+                <h2 className="font-heading font-bold text-2xl text-haven-navy mb-2">Messages à Haven</h2>
+                <p className="text-gray-500 text-sm">Avis, suggestions, dysfonctionnements du site, questions et réclamations sur le service Haven. Les problèmes liés aux séjours sont suivis dans Incidents et Signalements.</p>
               </div>
 
               {contactRequests.length > 0 ? (
@@ -1367,81 +1318,8 @@ export const AdminDashboard: React.FC = () => {
           )}
 
           {activeTab === 'INCIDENTS' && (
-            <div className="space-y-6">
-              <div className="bg-white rounded-3xl shadow-card border border-gray-100 p-8">
-                <h2 className="font-heading font-bold text-2xl text-haven-navy mb-1">Gestion des incidents</h2>
-                <p className="text-gray-500 text-sm mb-6">Suivez les problèmes techniques signalés par les locataires.</p>
-                
-                {incidents.length > 0 ? (
-                  <div className="grid grid-cols-1 gap-6">
-                    {incidents.map(incident => (
-                      <div key={incident.id} className="bg-gray-50 rounded-2xl border border-gray-100 overflow-hidden flex flex-col md:flex-row">
-                        <div className="md:w-64 h-48 md:h-auto bg-gray-200">
-                          {incident.photos && incident.photos.length > 0 ? (
-                            <img src={incident.photos[0]} className="w-full h-full object-cover" alt="" />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center text-gray-400">
-                              <Camera size={48} />
-                            </div>
-                          )}
-                        </div>
-                        <div className="flex-1 p-6 flex flex-col">
-                          <div className="flex justify-between items-start mb-4">
-                            <div>
-                              <div className="flex items-center gap-2 mb-1">
-                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-widest ${incident.status === 'NEW' ? 'bg-haven-red text-white' : 'bg-green-100 text-green-700'}`}>
-                                  {incident.status === 'NEW' ? 'Nouveau' : 'Résolu'}
-                                </span>
-                                <span className="text-xs font-bold text-gray-400">#INC-{incident.id.slice(0, 5)}</span>
-                              </div>
-                              <h3 className="font-bold text-lg text-haven-navy">{incident.title}</h3>
-                            </div>
-                            <div className="text-right">
-                              <p className="text-sm font-bold text-haven-navy">Signalé par : {getUserName(incident.reporterId)}</p>
-                              <p className="text-xs text-gray-400">{new Date(incident.createdAt).toLocaleDateString()}</p>
-                            </div>
-                          </div>
-                          <p className="text-sm text-gray-600 mb-6 flex-1 italic">"{incident.description}"</p>
-                          <div className="flex flex-wrap gap-4 mt-auto">
-                            <Button 
-                              size="sm" 
-                              variant="outline"
-                              onClick={() => navigate(`/listing/${incident.listingId}`)}
-                            >
-                              <Home size={14} className="mr-2" /> Voir le logement
-                            </Button>
-                            {incident.status === 'NEW' ? (
-                              <Button 
-                                size="sm" 
-                                className="bg-haven-navy text-white"
-                                onClick={async () => {
-                                  setProcessingId(incident.id);
-                                  await apiService.incidents.updateStatus(incident.id, 'RESOLVED');
-                                  await recordAdminAction({ action: 'INCIDENT_RESOLVED', category: 'INCIDENT', targetType: 'INCIDENT', targetId: incident.id, summary: `Incident « ${incident.title} » marqué comme résolu.` });
-                                  setProcessingId(null);
-                                  toast.success("Incident marqué comme résolu.");
-                                }}
-                                disabled={processingId === incident.id}
-                              >
-                                Marquer comme résolu
-                              </Button>
-                            ) : (
-                              <div className="flex items-center gap-2 text-green-600 font-bold text-sm px-4 py-2 bg-green-50 rounded-xl">
-                                <CheckCircle size={16} /> Incident Traité
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="p-20 text-center flex flex-col items-center">
-                    <CheckCircle size={64} className="text-green-100 mb-6"/>
-                    <h3 className="font-bold text-xl text-gray-800">Aucun incident à déplorer !</h3>
-                  </div>
-                )}
-              </div>
+            <div className="rounded-3xl border border-gray-100 bg-white p-6 shadow-card sm:p-8">
+              <IncidentMonitor incidents={incidents} listings={listings} users={users} />
             </div>
           )}
 
@@ -1524,41 +1402,16 @@ export const AdminDashboard: React.FC = () => {
           )}
 
           {activeTab === 'AUDIT' && (
-            isPrimaryAdmin ? <div className="space-y-6">
-              <div className="bg-white rounded-3xl shadow-card border border-gray-100 p-8">
-                <div className="flex flex-wrap items-start justify-between gap-5 mb-7">
-                  <div>
-                    <h2 className="font-heading font-bold text-2xl text-haven-navy">Historique des actions administratives</h2>
-                    <p className="mt-1 text-sm text-gray-500">Journal consultable uniquement par l’administrateur principal. Les entrées ne peuvent pas être modifiées.</p>
-                  </div>
-                  <Button variant="outline" onClick={() => void fetchAuditEntries()} disabled={isAuditLoading}><History size={16} className="mr-2" />Actualiser</Button>
-                </div>
-                <div className="grid gap-4 md:grid-cols-3 mb-6">
-                  <select value={auditFilters.actorId} onChange={e => setAuditFilters(prev => ({ ...prev, actorId: e.target.value }))} className="rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none focus:border-haven-red">
-                    <option value="ALL">Tous les administrateurs</option>
-                    {Array.from(new Map(auditEntries.map(entry => [entry.actorId, entry.actorName])).entries()).map(([id, name]) => <option key={id} value={id}>{name}</option>)}
-                  </select>
-                  <select value={auditFilters.category} onChange={e => setAuditFilters(prev => ({ ...prev, category: e.target.value }))} className="rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none focus:border-haven-red">
-                    <option value="ALL">Toutes les catégories</option>
-                    {Array.from(new Set(auditEntries.map(entry => entry.category))).sort().map(category => <option key={category} value={category}>{category}</option>)}
-                  </select>
-                  <input value={auditFilters.query} onChange={e => setAuditFilters(prev => ({ ...prev, query: e.target.value }))} placeholder="Rechercher une action…" className="rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-haven-red" />
-                </div>
-                {auditError && <div className="mb-5 rounded-2xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-amber-800">{auditError}</div>}
-                <div className="overflow-x-auto">
-                  <table className="w-full min-w-[760px] text-left">
-                    <thead><tr className="border-b border-gray-100 text-[10px] font-black uppercase tracking-widest text-gray-400"><th className="p-4">Date</th><th className="p-4">Administrateur</th><th className="p-4">Action</th><th className="p-4">Élément concerné</th><th className="p-4">Détail</th></tr></thead>
-                    <tbody>
-                      {auditEntries.filter(entry => (auditFilters.actorId === 'ALL' || entry.actorId === auditFilters.actorId) && (auditFilters.category === 'ALL' || entry.category === auditFilters.category) && `${entry.action} ${entry.summary} ${entry.targetId}`.toLowerCase().includes(auditFilters.query.toLowerCase())).map(entry => (
-                        <tr key={entry.id} className="border-b border-gray-50 text-sm"><td className="p-4 whitespace-nowrap text-gray-500">{new Date(entry.createdAt).toLocaleString('fr-FR')}</td><td className="p-4 font-bold text-haven-navy">{entry.actorName}</td><td className="p-4"><span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-black tracking-wider text-slate-600">{entry.action}</span></td><td className="p-4 text-gray-500">{entry.targetType} · {entry.targetId}</td><td className="p-4 text-gray-600">{entry.summary}</td></tr>
-                      ))}
-                    </tbody>
-                  </table>
-                  {!isAuditLoading && auditEntries.length === 0 && <div className="py-12 text-center text-sm text-gray-400">Aucune action administrative enregistrée pour le moment.</div>}
-                  {isAuditLoading && <div className="py-12 text-center text-sm text-gray-400">Chargement de l’historique…</div>}
-                </div>
-              </div>
-            </div> : <div className="rounded-3xl border border-gray-100 bg-white p-8 shadow-card">
+            isPrimaryAdmin ? <AdminAuditJournal entries={auditEntries} loading={isAuditLoading} error={auditError}
+              context={{ users, listings, reports, incidents, contacts: contactRequests, bookings, legalDocs }}
+              onRefresh={() => void fetchAuditEntries()}
+              onOpenTarget={entry => {
+                if (entry.targetType === 'USER') void openUserDetailModal(entry.targetId);
+                else if (entry.targetType === 'LISTING') {
+                  const listing = listings.find(item => item.id === entry.targetId);
+                  if (listing) { setError(null); setListingReview(listing); }
+                }
+              }} /> : <div className="rounded-3xl border border-gray-100 bg-white p-8 shadow-card">
               <div className="flex items-start gap-4"><History className="mt-1 text-haven-red" /><div><h2 className="font-heading text-2xl font-bold text-haven-navy">Journal des actions administratives</h2><p className="mt-2 max-w-2xl text-sm leading-relaxed text-gray-500">Vous retrouverez ici chaque décision prise dans le back-office, son auteur, sa date et l’élément concerné. La consultation est réservée à l’administrateur principal.</p></div></div>
             </div>
           )}
@@ -1770,7 +1623,7 @@ export const AdminDashboard: React.FC = () => {
                     </div>
                     <div className="text-4xl font-heading font-black text-haven-navy">{users.length}</div>
                     <div className="flex items-center gap-1.5 mt-2 text-xs text-haven-stone">
-                      <span className="font-bold text-green-600">{users.filter(u => u.status === 'APPROVED').length} active</span> • {users.filter(u => u.status === 'PENDING' || !u.status).length} en attente
+                      <span className="font-bold text-green-600">{users.filter(u => u.status === 'APPROVED').length} active</span> • {pendingUsers.length} à examiner
                     </div>
                   </div>
 
@@ -1987,17 +1840,25 @@ export const AdminDashboard: React.FC = () => {
         </div>
       </div>
 
+      {waitingReport && <ReportOwnerWaitDialog key={waitingReport.id} report={waitingReport} onClose={() => setWaitingReport(null)} />}
+      {listingReview && <AdminListingReview key={listingReview.id} listing={listingReview}
+        ownerName={getUserName(listingReview.ownerId)} processing={processingId === listingReview.id} error={error}
+        onClose={() => setListingReview(null)}
+        onApprove={() => void handleUpdateStatus(listingReview.id, 'APPROVED')}
+        onReject={() => openRejectionModal('LISTING', listingReview.id)}
+        onEdit={() => navigate(`/owner/publish?edit=${listingReview.id}`)} />}
+
       {/* Rejection Modal */}
       {rejectionModal.isOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-haven-navy/60 backdrop-blur-sm animate-fade-in">
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-haven-navy/60 backdrop-blur-sm animate-fade-in">
           <div className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-md overflow-hidden animate-scale-in">
             <div className="p-8 border-b border-gray-100 bg-gray-50">
               <div className="w-16 h-16 bg-red-100 text-red-600 rounded-2xl flex items-center justify-center mb-6">
                 <AlertTriangle size={32} />
               </div>
-              <h3 className="text-2xl font-heading font-bold text-haven-navy mb-2">Justifier le refus</h3>
+              <h3 className="text-2xl font-heading font-bold text-haven-navy mb-2">{rejectionModal.type === 'BAN' ? 'Justifier le bannissement' : 'Justifier le refus'}</h3>
               <p className="text-gray-500 text-sm">
-                Veuillez expliquer pourquoi vous refusez {rejectionModal.type === 'LISTING' ? "cette annonce" : "ce compte"}. Ce message sera visible par l'utilisateur.
+                Veuillez expliquer votre décision concernant {rejectionModal.type === 'LISTING' ? "cette annonce" : "ce compte"}. Ce message sera visible par l'utilisateur.
               </p>
             </div>
             <div className="p-8 space-y-6">
@@ -2008,7 +1869,7 @@ export const AdminDashboard: React.FC = () => {
                 </div>
               )}
               <div className="space-y-2">
-                <label className="block text-[10px] font-black text-haven-stone uppercase tracking-widest ml-1">Motif du refus</label>
+                <label className="block text-[10px] font-black text-haven-stone uppercase tracking-widest ml-1">Motif de la décision</label>
                 <textarea 
                   value={rejectionModal.reason || ''}
                   onChange={(e) => setRejectionModal({ ...rejectionModal, reason: e.target.value })}
@@ -2030,7 +1891,7 @@ export const AdminDashboard: React.FC = () => {
                   onClick={confirmRejection}
                   disabled={processingId !== '' && processingId !== null}
                 >
-                  {processingId ? <Loader2 className="animate-spin" size={18}/> : "Confirmer le refus"}
+                  {processingId ? <Loader2 className="animate-spin" size={18}/> : rejectionModal.type === 'BAN' ? "Bannir le compte" : "Confirmer le refus"}
                 </Button>
               </div>
             </div>
@@ -2061,6 +1922,7 @@ export const AdminDashboard: React.FC = () => {
             </div>
 
             <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
+              {error && <p role="alert" className="mb-6 rounded-xl bg-red-50 p-4 text-sm font-semibold text-red-700">{error}</p>}
               {userDetailModal.isLoading ? (
                 <div className="flex flex-col items-center justify-center py-20">
                   <Loader2 className="animate-spin text-haven-red mb-4" size={48} />
@@ -2081,17 +1943,17 @@ export const AdminDashboard: React.FC = () => {
                       </h4>
                       <p className="text-sm text-gray-500 mb-4">{userDetailModal.user.email}</p>
                       <div className="flex flex-wrap justify-center gap-2 mb-6">
-                        <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${userDetailModal.user.role === UserRole.OWNER ? 'bg-haven-red/5 text-haven-red border-haven-red/10' : 'bg-blue-50 text-blue-600 border-blue-100'}`}>
-                          {userDetailModal.user.role === UserRole.OWNER ? 'Propriétaire' : 'Locataire'}
+                        <span className="text-sm text-gray-600 self-center">
+                          {userDetailModal.user.role === UserRole.ADMIN ? 'Admin' : userDetailModal.user.role === UserRole.OWNER ? 'Propriétaire' : 'Locataire'}
                         </span>
-                        <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${
+                        <span className={`inline-flex whitespace-nowrap px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${
                           (userDetailModal.user.status || 'PENDING') === 'APPROVED' ? 'bg-green-50 text-green-600 border-green-100' :
-                          (userDetailModal.user.status || 'PENDING') === 'PENDING' ? 'bg-amber-50 text-amber-600 border-amber-100' :
+                          (userDetailModal.user.status || 'PENDING') === 'PENDING' ? (userDetailModal.user.verificationSubmittedAt ? 'bg-blue-50 text-blue-700 border-blue-100' : 'bg-orange-50 text-orange-700 border-orange-100') :
                           'bg-red-50 text-red-600 border-red-100'
                         }`}>
                           {(userDetailModal.user.status || 'PENDING') === 'PENDING' && userDetailModal.user.role !== UserRole.ADMIN
                             ? userDetailModal.user.verificationSubmittedAt ? 'À examiner' : 'À compléter'
-                            : userDetailModal.user.status || 'PENDING'}
+                            : userDetailModal.user.status === 'BANNED' ? 'Banni' : userDetailModal.user.status === 'REJECTED' ? 'Refusé' : userDetailModal.user.status === 'APPROVED' ? 'Validé' : 'En attente'}
                         </span>
                       </div>
 
@@ -2103,19 +1965,25 @@ export const AdminDashboard: React.FC = () => {
                             disabled={processingId === userDetailModal.user.id || !canApproveDetailUser}
                           >
                             {processingId === userDetailModal.user.id ? <Loader2 className="animate-spin" size={14}/> : <UserCheck size={14} className="mr-2"/>}
-                            Approuver
+                            Valider le profil
                           </Button>
                         )}
                         {!canApproveDetailUser && userDetailModal.user.role !== UserRole.ADMIN && (
                           <p className="text-xs leading-relaxed text-amber-700 bg-amber-50 rounded-xl p-3">
-                            Pour approuver : e-mail et téléphone confirmés, identité examinée et pièce d’identité transmise.
+                            Vérifiez le dossier transmis et contrôlez la pièce d’identité avant de valider le profil.
                           </p>
                         )}
-                        {(userDetailModal.user.status || 'PENDING') !== 'REJECTED' && (
+                        {userDetailModal.user.status === 'PENDING' && (
+                          <Button variant="outline" className="text-orange-700 border-orange-100 text-xs py-2"
+                            onClick={() => openRejectionModal('USER', userDetailModal.user!.id)} disabled={processingId === userDetailModal.user.id}>
+                            Refuser le dossier
+                          </Button>
+                        )}
+                        {(userDetailModal.user.status || 'PENDING') !== 'BANNED' && (
                           <Button 
                             variant="outline"
                             className="text-red-600 border-red-100 text-xs py-2"
-                            onClick={() => openRejectionModal('USER', userDetailModal.user!.id)}
+                            onClick={() => openRejectionModal('BAN', userDetailModal.user!.id)}
                             disabled={processingId === userDetailModal.user.id}
                           >
                             <Ban size={14} className="mr-2"/> Bannir
@@ -2148,8 +2016,8 @@ export const AdminDashboard: React.FC = () => {
                         <div className="p-4 bg-white border border-gray-100 rounded-2xl">
                           <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-1">Téléphone</span>
                           <span className="font-bold text-haven-navy">{userDetailModal.user.phone || 'Non renseigné'}</span>
-                          <span className={`block mt-1 text-xs font-bold ${userDetailModal.user.phoneVerified ? 'text-green-600' : 'text-amber-600'}`}>
-                            {userDetailModal.user.phoneVerified ? 'Confirmé par SMS' : 'Non confirmé'}
+                          <span className={`block mt-1 text-xs font-bold ${userDetailModal.user.phone ? 'text-gray-500' : 'text-amber-600'}`}>
+                            {userDetailModal.user.phone ? 'Numéro renseigné' : 'Numéro manquant'}
                           </span>
                         </div>
                         <div className="p-4 bg-white border border-gray-100 rounded-2xl xl:col-span-2">
@@ -2158,13 +2026,16 @@ export const AdminDashboard: React.FC = () => {
                             <span className={`font-bold ${userDetailModal.user.identityVerified ? 'text-green-600' : 'text-amber-600'}`}>
                               {userDetailModal.user.identityVerified ? `Validée${userDetailModal.user.idVerifiedAt ? ` le ${new Date(userDetailModal.user.idVerifiedAt).toLocaleDateString('fr-FR')}` : ''}` : 'En attente de contrôle'}
                             </span>
-                            {!userDetailModal.user.identityVerified && userDetailModal.user.role !== UserRole.ADMIN && (
-                              <Button size="sm" variant="outline" disabled={processingId === userDetailModal.user.id || !isVerificationReadyForAdminReview(userDetailModal.user)} onClick={() => void handleVerifyUserIdentity(userDetailModal.user!)}>
-                                <UserCheck size={14} className="mr-2"/> Valider l’identité
-                              </Button>
-                            )}
+
                           </div>
-                          <p className="mt-2 text-xs text-gray-500">Comparez le nom et la date de naissance du profil avec la pièce d’identité avant validation.</p>
+                          {userDetailModal.user.status !== 'APPROVED' && userDetailModal.user.role !== UserRole.ADMIN && (
+                            <label className="mt-3 flex items-start gap-2 text-sm text-gray-700">
+                              <input type="checkbox" className="mt-1" checked={identityReviewConfirmed} disabled={!identityDocumentOpened}
+                                onChange={event => setIdentityReviewConfirmed(event.target.checked)} />
+                              J’ai contrôlé la pièce d’identité et sa concordance avec le nom et la date de naissance.
+                            </label>
+                          )}
+                          <p className="mt-2 text-xs text-gray-500">Ouvrez la pièce d’identité ci-dessous. Comparez le nom et la date de naissance du profil avec la pièce d’identité avant validation.</p>
                           {userDetailModal.user.role !== UserRole.ADMIN && (
                             <p className="mt-2 text-xs font-semibold text-gray-600">
                               {userDetailModal.user.verificationSubmittedAt
@@ -2198,7 +2069,7 @@ export const AdminDashboard: React.FC = () => {
                             <FileText size={24} className={url ? "text-haven-navy mb-2" : "text-gray-300 mb-2"} />
                             <p className="text-xs font-bold text-haven-navy mb-2">{doc.label}</p>
                             {url ? (
-                              <Button variant="outline" size="sm" onClick={() => setDocPreviewModal({ isOpen: true, title: doc.label, url })}>
+                              <Button variant="outline" size="sm" onClick={() => { setIdentityDocumentOpened(true); setDocPreviewModal({ isOpen: true, title: doc.label, url }); }}>
                                 Voir
                               </Button>
                             ) : (
@@ -2255,7 +2126,7 @@ export const AdminDashboard: React.FC = () => {
                                 <p className="text-xs text-gray-400">Du {new Date(booking.startDate).toLocaleDateString()} au {new Date(booking.endDate).toLocaleDateString()}</p>
                               </div>
                             </div>
-                            <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${
+                            <span className={`inline-flex whitespace-nowrap px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${
                               booking.status === 'CONFIRMED' ? 'bg-green-50 text-green-600 border-green-100' :
                               booking.status === 'PENDING' ? 'bg-amber-50 text-amber-600 border-amber-100' :
                               'bg-red-50 text-red-600 border-red-100'
@@ -2289,7 +2160,7 @@ export const AdminDashboard: React.FC = () => {
                                   <p className="text-xs text-gray-400">Total: {booking.totalPrice}€</p>
                                 </div>
                               </div>
-                              <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${
+                              <span className={`inline-flex whitespace-nowrap px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${
                                 booking.status === 'CONFIRMED' ? 'bg-green-50 text-green-600 border-green-100' :
                                 booking.status === 'PENDING' ? 'bg-amber-50 text-amber-600 border-amber-100' :
                                 'bg-red-50 text-red-600 border-red-100'

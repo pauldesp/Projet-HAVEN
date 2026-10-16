@@ -1,3 +1,4 @@
+import { hasRequiredPhoneNumber, isVerificationPending } from '../services/profileVerification';
 import { countNights, isBookableStay } from '../services/stay';
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -44,7 +45,7 @@ export const ListingDetails: React.FC = () => {
   const [isHousematesLoading, setIsHousematesLoading] = useState(false);
   const [housematesError, setHousematesError] = useState<string | null>(null);
   
-  const isApproved = (currentUser?.status === 'APPROVED' && currentUser.emailVerified === true && currentUser.phoneVerified === true && currentUser.identityVerified === true) || currentUser?.role === 'ADMIN';
+  const isApproved = (currentUser?.status === 'APPROVED' && currentUser.emailVerified === true && hasRequiredPhoneNumber(currentUser) && currentUser.identityVerified === true) || currentUser?.role === 'ADMIN';
   const hasTenantDocuments = Boolean(currentUser?.documents?.idCard);
   const canBook = isApproved && hasTenantDocuments;
   const isListingOwner = currentUser?.id === listing?.ownerId;
@@ -176,6 +177,14 @@ export const ListingDetails: React.FC = () => {
     }
     
     if (!canBook) {
+      if (isVerificationPending(currentUser)) {
+        toast.info('Dossier en cours de validation', {
+          id: 'booking-account-pending',
+          description: 'Votre dossier a bien été transmis à Haven. Vous pourrez réserver dès qu’un administrateur aura validé votre compte.',
+          duration: 8000
+        });
+        return;
+      }
       setIsVerificationModalOpen(true);
       return;
     }

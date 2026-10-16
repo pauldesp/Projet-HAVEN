@@ -22,7 +22,7 @@ import {
 import { useAuth } from '../contexts/AuthContext';
 import { UserRole, User } from '../types';
 import { userFacingErrorMessage } from '../services/errorHandling';
-import { RecaptchaVerifier, signInWithPhoneNumber, sendEmailVerification, type ConfirmationResult } from 'firebase/auth';
+import { RecaptchaVerifier, signInWithPhoneNumber, type ConfirmationResult } from 'firebase/auth';
 import { auth } from '../firebase';
 import { normalizeAccountIdentifier } from '../services/accountEntry';
 import { clearPhoneRecaptcha, normalizePhoneForVerification, isValidPhoneForVerification, phoneVerificationErrorMessage } from '../services/phoneVerification';
@@ -217,12 +217,8 @@ export const LoginPage: React.FC = () => {
         setError('Erreur lors de la création du compte.');
         return;
       }
-      // An e-mail delivery failure must not turn a successfully created
-      // account into a failed registration. It can be retried in validation.
-      if (auth.currentUser && !auth.currentUser.emailVerified) {
-        auth.languageCode = 'fr';
-        void sendEmailVerification(auth.currentUser).catch(error => console.warn('Confirmation e-mail à renvoyer depuis la validation du compte', error));
-      }
+      // Verification mail is requested explicitly from account validation,
+      // avoiding an automatic send immediately followed by another request.
     } catch (err: any) {
       console.error("Register catch", err);
       const errorCode = err.code || (err.error && err.error.code);

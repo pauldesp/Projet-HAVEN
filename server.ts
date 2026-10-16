@@ -1,7 +1,7 @@
 import { countNights, isBookableStay } from './services/stay';
 import { getCancellationTerms } from './services/cancellationPolicy';
 import { isStayReviewWindowOpen } from './services/reviewPolicy';
-import { hasCompleteVerificationDetails, isVerificationReadyToSubmit } from './services/profileVerification';
+import { hasCompleteVerificationDetails, hasRequiredPhoneNumber, isVerificationReadyToSubmit } from './services/profileVerification';
 import type { Booking, BookingAvailability, Listing, Room } from './types';
 import { isRoomAvailableForStay } from './services/availability';
 import { minimumNights } from './services/minimumStay';
@@ -10,6 +10,14 @@ import { preparePersonalDetails, preparePhoneForVerification } from './services/
 import { normalizeAccountIdentifier, resolveAccountEntry } from './services/accountEntry';
 import { assertAccountTermsConsent, selectAccountTerms } from './services/accountTerms';
 import { normalizePhoneForVerification } from './services/phoneVerification';
+import { createApiRequestBodyParser } from './services/apiRequestBody';
+import { routeStayIssue, bindStayIssueToBooking } from './services/stayIssueRouting';
+import { buildAuditTargetSnapshot } from './services/auditPresentation';
+import { ReportFollowUpError, prepareReportFollowUp } from './services/reportFollowUp';
+import { IncidentEscalationError, prepareIncidentEscalation } from './services/incidentMonitoring';
+import { OwnerIncidentError, prepareOwnerIncidentUpdate } from './services/ownerIncident';
+import { ListingReviewError, prepareListingReview } from './services/listingReview';
+import { MemberApprovalError, prepareMemberApproval, prepareMemberModeration } from './services/memberApproval';
 import { buildHousematePreviews, eligibleHousemateBookings } from './services/housemates';
 import type { HousemateProfile } from './services/housemates';
 import express from "express";
@@ -63,6 +71,8 @@ async function requireAuth(req: AuthenticatedRequest, res: Response, next: NextF
   if (!token) return sendApiError(res, 401, "Authentification requise");
   try {
     const decoded = await adminAuth.verifyIdToken(token);
+    const profile = await adminDb.collection('users').doc(decoded.uid).get();
+    if (profile.data()?.status === 'BANNED') return sendApiError(res, 403, 'Ce compte est banni. Contactez Haven pour toute question.');
     req.user = { uid: decoded.uid, email: decoded.email };
     next();
   } catch {
@@ -103,7 +113,15 @@ async function writeAdminAudit(actor: AdminActor, input: {
   summary: string;
 }) {
   const ref = adminDb.collection('admin_audit').doc();
-  await ref.set({ id: ref.id, actorId: actor.uid, actorName: actor.name, ...input, createdAt: new Date().toISOString() });
+  const collections: Record<string, string> = { USER: 'users', LISTING: 'listings', REPORT: 'reports', INCIDENT: 'incidents', CONTACT_REQUEST: 'contact_requests', LEGAL_DOCUMENT: 'settings' };
+  let target = {};
+  if (collections[input.targetType] && /^[a-zA-Z0-9_-]{1,200}$/.test(input.targetId)) {
+    try {
+      const snapshot = await adminDb.collection(collections[input.targetType]).doc(input.targetId).get();
+      if (snapshot.exists) target = buildAuditTargetSnapshot(input.targetType, snapshot.data()!);
+    } catch (error) { console.error('Audit target lookup unavailable', error); }
+  }
+  await ref.set({ id: ref.id, actorId: actor.uid, actorName: actor.name, ...input, ...target, createdAt: new Date().toISOString() });
 }
 
 const reviewIdForBooking = (bookingId: string) => `stay_${bookingId}`;
@@ -224,7 +242,7 @@ async function startServer() {
     }
   });
 
-  app.use(express.json({ limit: "100kb" }));
+  app.use(createApiRequestBodyParser());
 
   app.post('/api/auth/identify', verificationLimiter, async (req, res) => {
     try {
@@ -281,11 +299,11 @@ async function startServer() {
         const user = userSnap.data()!;
         const isAdminAccount = user.role === 'ADMIN';
         const identityDocument = typeof user.documents?.idCard === 'string' && user.documents.idCard.length > 0;
-        if (!isAdminAccount && (user.status !== 'APPROVED' || user.emailVerified !== true || user.phoneVerified !== true || user.identityVerified !== true || !identityDocument)) {
+        if (!isAdminAccount && (user.status !== 'APPROVED' || user.emailVerified !== true || !hasRequiredPhoneNumber(user) || user.identityVerified !== true || !identityDocument)) {
           throw new Error('VERIFICATION_REQUISE');
         }
         if (!listingSnap.exists || listingSnap.data()?.status !== 'APPROVED') throw new Error('LOGEMENT_INDISPONIBLE');
-        const listing = listingSnap.data() as Listing;
+        const listing = listingSnap.data() as import('./types').Listing;
         if (listing.ownerId === req.user!.uid) throw new Error('PROPRE_LOGEMENT');
         const room = listing.rooms?.find((item: Room) => item.id === roomId);
         if (!room || typeof room.pricePerDay !== 'number') throw new Error('CHAMBRE_INVALIDE');
@@ -449,6 +467,205 @@ async function startServer() {
     } catch (error) {
       console.error('Admin audit list failed', error);
       return sendApiError(res, 500, 'Impossible de charger le journal administratif');
+    }
+  });
+
+  app.post('/api/stay-issues', sensitiveApiLimiter, requireAuth, async (req: AuthenticatedRequest, res) => {
+    const input = req.body;
+    if (!input || !/^[a-zA-Z0-9_-]{1,160}$/.test(input.id || '') || !/^[a-zA-Z0-9_-]{1,160}$/.test(input.bookingId || '')) return sendApiError(res, 422, 'Séjour ou identifiant invalide.');
+    try {
+      const destination = await adminDb.runTransaction(async transaction => {
+        const booking = await transaction.get(adminDb.collection('bookings').doc(input.bookingId));
+        if (!booking.exists) throw new Error('Séjour introuvable.');
+        const bound = bindStayIssueToBooking(booking.data() as import('./types').Booking, req.user!.uid, { ...input, createdAt: new Date().toISOString() });
+        const routed = routeStayIssue(bound);
+        const record = routed.destination === 'OWNER' ? routed.incident : routed.report;
+        const ref = adminDb.collection(routed.destination === 'OWNER' ? 'incidents' : 'reports').doc(input.id);
+        const existing = await transaction.get(ref);
+        if (existing.exists) {
+          if (existing.data()?.reporterId !== req.user!.uid || existing.data()?.bookingId !== input.bookingId) throw new Error('Identifiant déjà utilisé.');
+        } else transaction.create(ref, record);
+        return routed.destination;
+      });
+      return res.json({ destination });
+    } catch (error) {
+      console.error('Stay issue submission failed', error);
+      return sendApiError(res, 422, error instanceof Error ? error.message : 'Impossible de transmettre le problème.');
+    }
+  });
+
+  app.post('/api/incidents/:incidentId/escalate', sensitiveApiLimiter, requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      const id = String(req.params.incidentId);
+      if (!/^[a-zA-Z0-9_-]{1,160}$/.test(id)) return sendApiError(res, 422, 'Incident invalide.');
+      const incidentRef = adminDb.collection('incidents').doc(id);
+      const reportRef = adminDb.collection('reports').doc(`incident_${id}`);
+      const result = await adminDb.runTransaction(async transaction => {
+        const snapshot = await transaction.get(incidentRef);
+        if (!snapshot.exists) throw new IncidentEscalationError('Incident introuvable.', 404);
+        const incident = { ...snapshot.data(), id } as import('./types').Incident;
+        if (incident.reporterId !== req.user!.uid) throw new IncidentEscalationError('Seul l’auteur de l’incident peut demander l’intervention de Haven.', 403);
+        if (incident.escalationReportId) return { reportId: incident.escalationReportId, alreadySent: true };
+        const prepared = prepareIncidentEscalation(incident, req.user!.uid, req.body?.reason, reportRef.id);
+        const existing = await transaction.get(reportRef);
+        if (existing.exists && (existing.data()?.reporterId !== req.user!.uid || existing.data()?.incidentId !== id)) throw new IncidentEscalationError('Un signalement utilise déjà cet identifiant.', 409);
+        if (!existing.exists) transaction.create(reportRef, prepared.report);
+        transaction.update(incidentRef, prepared.update);
+        return { reportId: reportRef.id, alreadySent: existing.exists };
+      });
+      return res.json(result);
+    } catch (error) {
+      if (error instanceof IncidentEscalationError) return sendApiError(res, error.status, error.message);
+      console.error('Incident escalation failed', error);
+      return sendApiError(res, 500, 'Impossible de transmettre la demande à Haven.');
+    }
+  });
+
+  app.post('/api/incidents/:incidentId/status', sensitiveApiLimiter, requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      const id = String(req.params.incidentId);
+      if (!/^[a-zA-Z0-9_-]{1,160}$/.test(id)) return sendApiError(res, 422, 'Incident invalide.');
+      const ref = adminDb.collection('incidents').doc(id);
+      const result = await adminDb.runTransaction(async transaction => {
+        const snapshot = await transaction.get(ref);
+        if (!snapshot.exists) throw new OwnerIncidentError('Incident introuvable.', 404);
+        const update = prepareOwnerIncidentUpdate(snapshot.data() as import('./types').Incident, req.user!.uid, req.body?.status, req.body?.ownerNotes ?? '');
+        transaction.update(ref, update);
+        return update;
+      });
+      return res.json(result);
+    } catch (error) {
+      if (error instanceof OwnerIncidentError) return sendApiError(res, error.status, error.message);
+      console.error('Owner incident update failed', error);
+      return sendApiError(res, 500, 'Impossible de mettre à jour cet incident.');
+    }
+  });
+
+  app.post('/api/admin/reports/:reportId/status', sensitiveApiLimiter, requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      const actor = await requireAdmin(req, res); if (!actor) return;
+      const id = String(req.params.reportId);
+      if (!/^[a-zA-Z0-9_-]{1,200}$/.test(id)) return sendApiError(res, 422, 'Signalement invalide.');
+      const ref = adminDb.collection('reports').doc(id);
+      const auditRef = adminDb.collection('admin_audit').doc();
+      const result = await adminDb.runTransaction(async transaction => {
+        const snapshot = await transaction.get(ref);
+        if (!snapshot.exists) throw new ReportFollowUpError('Signalement introuvable.', 404);
+        const report = snapshot.data() as import('./types').Report;
+        const incidentRef = typeof report.incidentId === 'string' && /^[a-zA-Z0-9_-]{1,160}$/.test(report.incidentId)
+          ? adminDb.collection('incidents').doc(report.incidentId) : null;
+        const incidentSnap = incidentRef ? await transaction.get(incidentRef) : undefined;
+        const incident = incidentSnap?.exists ? { ...incidentSnap.data(), id: incidentSnap.id } as import('./types').Incident : undefined;
+        if (incident && (incident.listingId !== report.targetId || incident.reporterId !== report.reporterId)) throw new ReportFollowUpError('Le signalement ne correspond pas à cet incident.');
+        const prepared = prepareReportFollowUp(report, incident, req.body?.status, req.body?.note, req.body?.reviewDate, actor.uid);
+        transaction.update(ref, prepared.reportUpdate);
+        if (incidentRef && prepared.incidentUpdate) transaction.update(incidentRef, prepared.incidentUpdate);
+        transaction.create(auditRef, {
+          id: auditRef.id, actorId: actor.uid, actorName: actor.name,
+          action: `REPORT_${prepared.reportUpdate.status}`, category: 'REPORT', targetType: 'REPORT', targetId: id,
+          ...buildAuditTargetSnapshot('REPORT', report as unknown as Record<string, unknown>), beforeStatus: report.status, afterStatus: prepared.reportUpdate.status,
+          summary: `Signalement : ${prepared.reportUpdate.status}.${prepared.reportUpdate.adminNotes ? ` Note : ${prepared.reportUpdate.adminNotes}` : ''}`,
+          createdAt: prepared.reportUpdate.updatedAt
+        });
+        return prepared.reportUpdate;
+      });
+      return res.json(result);
+    } catch (error) {
+      if (error instanceof ReportFollowUpError) return sendApiError(res, error.status, error.message);
+      console.error('Report follow-up failed', error);
+      return sendApiError(res, 500, 'Impossible d’enregistrer le suivi du signalement.');
+    }
+  });
+
+  app.post('/api/admin/listings/:listingId/review', sensitiveApiLimiter, requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      const actor = await requireAdmin(req, res);
+      if (!actor) return;
+      const listingId = String(req.params.listingId);
+      if (!/^[a-zA-Z0-9_-]{1,128}$/.test(listingId)) return sendApiError(res, 422, 'Annonce invalide.');
+      const listingRef = adminDb.collection('listings').doc(listingId);
+      const auditRef = adminDb.collection('admin_audit').doc();
+      const result = await adminDb.runTransaction(async transaction => {
+        const snapshot = await transaction.get(listingRef);
+        if (!snapshot.exists) throw new ListingReviewError('Annonce introuvable.', 404);
+        const listing = snapshot.data() as import('./types').Listing;
+        const owner = typeof listing.ownerId === 'string' && listing.ownerId && !listing.ownerId.includes('/')
+          ? await transaction.get(adminDb.collection('users').doc(listing.ownerId)) : undefined;
+        const update = prepareListingReview(listing, owner?.data() as import('./types').User | undefined, req.body?.status, req.body?.reviewed, req.body?.reason, actor.uid);
+        transaction.update(listingRef, update);
+        transaction.create(auditRef, {
+          id: auditRef.id, actorId: actor.uid, actorName: actor.name,
+          action: `LISTING_${update.status}`, category: 'LISTING', targetType: 'LISTING', targetId: listingId,
+          ...buildAuditTargetSnapshot('LISTING', listing as unknown as Record<string, unknown>), beforeStatus: listing.status, afterStatus: update.status,
+          summary: update.status === 'APPROVED' ? 'Annonce validée après contrôle de la fiche et des photos.' : `Annonce refusée : ${update.rejectionReason}`,
+          createdAt: update.reviewedAt
+        });
+        return update;
+      });
+      return res.json(result);
+    } catch (error) {
+      if (error instanceof ListingReviewError) return sendApiError(res, error.status, error.message);
+      console.error('Listing review failed', error);
+      return sendApiError(res, 500, 'Impossible d’enregistrer la décision sur cette annonce.');
+    }
+  });
+
+  app.post('/api/admin/users/:userId/moderate', sensitiveApiLimiter, requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      const actor = await requireAdmin(req, res);
+      if (!actor) return;
+      const userId = String(req.params.userId);
+      if (!/^[a-zA-Z0-9_-]{1,128}$/.test(userId)) return sendApiError(res, 422, 'Utilisateur invalide.');
+      const ref = adminDb.collection('users').doc(userId);
+      const auditRef = adminDb.collection('admin_audit').doc();
+      const result = await adminDb.runTransaction(async transaction => {
+        const snapshot = await transaction.get(ref);
+        if (!snapshot.exists) throw new MemberApprovalError('Profil introuvable.', 404);
+        const update = prepareMemberModeration(snapshot.data()!, req.body?.status, req.body?.reason, actor.uid);
+        transaction.update(ref, update);
+        transaction.create(auditRef, {
+          id: auditRef.id, actorId: actor.uid, actorName: actor.name,
+          action: `USER_${update.status}`, category: 'ACCOUNT', targetType: 'USER', targetId: userId,
+          ...buildAuditTargetSnapshot('USER', snapshot.data()!), beforeStatus: snapshot.data()?.status || 'PENDING', afterStatus: update.status,
+          summary: `${update.status === 'BANNED' ? 'Compte banni' : 'Dossier refusé'} : ${update.rejectionReason}`, createdAt: update.moderatedAt
+        });
+        return update;
+      });
+      return res.json(result);
+    } catch (error) {
+      if (error instanceof MemberApprovalError) return sendApiError(res, error.status, error.message);
+      console.error('Member moderation failed', error);
+      return sendApiError(res, 500, 'Impossible d’enregistrer la décision.');
+    }
+  });
+
+  app.post('/api/admin/users/:userId/approve', sensitiveApiLimiter, requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      const actor = await requireAdmin(req, res);
+      if (!actor) return;
+      const userId = String(req.params.userId);
+      if (!/^[a-zA-Z0-9_-]{1,128}$/.test(userId)) return sendApiError(res, 422, 'Utilisateur invalide.');
+      if (req.body?.identityReviewed !== true) return sendApiError(res, 422, 'Examinez la pièce d’identité avant de valider le profil.');
+      const userRef = adminDb.collection('users').doc(userId);
+      const auditRef = adminDb.collection('admin_audit').doc();
+      const approval = await adminDb.runTransaction(async transaction => {
+        const snapshot = await transaction.get(userRef);
+        if (!snapshot.exists) throw new MemberApprovalError('Profil introuvable.', 404);
+        const update = prepareMemberApproval(snapshot.data()!, actor.uid);
+        transaction.update(userRef, update);
+        transaction.create(auditRef, {
+          id: auditRef.id, actorId: actor.uid, actorName: actor.name,
+          action: 'USER_APPROVED', category: 'ACCOUNT', targetType: 'USER', targetId: userId,
+          ...buildAuditTargetSnapshot('USER', snapshot.data()!), beforeStatus: snapshot.data()?.status || 'PENDING', afterStatus: update.status,
+          summary: 'Profil et identité validés après examen du dossier par un administrateur.', createdAt: update.approvedAt
+        });
+        return update;
+      });
+      return res.json(approval);
+    } catch (error) {
+      if (error instanceof MemberApprovalError) return sendApiError(res, error.status, error.message);
+      console.error('Member approval failed', error);
+      return sendApiError(res, 500, 'Impossible de valider le profil pour le moment.');
     }
   });
 
@@ -659,7 +876,7 @@ async function startServer() {
       await userRef.update({
         emailVerified: true,
         emailVerifiedAt,
-        isVerified: profile.phoneVerified === true && profile.identityVerified === true
+        isVerified: hasRequiredPhoneNumber(profile) && profile.identityVerified === true
       });
       verifiedEmailTickets.delete(email);
       return res.json({ emailVerified: true, emailVerifiedAt });
@@ -754,8 +971,8 @@ async function startServer() {
         termsAcceptance = { legalAccepted: true, legalAcceptedAt: new Date().toISOString(), legalDocumentId: terms!.id, legalVersion: terms!.lastUpdated, legalContentHash: createHash('sha256').update(terms!.content).digest('hex') };
       }
       if (!isVerificationReadyToSubmit(profile)) {
-        if (profile.emailVerified !== true || profile.phoneVerified !== true) {
-          return sendApiError(res, 422, "Confirmez votre adresse e-mail et votre numéro de téléphone avant d’envoyer le dossier.");
+        if (profile.emailVerified !== true) {
+          return sendApiError(res, 422, "Confirmez votre adresse e-mail avant d’envoyer le dossier.");
         }
         if (!hasCompleteVerificationDetails(profile)) {
           return sendApiError(res, 422, "Complétez votre prénom, votre nom, votre date de naissance et votre téléphone avant d’envoyer le dossier.");

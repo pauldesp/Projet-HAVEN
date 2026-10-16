@@ -1,4 +1,5 @@
 
+import { routeStayIssue } from './stayIssueRouting';
 import { db, auth } from '../firebase';
 import { collection, getDocs, getDoc, doc, setDoc, updateDoc, query, where, deleteField, onSnapshot, or } from 'firebase/firestore';
 import { Listing, User, Booking, BookingAvailability, ListingStatus, UserStatus, Message, ContactRequest, Report, Incident, Payment, InventoryReport, AppDocument, HousematePreview, AdminAuditEntry } from '../types';
@@ -149,6 +150,22 @@ export const apiService = {
     }
   },
   users: {
+    async moderateProfile(userId: string, status: 'REJECTED' | 'BANNED', reason: string) {
+      const response = await authenticatedFetch(`/api/admin/users/${encodeURIComponent(userId)}/moderate`, {
+        method: 'POST', body: JSON.stringify({ status, reason })
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error || `Erreur ${response.status}`);
+      return payload as Partial<User>;
+    },
+    async approveProfile(userId: string) {
+      const response = await authenticatedFetch(`/api/admin/users/${encodeURIComponent(userId)}/approve`, {
+        method: 'POST', body: JSON.stringify({ identityReviewed: true })
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error || `Erreur ${response.status}`);
+      return payload as Pick<User, 'status' | 'identityVerified' | 'isVerified' | 'idVerifiedAt'>;
+    },
     async getAll(): Promise<User[]> {
       try {
         const snapshot = await getDocs(collection(db, 'users'));
@@ -319,6 +336,14 @@ export const apiService = {
   },
 
   listings: {
+    async review(id: string, status: 'APPROVED' | 'REJECTED', reviewed: boolean, reason?: string) {
+      const response = await authenticatedFetch(`/api/admin/listings/${encodeURIComponent(id)}/review`, {
+        method: 'POST', body: JSON.stringify({ status, reviewed, reason })
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error || `Erreur ${response.status}`);
+      return payload;
+    },
     async getAll() {
       try {
         const snapshot = await getDocs(collection(db, 'listings'));
@@ -757,18 +782,42 @@ export const apiService = {
         return handleFirestoreError(e, 'GET_ALL_REPORTS', 'reports');
       }
     },
-    async updateStatus(id: string, status: Report['status'], adminNotes?: string) {
-      try {
-        const updateData: any = { status };
-        if (adminNotes) updateData.adminNotes = adminNotes;
-        await updateDoc(doc(db, 'reports', id), updateData);
-      } catch (e) {
-        handleFirestoreError(e, 'UPDATE_REPORT_STATUS', `reports/${id}`);
-      }
+    async updateStatus(id: string, status: Report['status'], adminNotes?: string, reviewDate?: string) {
+      const response = await authenticatedFetch(`/api/admin/reports/${encodeURIComponent(id)}/status`, {
+        method: 'POST', body: JSON.stringify({ status, note: adminNotes, reviewDate })
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error || `Erreur ${response.status}`);
+      return payload;
     }
   },
   
+  stayIssues: {
+    async create(input: Parameters<typeof routeStayIssue>[0]) {
+      const response = await authenticatedFetch('/api/stay-issues', { method: 'POST', body: JSON.stringify(input) });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error || `Erreur ${response.status}`);
+      return payload.destination as 'OWNER' | 'HAVEN';
+    }
+  },
   incidents: {
+    listenByReporterId(reporterId: string, onData: (incidents: Incident[]) => void, onError: (error: Error) => void) {
+      return onSnapshot(query(collection(db, 'incidents'), where('reporterId', '==', reporterId)),
+        snapshot => onData(snapshot.docs.map(item => item.data() as Incident)), error => onError(error));
+    },
+    async escalate(id: string, reason: string) {
+      const response = await authenticatedFetch(`/api/incidents/${encodeURIComponent(id)}/escalate`, {
+        method: 'POST', body: JSON.stringify({ reason })
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error || `Erreur ${response.status}`);
+      return payload;
+    },
+    listenByOwnerId(ownerId: string, onData: (incidents: Incident[]) => void, onError: (error: Error) => void) {
+      return onSnapshot(query(collection(db, 'incidents'), where('ownerId', '==', ownerId)), snapshot => {
+        onData(snapshot.docs.map(item => item.data() as Incident).sort((a, b) => b.createdAt.localeCompare(a.createdAt)));
+      }, error => onError(error));
+    },
     async create(incident: Incident) {
       try {
         await setDoc(doc(db, 'incidents', incident.id), incident);
@@ -801,14 +850,13 @@ export const apiService = {
         return handleFirestoreError(e, 'GET_INCIDENTS_BY_OWNER', `incidents?ownerId=${ownerId}`);
       }
     },
-    async updateStatus(id: string, status: Incident['status'], adminNotes?: string) {
-      try {
-        const updateData: any = { status };
-        if (adminNotes) updateData.adminNotes = adminNotes;
-        await updateDoc(doc(db, 'incidents', id), updateData);
-      } catch (e) {
-        handleFirestoreError(e, 'UPDATE_INCIDENT_STATUS', `incidents/${id}`);
-      }
+    async updateStatus(id: string, status: Incident['status'], ownerNotes = '') {
+      const response = await authenticatedFetch(`/api/incidents/${encodeURIComponent(id)}/status`, {
+        method: 'POST', body: JSON.stringify({ status, ownerNotes })
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error || `Erreur ${response.status}`);
+      return payload;
     }
   },
 

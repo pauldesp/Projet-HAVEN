@@ -4,6 +4,13 @@ interface EmailAccount {
   emailVerified: boolean;
 }
 
+export const EMAIL_RESEND_DELAY_MS = 60_000;
+export const EMAIL_LIMIT_BACKOFF_MS = 5 * 60_000;
+
+export function emailRetrySeconds(retryAt: number, now = Date.now()): number {
+  return Number.isFinite(retryAt) ? Math.max(0, Math.ceil((retryAt - now) / 1000)) : 0;
+}
+
 interface VerificationActions {
   reload: () => Promise<void>;
   send: () => Promise<void>;

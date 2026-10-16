@@ -1,3 +1,4 @@
+import { hasRequiredPhoneNumber, isVerificationPending } from '../services/profileVerification';
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -164,7 +165,8 @@ export const PublishListing: React.FC = () => {
     }
   }, [currentUser, isAuthLoading, navigate]);
 
-  const isApproved = (currentUser?.status === 'APPROVED' && currentUser.emailVerified === true && currentUser.phoneVerified === true && currentUser.identityVerified === true) || currentUser?.role === 'ADMIN';
+  const isApproved = (currentUser?.status === 'APPROVED' && currentUser.emailVerified === true && hasRequiredPhoneNumber(currentUser) && currentUser.identityVerified === true) || currentUser?.role === 'ADMIN';
+  const isSubmittedForReview = Boolean(currentUser && isVerificationPending(currentUser));
   const hasOwnerDocuments = Boolean(currentUser?.documents?.idCard);
   const canPublish = isApproved && hasOwnerDocuments;
 
@@ -187,14 +189,14 @@ export const PublishListing: React.FC = () => {
           <div className="w-24 h-24 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-8 shadow-lg shadow-red-100/50">
             <Lock className="text-haven-red" size={48} />
           </div>
-          <h1 className="text-4xl font-heading font-bold text-haven-navy mb-4">Vérification requise</h1>
+          <h1 className="text-4xl font-heading font-bold text-haven-navy mb-4">{isSubmittedForReview ? 'Dossier en cours de vérification' : 'Vérification requise'}</h1>
           <p className="text-haven-stone text-lg mb-10 leading-relaxed">
             Avant toute mise en ligne, HAVEN doit valider votre identité après vérification de votre dossier.
             Cette étape protège les locataires comme les propriétaires.
           </p>
           <div className="space-y-4">
             <Button fullWidth size="lg" onClick={() => setIsVerificationModalOpen(true)}>
-              {currentUser.status === 'PENDING' ? 'Compléter mon dossier' : 'Faire valider mon dossier'}
+              {isSubmittedForReview ? 'Dossier en cours de validation' : currentUser.status === 'PENDING' ? 'Compléter mon dossier' : 'Faire valider mon dossier'}
             </Button>
             <Button fullWidth variant="ghost" onClick={() => navigate('/owner/dashboard')}>
               Retour au tableau de bord

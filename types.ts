@@ -8,7 +8,7 @@ export enum UserRole {
 }
 
 export type ListingStatus = 'DRAFT' | 'PENDING' | 'APPROVED' | 'REJECTED';
-export type UserStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
+export type UserStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'BANNED';
 export type AdminLevel = 'PRIMARY' | 'STANDARD';
 
 /** Entrée immuable décrivant une opération effectuée dans le back-office. */
@@ -21,6 +21,10 @@ export interface AdminAuditEntry {
   targetType: string;
   targetId: string;
   summary: string;
+  targetLabel?: string;
+  targetDescription?: string;
+  beforeStatus?: string;
+  afterStatus?: string;
   createdAt: string;
 }
 
@@ -256,7 +260,7 @@ export interface ContactRequest {
 // Type Signalement (Report)
 export type ReportTargetType = 'LISTING' | 'USER' | 'MESSAGE' | 'TECHNICAL' | 'OTHER';
 export type ReportReason = 'OFFENSIVE' | 'SPAM' | 'INACCURATE' | 'FRAUD' | 'TECHNICAL_ISSUE' | 'OTHER';
-export type ReportStatus = 'NEW' | 'INVESTIGATING' | 'RESOLVED' | 'DISMISSED';
+export type ReportStatus = 'NEW' | 'INVESTIGATING' | 'WAITING_OWNER' | 'RESOLVED' | 'DISMISSED';
 
 export interface Report {
   id: string;
@@ -268,6 +272,16 @@ export interface Report {
   status: ReportStatus;
   timestamp: string;
   adminNotes?: string;
+  ownerMessage?: string;
+  ownerReviewDate?: string | null;
+  waitingOwnerSince?: string;
+  updatedAt?: string;
+  supportCategory?: string;
+  incidentId?: string;
+  bookingId?: string;
+  listingId?: string;
+  ownerId?: string;
+  photos?: string[];
 }
 
 // Type Sinistre / Incident
@@ -283,6 +297,13 @@ export interface Incident {
   createdAt: string;
   photos?: string[];
   adminNotes?: string;
+  ownerNotes?: string;
+  updatedAt?: string;
+  resolvedAt?: string;
+  takenInChargeAt?: string;
+  escalatedAt?: string;
+  escalationReportId?: string;
+  havenFollowUp?: { status: ReportStatus; note: string; reviewDate: string | null; updatedAt: string };
   priority?: 'LOW' | 'MEDIUM' | 'HIGH';
 }
 

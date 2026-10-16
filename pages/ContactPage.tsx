@@ -3,7 +3,8 @@ import React, { useState } from 'react';
 import { Mail, Send, CheckCircle2, MessageSquare, HelpCircle, ShieldCheck } from 'lucide-react';
 import { motion } from 'motion/react';
 import { apiService } from '../services/api';
-import { ContactRequest } from '../types';
+import { CONTACT_SUBJECTS, prepareContactRequest } from '../services/contactRequest';
+import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { userFacingErrorMessage } from '../services/errorHandling';
 
@@ -20,22 +21,19 @@ export const ContactPage: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
     setIsSubmitting(true);
 
     try {
-      const request: ContactRequest = {
-        id: crypto.randomUUID(),
-        ...formData,
-        timestamp: new Date().toISOString(),
-        status: 'NEW'
-      };
+      const id = globalThis.crypto?.randomUUID?.() || `contact_${Date.now()}_${Math.random().toString(36).slice(2, 12)}`;
+      const request = prepareContactRequest(formData, id);
 
       await apiService.contactRequests.create(request);
       setIsSuccess(true);
       setFormData({ name: '', email: '', phone: '', subject: '', message: '' });
     } catch (error) {
       console.error('Error sending contact request:', error);
-      toast.error(userFacingErrorMessage(error));
+      toast.error(error instanceof Error ? error.message : userFacingErrorMessage(error));
     } finally {
       setIsSubmitting(false);
     }
@@ -54,7 +52,7 @@ export const ContactPage: React.FC = () => {
           </div>
           <h2 className="text-2xl font-heading font-bold text-haven-navy mb-4">Message envoyé !</h2>
           <p className="text-gray-600 mb-8">
-            Merci de nous avoir contactés. Notre équipe vous répondra dans les plus brefs délais (généralement sous 24h).
+            Votre message a bien été transmis à l’équipe Haven. Nous utiliserons les coordonnées indiquées pour vous répondre si nécessaire.
           </p>
           <button 
             onClick={() => setIsSuccess(false)}
@@ -72,9 +70,9 @@ export const ContactPage: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
         {/* Info Section */}
         <div>
-          <h1 className="text-4xl font-heading font-bold text-haven-navy mb-6">Comment pouvons-nous vous aider ?</h1>
+          <h1 className="text-4xl font-heading font-bold text-haven-navy mb-6">Contacter Haven</h1>
           <p className="text-lg text-gray-600 mb-12">
-            Que vous soyez locataire, propriétaire ou simplement curieux, notre équipe est là pour répondre à toutes vos questions sur HAVEN.
+            Un avis sur le site, une suggestion, un dysfonctionnement ou une réclamation sur notre service ? Écrivez à l’équipe Haven.
           </p>
 
           <div className="space-y-8">
@@ -83,8 +81,8 @@ export const ContactPage: React.FC = () => {
                 <HelpCircle className="w-6 h-6 text-haven-red" />
               </div>
               <div>
-                <h3 className="font-bold text-haven-navy mb-1">Questions fréquentes</h3>
-                <p className="text-gray-600 text-sm">Consultez notre centre d'aide pour trouver des réponses immédiates aux questions les plus courantes.</p>
+                <h3 className="font-bold text-haven-navy mb-1">Questions et conseils</h3>
+                <p className="text-gray-600 text-sm">Une question générale sur Haven ou une idée pour améliorer la plateforme ? Votre message est le bienvenu.</p>
               </div>
             </div>
 
@@ -94,7 +92,7 @@ export const ContactPage: React.FC = () => {
               </div>
               <div>
                 <h3 className="font-bold text-haven-navy mb-1">Support technique</h3>
-                <p className="text-gray-600 text-sm">Un problème avec votre compte ou une annonce ? Notre équipe technique intervient rapidement.</p>
+                <p className="text-gray-600 text-sm">Un bouton qui ne fonctionne pas, une erreur de connexion ou une page inaccessible ? Décrivez le dysfonctionnement du site.</p>
               </div>
             </div>
 
@@ -109,13 +107,11 @@ export const ContactPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="mt-12 p-8 bg-haven-navy rounded-3xl text-white">
-            <h3 className="text-xl font-bold mb-4">Besoin d'une réponse urgente ?</h3>
-            <p className="text-haven-cream/80 mb-6">Notre support client est disponible par téléphone du lundi au vendredi de 9h à 18h.</p>
-            <div className="flex items-center gap-3 text-lg font-bold">
-              <span className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center">📞</span>
-              01 23 45 67 89
-            </div>
+          <div className="mt-10 space-y-4 rounded-2xl border border-gray-100 bg-gray-50 p-6">
+            <h3 className="font-bold text-haven-navy">Un problème pendant votre séjour ?</h3>
+            <p className="text-sm text-gray-600"><strong>Incident dans le logement :</strong> panne, fuite ou équipement à réparer sont transmis au propriétaire depuis votre séjour.</p>
+            <p className="text-sm text-gray-600"><strong>Intervention de Haven :</strong> conflit, logement insalubre, ménage non fait ou incident non résolu passent par un signalement.</p>
+            <Link to="/dashboard" className="inline-block text-sm font-bold text-haven-red underline underline-offset-4">Accéder à mon espace et à mes séjours</Link>
           </div>
         </div>
 
@@ -127,6 +123,7 @@ export const ContactPage: React.FC = () => {
                 <label className="block text-sm font-bold text-haven-navy mb-2">Nom complet</label>
                 <input 
                   type="text"
+                  maxLength={99}
                   required
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
@@ -151,6 +148,7 @@ export const ContactPage: React.FC = () => {
               <label className="block text-sm font-bold text-haven-navy mb-2">Téléphone</label>
               <input 
                 type="tel"
+                maxLength={19}
                 required
                 value={formData.phone}
                 onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
@@ -160,7 +158,7 @@ export const ContactPage: React.FC = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-bold text-haven-navy mb-2">Sujet</label>
+              <label className="block text-sm font-bold text-haven-navy mb-2">Motif du contact</label>
               <select 
                 required
                 value={formData.subject}
@@ -168,11 +166,7 @@ export const ContactPage: React.FC = () => {
                 className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-haven-red/20 focus:border-haven-red transition-all"
               >
                 <option value="">Sélectionnez un sujet</option>
-                <option value="Question générale">Question générale</option>
-                <option value="Problème technique">Problème technique</option>
-                <option value="Réservation">Question sur une réservation</option>
-                <option value="Propriétaire">Devenir propriétaire</option>
-                <option value="Autre">Autre</option>
+                {CONTACT_SUBJECTS.map(subject => <option key={subject} value={subject}>{subject}</option>)}
               </select>
             </div>
 
@@ -181,10 +175,11 @@ export const ContactPage: React.FC = () => {
               <textarea 
                 required
                 rows={6}
+                maxLength={9999}
                 value={formData.message}
                 onChange={(e) => setFormData({ ...formData, message: e.target.value })}
                 className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-haven-red/20 focus:border-haven-red transition-all resize-none"
-                placeholder="Comment pouvons-nous vous aider ?"
+                placeholder="Votre avis, votre suggestion ou votre demande à propos de Haven…"
               />
             </div>
 

@@ -1,10 +1,13 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, History, Loader2, Shield, ShieldCheck, UserRoundCog } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '../contexts/AuthContext';
 import { apiService } from '../services/api';
 import { AdminAuditEntry, User, UserRole } from '../types';
+import { AdminAuditJournal } from '../components/AdminAuditJournal';
+import { useListings } from '../contexts/ListingContext';
+import type { AuditContext } from '../services/auditPresentation';
 import { Button } from '../components/Button';
 
 type GovernanceSection = 'TEAM' | 'AUDIT';
@@ -12,12 +15,14 @@ type GovernanceSection = 'TEAM' | 'AUDIT';
 export const AdminGovernancePage: React.FC = () => {
   const { currentUser, isLoading } = useAuth();
   const navigate = useNavigate();
+  const { listings } = useListings();
+  const [auditContext, setAuditContext] = useState<Omit<AuditContext, 'listings'>>({ users: [], reports: [], incidents: [], contacts: [], bookings: [], legalDocs: [] });
+  const [auditError, setAuditError] = useState<string | null>(null);
   const [section, setSection] = useState<GovernanceSection>('TEAM');
   const [team, setTeam] = useState<User[]>([]);
   const [entries, setEntries] = useState<AdminAuditEntry[]>([]);
   const [isLoadingPage, setIsLoadingPage] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [filters, setFilters] = useState({ actorId: 'ALL', category: 'ALL', query: '' });
   const [newAdmin, setNewAdmin] = useState({ firstName: '', lastName: '', email: '' });
 
   const isPrimaryAdmin = currentUser?.role === UserRole.ADMIN && currentUser.adminLevel === 'PRIMARY';
@@ -32,9 +37,24 @@ export const AdminGovernancePage: React.FC = () => {
       const [users, audit] = await Promise.all([apiService.users.getAll(), apiService.admin.listAudit()]);
       setTeam(users.filter(user => user.role === UserRole.ADMIN));
       setEntries(audit);
+      setAuditError(null);
+      setAuditContext(previous => ({ ...previous, users }));
+      const needs = (type: string) => audit.some(entry => entry.targetType === type && !entry.targetLabel);
+      const extra = await Promise.allSettled([
+        needs('REPORT') ? apiService.reports.getAll() : Promise.resolve([]),
+        needs('CONTACT_REQUEST') ? apiService.contactRequests.getAll() : Promise.resolve([]),
+        needs('LEGAL_DOCUMENT') ? apiService.settings.getAllLegalDocuments() : Promise.resolve([])
+      ]);
+      setAuditContext(previous => ({ ...previous,
+        reports: extra[0].status === 'fulfilled' ? extra[0].value : [],
+        contacts: extra[1].status === 'fulfilled' ? extra[1].value : [],
+        legalDocs: extra[2].status === 'fulfilled' ? extra[2].value : []
+      }));
+      if (extra.some(result => result.status === 'rejected')) setAuditError('Certaines fiches liées n’ont pas pu être chargées. Les entrées du journal restent consultables.');
     } catch (error) {
       console.error('Unable to load governance', error);
       toast.error('Impossible de charger la gouvernance administrative.');
+      setAuditError('Impossible d’actualiser le journal. Les données déjà chargées sont conservées.');
     } finally {
       setIsLoadingPage(false);
     }
@@ -74,12 +94,6 @@ export const AdminGovernancePage: React.FC = () => {
     }
   };
 
-  const filteredEntries = useMemo(() => entries.filter(entry => (
-    (filters.actorId === 'ALL' || entry.actorId === filters.actorId) &&
-    (filters.category === 'ALL' || entry.category === filters.category) &&
-    `${entry.action} ${entry.summary} ${entry.targetId}`.toLowerCase().includes(filters.query.toLowerCase())
-  )), [entries, filters]);
-
   if (isLoading || !currentUser || currentUser.role !== UserRole.ADMIN) return null;
 
   return (
@@ -98,12 +112,12 @@ export const AdminGovernancePage: React.FC = () => {
       <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
         <div className="-mt-6 flex w-fit rounded-2xl border border-gray-100 bg-white p-1 shadow-card">
           <button onClick={() => setSection('TEAM')} className={`flex items-center gap-2 rounded-xl px-5 py-3 text-sm font-bold transition ${section === 'TEAM' ? 'bg-haven-navy text-white' : 'text-gray-500 hover:bg-gray-50'}`}><UserRoundCog size={17} />Administrateurs</button>
-          <button onClick={() => setSection('AUDIT')} className={`flex items-center gap-2 rounded-xl px-5 py-3 text-sm font-bold transition ${section === 'AUDIT' ? 'bg-haven-navy text-white' : 'text-gray-500 hover:bg-gray-50'}`}><History size={17} />Journal des actions</button>
+          <button onClick={() => { setSection('AUDIT'); void loadGovernance(); }} className={`flex items-center gap-2 rounded-xl px-5 py-3 text-sm font-bold transition ${section === 'AUDIT' ? 'bg-haven-navy text-white' : 'text-gray-500 hover:bg-gray-50'}`}><History size={17} />Journal des actions</button>
         </div>
 
         {!isPrimaryAdmin ? (
           <div className="mt-8 rounded-3xl border border-amber-100 bg-amber-50 p-8 shadow-card"><div className="flex items-start gap-4"><Shield className="mt-1 text-amber-600" /><div><h2 className="font-heading text-2xl font-bold text-haven-navy">Accès réservé à l’administrateur principal</h2><p className="mt-2 max-w-2xl text-sm leading-relaxed text-gray-600">Cette page est prête. Votre compte <strong>{currentUser.email}</strong> sera le seul à pouvoir gérer les administrateurs et consulter le journal dès l’activation de son statut principal.</p></div></div></div>
-        ) : isLoadingPage ? (
+        ) : isLoadingPage && team.length === 0 && entries.length === 0 ? (
           <div className="flex min-h-64 items-center justify-center text-gray-400"><Loader2 className="mr-3 animate-spin" size={24} />Chargement…</div>
         ) : section === 'TEAM' ? (
           <div className="mt-8 space-y-7">
@@ -125,10 +139,10 @@ export const AdminGovernancePage: React.FC = () => {
             </div>
           </div>
         ) : (
-          <div className="mt-8 rounded-3xl border border-gray-100 bg-white p-8 shadow-card">
-            <div className="flex flex-wrap items-start justify-between gap-5"><div><h2 className="font-heading text-2xl font-bold text-haven-navy">Journal des actions</h2><p className="mt-2 text-sm text-gray-500">Entrées immuables : auteur, action, élément concerné et date.</p></div><Button variant="outline" onClick={() => void loadGovernance()}><History size={16} className="mr-2" />Actualiser</Button></div>
-            <div className="mt-7 grid gap-4 md:grid-cols-3"><select value={filters.actorId} onChange={event => setFilters({ ...filters, actorId: event.target.value })} className="rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm"><option value="ALL">Tous les administrateurs</option>{Array.from(new Map(entries.map(entry => [entry.actorId, entry.actorName])).entries()).map(([id, name]) => <option key={id} value={id}>{name}</option>)}</select><select value={filters.category} onChange={event => setFilters({ ...filters, category: event.target.value })} className="rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm"><option value="ALL">Toutes les catégories</option>{Array.from(new Set(entries.map(entry => entry.category))).sort().map(category => <option key={category} value={category}>{category}</option>)}</select><input value={filters.query} onChange={event => setFilters({ ...filters, query: event.target.value })} placeholder="Rechercher…" className="rounded-xl border border-gray-200 px-4 py-3 text-sm" /></div>
-            <div className="mt-6 overflow-x-auto"><table className="w-full min-w-[740px] text-left"><thead><tr className="border-b border-gray-100 text-[10px] font-black uppercase tracking-widest text-gray-400"><th className="p-4">Date</th><th className="p-4">Administrateur</th><th className="p-4">Action</th><th className="p-4">Élément</th><th className="p-4">Détail</th></tr></thead><tbody>{filteredEntries.map(entry => <tr key={entry.id} className="border-b border-gray-50 text-sm"><td className="p-4 whitespace-nowrap text-gray-500">{new Date(entry.createdAt).toLocaleString('fr-FR')}</td><td className="p-4 font-bold text-haven-navy">{entry.actorName}</td><td className="p-4"><span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-black tracking-wider text-slate-600">{entry.action}</span></td><td className="p-4 text-gray-500">{entry.targetType} · {entry.targetId}</td><td className="p-4 text-gray-600">{entry.summary}</td></tr>)}</tbody></table>{filteredEntries.length === 0 && <p className="py-12 text-center text-sm text-gray-400">Aucune action enregistrée pour le moment.</p>}</div>
+          <div className="mt-8">
+            <AdminAuditJournal entries={entries} context={{ ...auditContext, listings }} loading={isLoadingPage} error={auditError}
+              onRefresh={() => void loadGovernance()}
+              onOpenTarget={entry => navigate(`/admin/dashboard?${entry.targetType === 'USER' ? 'user' : 'listing'}=${encodeURIComponent(entry.targetId)}`)} />
           </div>
         )}
       </div>
