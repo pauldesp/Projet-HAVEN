@@ -5,9 +5,9 @@ import type { Listing } from '../types';
 import { Button } from './Button';
 import { getListingPhotoUrls } from '../services/media';
 
-export function AdminListingReview({ listing, ownerName, processing, error, onClose, onApprove, onReject, onEdit }: {
+export function AdminListingReview({ listing, ownerName, processing, error, onClose, onApprove, onReject, onEdit, onException }: {
   listing: Listing; ownerName: string; processing: boolean; error: string | null;
-  onClose: () => void; onApprove: () => void; onReject: () => void; onEdit: () => void;
+  onClose: () => void; onApprove: () => void; onReject: () => void; onEdit: () => void; onException?: () => void;
 }) {
   const [reviewed, setReviewed] = useState(false);
   const photos = getListingPhotoUrls(listing);
@@ -19,6 +19,7 @@ export function AdminListingReview({ listing, ownerName, processing, error, onCl
           <button aria-label="Fermer la fiche" onClick={onClose} disabled={processing} className="p-2 text-gray-400"><XCircle/></button>
         </header>
         <div className="flex-1 space-y-6 overflow-y-auto p-6">
+          {listing.verificationException && <p className="rounded-xl bg-amber-50 p-4 text-sm text-amber-800">Validation exceptionnelle de test : {listing.verificationException.reason}</p>}
           {error && <p role="alert" className="rounded-xl bg-red-50 p-4 text-red-700">{error}</p>}
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="rounded-2xl bg-gray-50 p-5"><h3 className="font-bold text-haven-navy">Logement</h3><p>{listing.address}, {listing.city}</p><p className="mt-2 text-sm text-gray-500">{listing.type === 'HOUSE' ? 'Maison' : 'Appartement'} · {listing.surface} m² · {listing.totalRooms} chambres · {listing.bathrooms} salles de bain</p></div>
@@ -35,6 +36,7 @@ export function AdminListingReview({ listing, ownerName, processing, error, onCl
           {listing.status === 'DRAFT' ? <p className="rounded-xl bg-orange-50 p-4 text-orange-700">Cette annonce est encore à compléter. Le propriétaire doit la transmettre avant son examen.</p> : listing.status !== 'APPROVED' && <label className="flex items-start gap-3 rounded-xl bg-blue-50 p-4 text-sm text-haven-navy"><input type="checkbox" checked={reviewed} onChange={event => setReviewed(event.target.checked)} className="mt-1"/>J’ai contrôlé les informations du logement, les chambres et les photos de cette annonce.</label>}
         </div>
         <footer className="flex flex-wrap justify-end gap-3 border-t border-gray-100 bg-gray-50 p-5">
+          {onException && <Button variant="outline" onClick={onException} disabled={processing} className="text-amber-700">{listing.verificationException ? 'Retirer la dérogation de test' : 'Validation exceptionnelle (test)'}</Button>}
           <Button variant="outline" onClick={onEdit} disabled={processing}>Modifier</Button>
           {listing.status !== 'DRAFT' && listing.status !== 'REJECTED' && <Button variant="outline" onClick={onReject} disabled={processing}>Refuser l’annonce</Button>}
           {listing.status !== 'APPROVED' && <Button onClick={onApprove} disabled={processing || !reviewed || listing.status === 'DRAFT'} className="bg-green-600 text-white hover:bg-green-700">{processing && <Loader2 size={16} className="mr-2 animate-spin"/>}Valider l’annonce</Button>}

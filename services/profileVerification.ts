@@ -1,3 +1,4 @@
+import { hasVerificationException } from './verificationException';
 export function isValidPastBirthDate(value: unknown, today = new Date().toISOString().slice(0, 10)): boolean {
   if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
   const parsed = new Date(`${value}T00:00:00Z`);
@@ -30,6 +31,7 @@ type VerificationProfile = Parameters<typeof hasCompleteVerificationDetails>[0] 
   identityVerified?: unknown;
   status?: unknown;
   legalAccepted?: unknown;
+  verificationException?: unknown;
 };
 
 export function isVerificationReadyToSubmit(profile: VerificationProfile): boolean {
@@ -51,7 +53,7 @@ export function isVerificationPending(profile: VerificationProfile): boolean {
 }
 
 export function isAccountVerificationComplete(profile: VerificationProfile): boolean {
-  return profile.status === 'APPROVED' &&
+  return hasVerificationException(profile) || profile.status === 'APPROVED' &&
     profile.legalAccepted === true &&
     profile.identityVerified === true &&
     isVerificationReadyToSubmit(profile);

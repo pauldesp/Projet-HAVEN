@@ -1,3 +1,6 @@
+import { BookingCountdown } from '../components/BookingCountdown';
+import { bookingCategory } from '../services/bookingLifecycle';
+import { hasVerificationException } from '../services/verificationException';
 import { hasRequiredPhoneNumber, isVerificationPending } from '../services/profileVerification';
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
@@ -49,62 +52,6 @@ interface BookingWithTenant extends Booking {
   tenant: User;
 }
 
-const BookingCountdown: React.FC<{ booking: Booking }> = ({ booking }) => {
-  const [timeLeft, setTimeLeft] = useState<string>('');
-  const [isExpired, setIsExpired] = useState(false);
-
-  useEffect(() => {
-    const calculateTime = () => {
-      const now = new Date();
-      if (booking.status === 'PENDING' && booking.bookingMode === 'MANUAL') {
-        const limit = new Date(new Date(booking.createdAt).getTime() + 48 * 60 * 60 * 1000);
-        const diff = limit.getTime() - now.getTime();
-        if (diff <= 0) {
-          setTimeLeft('Expiré');
-          setIsExpired(true);
-          return;
-        }
-        const hours = Math.floor(diff / (1000 * 60 * 60));
-        const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-        const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-        setTimeLeft(`⚠️ Expire dans ${hours}h ${minutes}m ${seconds}s`);
-      } else if (booking.status === 'APPROVED' && booking.approvedAt) {
-        const limit = new Date(new Date(booking.approvedAt).getTime() + 72 * 60 * 60 * 1000);
-        const diff = limit.getTime() - now.getTime();
-        if (diff <= 0) {
-          setTimeLeft('Délai de paiement expiré');
-          setIsExpired(true);
-          return;
-        }
-        const hours = Math.floor(diff / (1000 * 60 * 60));
-        const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-        const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-        setTimeLeft(`⏳ Reste ${hours}h ${minutes}m pour régler`);
-      } else {
-        setTimeLeft('');
-      }
-    };
-
-    calculateTime();
-    const interval = setInterval(calculateTime, 1000);
-    return () => clearInterval(interval);
-  }, [booking]);
-
-  if (!timeLeft) return null;
-
-  return (
-    <div className={`text-[10px] font-mono font-bold mt-1.5 flex items-center gap-1 px-2 py-0.5 rounded w-max ${
-      isExpired 
-        ? 'bg-red-50 text-red-600 border border-red-100' 
-        : booking.status === 'PENDING'
-          ? 'bg-amber-50 text-amber-600 border border-amber-100 animate-pulse'
-          : 'bg-blue-50 text-blue-600 border border-blue-100'
-    }`}>
-      {timeLeft}
-    </div>
-  );
-};
-
 export const OwnerDashboard: React.FC = () => {
   const navigate = useNavigate();
   const { currentUser, refreshUser, updateUserRole } = useAuth();
@@ -123,10 +70,10 @@ export const OwnerDashboard: React.FC = () => {
   const [bookingSubTab, setBookingSubTab] = useState<'UPCOMING' | 'CURRENT' | 'PAST'>('UPCOMING');
 
   const ownerListings = listings.filter(l => l.ownerId === currentUser?.id);
-  const isApproved = (currentUser?.status === 'APPROVED' && currentUser.emailVerified === true && hasRequiredPhoneNumber(currentUser) && currentUser.identityVerified === true) || currentUser?.role === UserRole.ADMIN;
+  const isApproved = Boolean(currentUser && hasVerificationException(currentUser)) || (currentUser?.status === 'APPROVED' && currentUser.emailVerified === true && hasRequiredPhoneNumber(currentUser) && currentUser.identityVerified === true) || currentUser?.role === UserRole.ADMIN;
   const isSubmittedForReview = Boolean(currentUser && isVerificationPending(currentUser));
   const hasOwnerDocuments = Boolean(currentUser?.documents?.idCard);
-  const canPublish = isApproved && hasOwnerDocuments;
+  const canPublish = isApproved && (hasOwnerDocuments || Boolean(currentUser && hasVerificationException(currentUser)));
 
   useEffect(() => {
     if (!currentUser) return;
@@ -136,12 +83,14 @@ export const OwnerDashboard: React.FC = () => {
       setUnreadCount(totalUnread);
     });
 
-    const fetchData = async () => {
+    let loadVersion = 0;
+    const fetchData = async (bookings: Booking[]) => {
+      const version = ++loadVersion;
       if (!currentUser) return;
       setIsLoading(true);
       try {
         // Fetch Bookings
-        const bookings = await apiService.bookings.getByOwnerId(currentUser.id);
+
         const tenantIds = Array.from(new Set(bookings.map(b => b.tenantId)));
         const tenants = await apiService.users.getByIds(tenantIds);
         const tenantMap = new Map(tenants.map(t => [t.id, t]));
@@ -169,6 +118,7 @@ export const OwnerDashboard: React.FC = () => {
           return dateA >= now ? -1 : 1;
         });
         
+        if (version !== loadVersion) return;
         setOwnerBookings(sortedBookings);
 
 
@@ -183,8 +133,12 @@ export const OwnerDashboard: React.FC = () => {
       }
     };
 
-    fetchData();
+    const unsubscribeBookings = apiService.bookings.listenByParticipant(currentUser.id, 'OWNER', bookings => void fetchData(bookings), () => {
+      setIsLoading(false); toast.error('Impossible de charger les réservations. Actualisez la page.');
+    });
     return () => {
+      loadVersion++;
+      unsubscribeBookings();
       unsubscribeMessages();
     };
   }, [currentUser, listings]);
@@ -206,75 +160,6 @@ export const OwnerDashboard: React.FC = () => {
     }
   };
 
-  const handleBookingStatus = async (bookingId: string, status: Booking['status']) => {
-    try {
-      await apiService.bookings.updateStatus(bookingId, status);
-      
-      // Send notification emails (Chantier 3)
-      const booking = ownerBookings.find(b => b.id === bookingId);
-      if (booking && booking.tenant && booking.tenant.email) {
-        const listing = listings.find(l => l.id === booking.listingId);
-        const listingTitle = listing?.title || "Logement HAVEN";
-        
-        if (status === 'APPROVED') {
-          try {
-            await apiService.notifications.sendBookingNotification(
-              booking.tenant.email,
-              'REQUEST_APPROVED',
-              {
-                listingTitle,
-                roomName: booking.roomName || 'Chambre',
-                amount: booking.totalPrice,
-                startDate: new Date(booking.startDate).toLocaleDateString('fr-FR'),
-                endDate: new Date(booking.endDate).toLocaleDateString('fr-FR'),
-                tenantName: `${booking.tenant.firstName} ${booking.tenant.lastName}`,
-                ownerName: `${currentUser?.firstName} ${currentUser?.lastName}`,
-                bookingId
-              }
-            );
-          } catch (emailErr) {
-            console.error("Failed to send approval email", emailErr);
-          }
-        } else if (status === 'CANCELLED') {
-          try {
-            await apiService.notifications.sendBookingNotification(
-              booking.tenant.email,
-              'BOOKING_CANCELLED',
-              {
-                listingTitle,
-                roomName: booking.roomName || 'Chambre',
-                amount: booking.totalPrice,
-                startDate: new Date(booking.startDate).toLocaleDateString('fr-FR'),
-                endDate: new Date(booking.endDate).toLocaleDateString('fr-FR'),
-                tenantName: `${booking.tenant.firstName} ${booking.tenant.lastName}`,
-                ownerName: `${currentUser?.firstName} ${currentUser?.lastName}`,
-                bookingId
-              }
-            );
-          } catch (emailErr) {
-            console.error("Failed to send cancellation email", emailErr);
-          }
-        }
-      }
-
-      setOwnerBookings(prev => prev.map(b => b.id === bookingId ? { 
-        ...b, 
-        status,
-        ...(status === 'APPROVED' ? { approvedAt: new Date().toISOString() } : {})
-      } : b));
-      if (status === 'APPROVED') {
-        toast.success("Demande acceptée ! Le locataire a maintenant 72h pour régler.");
-      } else if (status === 'CANCELLED') {
-        toast.error("La demande a été refusée.");
-      } else if (status === 'CONFIRMED') {
-        toast.success("La réservation a été confirmée.");
-      }
-    } catch (e) {
-      console.error("Error updating booking status", e);
-      toast.error(userFacingErrorMessage(e));
-    }
-  };
-
   const handlePublishClick = () => {
     if (!currentUser) {
       navigate('/login?redirect=/owner/publish&role=OWNER');
@@ -292,28 +177,14 @@ export const OwnerDashboard: React.FC = () => {
     totalRevenue: financeStats.totalRevenue,
     pendingRevenue: financeStats.pendingRevenue,
     activeBookings: ownerBookings.filter(b => b.status === 'CONFIRMED').length,
-    pendingRequests: ownerBookings.filter(b => b.status === 'PENDING').length,
     openIncidents: ownerIncidents.filter(i => i.status === 'NEW' || i.status === 'INVESTIGATING').length
   };
 
   const now = new Date();
   
-  const upcomingBookings = ownerBookings.filter(b => {
-    if (b.status === 'PENDING' || b.status === 'APPROVED') return true;
-    const start = new Date(b.startDate);
-    return start.getTime() > now.getTime();
-  });
-  
-  const currentBookings = ownerBookings.filter(b => {
-    const start = new Date(b.startDate);
-    const end = new Date(b.endDate);
-    return start.getTime() <= now.getTime() && end.getTime() >= now.getTime();
-  });
-  
-  const pastBookings = ownerBookings.filter(b => {
-    const end = new Date(b.endDate);
-    return end.getTime() < now.getTime();
-  });
+  const upcomingBookings = ownerBookings.filter(b => bookingCategory(b, now) === 'UPCOMING');
+  const currentBookings = ownerBookings.filter(b => bookingCategory(b, now) === 'CURRENT');
+  const pastBookings = ownerBookings.filter(b => bookingCategory(b, now) === 'PAST');
 
   const displayedBookings = bookingSubTab === 'UPCOMING' ? upcomingBookings :
                             bookingSubTab === 'CURRENT' ? currentBookings : pastBookings;
@@ -385,7 +256,7 @@ export const OwnerDashboard: React.FC = () => {
           {[
             { label: 'Revenus Totaux', value: `${stats.totalRevenue}€`, icon: DollarSign, color: 'text-green-600', bg: 'bg-green-50' },
             { label: 'Virements en attente', value: `${stats.pendingRevenue}€`, icon: Wallet, color: 'text-blue-600', bg: 'bg-blue-50' },
-            { label: 'Demandes en attente', value: stats.pendingRequests, icon: Clock, color: 'text-orange-600', bg: 'bg-orange-50' },
+            { label: 'Réservations confirmées', value: stats.activeBookings, icon: Clock, color: 'text-orange-600', bg: 'bg-orange-50' },
             { label: 'Sinistres ouverts', value: stats.openIncidents, icon: AlertTriangle, color: 'text-haven-red', bg: 'bg-red-50' },
           ].map((stat, i) => (
             <div key={i} className="bg-white p-6 rounded-[2rem] shadow-premium border border-gray-50 flex items-center gap-4">
@@ -581,31 +452,11 @@ export const OwnerDashboard: React.FC = () => {
                             }`}>
                               {booking.status === 'CONFIRMED' ? 'Confirmé' : 
                                booking.status === 'APPROVED' ? 'Accepté (Attente paiement)' :
-                               booking.status === 'PENDING' ? 'En attente' : 'Annulé'}
+                               booking.status === 'PENDING' ? 'En attente de paiement' : booking.status === 'COMPLETED' ? 'Séjour terminé' : 'Annulé'}
                             </span>
                             <BookingCountdown booking={booking} />
                           </td>
                           <td className="py-4 text-right">
-                            {booking.status === 'PENDING' ? (
-                              <div className="flex justify-end gap-2">
-                                <Button 
-                                  size="sm" 
-                                  variant="outline" 
-                                  className="text-green-600 border-green-100 hover:bg-green-50 flex items-center gap-1.5 font-bold" 
-                                  onClick={() => handleBookingStatus(booking.id, 'APPROVED')}
-                                >
-                                  <CheckCircle size={14} /> Accepter (48h)
-                                </Button>
-                                <Button 
-                                  size="sm" 
-                                  variant="outline" 
-                                  className="text-haven-red border-red-100 hover:bg-red-50 flex items-center gap-1.5 font-bold" 
-                                  onClick={() => setCancellationBooking(booking)}
-                                >
-                                  <XCircle size={14} /> Refuser
-                                </Button>
-                              </div>
-                            ) : (
                               <div className="flex justify-end gap-2">
                                 <Link to={`/messages/${booking.id}`}>
                                   <Button size="sm" variant="ghost" className="text-haven-navy"><MessageCircle size={16} /></Button>
@@ -622,7 +473,6 @@ export const OwnerDashboard: React.FC = () => {
                                 )}
                                 <Button size="sm" variant="ghost" className="text-gray-400"><MoreHorizontal size={16} /></Button>
                               </div>
-                            )}
                           </td>
                         </tr>
                       ))}
@@ -693,7 +543,7 @@ export const OwnerDashboard: React.FC = () => {
                             <td className="py-4 text-sm font-bold text-haven-navy">{isRefund ? 'Remboursement' : 'Loyer'} - {listings.find(l => l.id === payment.listingId)?.title || 'Logement supprimé'}</td>
                             <td className={`py-4 text-sm font-black ${isRefund ? 'text-haven-red' : payment.status === 'COMPLETED' ? 'text-green-600' : 'text-gray-500'}`}>{isRefund ? '-' : '+'}{payment.amount}€</td>
                             <td className="py-4">
-                              <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase ${payment.status === 'COMPLETED' ? 'bg-green-100 text-green-600' : payment.status === 'REFUNDED' ? 'bg-red-50 text-haven-red' : payment.status === 'PENDING' ? 'bg-amber-50 text-amber-700' : 'bg-gray-100 text-gray-600'}`}>{paymentStatus}</span>
+                              <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase ${payment.status === 'COMPLETED' ? 'bg-green-100 text-green-600' : payment.status === 'REFUNDED' ? 'bg-red-50 text-haven-red' : payment.status === 'PENDING' ? 'bg-amber-50 text-amber-700' : 'bg-gray-100 text-gray-600'}`}>{paymentStatus}</span>{payment.isTest && <span className="ml-2 text-xs font-bold text-amber-700">Test</span>}
                             </td>
                           </tr>
                           );

@@ -1,3 +1,6 @@
+import { isOwnerBookingVisible } from './bookingVisibility';
+import { hasVerificationException } from './verificationException';
+import { createRandomId } from './randomId';
 
 import { routeStayIssue } from './stayIssueRouting';
 import { db, auth } from '../firebase';
@@ -8,19 +11,7 @@ import { hasMissingRoomPhoto, normalizeListingPhotos } from './media';
 import { normalizeListingDescription } from './listingDescription';
 import { hasIncompleteRoom, hasRoomWithoutOption } from './roomValidation';
 import { reportError, userFacingErrorMessage } from './errorHandling';
-import { formatScheduledMoment, getInventoryTiming } from './inventoryTiming';
 import { countNights, isBookableStay } from './stay';
-
-const toAvailability = (booking: Booking): BookingAvailability => ({
-  id: booking.id,
-  bookingId: booking.id,
-  listingId: booking.listingId,
-  roomId: booking.roomId,
-  startDate: booking.startDate,
-  endDate: booking.endDate,
-  status: booking.status,
-  updatedAt: new Date().toISOString()
-});
 
 // Helper to handle firestore errors with context
 const handleFirestoreError = (error: any, operation: string, path: string) => {
@@ -53,71 +44,17 @@ const logFirestoreListenerError = (error: unknown, operation: string, path: stri
   reportError(error, `Écoute Firebase ${operation} ${path}`);
 };
 
-// Helper helper function to reactive cleanup expired bookings (48h manual approval, 72h manual payment)
-async function cleanupAndFilterBookings(bookings: Booking[]): Promise<Booking[]> {
-  const now = new Date();
-  const updatedBookings: Booking[] = [];
-
-  for (const booking of bookings) {
-    let changed = false;
-    let currentStatus = booking.status;
-
-    // 1. Check PENDING manual booking (owner must validate within 48h)
-    if (booking.status === 'PENDING' && booking.bookingMode === 'MANUAL') {
-      const createdAtTime = new Date(booking.createdAt).getTime();
-      const elapsedHours = (now.getTime() - createdAtTime) / (1000 * 60 * 60);
-      if (elapsedHours > 48) {
-        currentStatus = 'CANCELLED';
-        changed = true;
-      }
-    }
-
-    // 2. Check APPROVED manual booking (tenant must pay within 72h)
-    if (booking.status === 'APPROVED' && booking.approvedAt) {
-      const approvedAtTime = new Date(booking.approvedAt).getTime();
-      const elapsedHours = (now.getTime() - approvedAtTime) / (1000 * 60 * 60);
-      if (elapsedHours > 72 && booking.paymentStatus !== 'PAID') {
-        currentStatus = 'CANCELLED';
-        changed = true;
-      }
-    }
-
-    if (changed) {
-      try {
-        await updateDoc(doc(db, 'bookings', booking.id), { status: currentStatus });
-        await setDoc(doc(db, 'booking_availability', booking.id), toAvailability({ ...booking, status: currentStatus }));
-
-        // Post automated expiration message in chat log
-        const msgId = `m-${crypto.randomUUID()}`;
-        const autoCancelMsg: Message = {
-          id: msgId,
-          senderId: booking.ownerId,
-          receiverId: booking.tenantId,
-          bookingId: booking.id,
-          content: booking.status === 'PENDING' 
-            ? `⚠️ Demande de réservation expirée (le propriétaire n'a pas répondu dans le délai requis de 48 heures).`
-            : `⚠️ Demande de réservation expirée (le premier loyer n'a pas été réglé dans le délai imparti de 72 heures).`,
-          timestamp: new Date().toISOString(),
-          isRead: false,
-          participants: [booking.tenantId, booking.ownerId]
-        };
-        await setDoc(doc(db, 'messages', msgId), autoCancelMsg);
-        
-        updatedBookings.push({ ...booking, status: currentStatus });
-      } catch (e) {
-        console.error("Error auto-expiring booking", booking.id, e);
-        updatedBookings.push(booking);
-      }
-    } else {
-      updatedBookings.push(booking);
-    }
-  }
-
-  return updatedBookings;
-}
 
 export const apiService = {
   admin: {
+    async setVerificationException(targetType: 'USER' | 'LISTING', id: string, mode: 'GRANT' | 'REVOKE', reason: string) {
+      const response = await authenticatedFetch(`/api/admin/verification-exceptions/${targetType}/${encodeURIComponent(id)}`, {
+        method: 'POST', body: JSON.stringify({ mode, reason })
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.error || `Erreur ${response.status}`);
+      return payload as ReturnType<typeof import('./verificationException').prepareVerificationException>;
+    },
     async createAdministrator(input: { email: string; firstName: string; lastName: string }) {
       const response = await authenticatedFetch('/api/admin/staff', {
         method: 'POST',
@@ -185,15 +122,15 @@ export const apiService = {
     async getByIds(ids: string[]): Promise<User[]> {
       if (!ids.length) return [];
       try {
-        // Firestore 'in' query is limited to 30 items
-        const batches = [];
-        for (let i = 0; i < ids.length; i += 30) {
-          const batch = ids.slice(i, i + 30);
-          const q = query(collection(db, 'users'), where('id', 'in', batch));
-          batches.push(getDocs(q));
-        }
-        const snapshots = await Promise.all(batches);
-        return snapshots.flatMap(s => s.docs.map(doc => doc.data() as User));
+        // Individual reads are permitted; collection queries on private profiles are not.
+        const results = await Promise.allSettled(ids.map(id => getDoc(doc(db, 'users', id))));
+        return results.flatMap((result, index) => {
+          if (result.status === 'rejected') {
+            console.warn('Profil indisponible', ids[index]);
+            return [];
+          }
+          return result.value.exists() ? [{ ...result.value.data(), id: result.value.id } as User] : [];
+        });
       } catch (e) {
         return handleFirestoreError(e, 'GET_BY_IDS', `users?ids=${ids.join(',')}`);
       }
@@ -368,9 +305,17 @@ export const apiService = {
         if (listing.galleryUrls.length < 3 || hasMissingRoomPhoto(listing.rooms)) throw new Error('Ajoutez au moins trois photos des parties communes et une photo par chambre.');
         const normalizedListing = normalizeListingDescription(normalizeListingPhotos({
           ...listing,
+          bookingMode: 'INSTANT',
           // A proprietor may submit a listing, but only an administrator may publish it.
           status: 'PENDING'
         }));
+        const profile = await getDoc(doc(db, 'users', auth.currentUser.uid));
+        if (hasVerificationException(profile.data() || {})) {
+          const response = await authenticatedFetch('/api/listings/test-create', { method: 'POST', body: JSON.stringify({ listing: normalizedListing }) });
+          const result = await response.json().catch(() => ({}));
+          if (!response.ok) throw new Error(result.error || `Erreur ${response.status}`);
+          return result as Listing;
+        }
         await setDoc(doc(db, 'listings', listing.id), normalizedListing);
         return normalizedListing;
       } catch (e) {
@@ -401,6 +346,7 @@ export const apiService = {
         }
         const normalizedListing = normalizeListingDescription(normalizeListingPhotos({
           ...listing,
+          bookingMode: 'INSTANT',
           ownerId: existingListing.ownerId,
           status: existingListing.status
         }));
@@ -431,8 +377,8 @@ export const apiService = {
         const bookingDoc = await getDoc(doc(db, 'bookings', id));
         if (!bookingDoc.exists()) return undefined;
         const b = bookingDoc.data() as Booking;
-        const cleaned = await cleanupAndFilterBookings([b]);
-        return cleaned[0];
+        if (b.ownerId === auth.currentUser?.uid && b.tenantId !== auth.currentUser?.uid && !isOwnerBookingVisible(b)) return undefined;
+        return b;
       } catch (e) {
         return handleFirestoreError(e, 'GET_BY_ID', `bookings/${id}`);
       }
@@ -465,7 +411,7 @@ export const apiService = {
         const q = query(collection(db, 'bookings'), where('tenantId', '==', userId));
         const snapshot = await getDocs(q);
         const list = snapshot.docs.map(doc => doc.data() as Booking);
-        return await cleanupAndFilterBookings(list);
+        return list;
       } catch (e) {
         return handleFirestoreError(e, 'GET_BOOKINGS_BY_USER', `bookings?tenantId=${userId}`);
       }
@@ -475,95 +421,36 @@ export const apiService = {
         const q = query(collection(db, 'bookings'), where('listingId', '==', listingId));
         const snapshot = await getDocs(q);
         const list = snapshot.docs.map(doc => doc.data() as Booking);
-        return await cleanupAndFilterBookings(list);
+        return list;
       } catch (e) {
         return handleFirestoreError(e, 'GET_BOOKINGS_BY_LISTING', `bookings?listingId=${listingId}`);
       }
     },
     async getByOwnerId(ownerId: string) {
       try {
-        const q = query(collection(db, 'bookings'), where('ownerId', '==', ownerId));
+        const q = query(collection(db, 'bookings'), where('ownerId', '==', ownerId), where('paymentStatus', '==', 'PAID'));
         const snapshot = await getDocs(q);
         const list = snapshot.docs.map(doc => doc.data() as Booking);
-        return await cleanupAndFilterBookings(list);
+        return list.filter(isOwnerBookingVisible);
       } catch (e) {
         return handleFirestoreError(e, 'GET_BOOKINGS_BY_OWNER', `bookings?ownerId=${ownerId}`);
       }
     },
     async updateStatus(bookingId: string, status: Booking['status']) {
-      try {
-        if (status === 'COMPLETED') {
-          const bookingDoc = await getDoc(doc(db, 'bookings', bookingId));
-          if (!bookingDoc.exists()) throw new Error('Réservation introuvable.');
-          const booking = bookingDoc.data() as Booking;
-          const response = await authenticatedFetch(`/api/bookings/${encodeURIComponent(bookingId)}/complete`, {
-            method: 'POST', body: JSON.stringify({ checkOutReportId: booking.checkOutReportId })
-          });
-          const result = await response.json() as { completedAt: string };
-          return result.completedAt;
-        }
-        const bookingDoc = await getDoc(doc(db, 'bookings', bookingId));
-        if (bookingDoc.exists()) {
-          const booking = bookingDoc.data() as Booking;
-          const previousStatus = booking.status;
-          
-          const updateData: any = { status };
-          if (status === 'APPROVED') {
-            updateData.approvedAt = new Date().toISOString();
-          }
-          await updateDoc(doc(db, 'bookings', bookingId), updateData);
-          await setDoc(doc(db, 'booking_availability', bookingId), toAvailability({ ...booking, status }));
-          
-          // Automated status change messages inside chat
-          if (status === 'APPROVED' && previousStatus !== 'APPROVED') {
-            const msgId = `m-${crypto.randomUUID()}`;
-            const approvalMessage: Message = {
-              id: msgId,
-              senderId: booking.ownerId,
-              receiverId: booking.tenantId,
-              bookingId,
-              content: `Félicitations ! Votre demande de réservation pour la chambre "${booking.roomName || 'Chambre'}" a été ACCEPTÉE. Vous disposez de 72 heures pour finaliser votre premier paiement afin de bloquer définitivement votre place.`,
-              timestamp: new Date().toISOString(),
-              isRead: false,
-              participants: [booking.tenantId, booking.ownerId]
-            };
-            await setDoc(doc(db, 'messages', msgId), approvalMessage);
-          } else if (status === 'CONFIRMED' && previousStatus !== 'CONFIRMED') {
-            const msgId = `m-${crypto.randomUUID()}`;
-            const confirmationMessage: Message = {
-              id: msgId,
-              senderId: booking.ownerId,
-              receiverId: booking.tenantId,
-              bookingId,
-              content: `🎉 Paiement reçu avec succès ! Votre réservation pour la chambre "${booking.roomName || 'Chambre'}" est confirmée de manière définitive. Bienvenue chez HAVEN !`,
-              timestamp: new Date().toISOString(),
-              isRead: false,
-              participants: [booking.tenantId, booking.ownerId]
-            };
-            await setDoc(doc(db, 'messages', msgId), confirmationMessage);
-          } else if (status === 'CANCELLED' && previousStatus !== 'CANCELLED') {
-            const msgId = `m-${crypto.randomUUID()}`;
-            const actorId = auth.currentUser?.uid;
-            if (!actorId) throw new Error('Authentication required');
-            const cancelMessage: Message = {
-              id: msgId,
-              senderId: actorId,
-              receiverId: actorId === booking.ownerId ? booking.tenantId : booking.ownerId,
-              bookingId,
-              content: `La demande de réservation pour la chambre "${booking.roomName || 'Chambre'}" a été déclinée ou a expiré.`,
-              timestamp: new Date().toISOString(),
-              isRead: false,
-              participants: [booking.tenantId, booking.ownerId]
-            };
-            await setDoc(doc(db, 'messages', msgId), cancelMessage);
-          }
-
-          // Booking availability is range-based. The room's general availability
-          // must not be flipped for a whole period after one reservation.
-        }
-      } catch (e) {
-        handleFirestoreError(e, 'UPDATE_BOOKING_STATUS', `bookings/${bookingId}`);
-      }
+      if (status !== 'COMPLETED') throw new Error('Les réservations sont confirmées uniquement après paiement.');
+      const path = 'complete';
+      const response = await authenticatedFetch(`/api/bookings/${encodeURIComponent(bookingId)}/${path}`, {
+        method: 'POST', body: JSON.stringify({ status })
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(`${payload.error || 'Impossible de modifier cette réservation'} (Erreur ${response.status})`);
+      return status === 'COMPLETED' ? payload.completedAt : payload;
+    },
+    listenByParticipant(userId: string, role: 'OWNER' | 'TENANT', callback: (bookings: Booking[]) => void, onError: () => void) {
+      const q = query(collection(db, 'bookings'), where(role === 'OWNER' ? 'ownerId' : 'tenantId', '==', userId), ...(role === 'OWNER' ? [where('paymentStatus', '==', 'PAID')] : []));
+      return onSnapshot(q, snapshot => callback(snapshot.docs.map(item => ({ ...item.data(), id: item.id } as Booking)).filter(booking => role !== 'OWNER' || isOwnerBookingVisible(booking))), error => {
+        logFirestoreListenerError(error, 'BOOKINGS', userId); onError();
+      });
     },
     async cancel(bookingId: string, reason: string) {
       const response = await authenticatedFetch(`/api/bookings/${encodeURIComponent(bookingId)}/cancel`, {
@@ -698,7 +585,9 @@ export const apiService = {
         where('participants', 'array-contains', userId)
       );
 
-      return onSnapshot(q, (snapshot) => {
+      let version = 0;
+      return onSnapshot(q, async (snapshot) => {
+        const currentVersion = ++version;
         console.log(`Received ${snapshot.docs.length} messages for user ${userId}`);
         const allMessages = snapshot.docs.map(doc => doc.data() as Message);
         
@@ -711,8 +600,16 @@ export const apiService = {
           groups.set(key, group);
         });
 
+        const bookingSnapshots = await Promise.all(Array.from(groups.keys()).map(async id => {
+          try { const snapshot = await getDoc(doc(db, 'bookings', id)); return snapshot.exists() ? snapshot.data() as Booking : undefined; }
+          catch { return undefined; }
+        }));
+        if (currentVersion !== version) return;
+        const visibleBookings = new Map(bookingSnapshots.filter(Boolean).map(booking => [booking!.id, booking!]));
         const conversations = [];
         for (const [bookingId, msgs] of groups.entries()) {
+          const booking = visibleBookings.get(bookingId);
+          if (!booking || (booking.ownerId === userId && booking.tenantId !== userId && !isOwnerBookingVisible(booking))) continue;
           const sorted = msgs.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
           const latest = sorted[0];
           
@@ -934,45 +831,12 @@ export const apiService = {
 
   inventory: {
     async create(report: InventoryReport) {
-      try {
-        if (!auth.currentUser) throw new Error('Vous devez être connecté pour réaliser un état des lieux. (Erreur 401)');
-        const bookingSnap = await getDoc(doc(db, 'bookings', report.bookingId));
-        if (!bookingSnap.exists()) throw new Error('Réservation introuvable.');
-        const booking = bookingSnap.data() as Booking;
-        if (auth.currentUser.uid !== booking.tenantId && auth.currentUser.uid !== booking.ownerId) {
-          throw new Error('Vous ne participez pas à cette réservation. (Erreur 403)');
-        }
-        if (report.tenantId !== booking.tenantId || report.ownerId !== booking.ownerId) {
-          throw new Error('Les participants de l’état des lieux ne correspondent pas à la réservation. (Erreur 422)');
-        }
-        if (!['CONFIRMED', 'COMPLETED'].includes(booking.status)) {
-          throw new Error('L’état des lieux est disponible après la confirmation de la réservation. (Erreur 422)');
-        }
-        if ((report.type === 'IN' && booking.checkInReportId) || (report.type === 'OUT' && booking.checkOutReportId)) {
-          throw new Error('Cet état des lieux a déjà été réalisé. (Erreur 409)');
-        }
-        const listingSnap = await getDoc(doc(db, 'listings', booking.listingId));
-        const listing = listingSnap.exists() ? listingSnap.data() as Listing : undefined;
-        const timing = getInventoryTiming(booking, listing, report.type);
-        const earlyDepartureAllowed = report.type === 'OUT'
-          && timing.isEarlyDeparture
-          && report.isEarlyDeparture
-          && (report.earlyDepartureReason?.trim().length ?? 0) >= 10;
-        if (!timing.isAvailable && !earlyDepartureAllowed) {
-          throw new Error(`État des lieux disponible à partir du ${formatScheduledMoment(timing.scheduledAt)}.`);
-        }
-        await setDoc(doc(db, 'inventory', report.id), report);
-        // Link to booking
-        const bookingDoc = doc(db, 'bookings', report.bookingId);
-        if (report.type === 'IN') {
-          await updateDoc(bookingDoc, { checkInReportId: report.id });
-        } else {
-          await updateDoc(bookingDoc, { checkOutReportId: report.id });
-        }
-        return report;
-      } catch (e) {
-        return handleFirestoreError(e, 'CREATE_INVENTORY', `inventory/${report.id}`);
-      }
+      const response = await authenticatedFetch(`/api/bookings/${encodeURIComponent(report.bookingId)}/inventory`, {
+        method: 'POST', body: JSON.stringify({ report })
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(`${payload.error || 'Impossible d’enregistrer l’état des lieux'} (Erreur ${response.status})`);
+      return payload.report as InventoryReport;
     },
     async getById(id: string): Promise<InventoryReport | undefined> {
       try {

@@ -1,3 +1,4 @@
+import { hasVerificationException } from '../services/verificationException';
 import { hasRequiredPhoneNumber, isVerificationPending } from '../services/profileVerification';
 import { countNights, isBookableStay } from '../services/stay';
 
@@ -45,9 +46,9 @@ export const ListingDetails: React.FC = () => {
   const [isHousematesLoading, setIsHousematesLoading] = useState(false);
   const [housematesError, setHousematesError] = useState<string | null>(null);
   
-  const isApproved = (currentUser?.status === 'APPROVED' && currentUser.emailVerified === true && hasRequiredPhoneNumber(currentUser) && currentUser.identityVerified === true) || currentUser?.role === 'ADMIN';
+  const isApproved = Boolean(currentUser && hasVerificationException(currentUser)) || (currentUser?.status === 'APPROVED' && currentUser.emailVerified === true && hasRequiredPhoneNumber(currentUser) && currentUser.identityVerified === true) || currentUser?.role === 'ADMIN';
   const hasTenantDocuments = Boolean(currentUser?.documents?.idCard);
-  const canBook = isApproved && hasTenantDocuments;
+  const canBook = isApproved && (hasTenantDocuments || Boolean(currentUser && hasVerificationException(currentUser)));
   const isListingOwner = currentUser?.id === listing?.ownerId;
   const isHost = currentUser?.role === 'OWNER';
 

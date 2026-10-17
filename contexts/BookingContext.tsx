@@ -1,3 +1,4 @@
+import { isBookingVisibleToParticipant } from '../services/bookingVisibility';
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Booking, UserRole } from '../types';
 import { apiService } from '../services/api';
@@ -50,11 +51,11 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
     const results = new Map<string, Booking>();
     const publish = () => {
-      setBookings(Array.from(results.values()));
+      setBookings(Array.from(results.values()).filter(booking => isBookingVisibleToParticipant(booking, currentUser.id)));
       setLoading(false);
     };
     const subscribe = (field: 'tenantId' | 'ownerId') => onSnapshot(
-      query(collection(db, 'bookings'), where(field, '==', currentUser.id)),
+      query(collection(db, 'bookings'), where(field, '==', currentUser.id), ...(field === 'ownerId' ? [where('paymentStatus', '==', 'PAID')] : [])),
       snapshot => {
         snapshot.docChanges().forEach(change => {
           const booking = change.doc.data() as Booking;

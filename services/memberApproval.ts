@@ -17,6 +17,7 @@ export function prepareMemberApproval(
   }
   return {
     status: 'APPROVED' as const,
+    verificationException: null,
     identityVerified: true,
     isVerified: true,
     idVerifiedAt: now,
@@ -32,7 +33,7 @@ export function prepareMemberModeration(profile: { role?: unknown }, status: unk
   if (status !== 'REJECTED' && status !== 'BANNED') throw new MemberApprovalError('Décision invalide.');
   if (typeof reason !== 'string' || !reason.trim() || reason.length > 2000) throw new MemberApprovalError('Un motif de 1 à 2 000 caractères est obligatoire.');
   return {
-    status, rejectionReason: reason.trim(), identityVerified: false, isVerified: false,
+    status, verificationException: null, rejectionReason: reason.trim(), identityVerified: false, isVerified: false,
     idVerifiedAt: null, verificationSubmittedAt: null, moderatedBy: actorId, moderatedAt: now
   };
 }

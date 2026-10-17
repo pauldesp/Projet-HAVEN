@@ -1,8 +1,12 @@
+import { ReservationInformation, ReservationInformationDisclosure, downloadPaymentReceipt } from '../components/ReservationInformation';
+import { BookingCountdown } from '../components/BookingCountdown';
+import { inventoryDocumentHtml } from '../services/inventoryDocument';
+import { hasVerificationException } from '../services/verificationException';
 import type { Incident } from '../types';
 import { IncidentMonitor } from '../components/IncidentMonitor';
 import { hasRequiredPhoneNumber, isVerificationPending } from '../services/profileVerification';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '../components/Button';
@@ -47,63 +51,8 @@ import { stayReviewDeadline } from '../services/reviewPolicy';
 import { prepareVerificationDocument } from '../services/verificationDocument';
 import { formatScheduledMoment, getInventoryTiming } from '../services/inventoryTiming';
 
-const BookingCountdown: React.FC<{ booking: Booking }> = ({ booking }) => {
-  const [timeLeft, setTimeLeft] = useState<string>('');
-  const [isExpired, setIsExpired] = useState(false);
-
-  useEffect(() => {
-    const calculateTime = () => {
-      const now = new Date();
-      if (booking.status === 'PENDING' && booking.bookingMode === 'MANUAL') {
-        const limit = new Date(new Date(booking.createdAt).getTime() + 48 * 60 * 60 * 1000);
-        const diff = limit.getTime() - now.getTime();
-        if (diff <= 0) {
-          setTimeLeft('Expiré');
-          setIsExpired(true);
-          return;
-        }
-        const hours = Math.floor(diff / (1000 * 60 * 60));
-        const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-        const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-        setTimeLeft(`⏳ Décision attendue sous ${hours}h ${minutes}m ${seconds}s`);
-      } else if (booking.status === 'APPROVED' && booking.approvedAt) {
-        const limit = new Date(new Date(booking.approvedAt).getTime() + 72 * 60 * 60 * 1000);
-        const diff = limit.getTime() - now.getTime();
-        if (diff <= 0) {
-          setTimeLeft('Délai de paiement dépassé');
-          setIsExpired(true);
-          return;
-        }
-        const hours = Math.floor(diff / (1000 * 60 * 60));
-        const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-        const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-        setTimeLeft(`⚠️ Reste ${hours}h ${minutes}m ${seconds}s pour payer`);
-      } else {
-        setTimeLeft('');
-      }
-    };
-
-    calculateTime();
-    const interval = setInterval(calculateTime, 1000);
-    return () => clearInterval(interval);
-  }, [booking]);
-
-  if (!timeLeft) return null;
-
-  return (
-    <div className={`text-[10px] font-mono font-bold mt-1.5 flex items-center gap-1 px-2 py-0.5 rounded w-max ${
-      isExpired 
-        ? 'bg-red-50 text-red-600 border border-red-100' 
-        : booking.status === 'PENDING'
-          ? 'bg-amber-50 text-amber-600 border border-amber-100 animate-pulse'
-          : 'bg-blue-50 text-blue-600 border border-blue-100 animate-pulse'
-    }`}>
-      {timeLeft}
-    </div>
-  );
-};
-
 export const TenantDashboard: React.FC = () => {
+  const paymentReturnId = useRef(new URLSearchParams(window.location.search).get('booking') === 'pending' ? new URLSearchParams(window.location.search).get('id') : null);
   const navigate = useNavigate();
   const { currentUser, refreshUser, updateUserRole } = useAuth();
   const { listings: allListings } = useListings();
@@ -119,10 +68,10 @@ export const TenantDashboard: React.FC = () => {
   const [forceEarlyDepartureId, setForceEarlyDepartureId] = useState<string | null>(null);
   const [showEarlyDepartureHintId, setShowEarlyDepartureHintId] = useState<string | null>(null);
 
-  const isApproved = currentUser?.status === 'APPROVED' && currentUser.emailVerified === true && hasRequiredPhoneNumber(currentUser) && currentUser.identityVerified === true;
+  const isApproved = Boolean(currentUser && hasVerificationException(currentUser)) || currentUser?.status === 'APPROVED' && currentUser.emailVerified === true && hasRequiredPhoneNumber(currentUser) && currentUser.identityVerified === true;
   const isSubmittedForReview = Boolean(currentUser && isVerificationPending(currentUser));
   const hasTenantDocuments = Boolean(currentUser?.documents?.idCard);
-  const canBook = currentUser?.role === UserRole.ADMIN || (isApproved && hasTenantDocuments);
+  const canBook = currentUser?.role === UserRole.ADMIN || (isApproved && (hasTenantDocuments || Boolean(currentUser && hasVerificationException(currentUser))));
 
   // Modal State
   const [inventoryState, setInventoryState] = useState<{
@@ -161,6 +110,16 @@ export const TenantDashboard: React.FC = () => {
   });
 
   const [viewingDocument, setViewingDocument] = useState<AppDocument | null>(null);
+  const [viewedReportHtml, setViewedReportHtml] = useState('');
+  useEffect(() => {
+    let active = true;
+    setViewedReportHtml('');
+    if (viewingDocument?.reportId) void apiService.inventory.getById(viewingDocument.reportId).then(report => {
+      if (active && report) setViewedReportHtml(inventoryDocumentHtml(report, viewingDocument.title));
+    }).catch(() => toast.error('Impossible de charger cet état des lieux.'));
+    return () => { active = false; };
+  }, [viewingDocument]);
+
 
   useEffect(() => {
     if (!currentUser) return;
@@ -173,7 +132,7 @@ export const TenantDashboard: React.FC = () => {
 
       if (bookingResult === 'pending' && bookingId) {
         try {
-          toast.success("Paiement reçu. Stripe vérifie maintenant la confirmation.");
+          toast.info("Vérification du paiement en cours. Votre séjour apparaîtra comme confirmé dès validation du paiement.");
 
           // Clear query params without refreshing page
           const newUrl = window.location.pathname + window.location.hash;
@@ -182,14 +141,9 @@ export const TenantDashboard: React.FC = () => {
           console.error("Error handling payment return", e);
         }
       } else if (bookingResult === 'cancel' && bookingId) {
-        try {
-          await apiService.bookings.cancel(bookingId, 'Paiement non finalisé');
-          toast.info("Réservation annulée. Les dates ont été libérées.");
-          const newUrl = window.location.pathname + window.location.hash;
-          window.history.replaceState({}, '', newUrl);
-        } catch (e) {
-          console.error("Error cancelling booking", e);
-        }
+        toast.info('Paiement non finalisé. Vous pouvez réessayer depuis votre réservation tant que le délai n’est pas expiré.');
+        const newUrl = window.location.pathname + window.location.hash;
+        window.history.replaceState({}, '', newUrl);
       }
     };
 
@@ -207,11 +161,18 @@ export const TenantDashboard: React.FC = () => {
     });
 
     // 2. Fetch other data once
-    const fetchOtherData = async () => {
+    let loadVersion = 0;
+    const fetchOtherData = async (myBookings: Booking[]) => {
+      if (paymentReturnId.current && myBookings.some(booking => booking.id === paymentReturnId.current && booking.status === 'CONFIRMED' && booking.paymentStatus === 'PAID')) {
+        paymentReturnId.current = null;
+        toast.success('Réservation confirmée ! Retrouvez votre séjour dans « Séjours à venir ».');
+      }
+      const version = ++loadVersion;
       setIsLoading(true);
       try {
-        const myBookings = await apiService.bookings.getByUserId(currentUser.id);
-        const myReviews = await apiService.reviews.getByAuthorId(currentUser.id);
+
+        const myReviews = await apiService.reviews.getByAuthorId(currentUser.id).catch(() => []);
+        if (version !== loadVersion) return;
         setReviewedBookingIds(new Set(myReviews.map((review: any) => review.bookingId).filter(Boolean)));
         const enrichedBookings = myBookings.map(b => ({
           ...b,
@@ -244,8 +205,12 @@ export const TenantDashboard: React.FC = () => {
       }
     };
 
-    fetchOtherData();
+    const unsubscribeBookings = apiService.bookings.listenByParticipant(currentUser.id, 'TENANT', bookings => void fetchOtherData(bookings), () => {
+      setIsLoading(false); toast.error('Impossible de charger les réservations. Actualisez la page.');
+    });
     return () => {
+      loadVersion++;
+      unsubscribeBookings();
       unsubscribeDocs();
       unsubscribeMessages();
     };
@@ -263,36 +228,8 @@ export const TenantDashboard: React.FC = () => {
 
   const [isPayingBookingId, setIsPayingBookingId] = useState<string | null>(null);
 
-  const handleProceedToPayment = async (booking: Booking) => {
-    setIsPayingBookingId(booking.id);
-    try {
-      const response = await authenticatedFetch('/api/create-checkout-session', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          bookingId: booking.id,
-          successPath: `/?booking=pending&id=${booking.id}#/dashboard`,
-          cancelPath: `/?booking=cancel&id=${booking.id}#/dashboard`,
-        }),
-      });
-
-      if (!response.ok) {
-        const errData = await response.json();
-        throw new Error(errData.error || "Erreur Stripe");
-      }
-
-      const session = await response.json();
-      if (session.url) {
-        window.location.href = session.url;
-      } else {
-        throw new Error("URL de session non reçue");
-      }
-    } catch (e: unknown) {
-      console.error("Erreur de paiement", e);
-      toast.error(userFacingErrorMessage(e));
-    } finally {
-      setIsPayingBookingId(null);
-    }
+  const handleProceedToPayment = (booking: Booking) => {
+    navigate(`/payment/${encodeURIComponent(booking.id)}`);
   };
 
   const handleBookingCancelled = (bookingId: string, cancellation: NonNullable<Booking['cancellation']>) => {
@@ -307,70 +244,30 @@ export const TenantDashboard: React.FC = () => {
     const type = inventoryState.type;
 
     try {
+      const reportId = `inv_${type.toLowerCase()}_${bookingId}`;
+      await apiService.inventory.create({
+        id: reportId, bookingId, tenantId: currentUser.id, ownerId: inventoryState.selectedBooking.ownerId,
+        type, date: new Date().toISOString(), identityValidated: true, items: [],
+        comments: JSON.stringify(type === 'IN' ? { assessments: data.checkinAssessments, nonConformities: data.nonConformities } : {
+          checklist: data.checklist, photos: data.photos, incident: data.incidentReport,
+          earlyDeparture: data.isEarlyDeparture ? { reason: data.earlyDepartureReason, scheduledDepartureAt: data.scheduledDepartureAt } : undefined
+        }),
+        status: 'COMPLETED', roomRating: 0, houseRating: 0, cleanlinessRating: 0, signature: 'USER_SIGNED',
+        ...(type === 'OUT' ? { isEarlyDeparture: Boolean(data.isEarlyDeparture), ...(data.earlyDepartureReason ? { earlyDepartureReason: data.earlyDepartureReason } : {}), scheduledDepartureAt: data.scheduledDepartureAt } : {})
+      });
       if (type === 'OUT') {
-        // 1. Create Inventory Report (Metadata)
-        const reportId = `inv_out_${bookingId}_${Date.now()}`;
-        await apiService.inventory.create({
-          id: reportId,
-          bookingId,
-          tenantId: currentUser.id,
-          ownerId: inventoryState.selectedBooking.ownerId,
-          type: 'OUT',
-          date: new Date().toISOString(),
-          identityValidated: true,
-          items: [], 
-          comments: JSON.stringify({
-            checklist: data.checklist,
-            incident: data.incidentReport,
-            earlyDeparture: data.isEarlyDeparture ? {
-              reason: data.earlyDepartureReason,
-              scheduledDepartureAt: data.scheduledDepartureAt,
-            } : undefined,
-          }),
-          status: 'COMPLETED',
-          roomRating: 5,
-          houseRating: 5,
-          cleanlinessRating: 5,
-          signature: 'USER_SIGNED',
-          isEarlyDeparture: Boolean(data.isEarlyDeparture),
-          earlyDepartureReason: data.earlyDepartureReason,
-          scheduledDepartureAt: data.scheduledDepartureAt,
-        });
-
-        // 2. Create Incident if any
-        if (data.incidentReport && data.incidentReport.subCategory) {
-          await apiService.stayIssues.create({
-            id: `inc_${bookingId}_${Date.now()}`,
-            bookingId,
-            listingId: inventoryState.selectedBooking.listingId,
-            reporterId: currentUser.id,
-            ownerId: inventoryState.selectedBooking.ownerId,
-            category: data.incidentReport.category,
-            subCategory: data.incidentReport.subCategory,
-            description: data.incidentReport.description,
-            photo: data.incidentReport.photo || '',
-            createdAt: new Date().toISOString()
-          });
-        }
-
         // Update Booking Status
-        const completedAt = await apiService.bookings.updateStatus(bookingId, 'COMPLETED');
+        const completedAt = new Date().toISOString();
         setBookings(prev => prev.map(b => b.id === bookingId ? { ...b, status: 'COMPLETED', completedAt: typeof completedAt === 'string' ? completedAt : new Date().toISOString() } : b));
         
-        // Refresh docs
-        const userDocs = await apiService.documents.getByUserId(currentUser.id);
-        setDocuments(userDocs);
-
         toast.success("Départ validé ! Vos documents sont maintenant disponibles dans l'onglet dédié.");
       } else {
         // For IN inventory
-        const userDocs = await apiService.documents.getByUserId(currentUser.id);
-        setDocuments(userDocs);
         toast.success("État des lieux d'entrée validé. Bon séjour chez HAVEN !");
       }
     } catch (e) {
       console.error("Error finalizing inventory", e);
-      toast.error(userFacingErrorMessage(e));
+      throw e;
     }
   };
 
@@ -391,7 +288,7 @@ export const TenantDashboard: React.FC = () => {
   const handleOpenInventory = (booking: Booking & { listing?: Listing }, type: 'IN' | 'OUT') => {
     const timing = getInventoryTiming(booking, booking.listing, type);
     if (type === 'IN') {
-      const alreadyDone = documents.some(d => d.bookingId === booking.id && d.type === 'INVENTORY_IN');
+      const alreadyDone = Boolean(booking.checkInReportId) || documents.some(d => d.bookingId === booking.id && d.type === 'INVENTORY_IN');
       if (alreadyDone) {
         toast.info("L'état des lieux d'entrée a déjà été réalisé. Vous pouvez le retrouver dans l'onglet 'Mes Documents'.");
         setActiveTab('DOCUMENTS');
@@ -444,13 +341,28 @@ export const TenantDashboard: React.FC = () => {
   };
 
   const today = new Date().toISOString().slice(0, 10);
-  const isFinishedStay = (booking: Booking) => booking.status === 'COMPLETED' || (booking.status === 'CONFIRMED' && booking.endDate <= today);
+  const isFinishedStay = (booking: Booking) => booking.status === 'COMPLETED';
   const upcoming = bookings.filter(booking =>
     booking.status === 'PENDING' || booking.status === 'APPROVED' || (booking.status === 'CONFIRMED' && !isFinishedStay(booking))
   );
   const history = bookings.filter(booking => booking.status === 'CANCELLED' || isFinishedStay(booking));
 
-  const handleDownload = (doc: AppDocument) => {
+  const handleDownload = async (doc: AppDocument) => {
+    if (doc.receiptId) {
+      try { await downloadPaymentReceipt(doc.receiptId); } catch { toast.error('Impossible de télécharger le justificatif.'); }
+      return;
+    }
+    if (doc?.reportId) {
+      try {
+        const report = await apiService.inventory.getById(doc.reportId);
+        if (!report) throw new Error('État des lieux introuvable.');
+        const url = URL.createObjectURL(new Blob([inventoryDocumentHtml(report, doc.title)], { type: 'text/html;charset=utf-8' }));
+        const link = document.createElement('a'); link.href = url; link.download = `${doc.title}.html`;
+        document.body.appendChild(link); link.click(); link.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      } catch { toast.error('Impossible de télécharger cet état des lieux.'); }
+      return;
+    }
     if (!doc || !doc.url) {
       toast.error("URL du document non disponible.");
       return;
@@ -581,7 +493,7 @@ export const TenantDashboard: React.FC = () => {
                         booking.status === 'APPROVED' ? 'bg-amber-500/90 text-white animate-pulse' : 
                         'bg-blue-500/90 text-white'
                       }`}>
-                        {booking.status === 'CONFIRMED' ? 'Confirmé' : booking.status === 'APPROVED' ? 'À régler' : 'En attente'}
+                        {booking.status === 'CONFIRMED' ? 'Confirmé' : booking.status === 'APPROVED' ? 'À régler' : 'Paiement à finaliser'}
                       </div>
                       {booking.roomName && <div className="absolute bottom-5 left-5 rounded-full bg-white/90 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-haven-navy backdrop-blur-sm">{booking.roomName}</div>}
                     </div>
@@ -618,8 +530,9 @@ export const TenantDashboard: React.FC = () => {
                             </Button>
                           </Link>
                           
+                          <ReservationInformationDisclosure bookingId={booking.id} />
                           {/* Entry Inventory */}
-                          {documents.some(d => d.bookingId === booking.id && d.type === 'INVENTORY_IN') ? (
+                          {Boolean(booking.checkInReportId) || documents.some(d => d.bookingId === booking.id && d.type === 'INVENTORY_IN') ? (
                             <div className="space-y-2">
                               <div className="w-full h-12 rounded-2xl bg-green-50 border border-green-200 flex items-center justify-center gap-2">
                                 <CheckCircle size={16} className="text-green-600" />
@@ -693,12 +606,9 @@ export const TenantDashboard: React.FC = () => {
 
                       {booking.status === 'PENDING' && (
                         <div className="flex flex-col gap-3 py-2 text-center lg:text-left">
+                          <Button disabled={isPayingBookingId === booking.id} onClick={() => handleProceedToPayment(booking)}>{isPayingBookingId === booking.id ? 'Redirection…' : `Payer ${booking.totalPrice} €`}</Button>
                           <p className="text-xs text-haven-stone leading-relaxed">
-                            {booking.bookingMode === 'MANUAL' ? (
-                              <span>Demande transmise au propriétaire. Décision sous 48 heures.</span>
-                            ) : (
-                              <span>Réservation en cours de virement Stripe...</span>
-                            )}
+                            Finalisez votre paiement pour confirmer la réservation.
                           </p>
                           <Button 
                             variant="outline" 
@@ -706,7 +616,7 @@ export const TenantDashboard: React.FC = () => {
                             onClick={() => setCancellationBooking(booking)}
                             className="text-haven-stone border-gray-200 hover:text-haven-red hover:bg-red-50 hover:border-red-100 text-[10px] font-black uppercase tracking-widest h-10 rounded-xl"
                           >
-                            Annuler ma demande
+                            Annuler cette réservation
                           </Button>
                         </div>
                       )}
@@ -716,13 +626,13 @@ export const TenantDashboard: React.FC = () => {
                           <div className="p-3 bg-amber-50/60 border border-amber-100 rounded-2xl text-left">
                             <p className="text-xs font-bold text-amber-800 flex items-center gap-1.5 justify-center lg:justify-start">
                               <Clock size={14} className="animate-pulse" />
-                              Approuvé !
+                              Paiement à finaliser
                             </p>
                             <p className="text-[11px] text-amber-700 mt-1 leading-relaxed">
                               {booking.approvedAt ? (
-                                <span>Il vous reste <strong>{Math.max(1, 72 - Math.floor((Date.now() - new Date(booking.approvedAt).getTime()) / (1000 * 60 * 60)))}h</strong> pour régler votre premier loyer afin de bloquer définitivement votre place.</span>
+                                <span>Il vous reste <strong>{Math.max(1, 24 - Math.floor((Date.now() - new Date(booking.approvedAt).getTime()) / (1000 * 60 * 60)))}h</strong> pour régler votre premier loyer afin de bloquer définitivement votre place.</span>
                               ) : (
-                                <span>Réglez sous 72 heures pour sécuriser la colocation.</span>
+                                <span>Réglez sous 24 heures pour sécuriser la colocation.</span>
                               )}
                             </p>
                           </div>
@@ -741,7 +651,7 @@ export const TenantDashboard: React.FC = () => {
                             onClick={() => setCancellationBooking(booking)}
                             className="text-haven-stone hover:text-haven-red hover:bg-red-50 text-[10px] font-bold h-10 rounded-xl"
                           >
-                            Annuler ma demande
+                            Annuler cette réservation
                           </Button>
                         </div>
                       )}
@@ -844,7 +754,7 @@ export const TenantDashboard: React.FC = () => {
                 {/* Generated Reports Section */}
                 <div className="space-y-6 pt-6 border-t border-gray-100">
                   <h3 className="font-heading font-bold text-xl text-haven-navy flex items-center gap-3">
-                    <FileText size={24} className="text-haven-navy" /> États des Lieux & Contrats
+                    <FileText size={24} className="text-haven-navy" /> Documents de mes séjours
                   </h3>
                   {documents.length > 0 ? (
                     <div className="grid md:grid-cols-2 gap-4">
@@ -944,7 +854,7 @@ export const TenantDashboard: React.FC = () => {
           type={inventoryState.type}
           booking={inventoryState.selectedBooking}
           listing={inventoryState.selectedBooking.listing}
-          room={inventoryState.selectedBooking.listing?.rooms[0]} 
+          room={inventoryState.selectedBooking.listing?.rooms.find(room => room.id === inventoryState.selectedBooking?.roomId)}
           onComplete={handleInventoryComplete}
         />
       )}
@@ -1009,7 +919,9 @@ export const TenantDashboard: React.FC = () => {
               </div>
 
               <div className="flex-1 overflow-y-auto p-10 md:p-16">
-                 <div className="max-w-2xl mx-auto space-y-12">
+                 {viewingDocument.receiptId && <ReservationInformation bookingId={viewingDocument.receiptId} />}
+                 {viewingDocument.reportId && <iframe title={viewingDocument.title} srcDoc={viewedReportHtml || '<p>Chargement de l’état des lieux…</p>'} sandbox="" className="w-full h-[60vh] border-0" />}
+                 <div className={`max-w-2xl mx-auto space-y-12 ${viewingDocument.reportId || viewingDocument.receiptId ? 'hidden' : ''}`}>
                     <div className="text-center space-y-4 mb-16">
                        <div className="inline-block px-4 py-1.5 bg-haven-navy text-white text-[10px] font-black uppercase tracking-[0.2em] rounded-full mb-4">
                           {viewingDocument.type.replace('_', ' ')}
@@ -1087,7 +999,7 @@ export const TenantDashboard: React.FC = () => {
                  </p>
                  <div className="flex gap-4 w-full md:w-auto">
                     <Button variant="outline" className="flex-1 md:flex-none rounded-2xl px-10 h-14 font-black uppercase tracking-widest text-[11px]" onClick={() => setViewingDocument(null)}>Fermer</Button>
-                    <Button variant="primary" className="flex-1 md:flex-none rounded-2xl px-12 h-14 font-black uppercase tracking-widest text-[11px] shadow-xl shadow-haven-navy/20" onClick={() => handleDownload(viewingDocument)}>Télécharger le PDF</Button>
+                    <Button variant="primary" className="flex-1 md:flex-none rounded-2xl px-12 h-14 font-black uppercase tracking-widest text-[11px] shadow-xl shadow-haven-navy/20" onClick={() => handleDownload(viewingDocument)}>Télécharger le document</Button>
                  </div>
               </div>
             </motion.div>

@@ -5,7 +5,7 @@ export function createApiRequestBodyParser() {
   const router = express.Router();
   // A 600 KiB optimized file needs about 800 KiB when encoded as base64.
   // This larger envelope applies only to endpoints accepting an optimized file.
-  router.use(['/api/users/me/identity-document', '/api/stay-issues'], express.json({ limit: '900kb' }));
+  router.use(['/api/users/me/identity-document', '/api/stay-issues', '/api/listings/test-create', /^\/api\/bookings\/[^/]+\/inventory$/], express.json({ limit: '900kb' }));
   router.use(express.json({ limit: '100kb' }));
   const handleSizeError: ErrorRequestHandler = (error, req, res, next) => {
     if (error?.type !== 'entity.too.large') return next(error);

@@ -37,8 +37,8 @@ async function compressImageSource(source: string): Promise<string> {
   return latest;
 }
 
-export async function prepareImageForStorage(file: File): Promise<string> {
-  if (file.size > MAX_IMAGE_UPLOAD_BYTES) throw new Error('Image trop volumineuse.');
+export async function prepareImageForStorage(file: File, maxUploadBytes = MAX_IMAGE_UPLOAD_BYTES): Promise<string> {
+  if (file.size > maxUploadBytes) throw new Error('Image trop volumineuse.');
   const source = await new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(reader.result as string);

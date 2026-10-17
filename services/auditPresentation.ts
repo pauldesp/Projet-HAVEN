@@ -3,6 +3,8 @@ export const auditCategoryLabels: Record<AdminAuditEntry['category'], string> = 
   ACCOUNT: 'Comptes', LISTING: 'Annonces', BOOKING: 'Réservations', INCIDENT: 'Incidents', LEGAL: 'Documents légaux', REPORT: 'Signalements', CONTACT: 'Contacts', ADMINISTRATION: 'Administrateurs'
 };
 const actions: Record<string, string> = {
+  USER_TEST_APPROVED: 'Compte validé exceptionnellement (test)', USER_TEST_REVOKED: 'Dérogation de compte retirée',
+  LISTING_TEST_APPROVED: 'Annonce validée exceptionnellement (test)', LISTING_TEST_REVOKED: 'Dérogation d’annonce retirée',
   USER_APPROVED: 'Profil validé', USER_REJECTED: 'Dossier refusé', USER_BANNED: 'Compte banni', USER_PENDING: 'Compte remis en attente', USER_IDENTITY_VERIFIED: 'Identité vérifiée',
   LISTING_APPROVED: 'Annonce validée', LISTING_REJECTED: 'Annonce refusée', LISTING_PENDING: 'Annonce remise en attente',
   ADMIN_GRANTED: 'Accès administrateur accordé', ADMIN_REVOKED: 'Accès administrateur retiré',

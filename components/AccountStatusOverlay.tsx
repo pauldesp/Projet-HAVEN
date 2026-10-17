@@ -1,3 +1,4 @@
+import { hasVerificationException } from '../services/verificationException';
 
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
@@ -328,7 +329,7 @@ export const AccountStatusOverlay: React.FC<AccountStatusOverlayProps> = ({
               </div>
               <div className="min-w-0">
                 <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.18em] text-gray-400">Vérification du compte</p>
-                <h2 id="account-status-title" className="truncate text-xl font-bold tracking-tight text-haven-navy sm:text-2xl">{isVerifiedForCurrentRole ? 'Profil vérifié' : currentUser.status === 'REJECTED' ? 'Dossier à corriger' : isSubmittedForReview ? 'Dossier en cours de vérification' : 'Complétez votre profil'}</h2>
+                <h2 id="account-status-title" className="truncate text-xl font-bold tracking-tight text-haven-navy sm:text-2xl">{hasVerificationException(currentUser) ? 'Validation exceptionnelle de test' : isVerifiedForCurrentRole ? 'Profil vérifié' : currentUser.status === 'REJECTED' ? 'Dossier à corriger' : isSubmittedForReview ? 'Dossier en cours de vérification' : 'Complétez votre profil'}</h2>
               </div>
             </div>
             {onClose && <button type="button" onClick={onClose} aria-label="Fermer" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-gray-400 transition hover:bg-gray-100 hover:text-haven-navy"><XCircle size={22} /></button>}
@@ -336,7 +337,7 @@ export const AccountStatusOverlay: React.FC<AccountStatusOverlayProps> = ({
 
           <div className="overflow-y-auto px-5 py-5 sm:px-8 sm:py-7">
             <div className={`mb-6 rounded-2xl border p-4 sm:p-5 ${currentUser.status === 'REJECTED' ? 'border-red-100 bg-red-50' : isVerifiedForCurrentRole ? 'border-green-100 bg-green-50' : 'border-blue-100 bg-blue-50/70'}`}>
-              <p className="text-sm leading-relaxed text-gray-700 sm:text-[15px]">{isVerifiedForCurrentRole ? 'Votre profil est vérifié. Les fonctionnalités de ce mode sont disponibles.' : currentUser.status === 'REJECTED' ? 'Votre dossier nécessite une correction avant de pouvoir être vérifié.' : isSubmittedForReview ? 'Votre dossier a bien été transmis. Un administrateur vérifiera votre identité avant d’ouvrir l’accès aux réservations et à la publication.' : 'Enregistrez vos coordonnées et votre numéro de téléphone, confirmez votre e-mail, puis transmettez votre pièce d’identité pour contrôle.'}</p>
+              <p className="text-sm leading-relaxed text-gray-700 sm:text-[15px]">{hasVerificationException(currentUser) ? 'Une dérogation de test a été accordée par l’administrateur principal. Elle ne constitue pas une vérification de vos documents ou de vos coordonnées.' : isVerifiedForCurrentRole ? 'Votre profil est vérifié. Les fonctionnalités de ce mode sont disponibles.' : currentUser.status === 'REJECTED' ? 'Votre dossier nécessite une correction avant de pouvoir être vérifié.' : isSubmittedForReview ? 'Votre dossier a bien été transmis. Un administrateur vérifiera votre identité avant d’ouvrir l’accès aux réservations et à la publication.' : 'Enregistrez vos coordonnées et votre numéro de téléphone, confirmez votre e-mail, puis transmettez votre pièce d’identité pour contrôle.'}</p>
               {!isVerifiedForCurrentRole && <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">{verificationSteps.map((step, index) => <div key={step.label} className="flex min-w-0 items-center gap-2 rounded-xl bg-white/80 px-2.5 py-2 sm:px-3"><span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold ${step.complete ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>{step.complete ? <CheckCircle2 size={15} /> : index + 1}</span><span className="truncate text-[11px] font-semibold text-gray-600 sm:text-xs">{step.label}</span></div>)}</div>}
             </div>
 

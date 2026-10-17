@@ -75,10 +75,10 @@ test('checkout requires authentication and Stripe webhook verification', () => {
   assert.match(server, /payment_status === "paid"/);
 });
 
-test('preview checkout records a server-side simulated payment', () => {
-  assert.match(server, /const completeMockCheckout = async/);
-  assert.match(server, /mock_payment_\$\{bookingId\}/);
-  assert.match(server, /paymentStatus: "PAID"/);
+test('simulation requires a dedicated authenticated action and uses the shared settlement path', () => {
+  assert.match(server, /app.post\('\/api\/payments\/:bookingId\/simulate', sensitiveApiLimiter, requireAuth/);
+  assert.match(server, /settleBookingPayment/);
+  assert.doesNotMatch(server, /completeMockCheckout|Falling back to MOCK/);
 });
 
 test('the browser cannot confirm a booking from redirect parameters', () => {

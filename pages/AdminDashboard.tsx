@@ -1,3 +1,4 @@
+import { VerificationExceptionDialog } from '../components/VerificationExceptionDialog';
 
 import React, { useState, useEffect } from 'react';
 import { MOCK_TENANTS } from '../services/mockData';
@@ -71,6 +72,7 @@ export const AdminDashboard: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState<'LISTINGS' | 'USERS' | 'OVERVIEW' | 'STAFF' | 'CONTACTS' | 'REPORTS' | 'LEGAL' | 'INCIDENTS' | 'AUDIT'>('LISTINGS');
   const { listings, refreshListings, isLoading: listingsLoading } = useListings();
+  const [exceptionTarget, setExceptionTarget] = useState<{ type: 'USER' | 'LISTING'; id: string; label: string; revoke: boolean } | null>(null);
   const [listingReview, setListingReview] = useState<Listing | null>(null);
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [users, setUsers] = useState<User[]>([]);
@@ -1840,13 +1842,25 @@ export const AdminDashboard: React.FC = () => {
         </div>
       </div>
 
+      {exceptionTarget && <VerificationExceptionDialog targetType={exceptionTarget.type} targetId={exceptionTarget.id} label={exceptionTarget.label} revoke={exceptionTarget.revoke}
+        onClose={() => setExceptionTarget(null)} onSaved={update => {
+          if (exceptionTarget.type === 'USER') {
+            setUsers(previous => previous.map(user => user.id === exceptionTarget.id ? { ...user, ...update, rejectionReason: undefined } : user));
+            setUserDetailModal(previous => previous.user?.id === exceptionTarget.id ? { ...previous, user: { ...previous.user, ...update, rejectionReason: undefined } } : previous);
+          } else {
+            setListingReview(previous => previous?.id === exceptionTarget.id ? { ...previous, ...update, rejectionReason: undefined } : previous);
+            void refreshListings();
+          }
+          setExceptionTarget(null); if (isPrimaryAdmin) void fetchAuditEntries();
+        }} />}
       {waitingReport && <ReportOwnerWaitDialog key={waitingReport.id} report={waitingReport} onClose={() => setWaitingReport(null)} />}
       {listingReview && <AdminListingReview key={listingReview.id} listing={listingReview}
         ownerName={getUserName(listingReview.ownerId)} processing={processingId === listingReview.id} error={error}
         onClose={() => setListingReview(null)}
         onApprove={() => void handleUpdateStatus(listingReview.id, 'APPROVED')}
         onReject={() => openRejectionModal('LISTING', listingReview.id)}
-        onEdit={() => navigate(`/owner/publish?edit=${listingReview.id}`)} />}
+        onEdit={() => navigate(`/owner/publish?edit=${listingReview.id}`)}
+        onException={isPrimaryAdmin ? () => setExceptionTarget({ type: 'LISTING', id: listingReview.id, label: listingReview.title, revoke: Boolean(listingReview.verificationException) }) : undefined} />}
 
       {/* Rejection Modal */}
       {rejectionModal.isOpen && (
@@ -1958,6 +1972,8 @@ export const AdminDashboard: React.FC = () => {
                       </div>
 
                       <div className="flex flex-col gap-2 w-full">
+                        {userDetailModal.user.verificationException && <p className="rounded-xl bg-amber-50 p-3 text-xs text-amber-800">Dérogation de test : {userDetailModal.user.verificationException.reason}</p>}
+                        {isPrimaryAdmin && userDetailModal.user.role !== UserRole.ADMIN && <Button variant="outline" className="text-xs text-amber-700" onClick={() => setExceptionTarget({ type: 'USER', id: userDetailModal.user!.id, label: `${userDetailModal.user!.firstName} ${userDetailModal.user!.lastName}`, revoke: Boolean(userDetailModal.user!.verificationException) })}>{userDetailModal.user.verificationException ? 'Retirer la dérogation de test' : 'Validation exceptionnelle (test)'}</Button>}
                         {(userDetailModal.user.status || 'PENDING') !== 'APPROVED' && (
                           <Button 
                             className="bg-green-600 hover:bg-green-700 text-white text-xs py-2"

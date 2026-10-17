@@ -54,11 +54,21 @@ service cloud.firestore {
     }
 
     function isTenantVerified() {
-      return isAdmin() || (isApproved() && hasAccountChecks() && hasVerificationDocument('idCard'));
+      return isAdmin() || (isApproved() && ((hasAccountChecks() && hasVerificationDocument('idCard')) || hasTestException()));
     }
 
     function isOwnerVerified() {
-      return isAdmin() || (isApproved() && hasAccountChecks() && hasVerificationDocument('idCard'));
+      return isAdmin() || (isApproved() && ((hasAccountChecks() && hasVerificationDocument('idCard')) || hasTestException()));
+    }
+
+    function hasTestException() {
+      let profile = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+      let key = 'USER_' + request.auth.uid;
+      return profile.get('verificationException', null) is map &&
+        exists(/databases/$(database)/documents/verification_exceptions/$(key)) &&
+        get(/databases/$(database)/documents/verification_exceptions/$(key)).data.get('active', false) == true &&
+        get(/databases/$(database)/documents/verification_exceptions/$(key)).data.subjectId == request.auth.uid &&
+        get(/databases/$(database)/documents/verification_exceptions/$(key)).data.decisionId == profile.verificationException.decisionId;
     }
 
     function hasAccountChecks() {
@@ -103,7 +113,7 @@ service cloud.firestore {
              data.get('identityVerified', false) == false &&
              data.get('isVerified', false) == false &&
              data.get('documents', {}).get('idCard', '') == '' &&
-             data.get('verificationSubmittedAt', null) == null;
+             data.get('verificationSubmittedAt', null) == null && data.get('verificationException', null) == null;
     }
 
     function isSafeMemberRole(role) {
@@ -301,6 +311,10 @@ service cloud.firestore {
     // This collection is written by the trusted server only. It remains
     // immutable to clients, including administrators, so an audit history
     // cannot be altered from the browser.
+    match /verification_exceptions/{exceptionId} {
+      allow read, write: if false;
+    }
+
     match /admin_audit/{entryId} {
       allow read, write: if false;
     }

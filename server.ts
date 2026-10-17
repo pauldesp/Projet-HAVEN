@@ -1,3 +1,10 @@
+import { createReservationConfirmation, confirmationEmail, canReleaseArrivalInstructions, type ReservationConfirmation } from './services/reservationFulfillment';
+import { paymentReceiptPdf } from './services/paymentReceiptPdf';
+import { getPaymentMode, PaymentConfigurationError } from './services/paymentConfiguration';
+import { preparePaymentConfirmation, simulationSessionId, type PaymentReceipt } from './services/paymentCheckout';
+import { isOwnerBookingVisible } from './services/bookingVisibility';
+import { BookingLifecycleError, bookingDeadline, isBookingExpired, assertBookingPayable, prepareInventoryReport } from './services/bookingLifecycle';
+import { hasVerificationException, hasTrustedVerificationException, prepareVerificationException, VerificationExceptionError } from './services/verificationException';
 import { countNights, isBookableStay } from './services/stay';
 import { getCancellationTerms } from './services/cancellationPolicy';
 import { isStayReviewWindowOpen } from './services/reviewPolicy';
@@ -27,7 +34,7 @@ import { Resend } from "resend";
 import Stripe from "stripe";
 import { applicationDefault, getApps, initializeApp } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
-import { getFirestore } from "firebase-admin/firestore";
+import { FieldValue, getFirestore } from "firebase-admin/firestore";
 import type { DocumentReference } from "firebase-admin/firestore";
 import type { NextFunction, Request, Response } from "express";
 import firebaseConfig from "./firebase-applet-config.json" with { type: "json" };
@@ -198,6 +205,131 @@ function getStripe(): Stripe {
   return stripeClient;
 }
 
+async function settleBookingPayment(receipt: PaymentReceipt, actorId?: string) {
+  const ref = adminDb.collection('bookings').doc(receipt.bookingId);
+  const result = await adminDb.runTransaction(async transaction => {
+    const snapshot = await transaction.get(ref);
+    if (!snapshot.exists) throw new BookingLifecycleError('Réservation introuvable.', 404);
+    const booking = { ...snapshot.data(), id: snapshot.id } as Booking;
+    let candidate = booking;
+    if (receipt.provider === 'SIMULATION') {
+      if (getPaymentMode() !== 'SIMULATION') throw new BookingLifecycleError('La simulation est désactivée.', 403);
+      if (actorId !== booking.tenantId) throw new BookingLifecycleError('Accès refusé.', 403);
+      if (booking.paymentProvider === 'STRIPE' || booking.stripeSessionId?.startsWith('cs_')) throw new BookingLifecycleError('Cette réservation utilise déjà Stripe.');
+      candidate = { ...booking, paymentProvider: 'SIMULATION', checkoutSessionId: simulationSessionId(booking.id) };
+    }
+    const prepared = preparePaymentConfirmation(candidate, receipt);
+    if (prepared.disposition === 'REFUND') return { disposition: 'REFUND' as const, booking };
+    if (prepared.disposition === 'DUPLICATE') return { disposition: 'DUPLICATE' as const, booking };
+    const [listingSnapshot, tenantSnapshot, accessSnapshot] = await Promise.all([
+      transaction.get(adminDb.collection('listings').doc(booking.listingId)),
+      transaction.get(adminDb.collection('users').doc(booking.tenantId)),
+      transaction.get(adminDb.collection('listing_access').doc(booking.listingId))
+    ]);
+    const confirmed = { ...booking, ...prepared.bookingUpdate };
+    const confirmation = createReservationConfirmation(confirmed, listingSnapshot.data() || {}, tenantSnapshot.data() || {}, accessSnapshot.data()?.timeZone || 'Europe/Paris');
+    transaction.create(adminDb.collection('reservation_confirmations').doc(booking.id), confirmation);
+    transaction.create(adminDb.collection('documents').doc(confirmation.id), {
+      id: confirmation.id, receiptId: booking.id, bookingId: booking.id, userId: booking.tenantId,
+      title: confirmation.isTest ? 'Justificatif de simulation du paiement' : 'Justificatif de paiement',
+      type: 'RENT_RECEIPT', url: '', createdAt: confirmation.paidAt, listingTitle: confirmation.listingTitle
+    });
+    for (const kind of ['CONFIRMATION', 'ARRIVAL']) {
+      transaction.create(adminDb.collection('reservation_mail_outbox').doc(`${booking.id}-${kind}`), {
+        bookingId: booking.id, kind, status: 'PENDING', attempts: 0,
+        nextAttemptAt: kind === 'CONFIRMATION' ? confirmation.paidAt : confirmation.instructionsDueAt
+      });
+    }
+    transaction.update(ref, prepared.bookingUpdate);
+    transaction.create(adminDb.collection('payments').doc(prepared.payment.id), prepared.payment);
+    transaction.set(adminDb.collection('booking_availability').doc(booking.id), prepared.availability);
+    transaction.create(adminDb.collection('messages').doc(prepared.message.id), prepared.message);
+    return { disposition: 'CONFIRM' as const, booking: { ...booking, ...prepared.bookingUpdate } };
+  });
+  if (result.disposition === 'CONFIRM') void deliverReservationMail();
+  return result;
+}
+
+// A durable outbox survives restarts. A transaction lease prevents concurrent workers
+// from dispatching the same message; the provider also receives a stable idempotency key.
+let mailSweepRunning = false;
+async function deliverReservationMail() {
+  if (mailSweepRunning) return;
+  const provider = getEmailProvider();
+  if ('error' in provider) return; // Keep messages queued until the sender is configured.
+  mailSweepRunning = true;
+  try {
+    const due = await adminDb.collection('reservation_mail_outbox').where('nextAttemptAt', '<=', new Date().toISOString()).limit(25).get();
+    for (const item of due.docs) {
+      const job = await adminDb.runTransaction(async transaction => {
+        const fresh = await transaction.get(item.ref);
+        const data = fresh.data();
+        if (!data?.nextAttemptAt || data.nextAttemptAt > new Date().toISOString()) return null;
+        transaction.update(item.ref, { status: 'SENDING', nextAttemptAt: new Date(Date.now() + 5 * 60_000).toISOString() });
+        return data;
+      });
+      if (!job) continue;
+      try {
+        const [bookingSnap, receiptSnap] = await Promise.all([
+          adminDb.collection('bookings').doc(job.bookingId).get(),
+          adminDb.collection('reservation_confirmations').doc(job.bookingId).get()
+        ]);
+        const booking = bookingSnap.data() as Booking | undefined;
+        if (!booking || booking.paymentStatus !== 'PAID' || !['CONFIRMED', 'COMPLETED'].includes(booking.status)) {
+          await item.ref.update({ status: 'CANCELLED', nextAttemptAt: FieldValue.delete() }); continue;
+        }
+        const receipt = receiptSnap.data() as ReservationConfirmation;
+        if (!receipt?.email) throw new Error('Adresse e-mail du locataire manquante.');
+        let instructions: string | undefined;
+        if (job.kind === 'ARRIVAL') {
+          if (!canReleaseArrivalInstructions(booking, receipt.instructionsDueAt)) {
+            await item.ref.update({ status: 'CANCELLED', nextAttemptAt: FieldValue.delete() }); continue;
+          }
+          if (new Date(booking.endDate).getTime() < Date.now() - 24 * 3600_000) {
+            await item.ref.update({ status: 'EXPIRED', nextAttemptAt: FieldValue.delete() }); continue;
+          }
+          const access = await adminDb.collection('listing_access').doc(booking.listingId).get();
+          instructions = access.data()?.instructions?.trim();
+          if (!instructions) {
+            await item.ref.update({ status: 'WAITING_INSTRUCTIONS', lastError: 'Le propriétaire doit renseigner les consignes d’entrée.', nextAttemptAt: new Date(Date.now() + 15 * 60_000).toISOString() }); continue;
+          }
+        }
+        const mail = confirmationEmail(receipt, instructions);
+        const attachment = job.kind === 'CONFIRMATION' ? [{ filename: `${receipt.id}.pdf`, content: await paymentReceiptPdf(receipt) }] : undefined;
+        const sent = await provider.resend.emails.send({ from: emailFrom, to: receipt.email, replyTo: emailReplyTo, ...mail, attachments: attachment }, { idempotencyKey: `reservation-${item.id}` });
+        if (sent.error) throw new Error(sent.error.message);
+        await item.ref.update({ status: 'SENT', sentAt: new Date().toISOString(), providerMessageId: sent.data?.id || '', lastError: FieldValue.delete(), nextAttemptAt: FieldValue.delete() });
+      } catch (error) {
+        const attempts = (job.attempts || 0) + 1;
+        await item.ref.update({ status: 'RETRY', attempts, lastError: error instanceof Error ? error.message : 'Envoi indisponible.', nextAttemptAt: new Date(Date.now() + Math.min(3600_000, 60_000 * 2 ** Math.min(attempts, 6))).toISOString() });
+      }
+    }
+  } catch (error) { console.error('Reservation mail outbox unavailable', error); }
+  finally { mailSweepRunning = false; }
+}
+
+async function expireBooking(bookingId: string) {
+  const ref = adminDb.collection('bookings').doc(bookingId);
+  return adminDb.runTransaction(async transaction => {
+    const snapshot = await transaction.get(ref);
+    if (!snapshot.exists || !isBookingExpired(snapshot.data() as Booking)) return;
+    const booking = snapshot.data() as Booking;
+    const now = new Date().toISOString();
+    transaction.update(ref, { status: 'CANCELLED', expiredAt: now });
+    transaction.set(adminDb.collection('booking_availability').doc(bookingId), {
+      id: bookingId, bookingId, listingId: booking.listingId, roomId: booking.roomId,
+      startDate: booking.startDate, endDate: booking.endDate, status: 'CANCELLED', updatedAt: now
+    });
+
+  });
+}
+async function expireBookings() {
+  try {
+    const pending = await adminDb.collection('bookings').where('status', 'in', ['PENDING', 'APPROVED']).get();
+    await Promise.all(pending.docs.filter(item => isBookingExpired(item.data() as Booking)).map(item => expireBooking(item.id)));
+  } catch (error) { console.error('Booking expiration unavailable', error); }
+}
+
 async function startServer() {
   console.log("Starting server...");
   const app = express();
@@ -208,6 +340,8 @@ async function startServer() {
   app.use(helmet({ contentSecurityPolicy: false }));
 
   app.post("/api/stripe/webhook", express.raw({ type: "application/json", limit: "1mb" }), async (req, res) => {
+    try { if (getPaymentMode() !== 'STRIPE') return sendApiError(res, 503, 'Stripe est désactivé.'); }
+    catch { return sendApiError(res, 503, 'Stripe n’est pas configuré.'); }
     const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
     if (!webhookSecret) return res.status(503).json({ error: "Webhook Stripe non configuré" });
     try {
@@ -216,23 +350,12 @@ async function startServer() {
         const session = event.data.object;
         const bookingId = session.metadata?.bookingId;
         if (bookingId && session.payment_status === "paid") {
-          await adminDb.runTransaction(async transaction => {
-            const bookingRef = adminDb.collection("bookings").doc(bookingId);
-            const bookingSnap = await transaction.get(bookingRef);
-            if (!bookingSnap.exists) throw new Error("Booking not found");
-            const booking = bookingSnap.data()!;
-            if (booking.stripeSessionId !== session.id) throw new Error("Stripe session mismatch");
-            transaction.update(bookingRef, { status: "CONFIRMED", paymentStatus: "PAID", paidAt: new Date().toISOString() });
-            transaction.set(adminDb.collection("payments").doc(session.id), {
-              id: session.id, bookingId, listingId: booking.listingId, ownerId: booking.ownerId,
-              tenantId: booking.tenantId, amount: (session.amount_total || 0) / 100,
-              status: "COMPLETED", type: "RENT", createdAt: new Date().toISOString()
-            });
-            transaction.set(adminDb.collection("booking_availability").doc(bookingId), {
-              id: bookingId, bookingId, listingId: booking.listingId, roomId: booking.roomId,
-              startDate: booking.startDate, endDate: booking.endDate, status: "CONFIRMED", updatedAt: new Date().toISOString()
-            });
-          });
+          const result = await settleBookingPayment({ bookingId, sessionId: session.id, provider: 'STRIPE', amountCents: session.amount_total || 0, currency: session.currency || '', isTest: !session.livemode });
+          if (result.disposition === 'REFUND') {
+            const paymentIntent = typeof session.payment_intent === 'string' ? session.payment_intent : session.payment_intent?.id;
+            if (!paymentIntent) throw new Error('Payment intent missing for stale checkout');
+            await getStripe().refunds.create({ payment_intent: paymentIntent }, { idempotencyKey: `stale-checkout-${session.id}` });
+          }
         }
       }
       return res.json({ received: true });
@@ -266,13 +389,9 @@ async function startServer() {
 
   // Health check
   app.get("/api/health", (req, res) => {
-    const stripeKey = process.env.STRIPE_SECRET_KEY;
-    const stripeConfigured = !!stripeKey && stripeKey !== "" && stripeKey !== "YOUR_STRIPE_SECRET_KEY";
-    res.json({ 
-      status: "ok", 
-      env: process.env.NODE_ENV,
-      stripe: stripeConfigured ? "configured" : "mock_mode"
-    });
+    let paymentMode: string = 'UNAVAILABLE';
+    try { paymentMode = getPaymentMode(); } catch { /* Invalid configuration disables payment. */ }
+    res.json({ status: 'ok', env: process.env.NODE_ENV, paymentMode, emailConfigured: !('error' in getEmailProvider()) });
   });
 
   app.post('/api/bookings', sensitiveApiLimiter, requireAuth, async (req: AuthenticatedRequest, res) => {
@@ -286,27 +405,30 @@ async function startServer() {
       const listingRef = adminDb.collection('listings').doc(listingId);
       const bookingRef = adminDb.collection('bookings').doc(id);
       const availabilityRef = adminDb.collection('booking_availability').doc(id);
-      const messageRef = adminDb.collection('messages').doc(`m-${randomInt(1, 2 ** 32).toString(16)}-${Date.now().toString(16)}`);
       const createdAt = new Date().toISOString();
+      const roomLockRef = adminDb.collection('room_booking_locks').doc(`${listingId}_${roomId}`);
       let createdBooking: Record<string, unknown> | null = null;
 
       await adminDb.runTransaction(async transaction => {
         const [userSnap, listingSnap, existingBooking, existingAvailability, availabilityQuery] = await Promise.all([
           transaction.get(userRef), transaction.get(listingRef), transaction.get(bookingRef), transaction.get(availabilityRef),
-          transaction.get(adminDb.collection('booking_availability').where('listingId', '==', listingId))
+          transaction.get(adminDb.collection('booking_availability').where('listingId', '==', listingId)),
+          transaction.get(roomLockRef)
         ]);
         if (!userSnap.exists) throw new Error('COMPTE_INTRouvable');
         const user = userSnap.data()!;
         const isAdminAccount = user.role === 'ADMIN';
         const identityDocument = typeof user.documents?.idCard === 'string' && user.documents.idCard.length > 0;
-        if (!isAdminAccount && (user.status !== 'APPROVED' || user.emailVerified !== true || !hasRequiredPhoneNumber(user) || user.identityVerified !== true || !identityDocument)) {
+        const exceptionRecord = hasVerificationException(user) ? await transaction.get(adminDb.collection('verification_exceptions').doc(`USER_${req.user!.uid}`)) : undefined;
+        const testException = hasTrustedVerificationException(user, exceptionRecord?.data(), req.user!.uid);
+        if (!isAdminAccount && !testException && (user.status !== 'APPROVED' || user.emailVerified !== true || !hasRequiredPhoneNumber(user) || user.identityVerified !== true || !identityDocument)) {
           throw new Error('VERIFICATION_REQUISE');
         }
         if (!listingSnap.exists || listingSnap.data()?.status !== 'APPROVED') throw new Error('LOGEMENT_INDISPONIBLE');
         const listing = listingSnap.data() as import('./types').Listing;
         if (listing.ownerId === req.user!.uid) throw new Error('PROPRE_LOGEMENT');
         const room = listing.rooms?.find((item: Room) => item.id === roomId);
-        if (!room || typeof room.pricePerDay !== 'number') throw new Error('CHAMBRE_INVALIDE');
+        if (!room || !Number.isFinite(room.pricePerDay) || room.pricePerDay <= 0) throw new Error('CHAMBRE_INVALIDE');
         const nights = countNights(startDate, endDate);
         if (nights < minimumNights(listing.minStay) || nights > 366) throw new Error('DATES_INVALIDES');
         const availability = availabilityQuery.docs.map(item => item.data() as BookingAvailability);
@@ -314,25 +436,19 @@ async function startServer() {
         if (existingBooking.exists || existingAvailability.exists) throw new Error('RESERVATION_EXISTANTE');
 
         const basePrice = room.pricePerDay * nights;
-        const cleaningFee = Number(listing.cleaningFee) || 0;
+        const cleaningFee = Number.isFinite(Number(listing.cleaningFee)) ? Math.max(0, Number(listing.cleaningFee)) : 0;
         const platformFee = Math.round(basePrice * 0.15);
         const booking: Booking = {
-          id, listingId, roomId, roomName: room.name || 'Chambre', tenantId: req.user!.uid,
+          id, listingId, listingTitle: listing.title, roomId, roomName: room.name || 'Chambre', tenantId: req.user!.uid,
           ownerId: listing.ownerId, startDate, endDate, status: 'PENDING', basePrice, cleaningFee,
           platformFee, totalPrice: basePrice + cleaningFee + platformFee, createdAt,
-          paymentStatus: 'PENDING', bookingMode: listing.bookingMode === 'MANUAL' ? 'MANUAL' : 'INSTANT',
+          paymentStatus: 'PENDING', bookingMode: 'INSTANT',
           checkInTime: listing.checkInTime || '15:00', checkOutTime: listing.checkOutTime || '11:00',
         };
+        transaction.set(roomLockRef, { updatedAt: createdAt });
         transaction.create(bookingRef, booking);
         transaction.create(availabilityRef, {
           id, bookingId: id, listingId, roomId, startDate, endDate, status: 'PENDING', updatedAt: createdAt,
-        });
-        transaction.create(messageRef, {
-          id: messageRef.id, senderId: req.user!.uid, receiverId: listing.ownerId, bookingId: id,
-          content: booking.bookingMode === 'MANUAL'
-            ? `Bonjour, je souhaite réserver ${room.name || 'cette chambre'} du ${new Date(startDate).toLocaleDateString('fr-FR')} au ${new Date(endDate).toLocaleDateString('fr-FR')}. Arrivée à partir de ${booking.checkInTime}, départ avant ${booking.checkOutTime}. Merci de valider ma demande.`
-            : `Bonjour, je souhaite réserver ${room.name || 'cette chambre'} du ${new Date(startDate).toLocaleDateString('fr-FR')} au ${new Date(endDate).toLocaleDateString('fr-FR')}. Arrivée à partir de ${booking.checkInTime}, départ avant ${booking.checkOutTime}.`,
-          timestamp: createdAt, isRead: false, participants: [req.user!.uid, listing.ownerId],
         });
         createdBooking = booking as unknown as Record<string, unknown>;
       });
@@ -346,6 +462,56 @@ async function startServer() {
       if (reason === 'DATES_INDISPONIBLES' || reason === 'RESERVATION_EXISTANTE') return sendApiError(res, 409, 'Ces dates viennent d’être réservées. Choisissez une autre période');
       console.error('Booking request creation failed', error);
       return sendApiError(res, 500, 'La demande de réservation n’a pas pu être enregistrée. Réessayez dans quelques instants');
+    }
+  });
+
+  app.post('/api/bookings/:bookingId/inventory', sensitiveApiLimiter, requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      const id = String(req.params.bookingId);
+      if (!/^[a-zA-Z0-9_-]{1,128}$/.test(id) || !req.body?.report) return sendApiError(res, 422, 'État des lieux invalide');
+      const ref = adminDb.collection('bookings').doc(id);
+      const report = await adminDb.runTransaction(async transaction => {
+        const snapshot = await transaction.get(ref);
+        if (!snapshot.exists) throw new BookingLifecycleError('Réservation introuvable', 404);
+        const booking = { ...snapshot.data(), id } as Booking;
+        const listingSnap = await transaction.get(adminDb.collection('listings').doc(booking.listingId));
+        if (!listingSnap.exists) throw new BookingLifecycleError('Logement introuvable', 404);
+        const listing = listingSnap.data() as Listing;
+        const now = new Date();
+        const report = prepareInventoryReport(booking, listing, req.user!.uid, req.body.report, now);
+        let details: any = {};
+        try { details = JSON.parse(report.comments) || {}; } catch { /* Older forms use plain text. */ }
+        const issues: { category: string; subCategory: string; description: string; photo?: string }[] = [];
+        if (report.type === 'OUT' && details.incident?.subCategory) issues.push(details.incident);
+        if (report.type === 'IN' && Array.isArray(details.nonConformities)) for (const item of details.nonConformities) {
+          issues.push({ category: 'État du logement', subCategory: item.clean === false ? 'Ménage non fait' : 'Non-conformité à l’arrivée', description: `${item.area === 'ROOM' ? 'Chambre' : 'Espaces communs'} : ${String(item.comment || 'Non-conformité signalée à l’arrivée').slice(0, 4500)}`, photo: item.photos?.[0] || '' });
+        }
+        if (issues.length > 3) throw new BookingLifecycleError('Trop de problèmes dans cet état des lieux.', 422);
+        const routedIssues = issues.map((issue, index) => routeStayIssue({ ...issue, id: `inc-${report.id}-${index}`, bookingId: id, listingId: booking.listingId, ownerId: booking.ownerId, reporterId: booking.tenantId, createdAt: now.toISOString() }));
+        transaction.create(adminDb.collection('inventory').doc(report.id), report);
+        for (const issue of routedIssues) {
+          if (issue.destination === 'OWNER') transaction.create(adminDb.collection('incidents').doc(issue.incident.id), issue.incident);
+          else transaction.create(adminDb.collection('reports').doc(issue.report.id), issue.report);
+        }
+        const documentId = `doc-${report.id}`;
+        transaction.create(adminDb.collection('documents').doc(documentId), {
+          id: documentId, userId: booking.tenantId, bookingId: id,
+          title: `${report.type === 'IN' ? 'État des lieux d’entrée' : 'État des lieux de sortie'} - ${listing.title}`,
+          type: report.type === 'IN' ? 'INVENTORY_IN' : 'INVENTORY_OUT',
+          url: '', reportId: report.id, createdAt: now.toISOString(), listingTitle: listing.title
+        });
+        transaction.update(ref, report.type === 'IN' ? { checkInReportId: report.id } : { checkOutReportId: report.id, status: 'COMPLETED', completedAt: now.toISOString() });
+        if (report.type === 'OUT') transaction.set(adminDb.collection('booking_availability').doc(id), {
+          id, bookingId: id, listingId: booking.listingId, roomId: booking.roomId,
+          startDate: booking.startDate, endDate: booking.endDate, status: 'COMPLETED', updatedAt: now.toISOString()
+        });
+        return report;
+      });
+      return res.status(201).json({ report });
+    } catch (error) {
+      if (error instanceof BookingLifecycleError) return sendApiError(res, error.status, error.message);
+      console.error('Inventory submission failed', error);
+      return sendApiError(res, 503, 'L’état des lieux n’a pas pu être enregistré. Réessayez.');
     }
   });
 
@@ -541,6 +707,64 @@ async function startServer() {
     }
   });
 
+  app.post('/api/admin/verification-exceptions/:targetType/:targetId', sensitiveApiLimiter, requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      const actor = await requirePrimaryAdmin(req, res); if (!actor) return;
+      const type = String(req.params.targetType); const id = String(req.params.targetId);
+      if (!['USER', 'LISTING'].includes(type) || !/^[a-zA-Z0-9_-]{1,128}$/.test(id)) return sendApiError(res, 422, 'Élément invalide.');
+      const ref = adminDb.collection(type === 'USER' ? 'users' : 'listings').doc(id);
+      const exceptionRef = adminDb.collection('verification_exceptions').doc(`${type}_${id}`);
+      const auditRef = adminDb.collection('admin_audit').doc();
+      const result = await adminDb.runTransaction(async transaction => {
+        const snapshot = await transaction.get(ref);
+        if (!snapshot.exists) throw new VerificationExceptionError('Élément introuvable.', 404);
+        const before = snapshot.data()!;
+        const update = prepareVerificationException(type, before, actor, req.body?.mode, req.body?.reason, auditRef.id);
+        transaction.update(ref, update);
+        transaction.set(exceptionRef, { active: req.body.mode === 'GRANT', subjectId: id, decisionId: auditRef.id, actorId: actor.uid, reason: req.body.reason.trim(), updatedAt: new Date().toISOString() });
+        transaction.create(auditRef, {
+          id: auditRef.id, actorId: actor.uid, actorName: actor.name,
+          action: `${type}_TEST_${req.body.mode === 'GRANT' ? 'APPROVED' : 'REVOKED'}`,
+          category: type === 'USER' ? 'ACCOUNT' : 'LISTING', targetType: type, targetId: id,
+          ...buildAuditTargetSnapshot(type, before), beforeStatus: before.status || 'PENDING', afterStatus: update.status,
+          summary: `${req.body.mode === 'GRANT' ? 'Validation exceptionnelle de test accordée' : 'Dérogation de test retirée'} par l’administrateur principal. Motif : ${req.body.reason.trim()}`,
+          createdAt: new Date().toISOString()
+        });
+        return update;
+      });
+      return res.json(result);
+    } catch (error) {
+      if (error instanceof VerificationExceptionError) return sendApiError(res, error.status, error.message);
+      console.error('Verification exception failed', error);
+      return sendApiError(res, 500, 'Impossible d’enregistrer cette dérogation.');
+    }
+  });
+
+  app.post('/api/listings/test-create', sensitiveApiLimiter, requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      const input = req.body?.listing;
+      if (!input || !/^[a-zA-Z0-9_-]{1,128}$/.test(input.id || '')) return sendApiError(res, 422, 'Annonce invalide.');
+      const ownerRef = adminDb.collection('users').doc(req.user!.uid);
+      const listingRef = adminDb.collection('listings').doc(input.id);
+      const saved = await adminDb.runTransaction(async transaction => {
+        const [profile, exception] = await Promise.all([
+          transaction.get(ownerRef), transaction.get(adminDb.collection('verification_exceptions').doc(`USER_${req.user!.uid}`))
+        ]);
+        if (!profile.exists || !hasTrustedVerificationException(profile.data()!, exception.data(), req.user!.uid)) throw new VerificationExceptionError('Dérogation de test absente ou retirée.', 403);
+        const fields = ['id', 'title', 'description', 'city', 'address', 'coordinates', 'type', 'totalRooms', 'availableRooms', 'surface', 'amenities', 'mainPhotoUrl', 'galleryUrls', 'rooms', 'bathrooms', 'minStay', 'cleaningFee', 'bookingMode', 'checkInTime', 'checkOutTime', 'blockedDates'];
+        const listing = { ...Object.fromEntries(fields.filter(key => input[key] !== undefined).map(key => [key, input[key]])), ownerId: req.user!.uid, bookingMode: 'INSTANT', status: 'PENDING', rating: 0, reviewsCount: 0, verificationException: null } as import('./types').Listing;
+        prepareListingReview(listing, profile.data() as import('./types').User, 'APPROVED', true, undefined, req.user!.uid, undefined, true);
+        transaction.create(listingRef, listing);
+        return listing;
+      });
+      return res.status(201).json(saved);
+    } catch (error) {
+      if (error instanceof VerificationExceptionError || error instanceof ListingReviewError) return sendApiError(res, error.status, error.message);
+      console.error('Test listing creation failed', error);
+      return sendApiError(res, 500, 'Impossible d’enregistrer cette annonce.');
+    }
+  });
+
   app.post('/api/admin/reports/:reportId/status', sensitiveApiLimiter, requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
       const actor = await requireAdmin(req, res); if (!actor) return;
@@ -591,7 +815,9 @@ async function startServer() {
         const listing = snapshot.data() as import('./types').Listing;
         const owner = typeof listing.ownerId === 'string' && listing.ownerId && !listing.ownerId.includes('/')
           ? await transaction.get(adminDb.collection('users').doc(listing.ownerId)) : undefined;
-        const update = prepareListingReview(listing, owner?.data() as import('./types').User | undefined, req.body?.status, req.body?.reviewed, req.body?.reason, actor.uid);
+        const ownerData = owner?.data() as import('./types').User | undefined;
+        const ownerException = ownerData && hasVerificationException(ownerData) ? await transaction.get(adminDb.collection('verification_exceptions').doc(`USER_${listing.ownerId}`)) : undefined;
+        const update = prepareListingReview(listing, ownerData, req.body?.status, req.body?.reviewed, req.body?.reason, actor.uid, undefined, Boolean(ownerData && hasTrustedVerificationException(ownerData, ownerException?.data(), listing.ownerId)));
         transaction.update(listingRef, update);
         transaction.create(auditRef, {
           id: auditRef.id, actorId: actor.uid, actorName: actor.name,
@@ -623,6 +849,7 @@ async function startServer() {
         if (!snapshot.exists) throw new MemberApprovalError('Profil introuvable.', 404);
         const update = prepareMemberModeration(snapshot.data()!, req.body?.status, req.body?.reason, actor.uid);
         transaction.update(ref, update);
+        transaction.set(adminDb.collection('verification_exceptions').doc(`USER_${userId}`), { active: false }, { merge: true });
         transaction.create(auditRef, {
           id: auditRef.id, actorId: actor.uid, actorName: actor.name,
           action: `USER_${update.status}`, category: 'ACCOUNT', targetType: 'USER', targetId: userId,
@@ -653,6 +880,7 @@ async function startServer() {
         if (!snapshot.exists) throw new MemberApprovalError('Profil introuvable.', 404);
         const update = prepareMemberApproval(snapshot.data()!, actor.uid);
         transaction.update(userRef, update);
+        transaction.set(adminDb.collection('verification_exceptions').doc(`USER_${userId}`), { active: false }, { merge: true });
         transaction.create(auditRef, {
           id: auditRef.id, actorId: actor.uid, actorName: actor.name,
           action: 'USER_APPROVED', category: 'ACCOUNT', targetType: 'USER', targetId: userId,
@@ -934,6 +1162,7 @@ async function startServer() {
         "documents.idCard": dataUrl,
         status: "PENDING",
         identityVerified: false,
+        verificationException: null,
         isVerified: false,
         idVerifiedAt: null,
         verificationSubmittedAt: null,
@@ -981,7 +1210,7 @@ async function startServer() {
       }
 
       const verificationSubmittedAt = new Date().toISOString();
-      await userRef.update({ status: "PENDING", verificationSubmittedAt, rejectionReason: null, ...termsAcceptance });
+      await userRef.update({ status: "PENDING", verificationException: null, verificationSubmittedAt, rejectionReason: null, ...termsAcceptance });
       return res.json({ status: "PENDING", verificationSubmittedAt });
     } catch (error) {
       console.error("Verification submission error", error);
@@ -1079,7 +1308,7 @@ async function startServer() {
       if (!bookingSnap.exists) return sendApiError(res, 404, "Réservation introuvable");
       const booking = bookingSnap.data()!;
       const actor = booking.tenantId === req.user?.uid ? "TENANT" : booking.ownerId === req.user?.uid ? "OWNER" : null;
-      if (!actor) return sendApiError(res, 403, "Accès refusé");
+      if (!actor || (actor === "OWNER" && !isOwnerBookingVisible(booking as Booking))) return sendApiError(res, 403, "Accès refusé");
 
       const terms = getCancellationTerms(booking as Pick<Booking, 'status' | 'startDate' | 'totalPrice' | 'paymentStatus'>, actor);
       if (!terms.canCancel) return sendApiError(res, 409, terms.detail);
@@ -1090,10 +1319,11 @@ async function startServer() {
       if (shouldRefund) {
         const stripeKey = process.env.STRIPE_SECRET_KEY?.trim();
         const isStripeConfigured = Boolean(stripeKey && stripeKey !== "YOUR_STRIPE_SECRET_KEY" && !stripeKey.includes("***") && stripeKey.length >= 15);
-        if (!isStripeConfigured) {
-          if (process.env.NODE_ENV === "production") return sendApiError(res, 503, "Le remboursement est momentanément indisponible. Votre réservation reste active.");
+        if (booking.paymentProvider === "SIMULATION" || booking.stripeSessionId?.startsWith("mock_")) {
           refundStatus = "SIMULATED";
           refundId = `mock_refund_${bookingId}_${Date.now()}`;
+        } else if (!isStripeConfigured) {
+          return sendApiError(res, 503, "Le remboursement Stripe est indisponible. Votre réservation reste active.");
         } else if (!booking.stripeSessionId) {
           return sendApiError(res, 503, "Le paiement d’origine est introuvable. Contactez HAVEN avec la référence de réservation.");
         } else {
@@ -1154,7 +1384,7 @@ async function startServer() {
         const refundText = terms.refundAmount > 0
           ? ` Le remboursement prévu est de ${terms.refundAmount} € (${terms.refundPercent} %).`
           : " Aucun remboursement n’est prévu selon les conditions d’annulation.";
-        transaction.set(adminDb.collection("messages").doc(messageId), {
+        if (booking.paymentStatus === "PAID") transaction.set(adminDb.collection("messages").doc(messageId), {
           id: messageId,
           senderId: req.user!.uid,
           receiverId,
@@ -1177,6 +1407,8 @@ async function startServer() {
   // API route for sending booking notification emails
   app.post("/api/send-booking-notification", sensitiveApiLimiter, requireAuth, async (req, res) => {
     const { email, type, details } = req.body;
+    if (type === 'PAYMENT_CONFIRMED') return sendApiError(res, 410, 'La confirmation est envoyée automatiquement après paiement.');
+    if (type === 'REQUEST_SUBMITTED' || type === 'REQUEST_APPROVED') return sendApiError(res, 410, 'La réservation est désormais confirmée directement après paiement.');
 
     if (!email || !type || !details) {
       return res.status(400).json({ error: "Email, type, and details are required" });
@@ -1186,13 +1418,14 @@ async function startServer() {
     const bookingSnap = bookingId ? await adminDb.collection("bookings").doc(bookingId).get() : null;
     if (!bookingSnap?.exists) return res.status(404).json({ error: "Réservation introuvable" });
     const booking = bookingSnap.data()!;
+    if (type === 'PAYMENT_CONFIRMED' && (booking.paymentStatus !== 'PAID' || booking.status !== 'CONFIRMED')) return sendApiError(res, 409, 'Le paiement de cette réservation n’est pas confirmé.');
     const callerId = (req as AuthenticatedRequest).user?.uid;
     if (callerId !== booking.tenantId && callerId !== booking.ownerId) return res.status(403).json({ error: "Accès refusé" });
     const [tenantSnap, ownerSnap] = await Promise.all([
       adminDb.collection("users").doc(booking.tenantId).get(),
       adminDb.collection("users").doc(booking.ownerId).get()
     ]);
-    const allowedEmails = [tenantSnap.data()?.email, ownerSnap.data()?.email].filter(Boolean);
+    const allowedEmails = (booking.paymentStatus === "PAID" ? [tenantSnap.data()?.email, ownerSnap.data()?.email] : [tenantSnap.data()?.email]).filter(Boolean);
     if (!allowedEmails.includes(normalizeEmail(email))) return res.status(403).json({ error: "Destinataire non autorisé" });
 
     const provider = getEmailProvider();
@@ -1243,7 +1476,7 @@ async function startServer() {
             </div>
             
             <div style="background-color: #fffbeb; border-left: 4px solid #f59e0b; padding: 15px; font-size: 14px; color: #b45309; border-radius: 8px; margin-bottom: 25px;">
-              ⚠️ Vous disposez de <strong>48 heures</strong> pour accepter ou refuser cette demande à partir de votre tableau de bord. Passé ce délai, la demande expirera automatiquement.
+              ⚠️ Vous disposez de <strong>24 heures</strong> pour accepter ou refuser cette demande à partir de votre tableau de bord. Passé ce délai, la demande expirera automatiquement.
             </div>
 
             <div style="text-align: center; margin: 35px 0;">
@@ -1281,7 +1514,7 @@ async function startServer() {
             </div>
             
             <div style="background-color: #eff6ff; border-left: 4px solid #3b82f6; padding: 15px; font-size: 14px; color: #1d4ed8; border-radius: 8px; margin-bottom: 25px;">
-              ⏳ Vous disposez de <strong>72 heures</strong> pour finaliser le paiement sur votre tableau de bord afin de bloquer définitivement votre place. Passé ce délai, votre place sera libérée.
+              ⏳ Vous disposez de <strong>24 heures</strong> pour finaliser le paiement sur votre tableau de bord afin de bloquer définitivement votre place. Passé ce délai, votre place sera libérée.
             </div>
 
             <div style="text-align: center; margin: 35px 0;">
@@ -1380,144 +1613,138 @@ async function startServer() {
     }
   });
 
-  // Stripe Checkout Endpoint
+  app.get('/api/bookings/:bookingId/confirmation', requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      const id = String(req.params.bookingId);
+      if (!/^[a-zA-Z0-9_-]{1,128}$/.test(id)) return sendApiError(res, 422, 'Réservation invalide.');
+      const [snapshot, bookingSnapshot] = await Promise.all([adminDb.collection('reservation_confirmations').doc(id).get(), adminDb.collection('bookings').doc(id).get()]);
+      const booking = bookingSnapshot.data() as Booking | undefined;
+      if (!booking || ![booking.tenantId, booking.ownerId].includes(req.user!.uid)) return sendApiError(res, 403, 'Accès refusé.');
+      if (!snapshot.exists) return sendApiError(res, 404, 'Le justificatif est disponible pour les paiements confirmés après cette mise à jour.');
+      const receipt = snapshot.data() as ReservationConfirmation;
+      res.setHeader('Cache-Control', 'no-store');
+      if (req.query.format === 'pdf') {
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename="${receipt.id}.pdf"`);
+        return res.send(await paymentReceiptPdf(receipt));
+      }
+      const jobs = await Promise.all(['CONFIRMATION', 'ARRIVAL'].map(kind => adminDb.collection('reservation_mail_outbox').doc(`${id}-${kind}`).get()));
+      let instructions = '';
+      if (canReleaseArrivalInstructions(booking, receipt.instructionsDueAt)) {
+        const access = await adminDb.collection('listing_access').doc(booking.listingId).get();
+        instructions = access.data()?.instructions || '';
+      }
+      return res.json({ ...receipt, bookingStatus: booking.status, instructions, emailStatus: jobs[0].data()?.status || 'PENDING', arrivalEmailStatus: jobs[1].data()?.status || 'PENDING', emailConfigured: !('error' in getEmailProvider()) });
+    } catch { return sendApiError(res, 503, 'Les informations du séjour sont indisponibles.'); }
+  });
+
+  // Access codes and key handover details never belong in publicly readable listings.
+  app.all('/api/listings/:listingId/access-instructions', sensitiveApiLimiter, requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      const id = String(req.params.listingId);
+      if (!/^[a-zA-Z0-9_-]{1,128}$/.test(id)) return sendApiError(res, 422, 'Logement invalide.');
+      const listing = await adminDb.collection('listings').doc(id).get();
+      if (!listing.exists || (listing.data()?.ownerId !== req.user!.uid && !await getAdminActor(req))) return sendApiError(res, 403, 'Accès refusé.');
+      const ref = adminDb.collection('listing_access').doc(id);
+      res.setHeader('Cache-Control', 'no-store');
+      if (req.method === 'GET') { const data = (await ref.get()).data(); return res.json({ instructions: data?.instructions || '', timeZone: data?.timeZone || 'Europe/Paris' }); }
+      if (req.method !== 'PUT') return sendApiError(res, 405, 'Méthode non autorisée.');
+      if (typeof req.body.instructions !== 'string' || req.body.instructions.length > 6000) return sendApiError(res, 422, 'Consignes invalides (6 000 caractères maximum).');
+      const timeZone = req.body.timeZone || 'Europe/Paris';
+      try { new Intl.DateTimeFormat('fr-FR', { timeZone }).format(); } catch { return sendApiError(res, 422, 'Fuseau horaire invalide.'); }
+      await ref.set({ timeZone, instructions: req.body.instructions.trim(), updatedAt: new Date().toISOString(), updatedBy: req.user!.uid });
+      return res.json({ success: true });
+    } catch { return sendApiError(res, 503, 'Impossible d’enregistrer les consignes.'); }
+  });
+
+  app.get('/api/payments/:bookingId', requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      const id = String(req.params.bookingId);
+      if (!/^[a-zA-Z0-9_-]{1,128}$/.test(id)) return sendApiError(res, 422, 'Réservation invalide.');
+      const snapshot = await adminDb.collection('bookings').doc(id).get();
+      if (!snapshot.exists) return sendApiError(res, 404, 'Réservation introuvable.');
+      const booking = { ...snapshot.data(), id } as Booking;
+      if (booking.tenantId !== req.user!.uid) return sendApiError(res, 403, 'Ce paiement est réservé au locataire de la réservation.');
+      const mode = getPaymentMode();
+      if (booking.status === 'CANCELLED') throw new BookingLifecycleError('Cette réservation a été annulée.');
+      if (booking.paymentStatus !== 'PAID') assertBookingPayable(booking, req.user!.uid);
+      const [listing, customer] = await Promise.all([
+        adminDb.collection('listings').doc(booking.listingId).get(), adminDb.collection('users').doc(booking.tenantId).get()
+      ]);
+      const profile = customer.data();
+      res.set('Cache-Control', 'no-store');
+      return res.json({ mode, booking, expiresAt: bookingDeadline(booking), listing: { title: booking.listingTitle || listing.data()?.title || 'Votre logement', city: listing.data()?.city || '', image: listing.data()?.mainPhotoUrl || '' }, customer: { name: [profile?.firstName, profile?.lastName].filter(Boolean).join(' '), email: profile?.email || '' } });
+    } catch (error) {
+      if (error instanceof BookingLifecycleError || error instanceof PaymentConfigurationError) return sendApiError(res, error.status, error.message);
+      console.error('Checkout details failed', error);
+      return sendApiError(res, 503, 'Le récapitulatif du paiement est momentanément indisponible.');
+    }
+  });
+
+  app.post('/api/payments/:bookingId/simulate', sensitiveApiLimiter, requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      if (getPaymentMode() !== 'SIMULATION') return sendApiError(res, 403, 'La simulation de paiement est désactivée.');
+      const id = String(req.params.bookingId);
+      if (!/^[a-zA-Z0-9_-]{1,128}$/.test(id)) return sendApiError(res, 422, 'Réservation invalide.');
+      const snapshot = await adminDb.collection('bookings').doc(id).get();
+      if (!snapshot.exists) return sendApiError(res, 404, 'Réservation introuvable.');
+      const booking = snapshot.data() as Booking;
+      if (booking.tenantId !== req.user!.uid) return sendApiError(res, 403, 'Accès refusé.');
+      const result = await settleBookingPayment({ bookingId: id, sessionId: simulationSessionId(id), provider: 'SIMULATION', amountCents: Math.round(booking.totalPrice * 100), currency: 'eur', isTest: true }, req.user!.uid);
+      if (result.disposition === 'REFUND') return sendApiError(res, 409, 'Cette réservation ne peut plus être confirmée. Recommencez votre réservation.');
+      return res.json({ bookingId: id, status: result.booking.status, paidAt: result.booking.paidAt, mode: 'SIMULATION', isTest: true });
+    } catch (error) {
+      if (error instanceof BookingLifecycleError || error instanceof PaymentConfigurationError) return sendApiError(res, error.status, error.message);
+      console.error('Payment simulation failed', error);
+      return sendApiError(res, 503, 'La simulation n’a pas pu aboutir. Vous pouvez réessayer sans créer de doublon.');
+    }
+  });
+
   app.post("/api/create-checkout-session", sensitiveApiLimiter, requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
-      const { bookingId, successPath, cancelPath } = req.body;
-      if (typeof bookingId !== "string" || !/^[a-zA-Z0-9_-]{1,128}$/.test(bookingId)) {
-        return res.status(400).json({ error: "Réservation invalide" });
-      }
-      const bookingRef = adminDb.collection("bookings").doc(bookingId);
-      const bookingSnap = await bookingRef.get();
-      if (!bookingSnap.exists) return res.status(404).json({ error: "Réservation introuvable" });
-      const booking = bookingSnap.data()!;
-      if (booking.tenantId !== req.user?.uid) return res.status(403).json({ error: "Accès refusé" });
-      if (!["PENDING", "APPROVED"].includes(booking.status)) return res.status(409).json({ error: "Cette réservation ne peut pas être payée" });
-      if (!isBookableStay(booking.startDate, booking.endDate)) return res.status(422).json({ error: "La date d’arrivée ne peut pas être antérieure à aujourd’hui", code: "422" });
-
-      const listingSnap = await adminDb.collection("listings").doc(booking.listingId).get();
-      if (!listingSnap.exists) return res.status(404).json({ error: "Logement introuvable" });
-      const listing = listingSnap.data()!;
-      const room = Array.isArray(listing.rooms) ? listing.rooms.find((item: any) => item.id === booking.roomId) : undefined;
-      if (!room || typeof room.pricePerDay !== "number") return res.status(400).json({ error: "Chambre invalide" });
-      const nights = countNights(booking.startDate, booking.endDate);
-      if (nights < Math.max(1, Number(listing.minStay) || 1) || nights > 366) return res.status(400).json({ error: "Dates invalides" });
-      const basePrice = room.pricePerDay * nights;
-      const amount = basePrice + (Number(listing.cleaningFee) || 0) + Math.round(basePrice * 0.15);
-      const listingTitle = String(listing.title || "Logement HAVEN").slice(0, 200);
-      const roomName = String(room.name || "Chambre").slice(0, 200);
-      const successUrl = safeReturnUrl(req, successPath);
-      const cancelUrl = safeReturnUrl(req, cancelPath);
-      const completeMockCheckout = async () => {
-        const paidAt = new Date().toISOString();
-        const mockSessionId = `mock_session_${bookingId}`;
-        const mockPaymentId = `mock_payment_${bookingId}`;
-
-        await adminDb.runTransaction(async transaction => {
-          const freshBookingSnap = await transaction.get(bookingRef);
-          if (!freshBookingSnap.exists) throw new Error("Booking not found");
-          const freshBooking = freshBookingSnap.data()!;
-          if (freshBooking.tenantId !== req.user?.uid || !["PENDING", "APPROVED"].includes(freshBooking.status)) {
-            throw new Error("Booking status changed");
-          }
-
-          transaction.update(bookingRef, {
-            status: "CONFIRMED",
-            paymentStatus: "PAID",
-            paidAt,
-            stripeSessionId: mockSessionId,
-            basePrice,
-            cleaningFee: Number(listing.cleaningFee) || 0,
-            platformFee: Math.round(basePrice * 0.15),
-            totalPrice: amount,
-          });
-          transaction.set(adminDb.collection("payments").doc(mockPaymentId), {
-            id: mockPaymentId,
-            bookingId,
-            listingId: booking.listingId,
-            ownerId: booking.ownerId,
-            tenantId: booking.tenantId,
-            amount,
-            status: "COMPLETED",
-            type: "RENT",
-            createdAt: paidAt,
-          });
-          transaction.set(adminDb.collection("booking_availability").doc(bookingId), {
-            id: bookingId,
-            bookingId,
-            listingId: booking.listingId,
-            roomId: booking.roomId,
-            startDate: booking.startDate,
-            endDate: booking.endDate,
-            status: "CONFIRMED",
-            updatedAt: paidAt,
-          });
-        });
-
-        return res.json({ id: mockSessionId, url: successUrl, isMock: true });
-      };
-      
-      const stripeKey = process.env.STRIPE_SECRET_KEY?.trim();
-      
-      // Mode simulation si pas de clé API ou si c'est un placeholder/junk
-      if (!stripeKey || 
-          stripeKey === "" || 
-          stripeKey === "YOUR_STRIPE_SECRET_KEY" || 
-          stripeKey.startsWith("sk_test_YOUR") ||
-          stripeKey.includes("***") ||
-          stripeKey.length < 15) {
-        console.log("STRIPE_SECRET_KEY not set or invalid placeholder. Using MOCK mode.");
-        if (process.env.NODE_ENV === "production") return res.status(503).json({ error: "Stripe non configuré" });
-        return completeMockCheckout();
-      }
-
+      const { bookingId } = req.body || {};
+      if (typeof bookingId !== 'string' || !/^[a-zA-Z0-9_-]{1,128}$/.test(bookingId)) return sendApiError(res, 422, 'Réservation invalide.');
+      const mode = getPaymentMode();
+      await expireBooking(bookingId);
+      const bookingRef = adminDb.collection('bookings').doc(bookingId);
+      const snapshot = await bookingRef.get();
+      if (!snapshot.exists) return sendApiError(res, 404, 'Réservation introuvable.');
+      const booking = snapshot.data() as Booking;
+      assertBookingPayable(booking, req.user!.uid);
+      if (!isBookableStay(booking.startDate, booking.endDate)) return sendApiError(res, 422, 'La date d’arrivée ne peut pas être antérieure à aujourd’hui.');
+      if (mode === 'SIMULATION') return res.json({ mode, url: safeReturnUrl(req, `/#/payment/${encodeURIComponent(bookingId)}`) });
+      if (booking.paymentProvider === 'SIMULATION') throw new BookingLifecycleError('Cette réservation appartient au mode simulation. Créez une nouvelle réservation pour utiliser Stripe.');
       const stripe = getStripe();
-
-      try {
-        const session = await stripe.checkout.sessions.create({
-          payment_method_types: ["card"],
-          line_items: [
-            {
-              price_data: {
-                currency: "eur",
-                product_data: {
-                  name: `Réservation: ${listingTitle}`,
-                  description: roomName,
-                },
-                unit_amount: Math.round(amount * 100), // Stripe uses cents
-              },
-              quantity: 1,
-            },
-          ],
-          mode: "payment",
-          success_url: successUrl,
-          cancel_url: cancelUrl,
-          metadata: {
-            bookingId,
-            listingId: booking.listingId,
-            tenantId: booking.tenantId,
-          },
-        });
-
-        await bookingRef.update({
-          stripeSessionId: session.id, basePrice, cleaningFee: Number(listing.cleaningFee) || 0,
-          platformFee: Math.round(basePrice * 0.15), totalPrice: amount
-        });
-
-        return res.json({ id: session.id, url: session.url });
-      } catch (stripeErr: any) {
-        console.error("Stripe API call failed:", stripeErr);
-        
-        // If the key is invalid, fallback to mock mode in dev/preview environment
-        if (stripeErr.type === 'StripeAuthenticationError' && process.env.NODE_ENV !== "production") {
-          console.warn("⚠️ Invalid Stripe API key detected. Falling back to MOCK mode for development.");
-          return completeMockCheckout();
-        }
-        throw stripeErr; // Re-throw to be caught by outer catch
+      if (booking.checkoutSessionId || booking.stripeSessionId) {
+        const existing = await stripe.checkout.sessions.retrieve(booking.checkoutSessionId || booking.stripeSessionId!);
+        if (existing.status === 'open' && existing.url) return res.json({ mode, id: existing.id, url: existing.url });
+        if (existing.payment_status === 'paid') return sendApiError(res, 409, 'Le paiement a déjà été effectué. Sa confirmation est en cours.');
+        return sendApiError(res, 409, 'Cette session de paiement est terminée. Recommencez votre réservation.');
       }
-    } catch (err: any) {
-      console.error("Stripe error details:", err);
-      sendApiError(res, 451, "Le paiement est momentanément indisponible.");
+      const listingSnap = await adminDb.collection('listings').doc(booking.listingId).get();
+      const listing = listingSnap.data();
+      if (!listingSnap.exists) return sendApiError(res, 404, 'Logement introuvable.');
+      const successUrl = safeReturnUrl(req, `/?booking=pending&id=${encodeURIComponent(bookingId)}#/dashboard`);
+      const cancelUrl = safeReturnUrl(req, `/#/payment/${encodeURIComponent(bookingId)}?cancelled=1`);
+      const session = await stripe.checkout.sessions.create({
+        mode: 'payment', payment_method_types: ['card'], locale: 'fr', client_reference_id: bookingId,
+        // Stable across retries with the same idempotency key. The checkout starts within the initial 30-minute hold.
+        expires_at: Math.floor(Date.parse(booking.createdAt) / 1000) + 60 * 60,
+        line_items: [{ quantity: 1, price_data: { currency: 'eur', unit_amount: Math.round(booking.totalPrice * 100), product_data: { name: String(booking.listingTitle || listing?.title || 'Séjour HAVEN').slice(0, 200), description: `${booking.roomName || 'Chambre'} · ${booking.startDate} → ${booking.endDate}` } } }],
+        success_url: successUrl, cancel_url: cancelUrl,
+        metadata: { bookingId, listingId: booking.listingId, tenantId: booking.tenantId }
+      }, { idempotencyKey: `checkout-${bookingId}` });
+      await adminDb.runTransaction(async transaction => {
+        const fresh = await transaction.get(bookingRef);
+        if (!fresh.exists) throw new BookingLifecycleError('Réservation introuvable.', 404);
+        assertBookingPayable(fresh.data() as Booking, req.user!.uid);
+        transaction.update(bookingRef, { paymentProvider: 'STRIPE', checkoutSessionId: session.id, stripeSessionId: session.id, checkoutExpiresAt: new Date(session.expires_at * 1000).toISOString() });
+      });
+      return res.json({ mode, id: session.id, url: session.url });
+    } catch (error) {
+      if (error instanceof BookingLifecycleError || error instanceof PaymentConfigurationError) return sendApiError(res, error.status, error.message);
+      console.error('Stripe checkout failed', (error as { type?: string }).type || 'unavailable');
+      return sendApiError(res, 503, 'Le paiement est momentanément indisponible. Aucun paiement simulé n’a été effectué.');
     }
   });
 
@@ -1527,6 +1754,12 @@ async function startServer() {
 
   // Run a catch-up sweep at startup and hourly. The authenticated history read
   // also triggers the same idempotent sweep so downtime never loses a rating.
+  void deliverReservationMail();
+  const reservationMailSweep = setInterval(() => void deliverReservationMail(), 30_000);
+  reservationMailSweep.unref();
+  void expireBookings();
+  const bookingSweep = setInterval(() => void expireBookings(), 60_000);
+  bookingSweep.unref();
   void finalizeExpiredStayReviews();
   const reviewSweep = setInterval(() => void finalizeExpiredStayReviews(), 60 * 60 * 1000);
   reviewSweep.unref();

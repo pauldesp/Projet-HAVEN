@@ -1,3 +1,4 @@
+import { hasVerificationException } from '../services/verificationException';
 import { hasRequiredPhoneNumber, isVerificationPending } from '../services/profileVerification';
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -165,10 +166,10 @@ export const PublishListing: React.FC = () => {
     }
   }, [currentUser, isAuthLoading, navigate]);
 
-  const isApproved = (currentUser?.status === 'APPROVED' && currentUser.emailVerified === true && hasRequiredPhoneNumber(currentUser) && currentUser.identityVerified === true) || currentUser?.role === 'ADMIN';
+  const isApproved = Boolean(currentUser && hasVerificationException(currentUser)) || (currentUser?.status === 'APPROVED' && currentUser.emailVerified === true && hasRequiredPhoneNumber(currentUser) && currentUser.identityVerified === true) || currentUser?.role === 'ADMIN';
   const isSubmittedForReview = Boolean(currentUser && isVerificationPending(currentUser));
   const hasOwnerDocuments = Boolean(currentUser?.documents?.idCard);
-  const canPublish = isApproved && hasOwnerDocuments;
+  const canPublish = isApproved && (hasOwnerDocuments || Boolean(currentUser && hasVerificationException(currentUser)));
 
   if (isAuthLoading) {
     return (
@@ -230,7 +231,7 @@ export const PublishListing: React.FC = () => {
     checkInTime: '15:00',
     checkOutTime: '11:00',
     amenities: [] as string[],
-    bookingMode: 'INSTANT' as 'INSTANT' | 'MANUAL',
+    bookingMode: 'INSTANT' as const,
     galleryUrls: [] as string[],
       rooms: [
         { id: 'temp-1', name: '', pricePerDay: 0, size: 0, hasPrivateBath: false, bedSize: 'Double' as any, isAvailable: true, photoUrl: '', hasDesk: false, hasLock: false, hasWardrobe: false, roomPhotos: [] }
@@ -540,6 +541,8 @@ export const PublishListing: React.FC = () => {
       title: formData.title || "Nouveau logement",
       description: limitListingDescription(formData.description),
       city: formData.city,
+      postalCode: formData.zipCode,
+      country: formData.country,
       address: `${formData.address}${formData.addressComplement ? ', ' + formData.addressComplement : ''}`,
       coordinates: coords,
       type: formData.type,
@@ -813,29 +816,8 @@ export const PublishListing: React.FC = () => {
               </div>
               
               <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-soft flex flex-col justify-center gap-4 col-span-full">
-                <label className="block text-[10px] font-black text-haven-stone uppercase tracking-widest">Processus de réservation</label>
-                <div className="grid md:grid-cols-2 gap-4">
-                  <button 
-                    type="button"
-                    onClick={() => setFormData({...formData, bookingMode: 'INSTANT'})} 
-                    className={`p-5 rounded-2xl border text-left transition-all flex flex-col h-full justify-between ${formData.bookingMode === 'INSTANT' ? 'border-haven-navy bg-haven-navy/5 shadow-sm' : 'border-gray-100 hover:border-gray-200 bg-gray-50/50'}`}
-                  >
-                    <div>
-                      <p className="font-bold text-base text-haven-navy">Validation instantanée</p>
-                      <p className="text-[11px] text-haven-stone mt-1.5 leading-relaxed">Le locataire réserve et paye directement. Sa chambre est confirmée instantanément.</p>
-                    </div>
-                  </button>
-                  <button 
-                    type="button"
-                    onClick={() => setFormData({...formData, bookingMode: 'MANUAL'})} 
-                    className={`p-5 rounded-2xl border text-left transition-all flex flex-col h-full justify-between ${formData.bookingMode === 'MANUAL' ? 'border-haven-navy bg-haven-navy/5 shadow-sm' : 'border-gray-100 hover:border-gray-200 bg-gray-50/50'}`}
-                  >
-                    <div>
-                      <p className="font-bold text-base text-haven-navy">Validation manuelle</p>
-                      <p className="text-[11px] text-haven-stone mt-1.5 leading-relaxed">Le locataire fait une demande. Vous avez 48h pour l'accepter, puis il aura 72h pour payer.</p>
-                    </div>
-                  </button>
-                </div>
+                <p className="font-bold text-haven-navy">Réservation avec paiement direct</p>
+                <p className="text-sm text-haven-stone">Le locataire paie lors de sa réservation. Le séjour est confirmé après paiement, sans validation supplémentaire de votre part.</p>
               </div>
             </div>
           </div>

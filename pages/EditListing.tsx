@@ -1,3 +1,4 @@
+import { OwnerAccessInstructions } from '../components/OwnerAccessInstructions';
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -353,6 +354,7 @@ export const EditListing: React.FC = () => {
                   </div>
                </div>
 
+               <OwnerAccessInstructions listingId={listing.id} />
                <div className="grid md:grid-cols-2 gap-8">
                   <div className="space-y-3">
                     <label className="text-[10px] font-black uppercase tracking-widest text-haven-stone">Heure d’arrivée</label>
@@ -401,29 +403,8 @@ export const EditListing: React.FC = () => {
                </div>
 
                <div className="space-y-3">
-                 <label className="text-[10px] font-black uppercase tracking-widest text-haven-stone">Processus de réservation</label>
-                 <div className="grid md:grid-cols-2 gap-4">
-                   <button 
-                     type="button"
-                     onClick={() => setListing({...listing, bookingMode: 'INSTANT'})} 
-                     className={`p-5 rounded-2xl border text-left transition-all flex flex-col justify-between ${listing.bookingMode !== 'MANUAL' ? 'border-haven-navy bg-haven-navy/5 shadow-sm' : 'border-gray-100 bg-gray-50/50 hover:border-gray-200'}`}
-                   >
-                     <div>
-                       <p className="font-bold text-base text-haven-navy">Validation instantanée</p>
-                       <p className="text-xs text-haven-stone mt-1 leading-relaxed">Le locataire réserve et paye directement. Sa chambre est confirmée instantanément.</p>
-                     </div>
-                   </button>
-                   <button 
-                     type="button"
-                     onClick={() => setListing({...listing, bookingMode: 'MANUAL'})} 
-                     className={`p-5 rounded-2xl border text-left transition-all flex flex-col justify-between ${listing.bookingMode === 'MANUAL' ? 'border-haven-navy bg-haven-navy/5 shadow-sm' : 'border-gray-100 bg-gray-50/50 hover:border-gray-200'}`}
-                   >
-                     <div>
-                       <p className="font-bold text-base text-haven-navy">Validation manuelle (48h/72h)</p>
-                       <p className="text-xs text-haven-stone mt-1 leading-relaxed">Le locataire fait une demande. Vous avez 48h pour l'accepter, puis il aura 72h pour payer.</p>
-                     </div>
-                   </button>
-                 </div>
+                <p className="font-bold text-haven-navy">Réservation avec paiement direct</p>
+                <p className="text-sm text-haven-stone">Le locataire paie lors de sa réservation. Le séjour est confirmé après paiement, sans validation supplémentaire de votre part.</p>
                </div>
 
                <div className="space-y-4">

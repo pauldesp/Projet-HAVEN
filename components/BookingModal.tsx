@@ -1,4 +1,5 @@
 import { countNights, isBookableStay } from '../services/stay';
+import { createRandomId } from '../services/randomId';
 import React, { useState, useRef, useEffect } from 'react';
 import { Room, Listing, Booking, LegalDocument } from '../types';
 import { Button } from './Button';
@@ -127,7 +128,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose, lis
 
     try {
       // 1. Create a PENDING booking in Firestore first to "lock" the dates
-      const bookingId = `b-${crypto.randomUUID()}`;
+      const bookingId = `b-${createRandomId()}`;
       const bookingData: Booking = {
         id: bookingId,
         listingId: listing.id,
@@ -148,30 +149,8 @@ export const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose, lis
       await apiService.bookings.create(bookingData);
       createdBookingId = bookingId;
       
-      // 2. Call our server to create a Stripe checkout session
-      const response = await authenticatedFetch('/api/create-checkout-session', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          bookingId,
-          successPath: `/?booking=pending&id=${bookingId}#/dashboard`,
-          cancelPath: `/?booking=cancel&id=${bookingId}#/dashboard`,
-        }),
-      });
-
-      if (!response.ok) {
-        const errData = await response.json();
-        throw new Error(errData.error || "Erreur Stripe");
-      }
-
-      const session = await response.json();
-      
-      // 3. Redirect to Stripe Checkout
-      if (session.url) {
-        window.location.href = session.url;
-      } else {
-        throw new Error("URL de session non reçue");
-      }
+      window.location.hash = `#/payment/${encodeURIComponent(bookingId)}`;
+      onClose();
     } catch (e: unknown) {
       console.error("Erreur de réservation/paiement", e);
       // A checkout session that could not be opened must not keep the room blocked.
@@ -200,16 +179,16 @@ export const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose, lis
           {/* Header */}
           <div className="flex justify-between items-center px-4 py-4 md:p-6 border-b border-gray-100 sticky top-0 bg-white z-10">
             <div className="flex items-center gap-2">
-              {step > 1 && step < 5 && (
+              {step > 1 && (
                 <button onClick={() => setStep(current => Math.max(1, current - 1))} aria-label="Étape précédente" className="rounded-full p-2 hover:bg-gray-100">
                   <ArrowLeft size={20} />
                 </button>
               )}
               <div>
                 <h2 className="font-heading font-bold text-lg md:text-xl text-haven-navy">
-                  {step === 5 ? 'Demande envoyée' : step === 1 ? 'Votre séjour' : step === 2 ? 'Votre accord' : 'Paiement'}
+                  {step === 1 ? 'Votre séjour' : 'Votre accord et paiement'}
                 </h2>
-                {step < 5 && <p className="text-xs text-gray-400">Étape {step} sur 3</p>}
+                <p className="text-xs text-gray-400">Étape {step} sur 2</p>
               </div>
             </div>
             <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full text-gray-500">
@@ -303,144 +282,10 @@ export const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose, lis
                   </div>
                 )}
 
-                {listing.bookingMode === 'MANUAL' ? (
-                  <Button 
-                    fullWidth 
-                    size="lg" 
-                    disabled={!isSigned || isProcessing}
-                    onClick={async () => {
-                      if (!currentUser) return;
-                      setIsProcessing(true);
-                      setError(null);
-                      try {
-                        const bookingId = `b-${crypto.randomUUID()}`;
-                        const bookingData: Booking = {
-                          id: bookingId,
-                          listingId: listing.id,
-                          roomId: room.id,
-                          roomName: room.name || 'Chambre',
-                          tenantId: currentUser.id,
-                          ownerId: listing.ownerId,
-                          startDate,
-                          endDate,
-                          status: 'PENDING',
-                          basePrice,
-                          cleaningFee,
-                          platformFee,
-                          totalPrice: total,
-                          createdAt: new Date().toISOString(),
-                          paymentStatus: 'PENDING',
-                          bookingMode: 'MANUAL'
-                        };
-                        await apiService.bookings.create(bookingData);
-
-                        // Fetch owner user profile and send notification email (Chantier 3)
-                        try {
-                          const ownerProfile = await apiService.users.getById(listing.ownerId);
-                          if (ownerProfile && ownerProfile.email) {
-                            await apiService.notifications.sendBookingNotification(
-                              ownerProfile.email,
-                              'REQUEST_SUBMITTED',
-                              {
-                                listingTitle: listing.title,
-                                roomName: room.name || 'Chambre',
-                                amount: total,
-                                startDate: new Date(startDate).toLocaleDateString('fr-FR'),
-                                endDate: new Date(endDate).toLocaleDateString('fr-FR'),
-                                arrivalTime: listing.checkInTime || '15:00',
-                                departureTime: listing.checkOutTime || '11:00',
-                                tenantName: `${currentUser.firstName} ${currentUser.lastName}`,
-                                ownerName: `${ownerProfile.firstName} ${ownerProfile.lastName}`,
-                                bookingId
-                              }
-                            );
-                          }
-                        } catch (emailErr) {
-                          console.error("Failed to notify owner via email:", emailErr);
-                        }
-
-                        setStep(5);
-                      } catch (err: unknown) {
-                        setError(bookingErrorMessage(err));
-                      } finally {
-                        setIsProcessing(false);
-                      }
-                    }}
-                    className="py-4 shadow-xl shadow-haven-red/10"
-                  >
-                    {isProcessing ? 'Envoi...' : "Envoyer ma demande de réservation"}
-                  </Button>
-                ) : (
-                  <Button 
-                    fullWidth 
-                    size="lg" 
-                    disabled={!isSigned}
-                    onClick={handleNext}
-                    className="py-4 shadow-xl shadow-haven-red/10"
-                  >
-                    Continuer vers le paiement
-                  </Button>
-                )}
-              </div>
-            )}
-
-            {/* STEP 3: PAYMENT & STRIPE REDIRECT */}
-            {step === 3 && (
-              <div className="space-y-5 md:space-y-6">
-                <h3 className="font-heading font-bold text-lg">Paiement sécurisé</h3>
-                
-                <div className="bg-white border-2 border-haven-navy group p-4 md:p-6 rounded-2xl flex items-center justify-between hover:bg-haven-cream/20 transition-all cursor-pointer">
-                   <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 bg-haven-navy text-white rounded-xl flex items-center justify-center">
-                         <CreditCard size={24} />
-                      </div>
-                      <div>
-                         <span className="block font-bold text-haven-navy">Stripe Secured</span>
-                         <span className="block text-xs text-gray-500 font-medium">Cartes Bancaires, Apple Pay, Google Pay</span>
-                      </div>
-                   </div>
-                   <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-400 group-hover:text-haven-navy transition-colors">
-                      <Check size={18} />
-                   </div>
-                </div>
-
-                <div className="bg-haven-cream p-4 rounded-xl space-y-2">
-                   <div className="flex justify-between text-sm font-medium">
-                      <span className="text-gray-500">Total à régler</span>
-                      <span className="text-haven-navy">{total}€</span>
-                   </div>
-                </div>
-
-                <div className="text-xs text-center text-gray-500 flex flex-col gap-1">
-                  <span>Vous allez être redirigé vers la page de paiement sécurisé de Stripe.</span>
-                  <span className="flex items-center justify-center gap-1"><ShieldCheck size={12}/> Vos données bancaires ne sont jamais stockées sur nos serveurs.</span>
-                </div>
-
-                {error && (
-                  <div className="p-3 bg-red-50 text-red-600 text-xs rounded-lg border border-red-100">
-                    {error}
-                  </div>
-                )}
-
-                <Button fullWidth onClick={handlePayment} disabled={isProcessing}>
-                  {isProcessing ? 'Initialisation...' : `Procéder au paiement de ${total}€`}
+                <Button fullWidth size="lg" disabled={!isSigned || isProcessing} onClick={handlePayment} className="py-4 shadow-xl shadow-haven-red/10">
+                  {isProcessing ? 'Ouverture du paiement…' : `Continuer vers le paiement · ${total} €`}
                 </Button>
-              </div>
-            )}
-
-            {/* STEP 5: SUCCESS */}
-            {step === 5 && (
-              <div className="text-center py-8">
-                <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                  <Check size={40} className="text-green-600" />
-                </div>
-                <h3 className="font-heading font-bold text-2xl text-haven-navy mb-2">Demande transmise avec succès !</h3>
-                <p className="text-gray-600 mb-8 leading-relaxed max-w-sm mx-auto text-sm">
-                  Votre demande a été envoyée au propriétaire qui dispose de **48 heures** pour y répondre. S'il l'accepte, vous disposerez ensuite de **72 heures** pour procéder au règlement afin de confirmer définitivement votre colocation.
-                </p>
-                <Button onClick={() => { onClose(); window.location.hash = '#/dashboard'; }}>
-                  Aller au tableau de bord
-                </Button>
+                <p className="text-xs text-center text-gray-500">Votre réservation sera confirmée après le paiement.</p>
               </div>
             )}
           </div>

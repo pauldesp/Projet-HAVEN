@@ -1,3 +1,4 @@
+import type { VerificationException } from './services/verificationException';
 
 // Définition des rôles utilisateurs
 export enum UserRole {
@@ -30,6 +31,7 @@ export interface AdminAuditEntry {
 
 // Interface Utilisateur
 export interface User {
+  verificationException?: VerificationException | null;
   id: string;
   firstName: string;
   lastName: string;
@@ -103,11 +105,14 @@ export interface Coordinates {
 
 // Type de logement
 export interface Listing {
+  verificationException?: VerificationException | null;
   id: string;
   title: string;
   description: string;
   city: string;
   address: string;
+  postalCode?: string;
+  country?: string;
   coordinates: Coordinates;
   type: 'HOUSE' | 'APARTMENT';
   status: ListingStatus;
@@ -151,6 +156,7 @@ export interface BookingCancellation {
 
 // Type de réservation
 export interface Booking {
+  listingTitle?: string;
   id: string;
   listingId: string;
   roomId: string;
@@ -175,6 +181,12 @@ export interface Booking {
   };
   roomName?: string;
   paymentStatus?: 'PENDING' | 'PAID';
+  stripeSessionId?: string;
+  checkoutSessionId?: string;
+  checkoutExpiresAt?: string;
+  paymentProvider?: 'SIMULATION' | 'STRIPE';
+  paymentIsTest?: boolean;
+  paidAt?: string;
   bookingMode?: 'INSTANT' | 'MANUAL';
   approvedAt?: string;
   completedAt?: string;
@@ -309,6 +321,9 @@ export interface Incident {
 
 // Type Paiement / Transaction
 export interface Payment {
+  provider?: 'SIMULATION' | 'STRIPE';
+  isTest?: boolean;
+  currency?: string;
   id: string;
   bookingId: string;
   listingId: string;
@@ -346,6 +361,8 @@ export interface LegalDocument {
 
 // Type Document Application (EDL, Quittance, Bail)
 export interface AppDocument {
+  receiptId?: string;
+  reportId?: string;
   id: string;
   userId: string;
   bookingId: string;

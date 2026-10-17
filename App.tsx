@@ -1,3 +1,4 @@
+import { PaymentPage } from './pages/PaymentPage';
 
 import React, { Component, ReactNode, useEffect } from 'react';
 import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
@@ -51,23 +52,7 @@ const MapsProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 const AppContent: React.FC = () => {
   const location = useLocation();
   const isAdminLogin = location.pathname === '/admin/login';
-
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('booking') === 'success') {
-      toast.success("Réservation confirmée !", {
-        description: "Votre paiement a été accepté. Retrouvez vos détails dans votre espace locataire.",
-        duration: 8000
-      });
-      // Nettoyer l'URL
-      window.history.replaceState({}, '', window.location.pathname + window.location.hash);
-    } else if (params.get('booking') === 'cancel') {
-      toast.error("Paiement annulé", {
-        description: "La transaction n'a pas été finalisée. Votre réservation n'est pas confirmée."
-      });
-      window.history.replaceState({}, '', window.location.pathname + window.location.hash);
-    }
-  }, [location.pathname]);
+  const isPaymentPage = location.pathname.startsWith('/payment/');
 
   useEffect(() => {
     const checkHealth = async (retries = 3) => {
@@ -119,7 +104,7 @@ const AppContent: React.FC = () => {
   return (
     <div className="flex flex-col min-h-screen bg-haven-cream font-body text-haven-navy">
       <Toaster position="top-right" richColors />
-      {!isAdminLogin && <Header />}
+      {!isAdminLogin && !isPaymentPage && <Header />}
       
       <main className="flex-grow">
         <Routes>
@@ -127,6 +112,7 @@ const AppContent: React.FC = () => {
           <Route path="/search" element={<SearchPage />} />
           <Route path="/listing/:id" element={<ListingDetails />} />
           <Route path="/profile/:id" element={<ProfilePage />} />
+          <Route path="/payment/:bookingId" element={<ProtectedRoute><PaymentPage /></ProtectedRoute>} />
           <Route path="/dashboard" element={<ProtectedRoute><TenantDashboard /></ProtectedRoute>} />
           <Route path="/owner/dashboard" element={<ProtectedRoute roles={[UserRole.OWNER, UserRole.ADMIN]}><OwnerDashboard /></ProtectedRoute>} />
           <Route path="/owner/publish" element={<ProtectedRoute roles={[UserRole.OWNER, UserRole.ADMIN]}><PublishListing /></ProtectedRoute>} />
@@ -152,7 +138,7 @@ const AppContent: React.FC = () => {
         </Routes>
       </main>
 
-      {!isAdminLogin && <Footer />}
+      {!isAdminLogin && !isPaymentPage && <Footer />}
     </div>
   );
 };

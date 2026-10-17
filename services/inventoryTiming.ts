@@ -25,8 +25,8 @@ export const getInventoryTiming = (
   now = new Date(),
 ) => {
   const time = type === 'IN'
-    ? listing?.checkInTime || DEFAULT_CHECK_IN_TIME
-    : listing?.checkOutTime || DEFAULT_CHECK_OUT_TIME;
+    ? booking.checkInTime || listing?.checkInTime || DEFAULT_CHECK_IN_TIME
+    : booking.checkOutTime || listing?.checkOutTime || DEFAULT_CHECK_OUT_TIME;
   const scheduledAt = localScheduledDate(type === 'IN' ? booking.startDate : booking.endDate, time);
 
   return {

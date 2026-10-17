@@ -32,10 +32,10 @@ HAVEN s'appuie sur trois typologies d'utilisateurs distinctes, chacune disposant
 1. **Recherche & Filtrage** : Le locataire recherche des logements par ville, dates de séjour et budget. Il peut explorer les détails de chaque logement, voir la description des chambres disponibles, et consulter la liste des colocataires déjà présents.
 2. **Dossier de Candidature Digital** : Le locataire télécharge ses pièces justificatives directement sur son profil (carte d'identité, justificatif de revenus, certificat de scolarité).
 3. **Demande de Réservation** : Il sélectionne une chambre libre et initie une demande de réservation.
-4. **La Règle d'Or Temporelle** :
-    *   **Phase d'approbation (48 heures)** : Le propriétaire a exactement **48 heures** pour accepter ou refuser la demande.
-    *   **Phase de paiement (72 heures)** : Une fois la demande approuvée, le locataire dispose de **72 heures** pour procéder au règlement du premier loyer en ligne via la passerelle de paiement sécurisé.
-    *   **Annulation Automatique** : Si l'une de ces deux échéances est dépassée, le système annule automatiquement la réservation, libère la chambre pour d'autres candidats et enregistre un message d'expiration automatisé dans le fil de discussion.
+4. **Réservation et paiement directs** :
+    * Le locataire choisit ses dates, accepte les conditions de réservation puis passe directement au paiement sécurisé, sans validation du propriétaire.
+    * La chambre est maintenue pendant 30 minutes pour finaliser le paiement. Un paiement abandonné libère ensuite les dates.
+    * Seule la confirmation du paiement côté serveur confirme la réservation et la fait apparaître comme confirmée dans les séjours du locataire et du propriétaire.
 5. **Vie dans le Logement** : Après confirmation du paiement, le locataire accède à sa page de gestion de séjour :
     *   **Membres de la colocation** : Fiches détaillées des colocataires partageant le même appartement.
     *   **Messagerie instantanée** : Chat en temps réel avec l'hôte et les autres colocataires.
@@ -46,7 +46,7 @@ HAVEN s'appuie sur trois typologies d'utilisateurs distinctes, chacune disposant
 1. **Publication d'Annonce** : Le propriétaire crée son annonce immobilière en définissant le titre, la description, l'adresse, les équipements collectifs (Wi-Fi, lave-vaisselle, etc.) et en ajoutant des chambres individuelles disposant de leurs propres tarifs, surfaces et lits.
 2. **Gestion des Réservations (Le "Dashboard Propriétaire")** :
     *   **Vue d'ensemble** : Statistiques financières (Revenus mensuels cumulés, taux d'occupation, nombre d'annonces actives).
-    *   **Suivi visuel des délais** : Compteurs temporels interactifs affichant au format `⚠️ Expire dans Xh Ym Zs` le temps restant pour accepter une demande (48h) ou le temps restant au locataire pour payer (72h).
+    *   **Suivi visuel des délais** : Compteurs temporels interactifs affichant au format `⚠️ Expire dans Xh Ym Zs` le temps restant au locataire pour finaliser le paiement (30 minutes).
     *   **Validation des profils** : Accès complet au dossier de candidature du locataire (visualisation des documents administratifs) avant d'accepter ou décliner la demande.
 3. **Communication & Entretien** : Messagerie directe avec chaque candidat ou locataire actif, et outil de suivi des incidents déclarés par les résidents pour planifier les interventions techniques.
 
@@ -78,9 +78,9 @@ La plateforme HAVEN a été conçue comme une application web full-stack moderne
 
 ### Moteur de Planification & Nettoyage Automatique
 Le système intègre une logique robuste pour éviter qu'une chambre reste bloquée indéfiniment si un propriétaire n'est pas réactif ou qu'un locataire ne procède pas au paiement :
-*   Un script de vérification réactive s'exécute à chaque récupération de réservation (`cleanupAndFilterBookings`).
-*   Si le statut de la demande est `PENDING` (En attente) et a dépassé 48 heures, son statut passe automatiquement à `CANCELLED`.
-*   Si le statut est `APPROVED` (Accepté) mais sans paiement finalisé après 72 heures, le système libère la chambre (remet sa disponibilité à `true`), incrémente le nombre de chambres vacantes de l'annonce et génère un message explicatif dans le canal de discussion du locataire et du propriétaire.
+*   Le serveur vérifie les échéances au démarrage puis toutes les minutes ; les transitions sont atomiques avec la disponibilité et le message d’expiration.
+*   Si le statut de la demande est `PENDING` (En attente) et a dépassé 30 minutes, son statut passe automatiquement à `CANCELLED`.
+*   Pour les anciennes demandes déjà acceptées, si le statut est `APPROVED` mais sans paiement finalisé après 24 heures, le système libère la chambre (remet sa disponibilité à `true`), incrémente le nombre de chambres vacantes de l'annonce et génère un message explicatif dans le canal de discussion du locataire et du propriétaire.
 
 ---
 
@@ -88,11 +88,11 @@ Le système intègre une logique robuste pour éviter qu'une chambre reste bloqu
 
 ### Pourquoi ce sujet est parfait pour un Podcast NotebookLM :
 1. **La crise du logement chez les jeunes** : Analyse de la manière dont la colocation courte durée répond au manque crucial d'options flexibles pour les étudiants et les jeunes actifs.
-2. **La confiance bilatérale à l'ère du numérique** : Comment l'automatisation des règles de réservation (délais de 48h/72h), le chat en direct et la vérification rigoureuse des dossiers par l'administrateur sécurisent à la fois l'hôte et le résident.
+2. **La confiance bilatérale à l'ère du numérique** : Comment l'automatisation des règles de réservation (paiement direct et confirmation automatique), le chat en direct et la vérification rigoureuse des dossiers par l'administrateur sécurisent à la fois l'hôte et le résident.
 3. **Le Co-Living comme vecteur de lien social** : Discussion sur la redéfinition de l'habitat partagé moderne. Les résidents ne partagent pas seulement un appartement, ils accèdent à une communauté partageant les mêmes valeurs grâce aux profils interactifs de HAVEN.
 4. **La digitalisation de la gestion immobilière** : De l'annonce à l'état des lieux d'entrée en ligne, en passant par le signalement des pannes et les paiements automatisés via Stripe.
 
 ### Exemples d'angles de discussion pour le Podcast :
 *   *L'hôte et l'invité débattent* de la fin du "bail de 3 ans traditionnel" et de l'avènement du "Housing-as-a-Service" (l'immobilier comme service).
-*   *Comment la règle temporelle des 48h/72h de HAVEN* a radicalement augmenté le taux de conversion des réservations tout en soulageant le stress mental des locataires qui attendent des réponses pendant des semaines.
+*   *Comment le parcours de réservation et paiement directs de HAVEN* a radicalement augmenté le taux de conversion des réservations tout en soulageant le stress mental des locataires qui attendent des réponses pendant des semaines.
 *   *Le point de vue des propriétaires immobiliers* : Comment la plateforme réduit à zéro le risque de vacance locative en enchaînant des colocations de courte durée à haute rentabilité tout en délégant la lourdeur administrative.

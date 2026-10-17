@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import { Button } from './Button';
 import { AppDocument, Booking, Listing, Room } from '../types';
-import { apiService } from '../services/api';
+import { prepareImageForStorage } from '../services/images';
 import { userFacingErrorMessage } from '../services/errorHandling';
 import { formatScheduledMoment, getInventoryTiming } from '../services/inventoryTiming';
 import { useAuth } from '../contexts/AuthContext';
@@ -27,7 +27,7 @@ interface InventoryModalProps {
   booking: Booking;
   listing?: Listing;
   room?: Room;
-  onComplete: (data: any) => void;
+  onComplete: (data: any) => Promise<void>;
 }
 
 type CheckoutChecklistKey =
@@ -59,8 +59,19 @@ const checkoutChecklistLabels: Record<CheckoutChecklistKey, string> = {
   keys_deposited: 'Les clés ont été déposées à l’emplacement prévu',
 };
 
-const createPhotoPlaceholder = (category: string, index: number) =>
-  `https://picsum.photos/seed/haven-${category}-${Date.now()}-${index}/900/700`;
+async function selectInventoryPhoto(): Promise<string | null> {
+  return new Promise((resolve, reject) => {
+    const input = document.createElement('input');
+    input.type = 'file'; input.accept = 'image/*';
+    input.oncancel = () => resolve(null);
+    input.onchange = async () => {
+      const file = input.files?.[0];
+      if (!file) return resolve(null);
+      try { resolve(await prepareImageForStorage(file, 10 * 1024 * 1024)); } catch (error) { reject(error); }
+    };
+    input.click();
+  });
+}
 
 export const InventoryModal: React.FC<InventoryModalProps> = ({
   isOpen,
@@ -126,11 +137,12 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
     setCheckoutChecklist(prev => ({ ...prev, [key]: !prev[key] }));
   };
 
-  const addCheckoutPhoto = (category: keyof typeof checkoutPhotos) => {
-    setCheckoutPhotos(prev => ({
-      ...prev,
-      [category]: [...prev[category], createPhotoPlaceholder(category, prev[category].length)],
-    }));
+  const addCheckoutPhoto = async (category: keyof typeof checkoutPhotos) => {
+    if (checkoutPhotos[category].length >= 2) { setError('Deux photos maximum par catégorie.'); return; }
+    try {
+      const photo = await selectInventoryPhoto();
+      if (photo) setCheckoutPhotos(prev => ({ ...prev, [category]: [...prev[category], photo] }));
+    } catch (error) { setError(error instanceof Error ? error.message : 'Photo illisible.'); }
   };
 
   const removeCheckoutPhoto = (category: keyof typeof checkoutPhotos, index: number) => {
@@ -151,14 +163,12 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
     }));
   };
 
-  const addCheckinPhoto = (area: CheckinArea) => {
-    setCheckinAssessments(prev => ({
-      ...prev,
-      [area]: {
-        ...prev[area],
-        photos: [...prev[area].photos, createPhotoPlaceholder(`checkin-${area}`, prev[area].photos.length)],
-      },
-    }));
+  const addCheckinPhoto = async (area: CheckinArea) => {
+    if (checkinAssessments[area].photos.length >= 2) { setError('Deux photos maximum par espace.'); return; }
+    try {
+      const photo = await selectInventoryPhoto();
+      if (photo) setCheckinAssessments(prev => ({ ...prev, [area]: { ...prev[area], photos: [...prev[area].photos, photo] } }));
+    } catch (error) { setError(error instanceof Error ? error.message : 'Photo illisible.'); }
   };
 
   const removeCheckinPhoto = (area: CheckinArea, index: number) => {
@@ -206,24 +216,6 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
       ? damageDescription.trim().length >= 5 && checkoutPhotos.DAMAGE.length >= 1
       : checkoutChecklist.no_new_damage);
 
-  const createDocument = async (docType: 'INVENTORY_IN' | 'INVENTORY_OUT') => {
-    if (!currentUser) throw new Error('Utilisateur non connecté');
-    const label = docType === 'INVENTORY_IN' ? "État des lieux d'entrée" : 'État des lieux de sortie';
-    const docId = `doc_${docType === 'INVENTORY_IN' ? 'in' : 'out'}_${booking.id}_${Date.now()}`;
-    const inventoryDoc: AppDocument = {
-      id: docId,
-      userId: currentUser.id,
-      bookingId: booking.id,
-      title: `${label} - ${listing?.title || 'Logement'}`,
-      type: docType,
-      url: `https://example.com/reports/${docId}.pdf`,
-      createdAt: new Date().toISOString(),
-      listingTitle: listing?.title,
-    };
-    await apiService.documents.create(inventoryDoc);
-    return docId;
-  };
-
   const handleSubmit = async () => {
     if (!currentUser) return;
     setIsSubmitting(true);
@@ -244,7 +236,6 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
           throw new Error('En cas de non-conformité, ajoutez un commentaire et au moins une photo.');
         }
 
-        const documentId = await createDocument('INVENTORY_IN');
         const nonConformities = (['ROOM', 'COMMONS'] as CheckinArea[])
           .filter(checkinHasIssue)
           .map(area => ({
@@ -252,19 +243,17 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
             ...checkinAssessments[area],
           }));
 
-        onComplete({
+        await onComplete({
           type: 'IN',
           condition: nonConformities.length === 0 ? 'EXCELLENT' : 'ISSUE_REPORTED',
           checkinAssessments,
           nonConformities,
-          documentId,
         });
       } else {
         if (!checkoutStepOneComplete || !checkoutStepTwoComplete || !checkoutStepThreeComplete) {
           throw new Error('Merci de terminer les validations et les photos obligatoires avant de confirmer votre départ.');
         }
 
-        const documentId = await createDocument('INVENTORY_OUT');
         const flatPhotos = Object.values(checkoutPhotos).flat();
         const checklist = {
           ...checkoutChecklist,
@@ -279,14 +268,13 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
             }
           : { category: '', subCategory: '', description: '', photo: '' };
 
-        onComplete({
+        await onComplete({
           type: 'OUT',
           condition: 'EXCELLENT',
           checklist,
           photos: checkoutPhotos,
           allPhotos: flatPhotos,
           incidentReport,
-          documentId,
           isEarlyDeparture: inventoryTiming.isEarlyDeparture,
           earlyDepartureReason: inventoryTiming.isEarlyDeparture ? earlyDepartureReason.trim() : undefined,
           scheduledDepartureAt: inventoryTiming.scheduledAt.toISOString(),
@@ -297,7 +285,7 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
       onClose();
     } catch (e: unknown) {
       console.error('Error creating inventory report', e);
-      setError(userFacingErrorMessage(e));
+      setError(e instanceof Error ? e.message : userFacingErrorMessage(e));
     } finally {
       setIsSubmitting(false);
     }
