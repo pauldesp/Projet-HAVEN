@@ -62,18 +62,34 @@ test('arrival/departure require confirmed payment, the right tenant, the contrac
   assert.throws(() => prepareInventoryReport(paid, listing, 'tenant', { ...report(paid, 'IN'), tenantId: 'forged' }), /participants/);
 });
 
-test('early departure requires an explicit reason; checkout stays available on departure day and afterwards', () => {
+test('early departure requires an explicit reason; checkout closes after departure day', () => {
   const paid = { ...base, status: 'CONFIRMED', paymentStatus: 'PAID', checkInReportId: 'entry' } as Booking;
   const now = new Date(2026, 10, 10, 11);
   assert.throws(() => prepareInventoryReport(paid, listing, 'tenant', report(paid, 'OUT'), now), /disponible/);
   const early = prepareInventoryReport(paid, listing, 'tenant', { ...report(paid, 'OUT'), isEarlyDeparture: true, earlyDepartureReason: 'Départ anticipé pour raison personnelle' }, now);
   assert.equal(early.isEarlyDeparture, true);
   assert.equal(bookingCategory(paid, new Date(2026, 10, 14, 11)), 'CURRENT');
-  assert.equal(bookingCategory(paid, new Date(2026, 10, 15, 11)), 'CURRENT');
+  assert.equal(bookingCategory(paid, new Date(2026, 10, 15, 11)), 'PAST');
 });
 
 test('abandoned instant checkout releases its hold after 30 minutes', () => {
   const instant = { ...base, bookingMode: 'INSTANT' as const };
   assert.equal(isBookingExpired(instant, Date.parse(created) + 30 * 60_000 - 1), false);
   assert.equal(isBookingExpired(instant, Date.parse(created) + 30 * 60_000), true);
+});
+
+test('long-past confirmed stays without checkout reports are history, without faking completed status', () => {
+  const old = { ...base, startDate: '2026-04-04', endDate: '2026-04-11', status: 'CONFIRMED', paymentStatus: 'PAID' } as Booking;
+  assert.equal(bookingCategory(old, new Date('2026-10-19T20:00:00Z')), 'PAST');
+  assert.equal(old.status, 'CONFIRMED');
+  assert.equal(bookingCategory({ ...old, endDate: '2026-10-19' }, new Date('2026-10-19T20:00:00Z')), 'CURRENT');
+});
+test('server refuses late entry/exit and forged early departure outside the stay', () => {
+  const paid = { ...base, status: 'CONFIRMED', paymentStatus: 'PAID' } as Booking;
+  assert.throws(() => prepareInventoryReport(paid, listing, 'tenant', report(paid, 'IN'), new Date(2026, 10, 8, 10)), /dépassée/);
+  const checkedIn = { ...paid, checkInReportId: 'entry' };
+  const forced = { ...report(checkedIn, 'OUT'), isEarlyDeparture: true, earlyDepartureReason: 'Départ anticipé pour motif personnel' };
+  assert.throws(() => prepareInventoryReport(checkedIn, listing, 'tenant', forced, new Date(2026, 10, 15, 10)), /dépassée/);
+  assert.throws(() => prepareInventoryReport(checkedIn, listing, 'tenant', forced, new Date(2026, 10, 6, 10)), /disponible/);
+  assert.doesNotThrow(() => prepareInventoryReport(checkedIn, listing, 'tenant', report(checkedIn, 'OUT'), new Date(2026, 10, 14, 8)));
 });

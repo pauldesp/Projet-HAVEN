@@ -1,3 +1,4 @@
+import { isRoomAvailableForStay } from '../services/availability';
 import { countNights, isBookableStay } from '../services/stay';
 import { createRandomId } from '../services/randomId';
 import React, { useState, useRef, useEffect } from 'react';
@@ -28,6 +29,29 @@ interface BookingModalProps {
 }
 
 export const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose, listing, room, startDate, endDate }) => {
+  const [roomAvailable, setRoomAvailable] = useState(false);
+  const [checkingAvailability, setCheckingAvailability] = useState(true);
+  const [availabilityError, setAvailabilityError] = useState('');
+  useEffect(() => {
+    if (!isOpen) return;
+    setCheckingAvailability(true); setRoomAvailable(false); setAvailabilityError('');
+    return apiService.availability.listenByListingId(listing.id, items => {
+      const available = isRoomAvailableForStay(room, listing, items, startDate, endDate);
+      setRoomAvailable(available); setCheckingAvailability(false);
+      setAvailabilityError(available ? '' : 'Cette chambre est indisponible aux dates sélectionnées. Choisissez une autre chambre ou une autre période.');
+    }, error => { setCheckingAvailability(false); setRoomAvailable(false); setAvailabilityError(error.message); });
+  }, [isOpen, listing, room, startDate, endDate]);
+  const checkAvailability = async () => {
+    setCheckingAvailability(true);
+    try {
+      const items = await apiService.availability.getByListingId(listing.id);
+      const available = isRoomAvailableForStay(room, listing, items, startDate, endDate);
+      setRoomAvailable(available);
+      setAvailabilityError(available ? '' : 'Cette chambre est indisponible aux dates sélectionnées.');
+      return available;
+    } catch (error) { setRoomAvailable(false); setAvailabilityError(error instanceof Error ? error.message : 'Disponibilité impossible à vérifier.'); return false; }
+    finally { setCheckingAvailability(false); }
+  };
   const [step, setStep] = useState(1);
   const [isSigned, setIsSigned] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -107,7 +131,8 @@ export const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose, lis
   const platformFee = Math.round(basePrice * 0.15);
   const total = basePrice + cleaningFee + platformFee;
 
-  const handleNext = () => {
+  const handleNext = async () => {
+    if (!await checkAvailability()) return;
     if (!isBookableStay(startDate, endDate)) { setError('La date d’arrivée doit être aujourd’hui ou ultérieure.'); return; }
     if (nights < minimumNights(listing.minStay)) { setError("Choisissez un départ après l’arrivée et respectez le séjour minimum en nuits."); return; }
     setError(null);
@@ -115,6 +140,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose, lis
   };
   
   const handlePayment = async () => {
+    if (!await checkAvailability()) return;
     if (!isBookableStay(startDate, endDate)) { setError('La date d’arrivée doit être aujourd’hui ou ultérieure.'); return; }
     if (nights < minimumNights(listing.minStay)) { setError("Dates de séjour invalides."); return; }
     if (!currentUser) {
@@ -207,6 +233,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose, lis
           )}
 
           <div className="p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] md:p-8">
+            {availabilityError && <p role="alert" className="mb-5 rounded-xl border border-red-100 bg-red-50 p-4 text-sm text-red-700">{availabilityError}</p>}
             {/* STEP 1: RECAP */}
             {step === 1 && (
               <div className="space-y-6">
@@ -229,7 +256,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose, lis
                   </div>
                 </div>
                 
-                <Button fullWidth onClick={handleNext}>Valider et continuer</Button>
+                <Button fullWidth disabled={checkingAvailability || !roomAvailable} onClick={handleNext}>{checkingAvailability ? 'Vérification…' : roomAvailable ? 'Valider et continuer' : 'Chambre indisponible'}</Button>
               </div>
             )}
 
@@ -282,7 +309,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose, lis
                   </div>
                 )}
 
-                <Button fullWidth size="lg" disabled={!isSigned || isProcessing} onClick={handlePayment} className="py-4 shadow-xl shadow-haven-red/10">
+                <Button fullWidth size="lg" disabled={!isSigned || isProcessing || checkingAvailability || !roomAvailable} onClick={handlePayment} className="py-4 shadow-xl shadow-haven-red/10">
                   {isProcessing ? 'Ouverture du paiement…' : `Continuer vers le paiement · ${total} €`}
                 </Button>
                 <p className="text-xs text-center text-gray-500">Votre réservation sera confirmée après le paiement.</p>

@@ -1,9 +1,10 @@
-import { HousematePreview } from '../types';
+import { Booking, HousematePreview } from '../types';
 
 export interface HousemateBooking {
   tenantId?: unknown;
   roomId?: unknown;
   status?: unknown;
+  paymentStatus?: unknown;
   startDate?: unknown;
   endDate?: unknown;
 }
@@ -16,6 +17,7 @@ export interface HousemateProfile {
   job?: unknown;
   school?: unknown;
   shareProfileWithHousemates?: unknown;
+  status?: unknown;
 }
 
 interface StayContext {
@@ -30,7 +32,7 @@ export const eligibleHousemateBookings = (bookings: HousemateBooking[], stay: St
   bookings.filter((booking): booking is HousemateBooking & {
     tenantId: string; roomId: string; startDate: string; endDate: string;
   } =>
-    booking.status === 'CONFIRMED' &&
+    booking.status === 'CONFIRMED' && booking.paymentStatus === 'PAID' &&
     typeof booking.tenantId === 'string' && booking.tenantId !== stay.viewerId &&
     typeof booking.roomId === 'string' && booking.roomId !== stay.roomId &&
     typeof booking.startDate === 'string' && typeof booking.endDate === 'string' &&
@@ -56,7 +58,7 @@ export const buildHousematePreviews = (
   const byTenant = new Map<string, HousematePreview>();
   for (const booking of eligibleHousemateBookings(bookings, stay)) {
     const profile = profilesById.get(booking.tenantId);
-    if (profile?.shareProfileWithHousemates !== true) continue;
+    if (profile?.shareProfileWithHousemates !== true || profile.status === 'BANNED') continue;
     const coverage = booking.startDate <= stay.startDate && booking.endDate >= stay.endDate ? 'FULL' : 'PARTIAL';
     const existing = byTenant.get(booking.tenantId);
     if (existing) {
@@ -78,3 +80,7 @@ export const buildHousematePreviews = (
   }
   return [...byTenant.values()];
 };
+
+export function canViewBookingHousemates(booking: Pick<Booking, 'tenantId' | 'paymentStatus' | 'status' | 'endDate'>, viewerId: string, today: string) {
+  return booking.tenantId === viewerId && booking.paymentStatus === 'PAID' && booking.status === 'CONFIRMED' && booking.endDate.slice(0, 10) >= today;
+}

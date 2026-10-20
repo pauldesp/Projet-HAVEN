@@ -169,6 +169,8 @@ export interface Booking {
   cleaningFee: number; // Cleaning fee charged
   platformFee: number; // Platform fee charged (15%)
   totalPrice: number; // Sum of all
+  /** Fuseau horaire du logement, figé à la réservation. */
+  timeZone?: string;
   checkInReportId?: string;
   checkOutReportId?: string;
   checkInTime?: string;
@@ -226,6 +228,7 @@ export interface InventoryItem {
 }
 
 export interface InventoryReport {
+  stay?: { listingTitle: string; roomName: string; startDate: string; endDate: string; tenantName: string; timeZone: string };
   id: string;
   bookingId: string;
   tenantId: string;

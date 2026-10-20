@@ -1,3 +1,5 @@
+import { compactCheckinComments } from '../services/inventoryPayload';
+import { bookingCategory } from '../services/bookingLifecycle';
 import { ReservationInformation, ReservationInformationDisclosure, downloadPaymentReceipt } from '../components/ReservationInformation';
 import { BookingCountdown } from '../components/BookingCountdown';
 import { inventoryDocumentHtml } from '../services/inventoryDocument';
@@ -57,6 +59,14 @@ export const TenantDashboard: React.FC = () => {
   const { currentUser, refreshUser, updateUserRole } = useAuth();
   const { listings: allListings } = useListings();
   const [activeTab, setActiveTab] = useState<'UPCOMING' | 'HISTORY' | 'FAVORITES' | 'MESSAGES' | 'DOCUMENTS' | 'INCIDENTS'>('UPCOMING');
+  const [clockNow, setClockNow] = useState(() => new Date());
+  useEffect(() => {
+    const refresh = () => setClockNow(new Date());
+    const timer = setInterval(refresh, 30_000);
+    window.addEventListener('focus', refresh);
+    document.addEventListener('visibilitychange', refresh);
+    return () => { clearInterval(timer); window.removeEventListener('focus', refresh); document.removeEventListener('visibilitychange', refresh); };
+  }, []);
   const [bookings, setBookings] = useState<(Booking & { listing?: Listing })[]>([]);
   const [favorites, setFavorites] = useState<Listing[]>([]);
   const [documents, setDocuments] = useState<AppDocument[]>([]);
@@ -245,19 +255,20 @@ export const TenantDashboard: React.FC = () => {
 
     try {
       const reportId = `inv_${type.toLowerCase()}_${bookingId}`;
-      await apiService.inventory.create({
+      const savedReport = await apiService.inventory.create({
         id: reportId, bookingId, tenantId: currentUser.id, ownerId: inventoryState.selectedBooking.ownerId,
         type, date: new Date().toISOString(), identityValidated: true, items: [],
-        comments: JSON.stringify(type === 'IN' ? { assessments: data.checkinAssessments, nonConformities: data.nonConformities } : {
+        comments: type === 'IN' ? compactCheckinComments(JSON.stringify({ assessments: data.checkinAssessments })) : JSON.stringify({
           checklist: data.checklist, photos: data.photos, incident: data.incidentReport,
           earlyDeparture: data.isEarlyDeparture ? { reason: data.earlyDepartureReason, scheduledDepartureAt: data.scheduledDepartureAt } : undefined
         }),
         status: 'COMPLETED', roomRating: 0, houseRating: 0, cleanlinessRating: 0, signature: 'USER_SIGNED',
         ...(type === 'OUT' ? { isEarlyDeparture: Boolean(data.isEarlyDeparture), ...(data.earlyDepartureReason ? { earlyDepartureReason: data.earlyDepartureReason } : {}), scheduledDepartureAt: data.scheduledDepartureAt } : {})
       });
+      setBookings(previous => previous.map(item => item.id !== bookingId ? item : { ...item, ...(type === 'IN' ? { checkInReportId: savedReport.id } : { checkOutReportId: savedReport.id }) }));
       if (type === 'OUT') {
-        // Update Booking Status
-        const completedAt = new Date().toISOString();
+        // Use the server's authoritative recording time.
+        const completedAt = savedReport.date;
         setBookings(prev => prev.map(b => b.id === bookingId ? { ...b, status: 'COMPLETED', completedAt: typeof completedAt === 'string' ? completedAt : new Date().toISOString() } : b));
         
         toast.success("Départ validé ! Vos documents sont maintenant disponibles dans l'onglet dédié.");
@@ -287,6 +298,12 @@ export const TenantDashboard: React.FC = () => {
 
   const handleOpenInventory = (booking: Booking & { listing?: Listing }, type: 'IN' | 'OUT') => {
     const timing = getInventoryTiming(booking, booking.listing, type);
+    if (booking.status !== 'CONFIRMED' || booking.paymentStatus !== 'PAID' || timing.isExpired) {
+      toast.info('Ce séjour ne permet plus de réaliser cet état des lieux.'); return;
+    }
+    if (type === 'OUT' && (!booking.checkInReportId || booking.checkOutReportId || (!timing.isAvailable && !timing.isEarlyDeparture))) {
+      toast.info(booking.checkOutReportId ? 'Le départ a déjà été validé.' : 'Le départ est accessible pendant le séjour, après validation de l’entrée.'); return;
+    }
     if (type === 'IN') {
       const alreadyDone = Boolean(booking.checkInReportId) || documents.some(d => d.bookingId === booking.id && d.type === 'INVENTORY_IN');
       if (alreadyDone) {
@@ -295,7 +312,7 @@ export const TenantDashboard: React.FC = () => {
         return;
       }
       if (!timing.isAvailable) {
-        toast.info(`L’état des lieux d’entrée sera disponible le ${formatScheduledMoment(timing.scheduledAt)}.`);
+        toast.info(`L’état des lieux d’entrée sera disponible le ${formatScheduledMoment(timing.scheduledAt, timing.timeZone)}.`);
         return;
       }
     }
@@ -341,11 +358,8 @@ export const TenantDashboard: React.FC = () => {
   };
 
   const today = new Date().toISOString().slice(0, 10);
-  const isFinishedStay = (booking: Booking) => booking.status === 'COMPLETED';
-  const upcoming = bookings.filter(booking =>
-    booking.status === 'PENDING' || booking.status === 'APPROVED' || (booking.status === 'CONFIRMED' && !isFinishedStay(booking))
-  );
-  const history = bookings.filter(booking => booking.status === 'CANCELLED' || isFinishedStay(booking));
+  const upcoming = bookings.filter(booking => bookingCategory(booking, clockNow) !== 'PAST');
+  const history = bookings.filter(booking => bookingCategory(booking, clockNow) === 'PAST');
 
   const handleDownload = async (doc: AppDocument) => {
     if (doc.receiptId) {
@@ -456,7 +470,7 @@ export const TenantDashboard: React.FC = () => {
         <div className="bg-white rounded-[2.5rem] shadow-premium p-8 min-h-[500px] border border-gray-50">
           <div className="flex flex-wrap gap-4 md:gap-8 border-b border-gray-100 mb-8 overflow-x-auto">
             {[
-              { id: 'UPCOMING', label: 'Séjours à venir', count: upcoming.length },
+              { id: 'UPCOMING', label: 'Séjours à venir et en cours', count: upcoming.length },
               { id: 'HISTORY', label: 'Historique', count: history.length },
               { id: 'INCIDENTS', label: 'Mes incidents', count: tenantIncidents.length },
               { id: 'MESSAGES', label: 'Messages', count: unreadCount },
@@ -499,7 +513,7 @@ export const TenantDashboard: React.FC = () => {
                     </div>
 
                     <div className="flex min-w-0 flex-col justify-center p-6 text-left sm:p-8">
-                      <p className="mb-3 text-[10px] font-black uppercase tracking-[0.22em] text-haven-red">Votre prochain séjour</p>
+                      <p className="mb-3 text-[10px] font-black uppercase tracking-[0.22em] text-haven-red">{bookingCategory(booking, clockNow) === 'CURRENT' ? 'Votre séjour en cours' : 'Votre prochain séjour'}</p>
                       <div>
                         <h3 className="mb-2 font-heading text-2xl font-bold text-haven-navy transition-colors group-hover:text-haven-red sm:text-3xl">{booking.listing?.title}</h3>
                         <p className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-widest text-gray-400"><MapPin size={13} className="text-haven-red"/> {booking.listing?.city}</p>
@@ -564,9 +578,10 @@ export const TenantDashboard: React.FC = () => {
                             <Button 
                               variant="primary" 
                               className="w-full h-12 rounded-2xl text-[11px] font-black uppercase tracking-widest bg-haven-navy shadow-lg shadow-haven-navy/10 gap-2"
+                              disabled={!getInventoryTiming(booking, booking.listing, 'IN', clockNow).isAvailable || booking.paymentStatus !== 'PAID'}
                               onClick={() => handleOpenInventory(booking, 'IN')}
                             >
-                              <ClipboardCheck size={16} /> État des lieux entrée
+                              <ClipboardCheck size={16} /> {getInventoryTiming(booking, booking.listing, 'IN', clockNow).isExpired ? 'Entrée : délai dépassé' : 'État des lieux entrée'}
                             </Button>
                           )}
                           
@@ -574,9 +589,10 @@ export const TenantDashboard: React.FC = () => {
                           <Button 
                             variant="secondary" 
                             className="w-full h-12 rounded-2xl text-[11px] font-black uppercase tracking-widest gap-2 shadow-lg shadow-haven-red/10"
+                            disabled={!booking.checkInReportId || Boolean(booking.checkOutReportId) || (!getInventoryTiming(booking, booking.listing, 'OUT', clockNow).isAvailable && !getInventoryTiming(booking, booking.listing, 'OUT', clockNow).isEarlyDeparture)}
                             onClick={() => handleOpenInventory(booking, 'OUT')}
                           >
-                            <Sparkles size={16} /> Départ & Ménage
+                            <Sparkles size={16} /> {getInventoryTiming(booking, booking.listing, 'OUT', clockNow).isEarlyDeparture ? 'Départ anticipé' : 'Départ & Ménage'}
                           </Button>
 
                           {/* Incident Button */}
@@ -676,10 +692,10 @@ export const TenantDashboard: React.FC = () => {
                     <div className="flex items-start gap-4">
                       <img src={booking.listing?.mainPhotoUrl} className="h-24 w-24 flex-shrink-0 rounded-2xl object-cover sm:h-28 sm:w-28" alt="" />
                       <div className="min-w-0 flex-1">
-                        <div className={`mb-2 inline-block rounded-full px-2.5 py-1 text-[9px] font-black uppercase tracking-wider ${booking.status === 'CANCELLED' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>{booking.status === 'CANCELLED' ? 'Annulé' : 'Terminé'}</div>
+                        <div className={`mb-2 inline-block rounded-full px-2.5 py-1 text-[9px] font-black uppercase tracking-wider ${booking.status === 'CANCELLED' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>{booking.status === 'CANCELLED' ? 'Annulé' : booking.status === 'COMPLETED' ? 'Terminé' : booking.paymentStatus === 'PAID' ? 'Séjour passé' : 'Réservation expirée'}</div>
                         <h4 className="truncate font-heading text-xl font-bold text-haven-navy">{booking.listing?.title}</h4>
                         <p className="mt-1 flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-gray-400"><MapPin size={12} className="text-haven-red" /> {booking.listing?.city || 'Ville non renseignée'}</p>
-                        <p className="mt-2 text-xs font-medium text-gray-500">{booking.status === 'CANCELLED' ? `Annulé le ${new Date(booking.cancellation?.cancelledAt || booking.createdAt).toLocaleDateString('fr-FR')}` : `Terminé le ${new Date(booking.endDate).toLocaleDateString('fr-FR')}`}</p>
+                        <p className="mt-2 text-xs font-medium text-gray-500">{booking.status === 'CANCELLED' ? `Annulé le ${new Date(booking.cancellation?.cancelledAt || booking.createdAt).toLocaleDateString('fr-FR')}` : `${booking.status === 'COMPLETED' ? 'Terminé le' : 'Fin prévue le'} ${new Date(booking.endDate).toLocaleDateString('fr-FR')}`}</p>
                       </div>
                     </div>
 
@@ -695,6 +711,8 @@ export const TenantDashboard: React.FC = () => {
                         <p className="text-xs text-gray-500">{booking.roomName || 'Chambre réservée'}</p>
                       </div>
                     </div>
+
+                    {booking.status === 'CONFIRMED' && booking.paymentStatus === 'PAID' && !booking.checkOutReportId && <p className="mt-4 rounded-xl bg-gray-50 p-3 text-xs text-gray-600">Séjour terminé dans le calendrier. L’état des lieux de sortie n’a pas été enregistré et ne peut plus être réalisé après la date de départ.</p>}
 
                     {booking.status === 'CANCELLED' && booking.cancellation && (
                       <div className="mt-3 rounded-xl border border-red-100 bg-red-50 px-3 py-2 text-xs text-red-800">

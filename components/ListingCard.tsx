@@ -1,6 +1,7 @@
+import { isRoomAvailableForStay } from '../services/availability';
 
 import React from 'react';
-import { Listing } from '../types';
+import { Listing, BookingAvailability } from '../types';
 import { MapPin, Users, Star, ArrowRight } from 'lucide-react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -8,17 +9,17 @@ import { readSearchDates } from '../services/searchDates';
 
 interface ListingCardProps {
   listing: Listing;
+  availability?: BookingAvailability[];
   stayOverride?: { start: string; end: string; label?: string };
 }
 
-export const ListingCard: React.FC<ListingCardProps> = ({ listing, stayOverride }) => {
-  const minPrice = listing.rooms && listing.rooms.length > 0 
-    ? Math.min(...listing.rooms.map(r => r.pricePerDay))
-    : 0;
+export const ListingCard: React.FC<ListingCardProps> = ({ listing, stayOverride, availability }) => {
   const { t } = useLanguage();
   const [searchParams] = useSearchParams();
   const stayParams = new URLSearchParams();
   const dates = stayOverride || readSearchDates(searchParams);
+  const rooms = availability && dates.start && dates.end ? listing.rooms.filter(room => isRoomAvailableForStay(room, listing, availability, dates.start, dates.end)) : listing.rooms;
+  const minPrice = rooms.length ? Math.min(...rooms.map(room => room.pricePerDay)) : 0;
   if (dates.start) stayParams.set('start', dates.start);
   if (dates.end) stayParams.set('end', dates.end);
   const stayQuery = stayParams.toString();
@@ -63,7 +64,7 @@ export const ListingCard: React.FC<ListingCardProps> = ({ listing, stayOverride 
         <div className="flex items-center gap-3 text-xs text-gray-500 mb-6 font-medium">
           <span className="flex items-center gap-1">
             <Users size={14} />
-            {listing.availableRooms} {t('card.available')}
+            {availability && dates.start && dates.end ? rooms.length : listing.availableRooms} {t('card.available')}
           </span>
           <span className="w-1 h-1 rounded-full bg-gray-200"></span>
           <span>{listing.surface}m²</span>

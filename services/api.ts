@@ -1,3 +1,5 @@
+import { submitInventoryReport } from './inventorySubmission';
+import { loadAvailability, listenAvailability } from './publicAvailability';
 import { isOwnerBookingVisible } from './bookingVisibility';
 import { hasVerificationException } from './verificationException';
 import { createRandomId } from './randomId';
@@ -464,17 +466,9 @@ export const apiService = {
   },
 
   availability: {
-    listenAll(callback: (items: BookingAvailability[]) => void) {
-      return onSnapshot(collection(db, 'booking_availability'), snapshot => {
-        callback(snapshot.docs.map(item => item.data() as BookingAvailability));
-      }, error => logFirestoreListenerError(error, 'LIST_AVAILABILITY', 'booking_availability'));
-    },
-    listenByListingId(listingId: string, callback: (items: BookingAvailability[]) => void) {
-      const q = query(collection(db, 'booking_availability'), where('listingId', '==', listingId));
-      return onSnapshot(q, snapshot => {
-        callback(snapshot.docs.map(item => item.data() as BookingAvailability));
-      }, error => logFirestoreListenerError(error, 'LIST_AVAILABILITY', `booking_availability?listingId=${listingId}`));
-    }
+    getByListingId: (listingId: string) => loadAvailability(listingId),
+    listenAll: (callback: (items: BookingAvailability[]) => void, onError?: (error: Error) => void) => listenAvailability(undefined, callback, onError),
+    listenByListingId: (listingId: string, callback: (items: BookingAvailability[]) => void, onError?: (error: Error) => void) => listenAvailability(listingId, callback, onError),
   },
 
   housemates: {
@@ -831,12 +825,7 @@ export const apiService = {
 
   inventory: {
     async create(report: InventoryReport) {
-      const response = await authenticatedFetch(`/api/bookings/${encodeURIComponent(report.bookingId)}/inventory`, {
-        method: 'POST', body: JSON.stringify({ report })
-      });
-      const payload = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(`${payload.error || 'Impossible d’enregistrer l’état des lieux'} (Erreur ${response.status})`);
-      return payload.report as InventoryReport;
+      return submitInventoryReport(report, authenticatedFetch);
     },
     async getById(id: string): Promise<InventoryReport | undefined> {
       try {

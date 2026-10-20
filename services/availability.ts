@@ -34,3 +34,12 @@ export function listingHasAvailableRoom(
 ): boolean {
   return listing.rooms.some(room => isRoomAvailableForStay(room, listing, availability, startDate, endDate));
 }
+
+/** Anonymous calendar projection shared by the public endpoint. */
+export function publicAvailabilityItem(id: string, value: Record<string, unknown>): BookingAvailability | null {
+  if (!['PENDING', 'APPROVED', 'CONFIRMED'].includes(String(value.status)) ||
+      !['listingId', 'roomId', 'startDate', 'endDate'].every(key => typeof value[key] === 'string')) return null;
+  return { id, bookingId: id, listingId: value.listingId as string, roomId: value.roomId as string,
+    startDate: value.startDate as string, endDate: value.endDate as string,
+    status: value.status as BookingAvailability['status'], updatedAt: typeof value.updatedAt === 'string' ? value.updatedAt : '' };
+}

@@ -1,16 +1,17 @@
+import { stayLocalDate } from './services/inventoryTiming';
 import { createReservationConfirmation, confirmationEmail, canReleaseArrivalInstructions, type ReservationConfirmation } from './services/reservationFulfillment';
 import { paymentReceiptPdf } from './services/paymentReceiptPdf';
 import { getPaymentMode, PaymentConfigurationError } from './services/paymentConfiguration';
 import { preparePaymentConfirmation, simulationSessionId, type PaymentReceipt } from './services/paymentCheckout';
 import { isOwnerBookingVisible } from './services/bookingVisibility';
-import { BookingLifecycleError, bookingDeadline, isBookingExpired, assertBookingPayable, prepareInventoryReport } from './services/bookingLifecycle';
+import { BookingLifecycleError, bookingDeadline, isBookingExpired, assertBookingPayable, prepareInventoryReport, recoverInventoryReport } from './services/bookingLifecycle';
 import { hasVerificationException, hasTrustedVerificationException, prepareVerificationException, VerificationExceptionError } from './services/verificationException';
 import { countNights, isBookableStay } from './services/stay';
 import { getCancellationTerms } from './services/cancellationPolicy';
 import { isStayReviewWindowOpen } from './services/reviewPolicy';
 import { hasCompleteVerificationDetails, hasRequiredPhoneNumber, isVerificationReadyToSubmit } from './services/profileVerification';
 import type { Booking, BookingAvailability, Listing, Room } from './types';
-import { isRoomAvailableForStay } from './services/availability';
+import { isRoomAvailableForStay, publicAvailabilityItem } from './services/availability';
 import { minimumNights } from './services/minimumStay';
 import { canConfirmEmailOwnership } from './services/emailOwnership';
 import { preparePersonalDetails, preparePhoneForVerification } from './services/accountProfileMutation';
@@ -25,7 +26,7 @@ import { IncidentEscalationError, prepareIncidentEscalation } from './services/i
 import { OwnerIncidentError, prepareOwnerIncidentUpdate } from './services/ownerIncident';
 import { ListingReviewError, prepareListingReview } from './services/listingReview';
 import { MemberApprovalError, prepareMemberApproval, prepareMemberModeration } from './services/memberApproval';
-import { buildHousematePreviews, eligibleHousemateBookings } from './services/housemates';
+import { buildHousematePreviews, eligibleHousemateBookings, canViewBookingHousemates } from './services/housemates';
 import type { HousemateProfile } from './services/housemates';
 import express from "express";
 import { createServer as createViteServer } from "vite";
@@ -330,6 +331,28 @@ async function expireBookings() {
   } catch (error) { console.error('Booking expiration unavailable', error); }
 }
 
+async function getHousematesForStay(listingId: string, stay: { viewerId: string; roomId: string; startDate: string; endDate: string }) {
+  const bookingsSnapshot = await adminDb.collection("bookings").where("listingId", "==", listingId).get();
+  const candidates = eligibleHousemateBookings(bookingsSnapshot.docs.map(item => item.data()), stay);
+
+  const uniqueTenantIds = [...new Set(candidates.map(booking => String(booking.tenantId)))];
+  const profiles = await Promise.all(uniqueTenantIds.map(async (tenantId): Promise<HousemateProfile | null> => {
+    // A stale or malformed profile must not make the whole listing page fail.
+    if (!/^[a-zA-Z0-9_-]{1,128}$/.test(tenantId)) return null;
+    try {
+      const snapshot = await adminDb.collection("users").doc(tenantId).get();
+      return snapshot.exists ? { ...snapshot.data(), id: tenantId } : null;
+    } catch (error) {
+      console.warn("Skipping unavailable housemate profile", tenantId, error);
+      return null;
+    }
+  }));
+  const profilesById = new Map<string, HousemateProfile>(profiles.filter((profile): profile is HousemateProfile => Boolean(profile))
+    .map(profile => [profile.id, profile]));
+  return buildHousematePreviews(candidates, profilesById, stay);
+
+}
+
 async function startServer() {
   console.log("Starting server...");
   const app = express();
@@ -394,6 +417,24 @@ async function startServer() {
     res.json({ status: 'ok', env: process.env.NODE_ENV, paymentMode, emailConfigured: !('error' in getEmailProvider()) });
   });
 
+  // Public calendar only: never expose booking participants, contact data or payment details.
+  app.get('/api/availability', rateLimit({ windowMs: 60_000, limit: 240, standardHeaders: true, legacyHeaders: false }), async (req, res) => {
+    try {
+      const listingId = req.query.listingId;
+      if (listingId !== undefined && (typeof listingId !== 'string' || !/^[a-zA-Z0-9_-]{1,128}$/.test(listingId))) return sendApiError(res, 422, 'Logement invalide.');
+      const cutoff = new Date(Date.now() - 24 * 3600_000).toISOString().slice(0, 10);
+      const query = listingId ? adminDb.collection('booking_availability').where('listingId', '==', listingId) : adminDb.collection('booking_availability').where('endDate', '>=', cutoff);
+      const snapshot = await query.get();
+      const availability = snapshot.docs.flatMap(item => {
+        const value = item.data();
+        const calendar = publicAvailabilityItem(item.id, value);
+        return calendar && calendar.endDate >= cutoff ? [calendar] : [];
+      });
+      res.setHeader('Cache-Control', 'no-store');
+      return res.json({ availability });
+    } catch { return sendApiError(res, 503, 'Impossible de vérifier les disponibilités.'); }
+  });
+
   app.post('/api/bookings', sensitiveApiLimiter, requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
       const { id, listingId, roomId, startDate, endDate } = req.body || {};
@@ -438,7 +479,9 @@ async function startServer() {
         const basePrice = room.pricePerDay * nights;
         const cleaningFee = Number.isFinite(Number(listing.cleaningFee)) ? Math.max(0, Number(listing.cleaningFee)) : 0;
         const platformFee = Math.round(basePrice * 0.15);
+        const access = await transaction.get(adminDb.collection('listing_access').doc(listingId));
         const booking: Booking = {
+          timeZone: access.data()?.timeZone || 'Europe/Paris',
           id, listingId, listingTitle: listing.title, roomId, roomName: room.name || 'Chambre', tenantId: req.user!.uid,
           ownerId: listing.ownerId, startDate, endDate, status: 'PENDING', basePrice, cleaningFee,
           platformFee, totalPrice: basePrice + cleaningFee + platformFee, createdAt,
@@ -474,17 +517,28 @@ async function startServer() {
         const snapshot = await transaction.get(ref);
         if (!snapshot.exists) throw new BookingLifecycleError('Réservation introuvable', 404);
         const booking = { ...snapshot.data(), id } as Booking;
+        if (booking.tenantId !== req.user!.uid) throw new BookingLifecycleError('Accès refusé.', 403);
+        const input = req.body.report as import('./types').InventoryReport;
+        const linkedId = input.type === 'IN' ? booking.checkInReportId : input.type === 'OUT' ? booking.checkOutReportId : undefined;
+        if (linkedId && linkedId === input.id) {
+          const saved = await transaction.get(adminDb.collection('inventory').doc(linkedId));
+          if (!saved.exists) throw new BookingLifecycleError('Le document est momentanément indisponible. Contactez Haven.', 503);
+          return recoverInventoryReport(booking, req.user!.uid, input, saved.data() as import('./types').InventoryReport);
+        }
         const listingSnap = await transaction.get(adminDb.collection('listings').doc(booking.listingId));
         if (!listingSnap.exists) throw new BookingLifecycleError('Logement introuvable', 404);
         const listing = listingSnap.data() as Listing;
         const now = new Date();
         const report = prepareInventoryReport(booking, listing, req.user!.uid, req.body.report, now);
+        const tenantSnapshot = await transaction.get(adminDb.collection('users').doc(booking.tenantId));
+        const tenant = tenantSnapshot.data() || {};
+        report.stay = { listingTitle: booking.listingTitle || listing.title, roomName: booking.roomName || 'Chambre', startDate: booking.startDate, endDate: booking.endDate, tenantName: [tenant.firstName, tenant.lastName].filter(Boolean).join(' ') || 'Locataire', timeZone: booking.timeZone || 'Europe/Paris' };
         let details: any = {};
         try { details = JSON.parse(report.comments) || {}; } catch { /* Older forms use plain text. */ }
         const issues: { category: string; subCategory: string; description: string; photo?: string }[] = [];
         if (report.type === 'OUT' && details.incident?.subCategory) issues.push(details.incident);
         if (report.type === 'IN' && Array.isArray(details.nonConformities)) for (const item of details.nonConformities) {
-          issues.push({ category: 'État du logement', subCategory: item.clean === false ? 'Ménage non fait' : 'Non-conformité à l’arrivée', description: `${item.area === 'ROOM' ? 'Chambre' : 'Espaces communs'} : ${String(item.comment || 'Non-conformité signalée à l’arrivée').slice(0, 4500)}`, photo: item.photos?.[0] || '' });
+          issues.push({ category: 'État du logement', subCategory: item.clean === false ? 'Ménage non fait' : 'Non-conformité à l’arrivée', description: `${item.area === 'ROOM' ? 'Chambre' : 'Espaces communs'} : ${String(item.comment || 'Non-conformité signalée à l’arrivée').slice(0, 4500)}`, photo: details.assessments?.[item.area]?.photos?.[0] || item.photos?.[0] || '' });
         }
         if (issues.length > 3) throw new BookingLifecycleError('Trop de problèmes dans cet état des lieux.', 422);
         const routedIssues = issues.map((issue, index) => routeStayIssue({ ...issue, id: `inc-${report.id}-${index}`, bookingId: id, listingId: booking.listingId, ownerId: booking.ownerId, reporterId: booking.tenantId, createdAt: now.toISOString() }));
@@ -980,6 +1034,20 @@ async function startServer() {
   // Shows only the voluntary public profiles of confirmed tenants whose stay
   // overlaps the dates requested by a signed-in prospective housemate. Contacts,
   // legal identity and payment information never leave the server here.
+  app.get('/api/bookings/:bookingId/housemates', requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      const id = String(req.params.bookingId);
+      if (!/^[a-zA-Z0-9_-]{1,128}$/.test(id)) return sendApiError(res, 422, 'Réservation invalide.');
+      const snapshot = await adminDb.collection('bookings').doc(id).get();
+      if (!snapshot.exists) return sendApiError(res, 404, 'Réservation introuvable.');
+      const booking = snapshot.data() as Booking;
+      if (!canViewBookingHousemates(booking, req.user!.uid, stayLocalDate(new Date(), booking.timeZone || 'Europe/Paris'))) return sendApiError(res, 403, 'Ces profils sont réservés au locataire d’un séjour confirmé à venir ou en cours.');
+      const housemates = await getHousematesForStay(booking.listingId, { viewerId: booking.tenantId, roomId: booking.roomId, startDate: booking.startDate, endDate: booking.endDate });
+      res.setHeader('Cache-Control', 'no-store');
+      return res.json({ housemates });
+    } catch { return sendApiError(res, 503, 'Les profils sont momentanément indisponibles.'); }
+  });
+
   app.get("/api/listings/:listingId/housemates", sensitiveApiLimiter, requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
       const listingId = String(req.params.listingId || "");
@@ -998,26 +1066,9 @@ async function startServer() {
         return sendApiError(res, 422, "Chambre invalide");
       }
 
-      const bookingsSnapshot = await adminDb.collection("bookings").where("listingId", "==", listingId).get();
       const stay = { viewerId: req.user!.uid, roomId, startDate, endDate };
-      const candidates = eligibleHousemateBookings(bookingsSnapshot.docs.map(item => item.data()), stay);
-
-      const uniqueTenantIds = [...new Set(candidates.map(booking => String(booking.tenantId)))];
-      const profiles = await Promise.all(uniqueTenantIds.map(async (tenantId): Promise<HousemateProfile | null> => {
-        // A stale or malformed profile must not make the whole listing page fail.
-        if (!/^[a-zA-Z0-9_-]{1,128}$/.test(tenantId)) return null;
-        try {
-          const snapshot = await adminDb.collection("users").doc(tenantId).get();
-          return snapshot.exists ? { ...snapshot.data(), id: tenantId } : null;
-        } catch (error) {
-          console.warn("Skipping unavailable housemate profile", tenantId, error);
-          return null;
-        }
-      }));
-      const profilesById = new Map<string, HousemateProfile>(profiles.filter((profile): profile is HousemateProfile => Boolean(profile))
-        .map(profile => [profile.id, profile]));
-      const housemates = buildHousematePreviews(candidates, profilesById, stay);
-
+      const housemates = await getHousematesForStay(listingId, stay);
+      res.setHeader('Cache-Control', 'no-store');
       return res.json({ housemates });
     } catch (error) {
       console.error("Housemate preview failed", error);

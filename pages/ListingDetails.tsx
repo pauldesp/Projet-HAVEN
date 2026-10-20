@@ -40,12 +40,14 @@ export const ListingDetails: React.FC = () => {
   const [reviews, setReviews] = useState<any[]>([]);
   const [isReviewsLoading, setIsReviewsLoading] = useState(false);
   const [isOwnerMode, setIsOwnerMode] = useState(false);
+  const [availabilityReady, setAvailabilityReady] = useState(false);
+  const [availabilityError, setAvailabilityError] = useState('');
   const [availability, setAvailability] = useState<BookingAvailability[]>([]);
   const [isFavoriteUpdating, setIsFavoriteUpdating] = useState(false);
   const [housemates, setHousemates] = useState<HousematePreview[]>([]);
   const [isHousematesLoading, setIsHousematesLoading] = useState(false);
   const [housematesError, setHousematesError] = useState<string | null>(null);
-  
+
   const isApproved = Boolean(currentUser && hasVerificationException(currentUser)) || (currentUser?.status === 'APPROVED' && currentUser.emailVerified === true && hasRequiredPhoneNumber(currentUser) && currentUser.identityVerified === true) || currentUser?.role === 'ADMIN';
   const hasTenantDocuments = Boolean(currentUser?.documents?.idCard);
   const canBook = isApproved && (hasTenantDocuments || Boolean(currentUser && hasVerificationException(currentUser)));
@@ -57,7 +59,7 @@ export const ListingDetails: React.FC = () => {
       setIsOwnerMode(true);
     }
   }, [isListingOwner]);
-  
+
   // États pour les dates sélectionnées (synchronisés entre calendrier et sidebar)
   const [searchParams, setSearchParams] = useSearchParams();
   const { start: startDate, end: endDate } = readSearchDates(searchParams);
@@ -90,11 +92,12 @@ export const ListingDetails: React.FC = () => {
 
   useEffect(() => {
     if (!listing?.id) return;
-    return apiService.availability.listenByListingId(listing.id, setAvailability);
+    setAvailabilityReady(false); setAvailabilityError('');
+    return apiService.availability.listenByListingId(listing.id, items => { setAvailability(items); setAvailabilityReady(true); setAvailabilityError(''); }, error => { setAvailabilityReady(false); setAvailabilityError(error.message); });
   }, [listing?.id]);
 
   const isRoomAvailable = (room: Room) =>
-    Boolean(listing) && isRoomAvailableForStay(room, listing, availability, startDate, endDate);
+    availabilityReady && Boolean(listing) && isRoomAvailableForStay(room, listing, availability, startDate, endDate);
   const defaultRoom = listing?.rooms.find(isRoomAvailable) || listing?.rooms[0];
   const requestedRoom = selectedRoomId ? listing?.rooms.find(r => r.id === selectedRoomId) : undefined;
   // Keep the room chosen by the visitor even when it is unavailable. This lets
@@ -152,7 +155,13 @@ export const ListingDetails: React.FC = () => {
     b => b.status === 'CONFIRMED'
   );
 
-  const handleBookClick = () => {
+  const handleBookClick = async () => {
+    if (!availabilityReady || availabilityError) { toast.error('La disponibilité doit être vérifiée avant de réserver.'); return; }
+    try {
+      const fresh = await apiService.availability.getByListingId(listing!.id);
+      setAvailability(fresh);
+      if (!activeRoom || !isRoomAvailableForStay(activeRoom, listing!, fresh, startDate, endDate)) { toast.error('Cette chambre est indisponible aux dates choisies.'); return; }
+    } catch { setAvailabilityReady(false); toast.error('Impossible de vérifier la disponibilité. Réessayez.'); return; }
     if (!isBookableStay(startDate, endDate)) {
       toast.error('La date d’arrivée doit être aujourd’hui ou ultérieure.');
       return;
@@ -176,7 +185,7 @@ export const ListingDetails: React.FC = () => {
       toast.error('Basculez en mode locataire pour réserver ce logement. (Erreur 403)');
       return;
     }
-    
+
     if (!canBook) {
       if (isVerificationPending(currentUser)) {
         toast.info('Dossier en cours de validation', {
@@ -194,7 +203,7 @@ export const ListingDetails: React.FC = () => {
       toast.error(`Ce logement nécessite un séjour minimum de ${minimumNights(listing.minStay)} nuits. (Erreur 422)`);
       return;
     }
-    
+
     setIsBookingOpen(true);
   };
 
@@ -240,7 +249,7 @@ export const ListingDetails: React.FC = () => {
 
   const handleSaveBlockedDates = async (dates: string[]) => {
     if (!listing) return;
-    
+
     const updatedListing = isBlockingWholeListing
       ? { ...listing, blockedDates: dates }
       : {
@@ -249,7 +258,7 @@ export const ListingDetails: React.FC = () => {
             room.id === blockedRoom.id ? { ...room, blockedDates: dates } : room
           )
         };
-    
+
     try {
       await updateListing(updatedListing);
       toast.success(isBlockingWholeListing
@@ -274,7 +283,7 @@ export const ListingDetails: React.FC = () => {
     <>
       <div className="pt-8 pb-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          
+
           {/* Gallery */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 h-[400px] md:h-[500px] rounded-3xl overflow-hidden mb-8">
             <img src={listingPhotos[0] || listing.mainPhotoUrl} alt="Photo principale du logement" className="w-full h-full object-cover" />
@@ -311,7 +320,7 @@ export const ListingDetails: React.FC = () => {
                   <button className="p-3 rounded-full border border-gray-200 hover:bg-gray-50 text-haven-navy" title="Signaler"><AlertCircle size={20} onClick={() => setIsReportModalOpen(true)} /></button>
                   <button type="button" onClick={handleShare} aria-label="Partager cette annonce" title="Partager cette annonce" className="p-3 rounded-full border border-gray-200 hover:bg-gray-50 text-haven-navy"><Share size={20}/></button>
                   <button type="button" onClick={handleFavorite} disabled={isFavoriteUpdating} aria-label={isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris'} title={isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris'} className={`p-3 rounded-full border border-gray-200 hover:bg-gray-50 text-haven-navy disabled:cursor-wait ${isFavorite ? 'bg-haven-red/5 text-haven-red border-haven-red/20' : ''}`}>
-                    {isFavoriteUpdating ? <Loader2 size={20} className="animate-spin" /> : <Heart size={20} className={isFavorite ? 'fill-current' : ''}/>} 
+                    {isFavoriteUpdating ? <Loader2 size={20} className="animate-spin" /> : <Heart size={20} className={isFavorite ? 'fill-current' : ''}/>}
                   </button>
                 </div>
               </div>
@@ -335,7 +344,7 @@ export const ListingDetails: React.FC = () => {
 
               <div className="mb-10">
                 <h2 className="font-heading font-bold text-xl mb-4">À propos du logement</h2>
-                <div className="prose prose-slate max-w-none 
+                <div className="prose prose-slate max-w-none
                   prose-p:text-gray-600 prose-p:leading-relaxed prose-p:mb-4 prose-p:mt-0
                   prose-li:text-gray-600 prose-li:my-0.5
                   prose-ul:list-disc prose-ul:pl-5 prose-ul:mb-4
@@ -352,10 +361,10 @@ export const ListingDetails: React.FC = () => {
                 <div className="mb-10 p-6 bg-white rounded-3xl border border-gray-100 shadow-sm flex items-center gap-6">
                   <Link to={`/profile/${owner.id}`} className="flex-shrink-0">
                     <div className="relative">
-                      <img 
-                        src={owner.avatarUrl} 
-                        alt={owner.firstName} 
-                        className="w-20 h-20 rounded-full object-cover border-2 border-white shadow-md hover:scale-105 transition-transform" 
+                      <img
+                        src={owner.avatarUrl}
+                        alt={owner.firstName}
+                        className="w-20 h-20 rounded-full object-cover border-2 border-white shadow-md hover:scale-105 transition-transform"
                       />
                       {owner.status === 'APPROVED' && (
                         <div className="absolute -bottom-1 -right-1 bg-green-500 text-white p-1 rounded-full border-2 border-white shadow-sm">
@@ -418,11 +427,12 @@ export const ListingDetails: React.FC = () => {
                     const roomAvailable = isRoomAvailable(room);
                     const roomIsSelected = selectedRoomId === room.id || (!selectedRoomId && room.id === activeRoom.id);
                     return (
-                    <div 
-                      key={room.id} 
+                    <div
+                      key={room.id}
                       aria-selected={roomIsSelected}
-                      className={`border rounded-2xl p-4 flex flex-col md:flex-row gap-6 items-center transition-all cursor-pointer ${!roomAvailable ? 'bg-gray-50' : ''} ${roomIsSelected ? 'border-haven-navy ring-1 ring-haven-navy bg-blue-50/50' : 'border-gray-200'} hover:border-haven-navy/30`}
-                      onClick={() => setSelectedRoomId(room.id)}
+                      aria-disabled={!roomAvailable}
+                      className={`border rounded-2xl p-4 flex flex-col md:flex-row gap-6 items-center transition-all ${!roomAvailable ? 'bg-gray-50 cursor-not-allowed' : 'cursor-pointer'} ${roomIsSelected ? 'border-haven-navy ring-1 ring-haven-navy bg-blue-50/50' : 'border-gray-200'} hover:border-haven-navy/30`}
+                      onClick={() => { if (roomAvailable) setSelectedRoomId(room.id); }}
                     >
                       <div className="w-full md:w-48 h-32 rounded-xl overflow-hidden flex-shrink-0">
                         <img src={room.photoUrl} className="w-full h-full object-cover" alt={room.name} />
@@ -430,7 +440,7 @@ export const ListingDetails: React.FC = () => {
                       <div className="flex-1 w-full text-left">
                         <div className="flex justify-between items-start mb-2">
                           <h3 className="font-bold text-lg text-haven-navy">{room.name}</h3>
-                          {roomAvailable ? 
+                          {!availabilityReady ? <span className="bg-gray-100 text-gray-600 px-2 py-1 rounded text-xs font-bold">{availabilityError ? 'Vérification impossible' : 'Vérification…'}</span> : roomAvailable ?
                             <span className="bg-green-100 text-green-700 px-2 py-1 rounded text-xs font-bold">Disponible</span> :
                             <span className="bg-gray-200 text-gray-600 px-2 py-1 rounded text-xs font-bold">Indisponible pour vos dates</span>
                           }
@@ -523,7 +533,7 @@ export const ListingDetails: React.FC = () => {
                     </div>
                   )}
                 </div>
-                
+
                 {isListingOwner ? (
                   <div className="mb-6 space-y-4">
                     <p className="text-gray-500 text-sm italic">
@@ -559,13 +569,13 @@ export const ListingDetails: React.FC = () => {
                   </div>
                 ) : (
                   <p className="text-gray-500 mb-6 text-sm">
-                    Sélectionnez vos dates pour <span className="font-bold text-haven-navy">{activeRoom.name}</span>. 
+                    Sélectionnez vos dates pour <span className="font-bold text-haven-navy">{activeRoom.name}</span>.
                     Séjour minimum : <span className="font-bold text-haven-navy">{listing.minStay} nuits</span>.
                     Les jours réservés sont indiqués sur le calendrier.
                   </p>
                 )}
-                
-                <ListingCalendar 
+
+                <ListingCalendar
                   key={isListingOwner ? blockTarget : activeRoom.id}
                   activeRoomBookings={calendarBookings}
                   allHouseBookings={allHouseBookings}
@@ -637,7 +647,7 @@ export const ListingDetails: React.FC = () => {
                     </div>
                   )}
                 </div>
-                
+
                 <div className="mt-8 text-center">
                   <Button variant="outline">Voir tous les avis</Button>
                 </div>
@@ -649,8 +659,8 @@ export const ListingDetails: React.FC = () => {
               <div className="lg:col-span-1">
                 <div className="sticky top-24 bg-white p-6 rounded-3xl shadow-card border border-gray-100">
                   <h3 className="font-heading font-bold text-xl mb-4">Réserver <span className="text-haven-red">{activeRoom.name}</span></h3>
-                  
-                  <div 
+
+                  <div
                     className="bg-haven-cream p-4 rounded-xl mb-4 cursor-pointer hover:bg-haven-cream/80 transition-colors border border-transparent hover:border-haven-navy/20"
                     onClick={() => calendarRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
                   >
@@ -688,8 +698,9 @@ export const ListingDetails: React.FC = () => {
                   </div>
 
                   <Button fullWidth size="lg" onClick={handleBookClick} disabled={!activeRoomIsAvailable || !isBookableStay(startDate, endDate)}>
-                    {!startDate || !endDate ? 'Sélectionnez vos dates' : activeRoomIsAvailable ? 'Réserver' : 'Indisponible'}
+                    {!availabilityReady ? (availabilityError ? 'Vérification impossible' : 'Vérification…') : !startDate || !endDate ? 'Sélectionnez vos dates' : activeRoomIsAvailable ? 'Réserver' : 'Indisponible'}
                   </Button>
+                  {availabilityError && <p role="alert" className="mt-3 text-sm text-red-700">{availabilityError}</p>}
                   <p className="text-center text-xs text-gray-400 mt-4">Vous ne serez débité qu'après validation</p>
                 </div>
               </div>
@@ -698,21 +709,21 @@ export const ListingDetails: React.FC = () => {
         </div>
       </div>
 
-      <BookingModal 
-        isOpen={isBookingOpen} 
-        onClose={() => setIsBookingOpen(false)} 
+      <BookingModal
+        isOpen={isBookingOpen}
+        onClose={() => setIsBookingOpen(false)}
         listing={listing}
         room={activeRoom}
         startDate={startDate}
         endDate={endDate}
       />
 
-      <AccountStatusOverlay 
-        isOpen={isVerificationModalOpen} 
-        onClose={() => setIsVerificationModalOpen(false)} 
+      <AccountStatusOverlay
+        isOpen={isVerificationModalOpen}
+        onClose={() => setIsVerificationModalOpen(false)}
       />
 
-      <ReportModal 
+      <ReportModal
         isOpen={isReportModalOpen}
         onClose={() => setIsReportModalOpen(false)}
         targetId={listing.id}

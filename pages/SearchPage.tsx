@@ -53,6 +53,7 @@ export const SearchPage: React.FC = () => {
   
   // Consommation du contexte global
   const { listings: allListings, isLoading: listingsLoading, error: listingsError } = useListings();
+  const [availabilityError, setAvailabilityError] = useState('');
   const [availability, setAvailability] = useState<BookingAvailability[]>([]);
   const [isAvailabilityLoading, setIsAvailabilityLoading] = useState(Boolean(startDate || endDate));
 
@@ -61,11 +62,11 @@ export const SearchPage: React.FC = () => {
       setIsAvailabilityLoading(false);
       return;
     }
-    setIsAvailabilityLoading(true);
+    setIsAvailabilityLoading(true); setAvailabilityError('');
     return apiService.availability.listenAll(items => {
-      setAvailability(items);
+      setAvailability(items); setAvailabilityError('');
       setIsAvailabilityLoading(false);
-    });
+    }, error => { setAvailabilityError(error.message); setIsAvailabilityLoading(false); });
   }, [startDate, endDate]);
 
   // Dynamic Geocoding State
@@ -216,6 +217,8 @@ export const SearchPage: React.FC = () => {
     setSelectedAmenities([]);
     setSelectedRoomOptions([]);
   };
+
+  if ((startDate || endDate) && (isAvailabilityLoading || availabilityError)) return <div className="mx-auto max-w-xl p-12 text-center text-haven-navy" role={availabilityError ? 'alert' : 'status'}>{availabilityError || 'Vérification des chambres disponibles…'}{availabilityError && <p className="mt-3 text-sm text-gray-500">Réessayez dans un instant. La réservation reste bloquée tant que les disponibilités ne peuvent pas être vérifiées.</p>}</div>;
 
   return (
     <div className="min-h-screen bg-haven-cream pt-8 pb-20">
@@ -378,7 +381,7 @@ export const SearchPage: React.FC = () => {
                 </div>
                 <div className="grid md:grid-cols-2 gap-8">
                   {exactMatches.map(listing => (
-                    <ListingCard key={listing.id} listing={listing} />
+                    <ListingCard key={listing.id} listing={listing} availability={availability} />
                   ))}
                 </div>
               </div>
@@ -394,7 +397,7 @@ export const SearchPage: React.FC = () => {
                   {nearbyDateMatches.map(listing => {
                     const { nearbyStay } = listing;
                     const label = `Du ${new Date(`${nearbyStay.startDate}T12:00:00`).toLocaleDateString('fr-FR')} au ${new Date(`${nearbyStay.endDate}T12:00:00`).toLocaleDateString('fr-FR')}`;
-                    return <ListingCard key={listing.id} listing={listing} stayOverride={{ start: nearbyStay.startDate, end: nearbyStay.endDate, label }} />;
+                    return <ListingCard key={listing.id} listing={listing} availability={availability} stayOverride={{ start: nearbyStay.startDate, end: nearbyStay.endDate, label }} />;
                   })}
                 </div>
               </div>
@@ -410,7 +413,7 @@ export const SearchPage: React.FC = () => {
                 <div className="grid md:grid-cols-2 gap-8">
                   {nearbyMatches.map(listing => (
                     <div key={listing.id} className="relative">
-                      <ListingCard listing={listing} />
+                      <ListingCard listing={listing} availability={availability} />
                       <div className="absolute top-4 left-4 z-10 bg-white/95 backdrop-blur-sm text-haven-navy px-4 py-2 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl flex items-center gap-2 border border-gray-100">
                         <Route size={14} className="text-haven-red" />
                         À {Math.round(listing.distance || 0)} km à vol d’oiseau

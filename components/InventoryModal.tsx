@@ -1,3 +1,4 @@
+import { MAX_CHECKIN_PHOTOS_PER_AREA } from '../services/inventoryPayload';
 import React, { useEffect, useMemo, useState } from 'react';
 import { 
   AlertTriangle,
@@ -126,10 +127,14 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
     };
   }, [isOpen, type, booking.id]);
 
-  const inventoryTiming = useMemo(
-    () => getInventoryTiming(booking, listing, type),
-    [booking, listing, type],
-  );
+  const [clockNow, setClockNow] = useState(() => new Date());
+  useEffect(() => {
+    if (!isOpen) return;
+    setClockNow(new Date());
+    const timer = setInterval(() => setClockNow(new Date()), 15_000);
+    return () => clearInterval(timer);
+  }, [isOpen]);
+  const inventoryTiming = getInventoryTiming(booking, listing, type, clockNow);
 
   if (!isOpen) return null;
 
@@ -164,10 +169,10 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
   };
 
   const addCheckinPhoto = async (area: CheckinArea) => {
-    if (checkinAssessments[area].photos.length >= 2) { setError('Deux photos maximum par espace.'); return; }
+    if (checkinAssessments[area].photos.length >= MAX_CHECKIN_PHOTOS_PER_AREA) { setError('Cinq photos maximum par espace.'); return; }
     try {
       const photo = await selectInventoryPhoto();
-      if (photo) setCheckinAssessments(prev => ({ ...prev, [area]: { ...prev[area], photos: [...prev[area].photos, photo] } }));
+      if (photo) setCheckinAssessments(prev => prev[area].photos.length >= MAX_CHECKIN_PHOTOS_PER_AREA ? prev : ({ ...prev, [area]: { ...prev[area], photos: [...prev[area].photos, photo] } }));
     } catch (error) { setError(error instanceof Error ? error.message : 'Photo illisible.'); }
   };
 
@@ -222,8 +227,10 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
     setError(null);
 
     try {
-      if (!inventoryTiming.isAvailable && !(type === 'OUT' && isForcedOverride)) {
-        throw new Error(`L’état des lieux est disponible à partir du ${formatScheduledMoment(inventoryTiming.scheduledAt)}.`);
+      const freshTiming = getInventoryTiming(booking, listing, type);
+      if (freshTiming.isExpired || (!freshTiming.isAvailable && !freshTiming.isEarlyDeparture)) throw new Error('Cet état des lieux ne peut pas être réalisé à cette date.');
+      if (!inventoryTiming.isAvailable && !(type === 'OUT' && inventoryTiming.isEarlyDeparture && isForcedOverride)) {
+        throw new Error(`L’état des lieux est disponible à partir du ${formatScheduledMoment(inventoryTiming.scheduledAt, inventoryTiming.timeZone)}.`);
       }
       if (type === 'OUT' && inventoryTiming.isEarlyDeparture && earlyDepartureReason.trim().length < 10) {
         throw new Error('Indiquez le motif de votre départ anticipé.');
@@ -323,7 +330,7 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
         </div>
 
         <div className="flex-1 overflow-y-auto p-5 md:p-8">
-          {type === 'IN' && !inventoryTiming.isAvailable ? (
+          {(inventoryTiming.isExpired || (type === 'OUT' && !inventoryTiming.isAvailable && !inventoryTiming.isEarlyDeparture)) ? <p className="p-8 text-center">Cet état des lieux ne peut pas être réalisé à cette date.</p> : type === 'IN' && !inventoryTiming.isAvailable ? (
             <div className="min-h-[420px] flex flex-col items-center justify-center text-center max-w-xl mx-auto space-y-6">
               <div className="w-20 h-20 rounded-full bg-haven-navy/5 text-haven-navy flex items-center justify-center">
                 <KeyRound size={36} />
@@ -331,7 +338,7 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
               <div>
                 <h3 className="text-2xl font-heading font-bold text-haven-navy">Arrivée bientôt disponible</h3>
                 <p className="text-gray-600 mt-3 leading-relaxed">
-                  Votre état des lieux d’entrée sera disponible à partir du {formatScheduledMoment(inventoryTiming.scheduledAt)}.
+                  Votre état des lieux d’entrée sera disponible à partir du {formatScheduledMoment(inventoryTiming.scheduledAt, inventoryTiming.timeZone)}.
                 </p>
               </div>
             </div>
@@ -343,7 +350,7 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
               <div>
                 <h3 className="text-2xl font-heading font-bold text-haven-navy">Départ anticipé</h3>
                 <p className="text-gray-600 mt-3 leading-relaxed">
-                  Le parcours de départ est normalement accessible à partir du {formatScheduledMoment(inventoryTiming.scheduledAt)}.
+                  Le départ est prévu le {formatScheduledMoment(inventoryTiming.scheduledAt, inventoryTiming.timeZone)}.
                   Si vous quittez définitivement le logement avant cette échéance, indiquez votre motif pour poursuivre.
                 </p>
               </div>
@@ -542,7 +549,7 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
           )}
         </div>
 
-        {!((type === 'IN' && !inventoryTiming.isAvailable) || (type === 'OUT' && !inventoryTiming.isAvailable && !isForcedOverride)) && (
+        {!(inventoryTiming.isExpired || (type === 'OUT' && !inventoryTiming.isAvailable && !inventoryTiming.isEarlyDeparture)) && !((type === 'IN' && !inventoryTiming.isAvailable) || (type === 'OUT' && !inventoryTiming.isAvailable && !isForcedOverride)) && (
           <div className="border-t border-gray-100 bg-white p-4 md:px-8 md:py-5 flex items-center justify-between gap-3">
             <Button
               variant="outline"
@@ -627,14 +634,15 @@ const PhotoSection: React.FC<{
   onAdd: () => void;
   onRemove: (index: number) => void;
   compact?: boolean;
-}> = ({ label, helper, photos, onAdd, onRemove, compact }) => (
+  maxPhotos?: number;
+}> = ({ label, helper, photos, onAdd, onRemove, compact, maxPhotos = 2 }) => (
   <div className={`rounded-2xl border border-gray-100 bg-gray-50 ${compact ? 'p-4' : 'p-5'}`}>
     <div className="flex items-center justify-between mb-3">
       <div>
         <div className="font-bold text-sm text-haven-navy">{label}</div>
-        <div className="text-[11px] text-gray-500">{helper}</div>
+        <div className="text-[11px] text-gray-500">{helper} · {photos.length}/{maxPhotos} photos</div>
       </div>
-      <button type="button" onClick={onAdd} className="inline-flex items-center gap-2 rounded-xl bg-white border border-gray-200 px-3 py-2 text-xs font-bold text-haven-navy hover:border-haven-red transition-colors">
+      <button type="button" disabled={photos.length >= maxPhotos} onClick={onAdd} className="disabled:opacity-40 disabled:cursor-not-allowed inline-flex items-center gap-2 rounded-xl bg-white border border-gray-200 px-3 py-2 text-xs font-bold text-haven-navy hover:border-haven-red transition-colors">
         <Camera size={16} /> Ajouter
       </button>
     </div>
@@ -687,7 +695,7 @@ const CheckinCard: React.FC<{
               rows={3}
               className="w-full rounded-xl border border-amber-200 bg-white p-3 text-sm outline-none focus:ring-2 focus:ring-amber-200"
             />
-            <PhotoSection label="Photos de la non-conformité" helper="1 photo minimum" photos={assessment.photos} onAdd={onAddPhoto} onRemove={onRemovePhoto} compact />
+            <PhotoSection maxPhotos={MAX_CHECKIN_PHOTOS_PER_AREA} label="Photos de la non-conformité" helper="1 photo minimum, 5 maximum" photos={assessment.photos} onAdd={onAddPhoto} onRemove={onRemovePhoto} compact />
           </div>
         )}
       </div>

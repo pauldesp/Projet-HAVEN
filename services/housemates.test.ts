@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { buildHousematePreviews, eligibleHousemateBookings, HousemateBooking, HousemateProfile } from './housemates';
+import { buildHousematePreviews, eligibleHousemateBookings, canViewBookingHousemates, HousemateBooking, HousemateProfile } from './housemates';
 
 const stay = { viewerId: 'visitor', roomId: 'room-a', startDate: '2026-10-24', endDate: '2026-10-31' };
 const confirmed = (tenantId: string, startDate = '2026-10-20', endDate = '2026-11-05'): HousemateBooking => ({
-  tenantId, roomId: 'room-b', status: 'CONFIRMED', startDate, endDate,
+  tenantId, roomId: 'room-b', status: 'CONFIRMED', paymentStatus: 'PAID', startDate, endDate,
 });
 const visible = (id: string): HousemateProfile => ({
   id, firstName: 'Camille', avatarUrl: 'https://example.test/avatar.jpg',
@@ -54,4 +54,17 @@ test('une personne n’apparaît qu’une fois même avec plusieurs réservation
 test('l’âge n’est pas présenté pour une date de naissance invalide', () => {
   const profiles = new Map<string, HousemateProfile>([['camille', { ...visible('camille'), birthDate: '2000-02-30' }]]);
   assert.equal(buildHousematePreviews([confirmed('camille')], profiles, stay)[0].age, undefined);
+});
+
+test('unpaid reservations and banned profiles never appear as housemates', () => {
+  const profiles = new Map<string, HousemateProfile>([['unpaid', visible('unpaid')], ['banned', { ...visible('banned'), status: 'BANNED' }]]);
+  assert.deepEqual(buildHousematePreviews([{ ...confirmed('unpaid'), paymentStatus: 'PENDING' }, confirmed('banned')], profiles, stay), []);
+});
+test('booking profiles require the tenant’s own paid active reservation, including stays already started', () => {
+  const booking = { tenantId: 'tenant', paymentStatus: 'PAID' as const, status: 'CONFIRMED' as const, endDate: '2026-10-28' };
+  assert.equal(canViewBookingHousemates(booking, 'tenant', '2026-10-25'), true);
+  assert.equal(canViewBookingHousemates(booking, 'other', '2026-10-25'), false);
+  assert.equal(canViewBookingHousemates({ ...booking, paymentStatus: 'PENDING' }, 'tenant', '2026-10-25'), false);
+  assert.equal(canViewBookingHousemates({ ...booking, status: 'CANCELLED' }, 'tenant', '2026-10-25'), false);
+  assert.equal(canViewBookingHousemates(booking, 'tenant', '2026-10-29'), false);
 });
