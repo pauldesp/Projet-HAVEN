@@ -27,7 +27,7 @@ test('server normalizes legacy duplicated images and the document retains all te
   const report = prepareInventoryReport(booking, {} as any, 'tenant', { id: 'inv_test', bookingId: 'booking', tenantId: 'tenant', ownerId: 'owner', type: 'IN', identityValidated: true, status: 'COMPLETED', signature: 'USER_SIGNED', items: [], comments: comments() } as any, new Date('2026-10-19T20:00:00Z'));
   assert.equal(JSON.parse(report.comments).nonConformities[0].photos, undefined);
   const html = inventoryDocumentHtml(report, 'État des lieux d’entrée');
-  assert.equal((html.match(/<img /g) || []).length, 10);
+  assert.equal((html.match(/alt="Photo /g) || []).length, 10);
   assert.match(html, /Non-conformités signalées/);
   assert.match(html, /object-fit:contain/);
 });

@@ -125,10 +125,10 @@ export const TenantDashboard: React.FC = () => {
     let active = true;
     setViewedReportHtml('');
     if (viewingDocument?.reportId) void apiService.inventory.getById(viewingDocument.reportId).then(report => {
-      if (active && report) setViewedReportHtml(inventoryDocumentHtml(report, viewingDocument.title));
+      if (active && report) setViewedReportHtml(inventoryDocumentHtml(report, viewingDocument.title, { booking: bookings.find(item => item.id === report.bookingId), listing: allListings.find(item => item.id === bookings.find(booking => booking.id === report.bookingId)?.listingId), tenant: currentUser || undefined }));
     }).catch(() => toast.error('Impossible de charger cet état des lieux.'));
     return () => { active = false; };
-  }, [viewingDocument]);
+  }, [viewingDocument, bookings, allListings, currentUser]);
 
 
   useEffect(() => {
@@ -370,7 +370,7 @@ export const TenantDashboard: React.FC = () => {
       try {
         const report = await apiService.inventory.getById(doc.reportId);
         if (!report) throw new Error('État des lieux introuvable.');
-        const url = URL.createObjectURL(new Blob([inventoryDocumentHtml(report, doc.title)], { type: 'text/html;charset=utf-8' }));
+        const url = URL.createObjectURL(new Blob([inventoryDocumentHtml(report, doc.title, { booking: bookings.find(item => item.id === report.bookingId), listing: allListings.find(item => item.id === bookings.find(booking => booking.id === report.bookingId)?.listingId), tenant: currentUser || undefined })], { type: 'text/html;charset=utf-8' }));
         const link = document.createElement('a'); link.href = url; link.download = `${doc.title}.html`;
         document.body.appendChild(link); link.click(); link.remove();
         setTimeout(() => URL.revokeObjectURL(url), 60_000);
