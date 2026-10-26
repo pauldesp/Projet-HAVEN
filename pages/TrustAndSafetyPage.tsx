@@ -1,5 +1,5 @@
 import React from 'react';
-import { ShieldCheck, Eye, Key, Users2, Lock, Sparkles, CheckCircle } from 'lucide-react';
+import { ShieldCheck, Eye, Key, Users2, Lock, Sparkles } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 export const TrustAndSafetyPage: React.FC = () => {

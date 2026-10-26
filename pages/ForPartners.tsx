@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Building2, GraduationCap, ArrowRight, ShieldCheck, Hotel, Sparkles, Check, Mail, Phone, MapPin } from 'lucide-react';
+import { Building2, GraduationCap, ArrowRight, Check, Mail, Phone, MapPin } from 'lucide-react';
 import { toast } from 'sonner';
 
 export const ForPartners: React.FC = () => {

@@ -1,4 +1,3 @@
-import React from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, Check, CheckCircle2, CreditCard, FlaskConical, Home, Loader2, LockKeyhole, ShieldCheck } from 'lucide-react';
 import { Logo } from './Logo';

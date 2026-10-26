@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { authenticatedFetch } from '../services/serverApi';
 
 export function OwnerAccessInstructions({ listingId }: { listingId: string }) {

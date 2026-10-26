@@ -5,7 +5,6 @@ import { assertBookingPayable, bookingCategory, bookingDeadline, isBookingExpire
 import { isRoomAvailableForStay } from './availability';
 
 const created = '2026-11-01T12:00:00.000Z';
-const accepted = '2026-11-02T10:00:00.000Z';
 const base = { id: 'b-test', tenantId: 'tenant', ownerId: 'owner', listingId: 'listing', roomId: 'room', roomName: 'Chambre', startDate: '2026-11-07', endDate: '2026-11-14', status: 'PENDING', bookingMode: 'INSTANT', paymentStatus: 'PENDING', createdAt: created, totalPrice: 161, basePrice: 140, cleaningFee: 0, platformFee: 21, checkInTime: '15:00', checkOutTime: '11:00' } as Booking;
 const listing = { id: 'listing', checkInTime: '17:00', checkOutTime: '09:00', rooms: [{ id: 'room', pricePerDay: 20 }] } as Listing;
 const report = (booking: Booking, type: 'IN' | 'OUT'): InventoryReport => ({ id: `inv_${type}`, bookingId: booking.id, tenantId: booking.tenantId, ownerId: booking.ownerId, type, date: created, status: 'COMPLETED', identityValidated: true, items: [], comments: '{}', signature: 'USER_SIGNED', roomRating: 5, houseRating: 5, cleanlinessRating: 5 });

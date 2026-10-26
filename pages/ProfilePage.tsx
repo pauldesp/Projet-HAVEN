@@ -374,42 +374,6 @@ export const ProfilePage: React.FC = () => {
               </div>
             )}
 
-            {/* Reviews Section (Mocked for now) */}
-            <div className={`${isOwnProfile ? 'hidden md:block' : ''} bg-white rounded-[2.5rem] shadow-premium p-10 border border-gray-50`}>
-              <h2 className="text-2xl font-heading font-bold text-haven-navy mb-8 flex items-center gap-3">
-                <Star className="text-haven-red fill-haven-red" size={24} />
-                Ce que les gens disent de {user.firstName}
-              </h2>
-              
-              <div className="space-y-8">
-                {[1, 2].map(i => (
-                  <div key={i} className="border-b border-gray-100 last:border-0 pb-8 last:pb-0">
-                    <div className="flex items-center gap-4 mb-4">
-                      <img 
-                        src={`https://api.dicebear.com/7.x/avataaars/svg?seed=Reviewer${i}`} 
-                        alt="Reviewer" 
-                        className="w-12 h-12 rounded-full bg-gray-100"
-                      />
-                      <div>
-                        <h4 className="font-bold text-haven-navy text-sm">{i === 1 ? 'Thomas' : 'Sophie'}</h4>
-                        <p className="text-[10px] text-gray-400 font-medium uppercase tracking-widest">Mars 2026</p>
-                      </div>
-                      <div className="ml-auto flex gap-0.5">
-                        {[1, 2, 3, 4, 5].map(star => (
-                          <Star key={star} size={12} className="fill-haven-red text-haven-red" />
-                        ))}
-                      </div>
-                    </div>
-                    <p className="text-gray-600 text-sm leading-relaxed italic">
-                      {i === 1 
-                        ? "Super expérience avec ce membre. Très respectueux des lieux et communication fluide. Je recommande vivement !" 
-                        : "Un séjour parfait. Tout était conforme à la description et l'accueil a été très chaleureux. Merci encore !"}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </div>
-
           </div>
         </div>
       </div>

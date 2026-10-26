@@ -88,6 +88,6 @@ test('the browser cannot confirm a booking from redirect parameters', () => {
 
 test('rich HTML is sanitized and sensitive endpoints are rate limited', () => {
   assert.match(sanitizer, /DOMPurify\.sanitize/);
-  assert.match(server, /send-verification", verificationLimiter/);
+  assert.match(server, /confirm-email", sensitiveApiLimiter, requireAuth/);
   assert.match(server, /create-checkout-session", sensitiveApiLimiter, requireAuth/);
 });

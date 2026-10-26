@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, Calendar, ShieldCheck, CreditCard, Sparkles, Home, FileText, Key, CheckCircle, ArrowRight } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import { UserRole } from '../types';
 
 export const HowItWorks: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'TENANT' | 'OWNER'>('TENANT');

@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { FrenchCityAutocomplete } from './FrenchCityAutocomplete';
 import { MapPin } from 'lucide-react';
 import { useMapsLibrary } from '@vis.gl/react-google-maps';
@@ -33,7 +33,6 @@ const GoogleAddressAutocomplete: React.FC<CityAutocompleteProps> = ({
 }) => {
   const placesLib = useMapsLibrary('places');
   const containerRef = useRef<HTMLDivElement>(null);
-  const inputContainerRef = useRef<HTMLDivElement>(null);
   const isSelectingRef = useRef(false);
 
   const autocompleteRef = useRef<any>(null);

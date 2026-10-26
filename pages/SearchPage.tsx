@@ -3,7 +3,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { ListingCard } from '../components/ListingCard';
 import { BookingAvailability, Listing } from '../types';
-import { MapPin, SlidersHorizontal, Check, Route, Loader2, ChevronDown, RotateCcw } from 'lucide-react';
+import { MapPin, SlidersHorizontal, Route, Loader2, ChevronDown, RotateCcw } from 'lucide-react';
 import { useListings } from '../contexts/ListingContext';
 import { resolveCityCoordinates, sortByDistance } from '../services/proximity';
 import { Button } from '../components/Button';

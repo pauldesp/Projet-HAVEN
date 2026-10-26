@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ShieldCheck, CheckCircle2, TrendingUp, Handshake, ShieldAlert, BadgeCent, ChevronRight, Check } from 'lucide-react';
+import { ShieldCheck, CheckCircle2, TrendingUp, Handshake, ShieldAlert, ChevronRight, Check } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 export const BecomeOwner: React.FC = () => {

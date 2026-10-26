@@ -1,21 +1,8 @@
 import { MAX_CHECKIN_PHOTOS_PER_AREA } from '../services/inventoryPayload';
-import React, { useEffect, useMemo, useState } from 'react';
-import { 
-  AlertTriangle,
-  Camera,
-  Check,
-  CheckCircle,
-  ChevronLeft,
-  ChevronRight,
-  Home,
-  Info,
-  KeyRound,
-  Loader2,
-  Sparkles,
-  X,
-} from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { AlertTriangle, Camera, Check, CheckCircle, ChevronLeft, ChevronRight, Home, Info, KeyRound, Loader2, Sparkles, X } from 'lucide-react';
 import { Button } from './Button';
-import { AppDocument, Booking, Listing, Room } from '../types';
+import { Booking, Listing, Room } from '../types';
 import { prepareImageForStorage } from '../services/images';
 import { userFacingErrorMessage } from '../services/errorHandling';
 import { formatScheduledMoment, getInventoryTiming } from '../services/inventoryTiming';

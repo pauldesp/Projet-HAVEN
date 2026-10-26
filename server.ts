@@ -1,5 +1,9 @@
+import { nextAuthMailLimit, sendAuthActionMail, type AuthMailLimit } from './services/authMail';
+import { resendTemplatesEnabled, reservationResendTemplate, tenantResendTemplate, selectMailContent, type ResendTemplate, type AuthMailKind } from './services/resendTemplates';
+import { accountDecisionMail, cancellationMail, reviewInvitationMail, isTenantMailKind, tenantMailDisposition, tenantNotificationEmail, type TenantMailJob } from './services/tenantMail';
+import { canSendReservationRecipient, initialReservationMailJobs, reservationMailJob, reservationMailDisposition, reservationLifecycleEmail, reservationEmailConfiguration, type ReservationMailJob } from './services/reservationMail';
 import { stayLocalDate } from './services/inventoryTiming';
-import { createReservationConfirmation, confirmationEmail, canReleaseArrivalInstructions, type ReservationConfirmation } from './services/reservationFulfillment';
+import { createReservationConfirmation, canReleaseArrivalInstructions, type ReservationConfirmation } from './services/reservationFulfillment';
 import { paymentReceiptPdf } from './services/paymentReceiptPdf';
 import { getPaymentMode, PaymentConfigurationError } from './services/paymentConfiguration';
 import { preparePaymentConfirmation, simulationSessionId, type PaymentReceipt } from './services/paymentCheckout';
@@ -39,7 +43,7 @@ import { FieldValue, getFirestore } from "firebase-admin/firestore";
 import type { DocumentReference } from "firebase-admin/firestore";
 import type { NextFunction, Request, Response } from "express";
 import firebaseConfig from "./firebase-applet-config.json" with { type: "json" };
-import { createHash, randomInt, timingSafeEqual } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import helmet from "helmet";
 import { rateLimit } from "express-rate-limit";
 
@@ -47,10 +51,7 @@ let stripeClient: Stripe | null = null;
 const adminApp = getApps()[0] ?? initializeApp({ credential: applicationDefault(), projectId: firebaseConfig.projectId });
 const adminAuth = getAuth(adminApp);
 const adminDb = getFirestore(adminApp, firebaseConfig.firestoreDatabaseId);
-const verificationCodes = new Map<string, { hash: Buffer; expiresAt: number; attempts: number; lastSentAt: number }>();
-const verifiedEmailTickets = new Map<string, number>();
 const normalizeEmail = (value: unknown) => typeof value === "string" ? value.trim().toLowerCase() : "";
-const hashCode = (email: string, code: string) => createHash("sha256").update(`${email}:${code}`).digest();
 const verificationLimiter = rateLimit({ windowMs: 15 * 60_000, limit: 10, standardHeaders: true, legacyHeaders: false });
 const sensitiveApiLimiter = rateLimit({ windowMs: 60_000, limit: 30, standardHeaders: true, legacyHeaders: false });
 const emailFrom = process.env.EMAIL_FROM?.trim() || "Haven <onboarding@resend.dev>";
@@ -235,11 +236,8 @@ async function settleBookingPayment(receipt: PaymentReceipt, actorId?: string) {
       title: confirmation.isTest ? 'Justificatif de simulation du paiement' : 'Justificatif de paiement',
       type: 'RENT_RECEIPT', url: '', createdAt: confirmation.paidAt, listingTitle: confirmation.listingTitle
     });
-    for (const kind of ['CONFIRMATION', 'ARRIVAL']) {
-      transaction.create(adminDb.collection('reservation_mail_outbox').doc(`${booking.id}-${kind}`), {
-        bookingId: booking.id, kind, status: 'PENDING', attempts: 0,
-        nextAttemptAt: kind === 'CONFIRMATION' ? confirmation.paidAt : confirmation.instructionsDueAt
-      });
+    for (const job of initialReservationMailJobs(confirmation)) {
+      transaction.create(adminDb.collection('reservation_mail_outbox').doc(`${booking.id}-${job.kind}`), job);
     }
     transaction.update(ref, prepared.bookingUpdate);
     transaction.create(adminDb.collection('payments').doc(prepared.payment.id), prepared.payment);
@@ -251,11 +249,51 @@ async function settleBookingPayment(receipt: PaymentReceipt, actorId?: string) {
   return result;
 }
 
+async function deliverAuthAction(kind: AuthMailKind, email: string, name: string) {
+  const provider = getEmailProvider();
+  if ('error' in provider || !resendTemplatesEnabled(process.env)) throw new Error('AUTH_MAIL_UNAVAILABLE');
+  if (!canSendReservationRecipient(emailFrom, email, process.env.RESEND_TEST_EMAIL_TO)) throw new Error('AUTH_MAIL_DOMAIN');
+  const limitRef = adminDb.collection('auth_mail_limits').doc(createHash('sha256').update(`${kind}:${email}`).digest('hex'));
+  return sendAuthActionMail(kind, name, firebaseConfig.authDomain, {
+    claim: () => adminDb.runTransaction(async transaction => {
+      const current = await transaction.get(limitRef);
+      const update = nextAuthMailLimit(current.data() as AuthMailLimit | undefined, Date.now());
+      if (!update) return false;
+      transaction.set(limitRef, { ...update, expiresAt: new Date(Date.now() + 86400_000) });
+      return true;
+    }),
+    generate: () => kind === 'EMAIL_VERIFICATION' ? adminAuth.generateEmailVerificationLink(email) : adminAuth.generatePasswordResetLink(email),
+    send: async content => {
+      const result = await provider.resend.emails.send({ from: emailFrom, to: email, ...(emailReplyTo ? { replyTo: emailReplyTo } : {}), ...content }, { idempotencyKey: `auth-${kind}-${randomUUID()}` });
+      // Do not log provider payloads or Firebase action links.
+      if (result.error) throw new Error('AUTH_MAIL_SEND_FAILED');
+    }
+  });
+}
+
+async function resolveTenantMail(job: TenantMailJob, startAt: string) {
+  const [userSnapshot, bookingSnapshot, reviewSnapshot] = await Promise.all([
+    adminDb.collection('users').doc(job.userId).get(),
+    job.bookingId ? adminDb.collection('bookings').doc(job.bookingId).get() : undefined,
+    job.kind === 'REVIEW_INVITE' && job.bookingId ? adminDb.collection('reviews').doc(reviewIdForBooking(job.bookingId)).get() : undefined
+  ]);
+  const profile = userSnapshot.exists ? userSnapshot.data() : undefined;
+  const booking = bookingSnapshot?.exists ? { ...bookingSnapshot.data(), id: bookingSnapshot.id } as Booking : undefined;
+  const disposition = tenantMailDisposition(job, profile, booking, reviewSnapshot?.exists === true, startAt);
+  if (disposition !== 'SEND') return { disposition };
+  if (!profile?.email) throw new Error('Adresse e-mail du locataire manquante.');
+  const listing = booking && !booking.listingTitle ? await adminDb.collection('listings').doc(booking.listingId).get() : undefined;
+  return { disposition, to: String(profile.email), mail: tenantNotificationEmail(job, profile, booking, listing?.data()?.title, process.env.APP_ORIGIN),
+    selectedTemplate: resendTemplatesEnabled(process.env) ? tenantResendTemplate(job, profile, booking, listing?.data()?.title, process.env.APP_ORIGIN) : undefined };
+}
+
 // A durable outbox survives restarts. A transaction lease prevents concurrent workers
 // from dispatching the same message; the provider also receives a stable idempotency key.
 let mailSweepRunning = false;
 async function deliverReservationMail() {
   if (mailSweepRunning) return;
+  const configuration = reservationEmailConfiguration(process.env);
+  if (!configuration.enabled) return;
   const provider = getEmailProvider();
   if ('error' in provider) return; // Keep messages queued until the sender is configured.
   mailSweepRunning = true;
@@ -271,33 +309,70 @@ async function deliverReservationMail() {
       });
       if (!job) continue;
       try {
-        const [bookingSnap, receiptSnap] = await Promise.all([
-          adminDb.collection('bookings').doc(job.bookingId).get(),
-          adminDb.collection('reservation_confirmations').doc(job.bookingId).get()
-        ]);
-        const booking = bookingSnap.data() as Booking | undefined;
-        if (!booking || booking.paymentStatus !== 'PAID' || !['CONFIRMED', 'COMPLETED'].includes(booking.status)) {
-          await item.ref.update({ status: 'CANCELLED', nextAttemptAt: FieldValue.delete() }); continue;
+        if (job.firstSendAttemptAt && Date.now() - Date.parse(job.firstSendAttemptAt) >= 20 * 3600_000) {
+          await item.ref.update({ status: 'REVIEW_REQUIRED', nextAttemptAt: FieldValue.delete() }); continue;
         }
-        const receipt = receiptSnap.data() as ReservationConfirmation;
-        if (!receipt?.email) throw new Error('Adresse e-mail du locataire manquante.');
-        let instructions: string | undefined;
-        if (job.kind === 'ARRIVAL') {
-          if (!canReleaseArrivalInstructions(booking, receipt.instructionsDueAt)) {
-            await item.ref.update({ status: 'CANCELLED', nextAttemptAt: FieldValue.delete() }); continue;
+        let mail: { subject: string; text: string; html: string };
+        let recipient: string;
+        let selectedTemplate: ResendTemplate | undefined;
+        let receiptAttachment: ReservationConfirmation | undefined;
+        if (isTenantMailKind(job.kind)) {
+          const resolved = await resolveTenantMail(job as TenantMailJob, configuration.startAt);
+          if (resolved.disposition !== 'SEND') {
+            await item.ref.update({ status: resolved.disposition === 'WAIT' ? 'PENDING' : resolved.disposition, nextAttemptAt: resolved.disposition === 'WAIT' ? new Date(Date.now() + 60_000).toISOString() : FieldValue.delete() }); continue;
           }
-          if (new Date(booking.endDate).getTime() < Date.now() - 24 * 3600_000) {
-            await item.ref.update({ status: 'EXPIRED', nextAttemptAt: FieldValue.delete() }); continue;
+          mail = resolved.mail!; recipient = resolved.to!; selectedTemplate = resolved.selectedTemplate;
+        } else {
+          const [bookingSnap, receiptSnap] = await Promise.all([
+            adminDb.collection('bookings').doc(job.bookingId).get(),
+            adminDb.collection('reservation_confirmations').doc(job.bookingId).get()
+          ]);
+          const booking = bookingSnap.data() as Booking | undefined;
+          const receipt = receiptSnap.data() as ReservationConfirmation | undefined;
+          const disposition = reservationMailDisposition(job as ReservationMailJob, booking, receipt, configuration.startAt);
+          if (disposition !== 'SEND') {
+            await item.ref.update({ status: disposition === 'WAIT' ? 'PENDING' : disposition, nextAttemptAt: disposition === 'WAIT' ? new Date(Date.now() + 60_000).toISOString() : FieldValue.delete() }); continue;
           }
-          const access = await adminDb.collection('listing_access').doc(booking.listingId).get();
-          instructions = access.data()?.instructions?.trim();
-          if (!instructions) {
-            await item.ref.update({ status: 'WAITING_INSTRUCTIONS', lastError: 'Le propriétaire doit renseigner les consignes d’entrée.', nextAttemptAt: new Date(Date.now() + 15 * 60_000).toISOString() }); continue;
+          if (!receipt?.email || !booking) throw new Error('Adresse e-mail du locataire manquante.');
+          if (job.kind === 'CHECKIN' || job.kind === 'CHECKOUT') {
+            const saved = await adminDb.collection('inventory').doc(job.reportId).get();
+            const inspection = saved.data();
+            if (!inspection || inspection.bookingId !== job.bookingId || inspection.tenantId !== booking.tenantId || inspection.type !== (job.kind === 'CHECKIN' ? 'IN' : 'OUT')) {
+              await item.ref.update({ status: 'CANCELLED', nextAttemptAt: FieldValue.delete() }); continue;
+            }
           }
+          let instructions = '';
+          if (job.kind === 'ARRIVAL') {
+            const access = await adminDb.collection('listing_access').doc(booking.listingId).get();
+            instructions = access.data()?.instructions?.trim() || '';
+          }
+          mail = reservationLifecycleEmail(job.kind, receipt, { instructions, occurredAt: job.occurredAt, appOrigin: process.env.APP_ORIGIN });
+          selectedTemplate = resendTemplatesEnabled(process.env) ? reservationResendTemplate(job.kind, receipt, { instructions, occurredAt: job.occurredAt, appOrigin: process.env.APP_ORIGIN }) : undefined;
+          recipient = receipt.email;
+          if (job.kind === 'CONFIRMATION') receiptAttachment = receipt;
         }
-        const mail = confirmationEmail(receipt, instructions);
-        const attachment = job.kind === 'CONFIRMATION' ? [{ filename: `${receipt.id}.pdf`, content: await paymentReceiptPdf(receipt) }] : undefined;
-        const sent = await provider.resend.emails.send({ from: emailFrom, to: receipt.email, replyTo: emailReplyTo, ...mail, attachments: attachment }, { idempotencyKey: `reservation-${item.id}` });
+        if (!canSendReservationRecipient(emailFrom, recipient, process.env.RESEND_TEST_EMAIL_TO)) {
+          await item.ref.update({ status: 'WAITING_DOMAIN', lastError: 'Un domaine Resend validé est nécessaire pour ce destinataire.', nextAttemptAt: new Date(Date.now() + 3600_000).toISOString() }); continue;
+        }
+        // Freeze the exact provider request before the first attempt. PDF metadata,
+        // changed instructions or settings must not change a retry's idempotent body.
+        const payloadRef = adminDb.collection('reservation_mail_payloads').doc(item.id);
+        let payloadSnapshot = await payloadRef.get();
+        if (!payloadSnapshot.exists) {
+          const payload = { from: emailFrom, to: recipient, ...(emailReplyTo ? { replyTo: emailReplyTo } : {}), ...selectMailContent(mail, selectedTemplate),
+            ...(receiptAttachment ? { attachments: [{ filename: `${receiptAttachment.id}.pdf`, content: (await paymentReceiptPdf(receiptAttachment)).toString('base64') }] } : {}) };
+          try { await payloadRef.create(payload); } catch (error) { if ((error as { code?: number }).code !== 6) throw error; }
+          payloadSnapshot = await payloadRef.get();
+        }
+        if (!job.firstSendAttemptAt) {
+          job.firstSendAttemptAt = new Date().toISOString();
+          await item.ref.update({ firstSendAttemptAt: job.firstSendAttemptAt });
+        }
+        const payload = payloadSnapshot.data() as Parameters<Resend['emails']['send']>[0];
+        if (!payload.from || !canSendReservationRecipient(payload.from, String(payload.to), process.env.RESEND_TEST_EMAIL_TO)) {
+          await item.ref.update({ status: 'REVIEW_REQUIRED', nextAttemptAt: FieldValue.delete() }); continue;
+        }
+        const sent = await provider.resend.emails.send(payload, { idempotencyKey: `reservation-${item.id}` });
         if (sent.error) throw new Error(sent.error.message);
         await item.ref.update({ status: 'SENT', sentAt: new Date().toISOString(), providerMessageId: sent.data?.id || '', lastError: FieldValue.delete(), nextAttemptAt: FieldValue.delete() });
       } catch (error) {
@@ -411,10 +486,10 @@ async function startServer() {
   });
 
   // Health check
-  app.get("/api/health", (req, res) => {
+  app.get("/api/health", (_req, res) => {
     let paymentMode: string = 'UNAVAILABLE';
     try { paymentMode = getPaymentMode(); } catch { /* Invalid configuration disables payment. */ }
-    res.json({ status: 'ok', env: process.env.NODE_ENV, paymentMode, emailConfigured: !('error' in getEmailProvider()) });
+    res.json({ status: 'ok', env: process.env.NODE_ENV, paymentMode, emailConfigured: !('error' in getEmailProvider()), reservationEmailsEnabled: reservationEmailConfiguration(process.env).enabled, resendTemplatesEnabled: resendTemplatesEnabled(process.env) });
   });
 
   // Public calendar only: never expose booking participants, contact data or payment details.
@@ -543,6 +618,8 @@ async function startServer() {
         if (issues.length > 3) throw new BookingLifecycleError('Trop de problèmes dans cet état des lieux.', 422);
         const routedIssues = issues.map((issue, index) => routeStayIssue({ ...issue, id: `inc-${report.id}-${index}`, bookingId: id, listingId: booking.listingId, ownerId: booking.ownerId, reporterId: booking.tenantId, createdAt: now.toISOString() }));
         transaction.create(adminDb.collection('inventory').doc(report.id), report);
+        const mailKind = report.type === 'IN' ? 'CHECKIN' : 'CHECKOUT';
+        transaction.create(adminDb.collection('reservation_mail_outbox').doc(`${id}-${mailKind}`), reservationMailJob(id, mailKind, report.date, report.id));
         for (const issue of routedIssues) {
           if (issue.destination === 'OWNER') transaction.create(adminDb.collection('incidents').doc(issue.incident.id), issue.incident);
           else transaction.create(adminDb.collection('reports').doc(issue.report.id), issue.report);
@@ -555,12 +632,17 @@ async function startServer() {
           url: '', reportId: report.id, createdAt: now.toISOString(), listingTitle: listing.title
         });
         transaction.update(ref, report.type === 'IN' ? { checkInReportId: report.id } : { checkOutReportId: report.id, status: 'COMPLETED', completedAt: now.toISOString() });
+        if (report.type === 'OUT') {
+          const invitation = reviewInvitationMail({ ...booking, status: 'COMPLETED', completedAt: now.toISOString(), checkOutReportId: report.id });
+          if (invitation) transaction.create(adminDb.collection('reservation_mail_outbox').doc(`${id}-REVIEW_INVITE`), invitation);
+        }
         if (report.type === 'OUT') transaction.set(adminDb.collection('booking_availability').doc(id), {
           id, bookingId: id, listingId: booking.listingId, roomId: booking.roomId,
           startDate: booking.startDate, endDate: booking.endDate, status: 'COMPLETED', updatedAt: now.toISOString()
         });
         return report;
       });
+      void deliverReservationMail();
       return res.status(201).json({ report });
     } catch (error) {
       if (error instanceof BookingLifecycleError) return sendApiError(res, error.status, error.message);
@@ -774,6 +856,10 @@ async function startServer() {
         if (!snapshot.exists) throw new VerificationExceptionError('Élément introuvable.', 404);
         const before = snapshot.data()!;
         const update = prepareVerificationException(type, before, actor, req.body?.mode, req.body?.reason, auditRef.id);
+        if (type === 'USER' && req.body.mode === 'GRANT' && update.verificationException) {
+          const job = accountDecisionMail(id, before, 'ACCOUNT_APPROVED', update.verificationException.grantedAt, auditRef.id);
+          if (job) transaction.create(adminDb.collection('reservation_mail_outbox').doc(`${id}-ACCOUNT_APPROVED-${auditRef.id}`), job);
+        }
         transaction.update(ref, update);
         transaction.set(exceptionRef, { active: req.body.mode === 'GRANT', subjectId: id, decisionId: auditRef.id, actorId: actor.uid, reason: req.body.reason.trim(), updatedAt: new Date().toISOString() });
         transaction.create(auditRef, {
@@ -786,6 +872,7 @@ async function startServer() {
         });
         return update;
       });
+      void deliverReservationMail();
       return res.json(result);
     } catch (error) {
       if (error instanceof VerificationExceptionError) return sendApiError(res, error.status, error.message);
@@ -902,6 +989,12 @@ async function startServer() {
         const snapshot = await transaction.get(ref);
         if (!snapshot.exists) throw new MemberApprovalError('Profil introuvable.', 404);
         const update = prepareMemberModeration(snapshot.data()!, req.body?.status, req.body?.reason, actor.uid);
+        const before = snapshot.data()!;
+        if (before.status === update.status && before.rejectionReason === update.rejectionReason) return { ...update, moderatedAt: before.moderatedAt };
+        if (update.status === 'REJECTED') {
+          const job = accountDecisionMail(userId, before, 'ACCOUNT_CORRECTION', update.moderatedAt);
+          if (job) transaction.create(adminDb.collection('reservation_mail_outbox').doc(`${userId}-ACCOUNT_CORRECTION-${auditRef.id}`), job);
+        }
         transaction.update(ref, update);
         transaction.set(adminDb.collection('verification_exceptions').doc(`USER_${userId}`), { active: false }, { merge: true });
         transaction.create(auditRef, {
@@ -912,6 +1005,7 @@ async function startServer() {
         });
         return update;
       });
+      void deliverReservationMail();
       return res.json(result);
     } catch (error) {
       if (error instanceof MemberApprovalError) return sendApiError(res, error.status, error.message);
@@ -933,6 +1027,10 @@ async function startServer() {
         const snapshot = await transaction.get(userRef);
         if (!snapshot.exists) throw new MemberApprovalError('Profil introuvable.', 404);
         const update = prepareMemberApproval(snapshot.data()!, actor.uid);
+        const before = snapshot.data()!;
+        if (before.status === 'APPROVED' && before.identityVerified === true && before.isVerified === true && !before.verificationException) return { ...update, approvedAt: before.approvedAt, idVerifiedAt: before.idVerifiedAt };
+        const job = accountDecisionMail(userId, before, 'ACCOUNT_APPROVED', update.approvedAt);
+        if (job) transaction.create(adminDb.collection('reservation_mail_outbox').doc(`${userId}-ACCOUNT_APPROVED-${auditRef.id}`), job);
         transaction.update(userRef, update);
         transaction.set(adminDb.collection('verification_exceptions').doc(`USER_${userId}`), { active: false }, { merge: true });
         transaction.create(auditRef, {
@@ -943,6 +1041,7 @@ async function startServer() {
         });
         return update;
       });
+      void deliverReservationMail();
       return res.json(approval);
     } catch (error) {
       if (error instanceof MemberApprovalError) return sendApiError(res, error.status, error.message);
@@ -1135,29 +1234,59 @@ async function startServer() {
     }
   });
 
-  // Complete email ownership verification after Firebase confirms its action
-  // link or a short-lived one-time code is redeemed for the same address.
+  const authMailLimiter = rateLimit({ windowMs: 15 * 60_000, limit: 10, standardHeaders: true, legacyHeaders: false,
+    handler: (_req, res) => sendApiError(res, 429, 'Trop de demandes. Réessayez dans quelques minutes.') });
+  app.post('/api/users/me/request-email-verification', authMailLimiter, requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      const [account, profile] = await Promise.all([adminAuth.getUser(req.user!.uid), adminDb.collection('users').doc(req.user!.uid).get()]);
+      const email = normalizeEmail(account.email);
+      if (account.disabled) return sendApiError(res, 403, 'Ce compte est désactivé.');
+      if (!email || !profile.exists || normalizeEmail(profile.data()?.email) !== email || normalizeEmail(req.user?.email) !== email) return sendApiError(res, 409, 'Votre session ne correspond pas à cette adresse. Reconnectez-vous puis réessayez.');
+      if (account.emailVerified) return res.json({ alreadyVerified: true });
+      const sent = await deliverAuthAction('EMAIL_VERIFICATION', email, String(profile.data()?.firstName || 'à vous'));
+      if (!sent) return sendApiError(res, 429, 'Un lien a déjà été demandé. Réessayez dans quelques minutes ou utilisez le lien reçu.');
+      return res.json({ sent: true });
+    } catch (error) {
+      const code = error instanceof Error ? error.message : '';
+      if (code === 'AUTH_MAIL_DOMAIN') return sendApiError(res, 503, 'L’expéditeur Resend est en mode test. Un domaine validé est nécessaire pour envoyer à cette adresse.');
+      return sendApiError(res, 503, 'Impossible d’envoyer le lien pour le moment. Réessayez dans quelques instants.');
+    }
+  });
+  app.post('/api/auth/request-password-reset', authMailLimiter, async (req, res) => {
+    const email = normalizeEmail(req.body?.email);
+    if (!email || email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return sendApiError(res, 422, 'Adresse e-mail invalide.');
+    // A public reset response never discloses account existence or delivery status.
+    const provider = getEmailProvider();
+    if ('error' in provider || !resendTemplatesEnabled(process.env)) return sendApiError(res, 503, 'Le service d’envoi d’e-mails est momentanément indisponible.');
+    try {
+      if (canSendReservationRecipient(emailFrom, email, process.env.RESEND_TEST_EMAIL_TO)) {
+        const account = await adminAuth.getUserByEmail(email);
+        if (!account.disabled) await deliverAuthAction('PASSWORD_RESET', email, account.displayName?.split(' ')[0] || 'à vous');
+      }
+    } catch { /* No tokens, recipient identifiers or account existence in public errors. */ }
+    return res.status(202).json({ accepted: true });
+  });
+
+  // Complete email ownership verification after Firebase confirms its action link.
   app.post("/api/users/me/confirm-email", sensitiveApiLimiter, requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
       const email = normalizeEmail(req.user?.email);
       const authUser = await adminAuth.getUser(req.user!.uid);
       if (normalizeEmail(authUser.email) !== email) return sendApiError(res, 403, "L’adresse e-mail du compte ne correspond pas à celle vérifiée.");
-      if (!canConfirmEmailOwnership(email, authUser.email, authUser.emailVerified, verifiedEmailTickets.get(email) || 0)) {
-        return sendApiError(res, 400, "Confirmez le lien reçu par e-mail ou saisissez un code de validation encore valide.");
+      if (!canConfirmEmailOwnership(email, authUser.email, authUser.emailVerified)) {
+        return sendApiError(res, 400, "Confirmez votre adresse à l’aide du lien reçu par e-mail.");
       }
       const userRef = adminDb.collection("users").doc(req.user!.uid);
       const userSnap = await userRef.get();
       if (!userSnap.exists) return sendApiError(res, 404, "Profil introuvable");
       const profile = userSnap.data()!;
       if (normalizeEmail(profile.email) !== email) return sendApiError(res, 409, "L’adresse e-mail du profil ne correspond pas à celle du compte.");
-      if (!authUser.emailVerified) await adminAuth.updateUser(req.user!.uid, { emailVerified: true });
       const emailVerifiedAt = new Date().toISOString();
       await userRef.update({
         emailVerified: true,
         emailVerifiedAt,
         isVerified: hasRequiredPhoneNumber(profile) && profile.identityVerified === true
       });
-      verifiedEmailTickets.delete(email);
       return res.json({ emailVerified: true, emailVerifiedAt });
     } catch (error) {
       console.error("Email verification completion failed", error);
@@ -1269,82 +1398,6 @@ async function startServer() {
     }
   });
 
-  // API route for sending verification email
-  app.post("/api/send-verification", verificationLimiter, async (req, res) => {
-    const email = normalizeEmail(req.body.email);
-
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      return res.status(400).json({ error: "Adresse e-mail invalide" });
-    }
-    const provider = getEmailProvider();
-    if ("error" in provider) return sendApiError(res, 503, provider.error);
-    const previous = verificationCodes.get(email);
-    if (previous && Date.now() - previous.lastSentAt < 60_000) return res.status(429).json({ error: "Veuillez attendre avant de renvoyer un code" });
-    const code = randomInt(1000, 10000).toString();
-    verificationCodes.set(email, { hash: hashCode(email, code), expiresAt: Date.now() + 10 * 60_000, attempts: 0, lastSentAt: Date.now() });
-
-    try {
-      const { data, error } = await provider.resend.emails.send({
-        from: emailFrom,
-        to: [email],
-        ...(emailReplyTo ? { replyTo: emailReplyTo } : {}),
-        subject: "Votre code de vérification Haven",
-        html: `
-          <div style="background:#f7f7f5;padding:32px 16px;font-family:Arial,sans-serif;color:#1e293b;">
-            <div style="max-width:560px;margin:0 auto;background:#ffffff;border-radius:16px;padding:36px 32px;">
-              <p style="margin:0 0 20px;font-weight:700;font-size:24px;color:#17253b;">Haven</p>
-              <h1 style="font-size:24px;margin:0 0 16px;color:#17253b;">Confirmez votre adresse e-mail</h1>
-              <p style="line-height:1.6;margin:0 0 20px;">Voici votre code de vérification pour finaliser votre inscription sur Haven&nbsp;:</p>
-              <div style="background:#f4f1ef;padding:20px;border-radius:12px;text-align:center;font-size:32px;font-weight:700;letter-spacing:6px;margin:20px 0;color:#17253b;">
-              ${code}
-              </div>
-              <p style="font-size:14px;line-height:1.5;color:#64748b;margin:20px 0 0;">Ce code expire dans 10 minutes. Si vous n’avez pas demandé cette inscription, vous pouvez ignorer cet e-mail.</p>
-            </div>
-          </div>
-        `,
-      });
-      
-      if (error) {
-        console.error("Resend error:", error);
-        verificationCodes.delete(email);
-        
-        // A sandbox can be useful locally, but production must never claim an email was sent when it was not.
-        if (!isProduction && (error.name === 'validation_error' || error.message.includes('authorized'))) {
-          console.warn("Resend sandbox limitation detected; development verification code was not delivered.");
-          return res.json({ 
-            success: true, 
-            data: { id: "development_mock" },
-            warning: "Mode développement : l’e-mail n’a pas été distribué."
-          });
-        }
-        
-        return sendApiError(res, 503, "Le service d’envoi d’e-mails est temporairement indisponible.");
-      }
-
-      res.json({ success: true, data });
-    } catch (err: any) {
-      console.error("Server error:", err);
-      verificationCodes.delete(email);
-      sendApiError(res, 503, "Le service d’envoi d’e-mails est temporairement indisponible.");
-    }
-  });
-
-  app.post("/api/verify-code", verificationLimiter, (req, res) => {
-    const email = normalizeEmail(req.body.email);
-    const code = typeof req.body.code === "string" ? req.body.code : "";
-    const entry = verificationCodes.get(email);
-    if (!entry || entry.expiresAt < Date.now() || entry.attempts >= 5) {
-      verificationCodes.delete(email);
-      return res.status(400).json({ error: "Code invalide ou expiré" });
-    }
-    entry.attempts += 1;
-    const candidate = hashCode(email, code);
-    if (!timingSafeEqual(candidate, entry.hash)) return res.status(400).json({ error: "Code invalide ou expiré" });
-    verificationCodes.delete(email);
-    verifiedEmailTickets.set(email, Date.now() + 10 * 60_000);
-    return res.json({ success: true });
-  });
-
   // Cancellations are deliberately handled by the server: the applicable
   // policy, refund and release of availability must form one audited action.
   app.post("/api/bookings/:bookingId/cancel", sensitiveApiLimiter, requireAuth, async (req: AuthenticatedRequest, res) => {
@@ -1407,6 +1460,8 @@ async function startServer() {
         const freshSnap = await transaction.get(bookingRef);
         if (!freshSnap.exists || freshSnap.data()?.status !== booking.status) throw new Error("BOOKING_STATUS_CHANGED");
         transaction.update(bookingRef, { status: "CANCELLED", cancellation });
+        const job = cancellationMail({ ...booking, id: bookingId, status: 'CANCELLED', cancellation } as Booking);
+        if (job) transaction.create(adminDb.collection('reservation_mail_outbox').doc(`${bookingId}-CANCELLED`), job);
         transaction.set(adminDb.collection("booking_availability").doc(bookingId), {
           id: bookingId,
           bookingId,
@@ -1447,220 +1502,12 @@ async function startServer() {
         });
       });
 
+      void deliverReservationMail();
       return res.json({ success: true, cancellation, status: "CANCELLED" });
     } catch (error) {
       if (error instanceof Error && error.message === "BOOKING_STATUS_CHANGED") return sendApiError(res, 409, "Cette réservation vient d’être modifiée. Actualisez la page avant de réessayer.");
       console.error("Booking cancellation failed", error);
       return sendApiError(res, 503, "L’annulation n’a pas pu être finalisée. Vos données n’ont pas été modifiées.");
-    }
-  });
-
-  // API route for sending booking notification emails
-  app.post("/api/send-booking-notification", sensitiveApiLimiter, requireAuth, async (req, res) => {
-    const { email, type, details } = req.body;
-    if (type === 'PAYMENT_CONFIRMED') return sendApiError(res, 410, 'La confirmation est envoyée automatiquement après paiement.');
-    if (type === 'REQUEST_SUBMITTED' || type === 'REQUEST_APPROVED') return sendApiError(res, 410, 'La réservation est désormais confirmée directement après paiement.');
-
-    if (!email || !type || !details) {
-      return res.status(400).json({ error: "Email, type, and details are required" });
-    }
-
-    const bookingId = typeof details.bookingId === "string" ? details.bookingId : "";
-    const bookingSnap = bookingId ? await adminDb.collection("bookings").doc(bookingId).get() : null;
-    if (!bookingSnap?.exists) return res.status(404).json({ error: "Réservation introuvable" });
-    const booking = bookingSnap.data()!;
-    if (type === 'PAYMENT_CONFIRMED' && (booking.paymentStatus !== 'PAID' || booking.status !== 'CONFIRMED')) return sendApiError(res, 409, 'Le paiement de cette réservation n’est pas confirmé.');
-    const callerId = (req as AuthenticatedRequest).user?.uid;
-    if (callerId !== booking.tenantId && callerId !== booking.ownerId) return res.status(403).json({ error: "Accès refusé" });
-    const [tenantSnap, ownerSnap] = await Promise.all([
-      adminDb.collection("users").doc(booking.tenantId).get(),
-      adminDb.collection("users").doc(booking.ownerId).get()
-    ]);
-    const allowedEmails = (booking.paymentStatus === "PAID" ? [tenantSnap.data()?.email, ownerSnap.data()?.email] : [tenantSnap.data()?.email]).filter(Boolean);
-    if (!allowedEmails.includes(normalizeEmail(email))) return res.status(403).json({ error: "Destinataire non autorisé" });
-
-    const provider = getEmailProvider();
-    if ("error" in provider) {
-      if (!isProduction) {
-        console.info("Notification e-mail non distribuée en mode développement.", { type, bookingId });
-        return res.json({ success: true, mocked: true, message: "Mode développement : l’e-mail n’a pas été distribué." });
-      }
-      return sendApiError(res, 503, provider.error);
-    }
-
-    try {
-      let subject = "";
-      let htmlContent = "";
-
-      const { listingTitle, roomName, amount, startDate, endDate, tenantName, ownerName, bookingId } = details;
-
-      if (type === "REQUEST_SUBMITTED") {
-        subject = `Nouvelle demande de colocation - HAVEN`;
-        htmlContent = `
-          <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 30px; border: 1px solid #e5e7eb; border-radius: 20px; color: #1e293b;">
-            <div style="text-align: center; margin-bottom: 30px;">
-              <h1 style="color: #A34343; font-size: 28px; font-weight: bold; margin: 0;">HAVEN</h1>
-              <p style="text-transform: uppercase; font-size: 10px; color: #9ca3af; letter-spacing: 2px; margin-top: 5px;">Nouvelle Demande de Réservation</p>
-            </div>
-            <p>Bonjour <strong>${ownerName || 'Propriétaire'}</strong>,</p>
-            <p>Vous avez reçu une nouvelle demande de colocation pour votre logement <strong>${listingTitle}</strong> (Chambre: <strong>${roomName || 'Chambre'}</strong>).</p>
-            
-            <div style="background-color: #f8fafc; padding: 25px; border-radius: 16px; margin: 25px 0;">
-              <table style="width: 100%; font-size: 14px; border-collapse: collapse;">
-                <tr>
-                  <td style="padding: 6px 0; color: #64748b; font-weight: 500;">Locataire :</td>
-                  <td style="padding: 6px 0; text-align: right; color: #0f172a; font-weight: bold;">${tenantName}</td>
-                </tr>
-                <tr>
-                  <td style="padding: 6px 0; color: #64748b; font-weight: 500;">Période :</td>
-                  <td style="padding: 6px 0; text-align: right; color: #0f172a; font-weight: bold;">${startDate} au ${endDate}</td>
-                </tr>
-                <tr>
-                  <td style="padding: 6px 0; color: #64748b; font-weight: 500;">Arrivée / départ :</td>
-                  <td style="padding: 6px 0; text-align: right; color: #0f172a; font-weight: bold;">à partir de ${booking.checkInTime || '15:00'} / avant ${booking.checkOutTime || '11:00'}</td>
-                </tr>
-                <tr>
-                  <td style="padding: 6px 0; color: #64748b; font-weight: 500;">Tarif total :</td>
-                  <td style="padding: 6px 0; text-align: right; color: #A34343; font-weight: bold; font-size: 16px;">${amount}€</td>
-                </tr>
-              </table>
-            </div>
-            
-            <div style="background-color: #fffbeb; border-left: 4px solid #f59e0b; padding: 15px; font-size: 14px; color: #b45309; border-radius: 8px; margin-bottom: 25px;">
-              ⚠️ Vous disposez de <strong>24 heures</strong> pour accepter ou refuser cette demande à partir de votre tableau de bord. Passé ce délai, la demande expirera automatiquement.
-            </div>
-
-            <div style="text-align: center; margin: 35px 0;">
-              <a href="${req.headers.origin || 'http://localhost:3000'}/#/owner/dashboard" style="background-color: #0c1c2a; color: #ffffff; padding: 14px 28px; border-radius: 12px; text-decoration: none; font-weight: bold; display: inline-block;">Accéder à mon Tableau de Bord</a>
-            </div>
-
-            <hr style="border: 0; border-top: 1px solid #e5e7eb; margin: 30px 0;" />
-            <p style="font-size: 12px; color: #9ca3af; text-align: center; margin: 0;">
-              Cet email a été envoyé automatiquement par HAVEN. Merci de ne pas y répondre directement.
-            </p>
-          </div>
-        `;
-      } else if (type === "REQUEST_APPROVED") {
-        subject = `Votre demande a été acceptée ! Finalisez votre réservation - HAVEN`;
-        htmlContent = `
-          <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 30px; border: 1px solid #e5e7eb; border-radius: 20px; color: #1e293b;">
-            <div style="text-align: center; margin-bottom: 30px;">
-              <h1 style="color: #A34343; font-size: 28px; font-weight: bold; margin: 0;">HAVEN</h1>
-              <p style="text-transform: uppercase; font-size: 10px; color: #9ca3af; letter-spacing: 2px; margin-top: 5px;">Demande Acceptée - En attente de paiement</p>
-            </div>
-            <p>Bonjour <strong>${tenantName || 'Locataire'}</strong>,</p>
-            <p>Bonne nouvelle ! Le propriétaire <strong>${ownerName}</strong> a accepté votre demande de réservation pour le logement <strong>${listingTitle}</strong> (Chambre: <strong>${roomName || 'Chambre'}</strong>).</p>
-            
-            <div style="background-color: #f8fafc; padding: 25px; border-radius: 16px; margin: 25px 0;">
-              <table style="width: 100%; font-size: 14px; border-collapse: collapse;">
-                <tr>
-                  <td style="padding: 6px 0; color: #64748b; font-weight: 500;">Période :</td>
-                  <td style="padding: 6px 0; text-align: right; color: #0f172a; font-weight: bold;">${startDate} au ${endDate}</td>
-                </tr>
-                <tr>
-                  <td style="padding: 6px 0; color: #64748b; font-weight: 500;">Montant total :</td>
-                  <td style="padding: 6px 0; text-align: right; color: #A34343; font-weight: bold; font-size: 16px;">${amount}€</td>
-                </tr>
-              </table>
-            </div>
-            
-            <div style="background-color: #eff6ff; border-left: 4px solid #3b82f6; padding: 15px; font-size: 14px; color: #1d4ed8; border-radius: 8px; margin-bottom: 25px;">
-              ⏳ Vous disposez de <strong>24 heures</strong> pour finaliser le paiement sur votre tableau de bord afin de bloquer définitivement votre place. Passé ce délai, votre place sera libérée.
-            </div>
-
-            <div style="text-align: center; margin: 35px 0;">
-              <a href="${req.headers.origin || 'http://localhost:3000'}/#/dashboard" style="background-color: #A34343; color: #ffffff; padding: 14px 28px; border-radius: 12px; text-decoration: none; font-weight: bold; display: inline-block;">Procéder au Paiement Sécurisé</a>
-            </div>
-
-            <hr style="border: 0; border-top: 1px solid #e5e7eb; margin: 30px 0;" />
-            <p style="font-size: 12px; color: #9ca3af; text-align: center; margin: 0;">
-              Cet email a été envoyé automatiquement par HAVEN. Merci de ne pas y répondre directement.
-            </p>
-          </div>
-        `;
-      } else if (type === "PAYMENT_CONFIRMED") {
-        subject = `Réservation confirmée ! Bienvenue chez HAVEN 🎉`;
-        htmlContent = `
-          <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 30px; border: 1px solid #e5e7eb; border-radius: 20px; color: #1e293b;">
-            <div style="text-align: center; margin-bottom: 30px;">
-              <h1 style="color: #A34343; font-size: 28px; font-weight: bold; margin: 0;">HAVEN</h1>
-              <p style="text-transform: uppercase; font-size: 10px; color: #10b981; letter-spacing: 2px; margin-top: 5px;">Réservation Confirmée</p>
-            </div>
-            <p>Bonjour <strong>${tenantName}</strong>,</p>
-            <p>🎉 C'est officiel ! Votre paiement de <strong>${amount}€</strong> a été validé. Votre réservation pour le logement <strong>${listingTitle}</strong> (Chambre: <strong>${roomName || 'Chambre'}</strong>) est définitivement sécurisée.</p>
-            
-            <div style="background-color: #f0fdf4; padding: 25px; border-radius: 16px; margin: 25px 0; border: 1px solid #bbf7d0;">
-              <h3 style="color: #15803d; margin-top: 0; font-size: 16px;">Détails du Séjour</h3>
-              <table style="width: 100%; font-size: 14px; border-collapse: collapse;">
-                <tr>
-                  <td style="padding: 6px 0; color: #166534; font-weight: 500;">Période :</td>
-                  <td style="padding: 6px 0; text-align: right; color: #166534; font-weight: bold;">${startDate} au ${endDate}</td>
-                </tr>
-                <tr>
-                  <td style="padding: 6px 0; color: #166534; font-weight: 500;">Hôte :</td>
-                  <td style="padding: 6px 0; text-align: right; color: #166534; font-weight: bold;">${ownerName}</td>
-                </tr>
-                <tr>
-                  <td style="padding: 6px 0; color: #166534; font-weight: 500;">Statut :</td>
-                  <td style="padding: 6px 0; text-align: right; color: #15803d; font-weight: bold;">Signé & Confirmé</td>
-                </tr>
-              </table>
-            </div>
-
-            <p>Vous pouvez dès à présent communiquer avec votre propriétaire via la messagerie HAVEN pour organiser votre arrivée.</p>
-
-            <div style="text-align: center; margin: 35px 0;">
-              <a href="${req.headers.origin || 'http://localhost:3000'}/#/dashboard" style="background-color: #0c1c2a; color: #ffffff; padding: 14px 28px; border-radius: 12px; text-decoration: none; font-weight: bold; display: inline-block;">Consulter mon Espace Locataire</a>
-            </div>
-
-            <hr style="border: 0; border-top: 1px solid #e5e7eb; margin: 30px 0;" />
-            <p style="font-size: 12px; color: #9ca3af; text-align: center; margin: 0;">
-              Cet email a été envoyé automatiquement par HAVEN. Merci de ne pas y répondre directement.
-            </p>
-          </div>
-        `;
-      } else if (type === "BOOKING_CANCELLED") {
-        subject = `Demande de réservation expirée ou déclinée - HAVEN`;
-        htmlContent = `
-          <div style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 30px; border: 1px solid #e5e7eb; border-radius: 20px; color: #1e293b;">
-            <div style="text-align: center; margin-bottom: 30px;">
-              <h1 style="color: #A34343; font-size: 28px; font-weight: bold; margin: 0;">HAVEN</h1>
-              <p style="text-transform: uppercase; font-size: 10px; color: #ef4444; letter-spacing: 2px; margin-top: 5px;">Demande Libérée</p>
-            </div>
-            <p>Bonjour <strong>${tenantName}</strong>,</p>
-            <p>La demande de réservation pour le logement <strong>${listingTitle}</strong> (Chambre: <strong>${roomName || 'Chambre'}</strong>) du ${startDate} au ${endDate} a expiré ou a été déclinée.</p>
-            <p>Les dates ont été libérées de notre système. N'hésitez pas à parcourir d'autres offres de colocation courte durée disponibles sur notre portail.</p>
-
-            <div style="text-align: center; margin: 35px 0;">
-              <a href="${req.headers.origin || 'http://localhost:3000'}/#/search" style="background-color: #A34343; color: #ffffff; padding: 14px 28px; border-radius: 12px; text-decoration: none; font-weight: bold; display: inline-block;">Trouver un autre logement</a>
-            </div>
-
-            <hr style="border: 0; border-top: 1px solid #e5e7eb; margin: 30px 0;" />
-            <p style="font-size: 12px; color: #9ca3af; text-align: center; margin: 0;">
-              Cet email a été envoyé automatiquement par HAVEN. Merci de ne pas y répondre directement.
-            </p>
-          </div>
-        `;
-      }
-
-      const { error } = await provider.resend.emails.send({
-        from: emailFrom,
-        to: [email],
-        ...(emailReplyTo ? { replyTo: emailReplyTo } : {}),
-        subject: subject,
-        html: htmlContent
-      });
-
-      if (error) {
-        console.error("Booking email provider error:", error);
-        return sendApiError(res, 503, "Le service d’envoi d’e-mails est temporairement indisponible.");
-      }
-
-      res.json({ success: true });
-    } catch (err: any) {
-      console.error("Booking email send failed:", err);
-      if (!isProduction) return res.json({ success: true, mocked: true, message: "Mode développement : l’e-mail n’a pas été distribué." });
-      return sendApiError(res, 503, "Le service d’envoi d’e-mails est temporairement indisponible.");
     }
   });
 
@@ -1685,7 +1532,7 @@ async function startServer() {
         const access = await adminDb.collection('listing_access').doc(booking.listingId).get();
         instructions = access.data()?.instructions || '';
       }
-      return res.json({ ...receipt, bookingStatus: booking.status, instructions, emailStatus: jobs[0].data()?.status || 'PENDING', arrivalEmailStatus: jobs[1].data()?.status || 'PENDING', emailConfigured: !('error' in getEmailProvider()) });
+      return res.json({ ...receipt, bookingStatus: booking.status, instructions, emailStatus: jobs[0].data()?.status || 'PENDING', arrivalEmailStatus: jobs[1].data()?.status || 'PENDING', emailConfigured: !('error' in getEmailProvider()), reservationEmailsEnabled: reservationEmailConfiguration(process.env).enabled, resendTemplatesEnabled: resendTemplatesEnabled(process.env) });
     } catch { return sendApiError(res, 503, 'Les informations du séjour sont indisponibles.'); }
   });
 
@@ -1834,7 +1681,7 @@ async function startServer() {
   } else {
     const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
-    app.get('*all', (req, res) => {
+    app.get('*all', (_req, res) => {
       res.sendFile(path.join(distPath, 'index.html'));
     });
   }

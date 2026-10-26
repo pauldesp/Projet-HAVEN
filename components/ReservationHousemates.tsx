@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Loader2, Users } from 'lucide-react';
 import type { HousematePreview } from '../types';
 import { authenticatedFetch } from '../services/serverApi';

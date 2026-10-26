@@ -2,36 +2,7 @@ import { OwnerAccessInstructions } from '../components/OwnerAccessInstructions';
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { 
-  ArrowLeft, 
-  Save, 
-  Loader2, 
-  Camera, 
-  Plus, 
-  Trash2, 
-  Maximize2, 
-  Bath, 
-  Bed, 
-  Tag, 
-  Info,
-  Building,
-  Home as HomeIcon,
-  MapPin,
-  Upload,
-  CheckCircle,
-  XCircle,
-  Lock,
-  Wifi,
-  Wind,
-  Zap,
-  Mic,
-  Trees,
-  Bike,
-  Car,
-  Archive,
-  Waves,
-  Sun
-} from 'lucide-react';
+import { ArrowLeft, Save, Loader2, Camera, Plus, Trash2, Maximize2, Bath, Bed, Info, Building, Home as HomeIcon, MapPin, Upload, CheckCircle, Lock } from 'lucide-react';
 import { Button } from '../components/Button';
 import { useListings } from '../contexts/ListingContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -451,7 +422,7 @@ export const EditListing: React.FC = () => {
                </div>
 
                <div className="space-y-8">
-                  {listing.rooms.map((room, idx) => (
+                  {listing.rooms.map(room => (
                     <div key={room.id} className="relative group p-8 rounded-[2rem] border border-gray-100 bg-gray-50/50 hover:bg-white hover:shadow-premium transition-all">
                        <button 
                         type="button"

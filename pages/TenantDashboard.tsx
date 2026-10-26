@@ -13,33 +13,11 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '../components/Button';
 import { Logo } from '../components/Logo';
-import { 
-  Calendar, 
-  FileText, 
-  MessageCircle, 
-  Clock, 
-  CheckCircle, 
-  AlertCircle, 
-  Star, 
-  Camera, 
-  ClipboardCheck, 
-  Loader2, 
-  Sparkles, 
-  MapPin, 
-  Heart, 
-  ShieldCheck, 
-  UserCircle, 
-  Upload,
-  ArrowRightLeft,
-  AlertTriangle,
-  X,
-  Inbox,
-  ChevronRight
-} from 'lucide-react';
+import { Calendar, FileText, MessageCircle, Clock, CheckCircle, ClipboardCheck, Loader2, Sparkles, MapPin, Heart, ShieldCheck, UserCircle, Upload, ArrowRightLeft, AlertTriangle, X, ChevronRight } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useListings } from '../contexts/ListingContext';
 import { apiService } from '../services/api';
-import { Booking, Listing, Room, UserRole, AppDocument } from '../types';
+import { Booking, Listing, UserRole, AppDocument } from '../types';
 import { InventoryModal } from '../components/InventoryModal';
 import { ReviewModal } from '../components/ReviewModal';
 import { ReportModal } from '../components/ReportModal';
@@ -47,8 +25,6 @@ import { AccountStatusOverlay } from '../components/AccountStatusOverlay';
 import { ConversationsList } from '../components/ConversationsList';
 import { CancellationModal } from '../components/CancellationModal';
 import { toast } from 'sonner';
-import { authenticatedFetch } from '../services/serverApi';
-import { userFacingErrorMessage } from '../services/errorHandling';
 import { stayReviewDeadline } from '../services/reviewPolicy';
 import { prepareVerificationDocument } from '../services/verificationDocument';
 import { formatScheduledMoment, getInventoryTiming } from '../services/inventoryTiming';
@@ -75,8 +51,6 @@ export const TenantDashboard: React.FC = () => {
   const [reviewedBookingIds, setReviewedBookingIds] = useState<Set<string>>(() => new Set());
   const [isVerificationModalOpen, setIsVerificationModalOpen] = useState(false);
   const [cancellationBooking, setCancellationBooking] = useState<Booking | null>(null);
-  const [forceEarlyDepartureId, setForceEarlyDepartureId] = useState<string | null>(null);
-  const [showEarlyDepartureHintId, setShowEarlyDepartureHintId] = useState<string | null>(null);
 
   const isApproved = Boolean(currentUser && hasVerificationException(currentUser)) || currentUser?.status === 'APPROVED' && currentUser.emailVerified === true && hasRequiredPhoneNumber(currentUser) && currentUser.identityVerified === true;
   const isSubmittedForReview = Boolean(currentUser && isVerificationPending(currentUser));
@@ -236,7 +210,7 @@ export const TenantDashboard: React.FC = () => {
     }
   };
 
-  const [isPayingBookingId, setIsPayingBookingId] = useState<string | null>(null);
+  const [isPayingBookingId] = useState<string | null>(null);
 
   const handleProceedToPayment = (booking: Booking) => {
     navigate(`/payment/${encodeURIComponent(booking.id)}`);
@@ -279,20 +253,6 @@ export const TenantDashboard: React.FC = () => {
     } catch (e) {
       console.error("Error finalizing inventory", e);
       throw e;
-    }
-  };
-
-  const isLastDay = (dateStr: string) => {
-    if (!dateStr) return false;
-    try {
-      const today = new Date();
-      const [year, month, day] = dateStr.split('-').map(Number);
-      const endDate = new Date(year, month - 1, day);
-      const d1 = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
-      const d2 = new Date(endDate.getFullYear(), endDate.getMonth(), endDate.getDate()).getTime();
-      return d1 >= d2;
-    } catch (e) {
-      return false;
     }
   };
 
@@ -357,7 +317,6 @@ export const TenantDashboard: React.FC = () => {
     input.click();
   };
 
-  const today = new Date().toISOString().slice(0, 10);
   const upcoming = bookings.filter(booking => bookingCategory(booking, clockNow) !== 'PAST');
   const history = bookings.filter(booking => bookingCategory(booking, clockNow) === 'PAST');
 

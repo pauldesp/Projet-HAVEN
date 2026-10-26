@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { X, Send, AlertCircle, AlertTriangle, Shield, CheckCircle2, Loader2, Camera, Trash2, ChevronLeft } from 'lucide-react';
+import { X, AlertTriangle, CheckCircle2, Loader2, Camera } from 'lucide-react';
 import { Button } from './Button';
 import { apiService } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
@@ -40,9 +40,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
   // State for Incident (if technical/property)
   const [isIncident, setIsIncident] = useState(targetType === 'TECHNICAL');
   const [priority, setPriority] = useState<'LOW' | 'MEDIUM' | 'HIGH'>('MEDIUM');
-  const [photos, setPhotos] = useState<string[]>([]);
 
-  const [incidentStep, setIncidentStep] = useState(1);
   const [incidentReport, setIncidentReport] = useState<{ category: string, subCategory: string, description: string, photo: string }>({
     category: '',
     subCategory: '',

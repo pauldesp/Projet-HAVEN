@@ -8,7 +8,7 @@ import { Button } from '../components/Button';
 import { BookingModal } from '../components/BookingModal';
 import { ListingCalendar } from '../components/ListingCalendar';
 import ReactMarkdown from 'react-markdown';
-import { Star, MapPin, Wifi, Layout, Users, Check, Share, Heart, Calendar, Lock, Maximize2, ShieldCheck, AlertCircle, Loader2 } from 'lucide-react';
+import { Star, MapPin, Layout, Users, Check, Share, Heart, Calendar, Lock, Maximize2, ShieldCheck, AlertCircle, Loader2 } from 'lucide-react';
 import { useListings } from '../contexts/ListingContext';
 import { apiService } from '../services/api';
 import { BookingAvailability, HousematePreview, Room, User } from '../types';
@@ -39,7 +39,7 @@ export const ListingDetails: React.FC = () => {
   const [owner, setOwner] = useState<User | null>(null);
   const [reviews, setReviews] = useState<any[]>([]);
   const [isReviewsLoading, setIsReviewsLoading] = useState(false);
-  const [isOwnerMode, setIsOwnerMode] = useState(false);
+  const [, setIsOwnerMode] = useState(false);
   const [availabilityReady, setAvailabilityReady] = useState(false);
   const [availabilityError, setAvailabilityError] = useState('');
   const [availability, setAvailability] = useState<BookingAvailability[]>([]);
@@ -272,10 +272,6 @@ export const ListingDetails: React.FC = () => {
 
   const nights = countNights(startDate, endDate);
 
-  const basePrice = activeRoom.pricePerDay * nights;
-  const cleaningFee = listing.cleaningFee || 0;
-  const platformFee = Math.round(basePrice * 0.15);
-  const totalPrice = basePrice + cleaningFee + platformFee;
   const listingPhotos = getListingPhotoUrls(listing);
   const isFavorite = currentUser?.favorites?.includes(listing.id) ?? false;
 

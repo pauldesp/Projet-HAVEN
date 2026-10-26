@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
-import { Search, Calendar as CalendarIcon, ShieldCheck, Sparkles, TrendingUp, BarChart3, AlertCircle, Users, Route, Check, Coins, Hotel, Info, Home as HomeIcon, ArrowRight } from 'lucide-react';
+import { Search, Calendar as CalendarIcon, ShieldCheck, Sparkles, TrendingUp, BarChart3, AlertCircle, Users, Route, Hotel, Info, Home as HomeIcon, ArrowRight } from 'lucide-react';
 import { Button } from '../components/Button';
 import { CityAutocomplete } from '../components/CityAutocomplete';
 import { DateRangePicker } from '../components/DateRangePicker';

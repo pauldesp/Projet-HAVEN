@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import type { Report } from '../types';
 import { Button } from './Button';
 import { apiService } from '../services/api';

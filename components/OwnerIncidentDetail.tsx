@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import type { Incident } from '../types';
 import { XCircle, Loader2 } from 'lucide-react';
 import { HavenFollowUpNotice } from './HavenFollowUpNotice';

@@ -1,21 +1,7 @@
 import { VerificationExceptionDialog } from '../components/VerificationExceptionDialog';
 
 import React, { useState, useEffect } from 'react';
-import { MOCK_TENANTS } from '../services/mockData';
-import { 
-  Listing, 
-  ListingStatus, 
-  UserRole, 
-  ContactRequest, 
-  Report, 
-  ReportStatus,
-  User,
-  UserStatus,
-  LegalDocument,
-  Booking,
-  Incident
-  , AdminAuditEntry
-} from '../types';
+import { Listing, ListingStatus, UserRole, ContactRequest, Report, ReportStatus, User, UserStatus, LegalDocument, Booking, Incident, AdminAuditEntry } from '../types';
 import { Button } from '../components/Button';
 import { isVerificationPending, isVerificationReadyForAdminReview } from '../services/profileVerification';
 import { AdminAuditJournal } from '../components/AdminAuditJournal';
@@ -26,40 +12,8 @@ import { Logo } from '../components/Logo';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { onSnapshot, collection, query, orderBy } from 'firebase/firestore';
-import { db, seedFirestore } from '../firebase';
-import { 
-  Users, 
-  Home, 
-  AlertTriangle, 
-  TrendingUp, 
-  Trash2, 
-  CheckCircle, 
-  XCircle, 
-  Shield, 
-  Eye, 
-  FileText, 
-  MessageSquare,
-  UserCheck,
-  UserX,
-  AlertCircle,
-  Database,
-  Mail,
-  Flag,
-  Filter,
-  Search,
-  MoreVertical,
-  Ban,
-  Plus,
-  Loader2,
-  Calendar,
-  Camera,
-  ArrowUpDown,
-  ChevronUp,
-  ChevronDown,
-  ChevronRight,
-  History,
-  UserRoundCog
-} from 'lucide-react';
+import { db } from '../firebase';
+import { Users, Home, AlertTriangle, TrendingUp, CheckCircle, XCircle, Shield, Eye, FileText, MessageSquare, UserCheck, AlertCircle, Mail, Flag, Ban, Plus, Loader2, Calendar, ArrowUpDown, ChevronUp, ChevronDown, History } from 'lucide-react';
 import { toast } from 'sonner';
 import { useListings } from '../contexts/ListingContext';
 import { apiService } from '../services/api';
@@ -82,11 +36,11 @@ export const AdminDashboard: React.FC = () => {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [auditEntries, setAuditEntries] = useState<AdminAuditEntry[]>([]);
   const [isAuditLoading, setIsAuditLoading] = useState(false);
-  const [isUsersLoading, setIsUsersLoading] = useState(false);
-  const [isContactsLoading, setIsContactsLoading] = useState(false);
-  const [isReportsLoading, setIsReportsLoading] = useState(false);
-  const [isIncidentsLoading, setIsIncidentsLoading] = useState(false);
-  const [isBookingsLoading, setIsBookingsLoading] = useState(false);
+  const [, setIsUsersLoading] = useState(false);
+  const [, setIsContactsLoading] = useState(false);
+  const [, setIsReportsLoading] = useState(false);
+  const [, setIsIncidentsLoading] = useState(false);
+  const [, setIsBookingsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [auditError, setAuditError] = useState<string | null>(null);
   

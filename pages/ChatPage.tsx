@@ -5,8 +5,8 @@ import { Send, User as UserIcon, ArrowLeft, Loader2, Home, Calendar } from 'luci
 import { useAuth } from '../contexts/AuthContext';
 import { apiService } from '../services/api';
 import { Message, Booking, User, Listing } from '../types';
-import { motion, AnimatePresence } from 'motion/react';
-import { collection, query, where, onSnapshot, orderBy } from 'firebase/firestore';
+import { motion } from 'motion/react';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
 import { toast } from 'sonner';
 

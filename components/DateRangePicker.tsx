@@ -1,7 +1,7 @@
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, X, Check } from 'lucide-react';
+import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, X } from 'lucide-react';
 
 interface DateRangePickerProps {
   startDate: string;
@@ -13,7 +13,6 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({ startDate, end
   const [isOpen, setIsOpen] = useState(false);
   const [viewDate, setViewDate] = useState(new Date());
   const [hoveredDate, setHoveredDate] = useState<string | null>(null);
-  const wrapperRef = useRef<HTMLDivElement>(null);
 
   // Close on Escape key
   useEffect(() => {
@@ -100,7 +99,6 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({ startDate, end
     const month = baseDate.getMonth();
     const daysInMonth = getDaysInMonth(year, month);
     const firstDayIndex = getFirstDayOfMonth(year, month);
-    const monthNames = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
 
     const days = [];
     for (let i = 0; i < firstDayIndex; i++) {

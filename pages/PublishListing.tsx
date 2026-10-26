@@ -3,52 +3,13 @@ import { hasRequiredPhoneNumber, isVerificationPending } from '../services/profi
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  Home, 
-  Building, 
-  MapPin, 
-  ArrowRight, 
-  ArrowLeft, 
-  Wifi, 
-  Wind, 
-  Trash2, 
-  Plus, 
-  Minus,
-  Upload, 
-  Info,
-  Maximize2,
-  XCircle,
-  CheckCircle,
-  Loader2,
-  RotateCcw,
-  ChevronDown,
-  Cloud,
-  Zap,
-  Mic,
-  Lock,
-  Trees,
-  Bike,
-  Car,
-  Archive,
-  Waves,
-  Sun,
-  Camera,
-  Bath,
-  Eye,
-  ListChecks,
-  Check,
-  Star,
-  Users,
-  Sparkles,
-  FileText,
-  Shield
-} from 'lucide-react';
+import { Home, Building, MapPin, ArrowRight, ArrowLeft, Trash2, Plus, Minus, Upload, Info, Maximize2, XCircle, CheckCircle, Loader2, RotateCcw, ChevronDown, Cloud, Lock, Camera, Bath, Eye, ListChecks, Check, Star, Users, Sparkles, FileText, Shield } from 'lucide-react';
 import { Button } from '../components/Button';
 import { CityAutocomplete, PlaceData } from '../components/CityAutocomplete';
 import { DEFAULT_MINIMUM_NIGHTS, isValidMinimumNights } from '../services/minimumStay';
 import { useListings } from '../contexts/ListingContext';
 import { useAuth } from '../contexts/AuthContext';
-import { aiService } from '../services/ai';
+import { resolveCityCoordinates } from '../services/proximity';
 import { Listing, Room, LegalDocument } from '../types';
 import { toast } from 'sonner';
 import { hasMissingRoomPhoto, MAX_LISTING_PHOTOS, MAX_ROOM_PHOTOS, normalizeRoomPhotos } from '../services/media';
@@ -100,8 +61,6 @@ export const PublishListing: React.FC = () => {
     specifications: { opened: false, scrolled: false, validated: false },
     terms: { opened: false, scrolled: false, validated: false }
   });
-  const specificationsRef = useRef<HTMLDivElement>(null);
-  const termsRef = useRef<HTMLDivElement>(null);
   const modalScrollRef = useRef<HTMLDivElement>(null);
   const saveTimeoutRef = useRef<number | null>(null);
 
@@ -527,13 +486,16 @@ export const PublishListing: React.FC = () => {
     setIsSubmitting(true);
     
     try {
-      // Tentative de géocodage de la ville pour la recherche de proximité
+      // Reuse the public commune lookup already used by search.
       let coords = { lat: 48.8566, lng: 2.3522 }; // Default Paris
+      const geocoding = new AbortController();
+      const geocodingTimeout = window.setTimeout(() => geocoding.abort(), 5000);
       try {
-        const aiCoords = await aiService.getCityCoordinates(formData.city);
-        if (aiCoords) coords = aiCoords;
+        coords = await resolveCityCoordinates(formData.city, '', geocoding.signal);
       } catch (e) {
         console.error("Erreur geocoding lors de la publication", e);
+      } finally {
+        window.clearTimeout(geocodingTimeout);
       }
 
       const newListing: Listing = {
@@ -880,7 +842,7 @@ export const PublishListing: React.FC = () => {
             {hasIncompleteRoom(formData.rooms) && <p className="text-sm font-semibold text-haven-red">Renseignez le nom, le prix par nuit et la surface de chaque chambre pour continuer.</p>}
             {hasRoomWithoutOption(formData.rooms) && <p className={`text-sm font-semibold ${showRoomOptionComplianceError ? 'text-haven-red' : 'text-haven-stone'}`}>{showRoomOptionComplianceError ? 'Une chambre sans option n’est pas conforme au cahier des charges HAVEN.' : 'Cochez les options de la chambre.'}</p>}
             <div className="space-y-12">
-              {formData.rooms.map((room, index) => (
+              {formData.rooms.map(room => (
                 <div key={room.id} className="bg-white rounded-[2.5rem] border border-gray-100 shadow-premium overflow-hidden flex flex-col lg:flex-row">
                   {/* Form Part */}
                   <div className="flex-1 p-8 md:p-10 space-y-10 border-r border-gray-50">

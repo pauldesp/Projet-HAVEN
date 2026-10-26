@@ -2,33 +2,12 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { apiService } from '../services/api';
-import { Booking, Listing, User, InventoryReport, InventoryItem, Room } from '../types';
+import { Booking, Listing, InventoryReport, InventoryItem } from '../types';
 import { Button } from '../components/Button';
-import { 
-  CheckCircle, 
-  XCircle, 
-  Camera, 
-  Star, 
-  Info, 
-  ArrowRight, 
-  Shield, 
-  User as UserIcon, 
-  Home, 
-  Layout,
-  Signature as SignatureIcon,
-  Loader2,
-  Calendar,
-  Lock,
-  ArrowLeft,
-  Check,
-  MapPin,
-  CreditCard,
-  FileText,
-  List
-} from 'lucide-react';
+import { CheckCircle, Camera, Star, Info, ArrowRight, Shield, User as UserIcon, Layout, Signature as SignatureIcon, Loader2, Calendar, Lock, Check, MapPin, CreditCard, FileText, List } from 'lucide-react';
 import { toast } from 'sonner';
 import SignatureCanvas from 'react-signature-canvas';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion } from 'motion/react';
 import { formatScheduledMoment, getInventoryTiming } from '../services/inventoryTiming';
 import { userFacingErrorMessage } from '../services/errorHandling';
 

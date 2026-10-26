@@ -1,5 +1,5 @@
 import type { Booking } from '../types';
-import { BookingLifecycleError, assertBookingPayable, paymentDisposition } from './bookingLifecycle';
+import { assertBookingPayable, paymentDisposition } from './bookingLifecycle';
 import type { PaymentMode } from './paymentConfiguration';
 
 export interface CheckoutDetails {

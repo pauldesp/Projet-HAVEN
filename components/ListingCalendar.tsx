@@ -96,11 +96,6 @@ export const ListingCalendar: React.FC<ListingCalendarProps> = ({
     return manualBlockedDates.includes(dateStr) || listingBlockedDates.includes(dateStr);
   };
 
-  const isDateManuallyBlocked = (year: number, month: number, day: number) => {
-    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-    return manualBlockedDates.includes(dateStr) || listingBlockedDates.includes(dateStr);
-  };
-
   const getTenantsOnDate = (year: number, month: number, day: number) => {
     const checkDate = new Date(year, month, day).setHours(0,0,0,0);
     return allHouseBookings.filter(b => {
@@ -382,7 +377,7 @@ export const ListingCalendar: React.FC<ListingCalendarProps> = ({
                   
                   {tenants.length > 0 && (
                     <div className="flex -space-x-2 mt-0.5 relative z-20 justify-center w-full px-1">
-                      {tenants.slice(0, 3).map((booking, idx) => (
+                      {tenants.slice(0, 3).map((_booking, idx) => (
                         <div key={idx} className={`w-5 h-5 rounded-full border-2 overflow-hidden flex-shrink-0 ${isSelected ? 'border-haven-navy' : 'border-white'}`}>
                           <div className="w-full h-full bg-gray-300" />
                         </div>

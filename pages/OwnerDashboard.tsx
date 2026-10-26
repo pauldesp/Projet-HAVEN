@@ -6,46 +6,15 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { OwnerIncidentDetail, incidentStatusLabel } from '../components/OwnerIncidentDetail';
 import { Button } from '../components/Button';
-import { 
-  Plus, 
-  Home, 
-  Calendar, 
-  TrendingUp, 
-  Users, 
-  CheckCircle, 
-  XCircle, 
-  Clock, 
-  ChevronRight, 
-  MoreHorizontal, 
-  Loader2, 
-  DollarSign, 
-  BarChart3, 
-  MessageSquare, 
-  AlertTriangle, 
-  ArrowRightLeft,
-  Search,
-  Filter,
-  Download,
-  Eye,
-  ShieldCheck,
-  Star,
-  Wallet,
-  Edit,
-  MapPin,
-  MessageCircle,
-  Inbox,
-  FileText,
-  Upload
-} from 'lucide-react';
+import { Plus, Home, Calendar, TrendingUp, Users, CheckCircle, Clock, MoreHorizontal, Loader2, DollarSign, MessageSquare, AlertTriangle, ArrowRightLeft, Filter, Download, Eye, ShieldCheck, Wallet, Edit, MessageCircle, Inbox, FileText, Upload } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useListings } from '../contexts/ListingContext';
 import { apiService } from '../services/api';
-import { Booking, Listing, UserRole, Incident, Payment, User } from '../types';
+import { Booking, UserRole, Incident, Payment, User } from '../types';
 import { AccountStatusOverlay } from '../components/AccountStatusOverlay';
 import { ConversationsList } from '../components/ConversationsList';
 import { CancellationModal } from '../components/CancellationModal';
 import { toast } from 'sonner';
-import { userFacingErrorMessage } from '../services/errorHandling';
 import { calculateOwnerFinanceStats } from '../services/ownerFinances';
 
 interface BookingWithTenant extends Booking {
@@ -54,7 +23,7 @@ interface BookingWithTenant extends Booking {
 
 export const OwnerDashboard: React.FC = () => {
   const navigate = useNavigate();
-  const { currentUser, refreshUser, updateUserRole } = useAuth();
+  const { currentUser, updateUserRole } = useAuth();
   const { listings } = useListings();
   const [activeTab, setActiveTab] = useState<'OVERVIEW' | 'LISTINGS' | 'BOOKINGS' | 'MESSAGES' | 'FINANCES' | 'DOCUMENTS' | 'INCIDENTS'>('OVERVIEW');
   const [ownerBookings, setOwnerBookings] = useState<BookingWithTenant[]>([]);

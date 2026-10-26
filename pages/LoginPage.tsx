@@ -3,22 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '../components/Button';
 import { BirthDateInput } from '../components/BirthDateInput';
-import { 
-  ShieldCheck, 
-  ArrowLeft, 
-  Mail, 
-  Lock, 
-  Loader2, 
-  AlertCircle, 
-  User as UserIcon, 
-  Phone, 
-  CheckCircle, 
-  XCircle, 
-  ArrowRight, 
-  Shield,
-  FileText,
-  Info,
-} from 'lucide-react';
+import { ShieldCheck, ArrowLeft, Mail, Lock, Loader2, AlertCircle, Phone, CheckCircle } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { UserRole, User } from '../types';
 import { userFacingErrorMessage } from '../services/errorHandling';
@@ -486,7 +471,7 @@ export const LoginPage: React.FC = () => {
                 <CheckCircle size={40} />
               </div>
               <h3 className="text-2xl font-heading font-bold text-haven-navy">Email envoyé !</h3>
-              <p className="text-haven-stone">Un lien de réinitialisation de mot de passe a été envoyé à <strong>{identifier}</strong>. Veuillez vérifier votre boîte de réception.</p>
+              <p className="text-haven-stone">Si un compte correspond à <strong>{identifier}</strong>, vous recevrez un lien de réinitialisation. Veuillez vérifier votre boîte de réception et vos courriers indésirables.</p>
             </div>
             <Button 
               fullWidth 

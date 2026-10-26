@@ -1,4 +1,4 @@
-import React, { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { MapPin } from 'lucide-react';
 import type { PlaceData } from './CityAutocomplete';
 

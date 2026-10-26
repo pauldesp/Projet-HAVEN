@@ -1,6 +1,6 @@
 
 import { apiService } from './api';
-import { Listing, UserRole, Room, Report } from '../types';
+import { Listing, Room, Report } from '../types';
 
 const CITIES = ['Paris', 'Lyon', 'Marseille', 'Bordeaux', 'Lille', 'Nantes', 'Strasbourg', 'Montpellier'];
 const TYPES: ('HOUSE' | 'APARTMENT')[] = ['HOUSE', 'APARTMENT'];

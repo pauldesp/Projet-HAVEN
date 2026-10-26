@@ -1,8 +1,9 @@
 import React, { createContext, useContext, useState, ReactNode, useEffect, useMemo } from 'react';
 import { User, UserRole, UserStatus } from '../types';
 import { auth, db, googleProvider, seedFirestore } from '../firebase';
-import { onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, signInWithRedirect, getRedirectResult, sendPasswordResetEmail, User as FirebaseUser } from 'firebase/auth';
-import { doc, getDoc, setDoc, updateDoc, onSnapshot } from 'firebase/firestore';
+import { onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, signInWithRedirect, getRedirectResult, User as FirebaseUser } from 'firebase/auth';
+import { requestPasswordResetEmail } from '../services/authEmailApi';
+import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
 import { createPendingMemberProfile } from '../services/memberProfile';
 import { registrationPasswordError } from '../services/accountTerms';
 
@@ -225,7 +226,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const resetPassword = async (email: string) => {
     setIsLoading(true);
     try {
-      await sendPasswordResetEmail(auth, email);
+      await requestPasswordResetEmail(email);
     } catch (e) {
       console.error("Reset password error", e);
       throw e;

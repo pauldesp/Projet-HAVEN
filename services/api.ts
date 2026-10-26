@@ -2,18 +2,17 @@ import { submitInventoryReport } from './inventorySubmission';
 import { loadAvailability, listenAvailability } from './publicAvailability';
 import { isOwnerBookingVisible } from './bookingVisibility';
 import { hasVerificationException } from './verificationException';
-import { createRandomId } from './randomId';
 
 import { routeStayIssue } from './stayIssueRouting';
 import { db, auth } from '../firebase';
-import { collection, getDocs, getDoc, doc, setDoc, updateDoc, query, where, deleteField, onSnapshot, or } from 'firebase/firestore';
+import { collection, getDocs, getDoc, doc, setDoc, updateDoc, query, where, deleteField, onSnapshot } from 'firebase/firestore';
 import { Listing, User, Booking, BookingAvailability, ListingStatus, UserStatus, Message, ContactRequest, Report, Incident, Payment, InventoryReport, AppDocument, HousematePreview, AdminAuditEntry } from '../types';
 import { authenticatedFetch } from './serverApi';
 import { hasMissingRoomPhoto, normalizeListingPhotos } from './media';
 import { normalizeListingDescription } from './listingDescription';
 import { hasIncompleteRoom, hasRoomWithoutOption } from './roomValidation';
 import { reportError, userFacingErrorMessage } from './errorHandling';
-import { countNights, isBookableStay } from './stay';
+
 
 // Helper to handle firestore errors with context
 const handleFirestoreError = (error: any, operation: string, path: string) => {
@@ -878,33 +877,6 @@ export const apiService = {
       }, (error) => {
         logFirestoreListenerError(error, 'LISTEN_DOCUMENTS_BY_USER', `documents?userId=${userId}`);
       });
-    }
-  },
-
-  notifications: {
-    async sendBookingNotification(email: string, type: 'REQUEST_SUBMITTED' | 'REQUEST_APPROVED' | 'PAYMENT_CONFIRMED' | 'BOOKING_CANCELLED', details: {
-      listingTitle: string;
-      roomName: string;
-      amount: number;
-      startDate: string;
-      endDate: string;
-      arrivalTime?: string;
-      departureTime?: string;
-      tenantName: string;
-      ownerName: string;
-      bookingId: string;
-    }) {
-      try {
-        const response = await authenticatedFetch('/api/send-booking-notification', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, type, details })
-        });
-        return await response.json();
-      } catch (e) {
-        console.error("Error triggering booking notification email", e);
-        return { success: false, error: e };
-      }
     }
   }
 };

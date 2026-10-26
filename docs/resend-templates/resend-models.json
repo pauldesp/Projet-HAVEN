@@ -1,0 +1,71 @@
+{
+  "connectedToAutomaticSending": true,
+  "templates": [
+    {
+      "kind": "CONFIRMATION",
+      "id": "b2c2500a-84a3-4bff-86ec-c3388ffe25b1",
+      "url": "https://resend.com/templates/b2c2500a-84a3-4bff-86ec-c3388ffe25b1/editor",
+      "status": "published"
+    },
+    {
+      "kind": "ARRIVAL",
+      "id": "574da750-cb95-4ae2-bb9b-7abf2de6cf93",
+      "url": "https://resend.com/templates/574da750-cb95-4ae2-bb9b-7abf2de6cf93/editor",
+      "status": "published"
+    },
+    {
+      "kind": "CHECKIN",
+      "id": "1aed423d-aeaa-44e7-a077-d1b03fda42d0",
+      "url": "https://resend.com/templates/1aed423d-aeaa-44e7-a077-d1b03fda42d0/editor",
+      "status": "published"
+    },
+    {
+      "kind": "DEPARTURE_REMINDER",
+      "id": "94f026e5-1fd7-4944-beb2-81e3565a08dc",
+      "url": "https://resend.com/templates/94f026e5-1fd7-4944-beb2-81e3565a08dc/editor",
+      "status": "published"
+    },
+    {
+      "kind": "CHECKOUT",
+      "id": "bb11203b-d4aa-4efb-b997-93ecf79d6588",
+      "url": "https://resend.com/templates/bb11203b-d4aa-4efb-b997-93ecf79d6588/editor",
+      "status": "published"
+    },
+    {
+      "kind": "ACCOUNT_APPROVED",
+      "id": "cc072e4e-0a95-4472-a7a0-5bad53444ae2",
+      "url": "https://resend.com/templates/cc072e4e-0a95-4472-a7a0-5bad53444ae2/editor",
+      "status": "published"
+    },
+    {
+      "kind": "ACCOUNT_CORRECTION",
+      "id": "0ffc45ad-c5a9-43cc-9ae9-22f934e44471",
+      "url": "https://resend.com/templates/0ffc45ad-c5a9-43cc-9ae9-22f934e44471/editor",
+      "status": "published"
+    },
+    {
+      "kind": "CANCELLED",
+      "id": "21691692-ec7e-456d-aefc-6110a0024f47",
+      "url": "https://resend.com/templates/21691692-ec7e-456d-aefc-6110a0024f47/editor",
+      "status": "published"
+    },
+    {
+      "kind": "REVIEW_INVITE",
+      "id": "6cdab46e-ebc3-437d-abec-596924d199f9",
+      "url": "https://resend.com/templates/6cdab46e-ebc3-437d-abec-596924d199f9/editor",
+      "status": "published"
+    },
+    {
+      "kind": "EMAIL_VERIFICATION",
+      "id": "e0d3f410-4d3f-4d2d-8201-7a91dd1ee2e6",
+      "url": "https://resend.com/templates/e0d3f410-4d3f-4d2d-8201-7a91dd1ee2e6/editor",
+      "status": "published"
+    },
+    {
+      "kind": "PASSWORD_RESET",
+      "id": "e06fedbf-75ee-4eff-a6e8-013d244d01ac",
+      "url": "https://resend.com/templates/e06fedbf-75ee-4eff-a6e8-013d244d01ac/editor",
+      "status": "published"
+    }
+  ]
+}

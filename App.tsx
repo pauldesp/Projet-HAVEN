@@ -29,12 +29,10 @@ import { FaqPage } from './pages/FaqPage';
 import { HelpCenter } from './pages/HelpCenter';
 import { TrustAndSafetyPage } from './pages/TrustAndSafetyPage';
 import { CookiePolicyPage } from './pages/CookiePolicyPage';
-import { AccountStatusOverlay } from './components/AccountStatusOverlay';
 import { APIProvider } from '@vis.gl/react-google-maps';
 import { LanguageProvider } from './contexts/LanguageContext';
 import { ListingProvider } from './contexts/ListingContext';
 import { AuthProvider } from './contexts/AuthContext';
-import { BookingProvider } from './contexts/BookingContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { UserRole } from './types';
 
@@ -202,13 +200,11 @@ const App: React.FC = () => {
       <AuthProvider>
         <LanguageProvider>
           <ListingProvider>
-            <BookingProvider>
-              <MapsProvider>
-                <HashRouter>
-                  <AppContent />
-                </HashRouter>
-              </MapsProvider>
-            </BookingProvider>
+            <MapsProvider>
+              <HashRouter>
+                <AppContent />
+              </HashRouter>
+            </MapsProvider>
           </ListingProvider>
         </LanguageProvider>
       </AuthProvider>

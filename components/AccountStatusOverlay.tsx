@@ -9,7 +9,8 @@ import { UserRole, LegalDocument } from '../types';
 import ReactMarkdown from 'react-markdown';
 import { selectAccountTerms } from '../services/accountTerms';
 import { toast } from 'sonner';
-import { reload, sendEmailVerification } from 'firebase/auth';
+import { reload } from 'firebase/auth';
+import { requestVerificationEmail } from '../services/authEmailApi';
 import { auth } from '../firebase';
 import { prepareVerificationDocument } from '../services/verificationDocument';
 import { hasCompleteVerificationDetails, hasRequiredPhoneNumber, isVerificationPending, isAccountVerificationComplete, isValidPastBirthDate, isVerificationReadyToSubmit } from '../services/profileVerification';
@@ -199,7 +200,7 @@ export const AccountStatusOverlay: React.FC<AccountStatusOverlayProps> = ({
     try {
       const result = await requestAccountEmailVerification(firebaseUser, currentUser, {
         reload: () => reload(firebaseUser),
-        send: () => { auth.languageCode = 'fr'; return sendEmailVerification(firebaseUser); },
+        send: async () => { await requestVerificationEmail(); },
         confirm: async () => { await apiService.users.confirmEmail(); await refreshUser(); },
       });
       if (result === 'sent') {
@@ -215,7 +216,7 @@ export const AccountStatusOverlay: React.FC<AccountStatusOverlayProps> = ({
       const code = (error as { code?: string })?.code;
       if (code === 'auth/too-many-requests') deferEmailRequest(EMAIL_LIMIT_BACKOFF_MS);
       setEmailError(code === 'auth/too-many-requests'
-        ? 'Firebase limite temporairement les demandes. Utilisez un lien déjà reçu ou réessayez plus tard ; cette limite peut durer au-delà du délai affiché.'
+        ? 'Trop de demandes ont été envoyées. Utilisez un lien déjà reçu ou réessayez dans quelques minutes.'
         : code ? 'Impossible d’envoyer le lien pour le moment. Réessayez dans quelques instants.'
           : error instanceof Error ? error.message : 'Impossible d’envoyer l’e-mail de validation.');
     } finally {

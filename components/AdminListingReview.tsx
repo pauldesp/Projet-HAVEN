@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { XCircle, Home, Loader2 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import type { Listing } from '../types';

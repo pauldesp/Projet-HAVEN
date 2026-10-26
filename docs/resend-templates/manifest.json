@@ -1,0 +1,495 @@
+[
+  {
+    "kind": "CONFIRMATION",
+    "name": "01 · Réservation confirmée",
+    "alias": "haven-reservation-confirmee",
+    "subject": "Votre réservation est confirmée — {{{LOGEMENT}}}",
+    "preview": "Les dates, l’adresse et le justificatif de votre réservation Haven.",
+    "trigger": "Paiement confirmé ; justificatif PDF joint par Haven.",
+    "file": "haven-reservation-confirmee.html",
+    "variables": [
+      {
+        "key": "MENTION_TEST",
+        "type": "string"
+      },
+      {
+        "key": "PRENOM_LOCATAIRE",
+        "type": "string"
+      },
+      {
+        "key": "LOGEMENT",
+        "type": "string"
+      },
+      {
+        "key": "CHAMBRE",
+        "type": "string"
+      },
+      {
+        "key": "DATE_ARRIVEE",
+        "type": "string"
+      },
+      {
+        "key": "DATE_DEPART",
+        "type": "string"
+      },
+      {
+        "key": "HEURE_ARRIVEE",
+        "type": "string"
+      },
+      {
+        "key": "HEURE_DEPART",
+        "type": "string"
+      },
+      {
+        "key": "ADRESSE",
+        "type": "string"
+      },
+      {
+        "key": "MONTANT_HEBERGEMENT",
+        "type": "string"
+      },
+      {
+        "key": "FRAIS_MENAGE",
+        "type": "string"
+      },
+      {
+        "key": "FRAIS_SERVICE",
+        "type": "string"
+      },
+      {
+        "key": "MONTANT_TOTAL",
+        "type": "string"
+      },
+      {
+        "key": "REFERENCE_PAIEMENT",
+        "type": "string"
+      },
+      {
+        "key": "LIEN_ACTION",
+        "type": "string"
+      },
+      {
+        "key": "REFERENCE_DOSSIER",
+        "type": "string"
+      }
+    ]
+  },
+  {
+    "kind": "ARRIVAL",
+    "name": "02 · Préparer mon arrivée",
+    "alias": "haven-preparer-arrivee",
+    "subject": "Votre arrivée approche — {{{LOGEMENT}}}",
+    "preview": "Adresse, horaires et consignes pour une arrivée sereine.",
+    "trigger": "72 h avant l’arrivée, ou dès confirmation si réservation tardive.",
+    "file": "haven-preparer-arrivee.html",
+    "variables": [
+      {
+        "key": "MENTION_TEST",
+        "type": "string"
+      },
+      {
+        "key": "PRENOM_LOCATAIRE",
+        "type": "string"
+      },
+      {
+        "key": "LOGEMENT",
+        "type": "string"
+      },
+      {
+        "key": "CHAMBRE",
+        "type": "string"
+      },
+      {
+        "key": "DATE_ARRIVEE",
+        "type": "string"
+      },
+      {
+        "key": "DATE_DEPART",
+        "type": "string"
+      },
+      {
+        "key": "ADRESSE",
+        "type": "string"
+      },
+      {
+        "key": "HEURE_ARRIVEE",
+        "type": "string"
+      },
+      {
+        "key": "CONSIGNES_ACCES",
+        "type": "string"
+      },
+      {
+        "key": "LIEN_ACTION",
+        "type": "string"
+      },
+      {
+        "key": "REFERENCE_DOSSIER",
+        "type": "string"
+      }
+    ]
+  },
+  {
+    "kind": "CHECKIN",
+    "name": "03 · Entrée enregistrée",
+    "alias": "haven-entree-enregistree",
+    "subject": "Votre entrée est enregistrée — {{{LOGEMENT}}}",
+    "preview": "Votre état des lieux d’entrée est conservé dans votre espace.",
+    "trigger": "État des lieux d’entrée enregistré avec succès.",
+    "file": "haven-entree-enregistree.html",
+    "variables": [
+      {
+        "key": "MENTION_TEST",
+        "type": "string"
+      },
+      {
+        "key": "PRENOM_LOCATAIRE",
+        "type": "string"
+      },
+      {
+        "key": "DATE_ACTION",
+        "type": "string"
+      },
+      {
+        "key": "LOGEMENT",
+        "type": "string"
+      },
+      {
+        "key": "CHAMBRE",
+        "type": "string"
+      },
+      {
+        "key": "DATE_ARRIVEE",
+        "type": "string"
+      },
+      {
+        "key": "DATE_DEPART",
+        "type": "string"
+      },
+      {
+        "key": "LIEN_ACTION",
+        "type": "string"
+      },
+      {
+        "key": "REFERENCE_DOSSIER",
+        "type": "string"
+      }
+    ]
+  },
+  {
+    "kind": "DEPARTURE_REMINDER",
+    "name": "04 · Préparer mon départ",
+    "alias": "haven-preparer-depart",
+    "subject": "Votre départ du {{{DATE_DEPART}}} — {{{LOGEMENT}}}",
+    "preview": "Les étapes à prévoir avant votre état des lieux de sortie.",
+    "trigger": "La veille du départ à 10 h, dans le fuseau du logement.",
+    "file": "haven-preparer-depart.html",
+    "variables": [
+      {
+        "key": "MENTION_TEST",
+        "type": "string"
+      },
+      {
+        "key": "PRENOM_LOCATAIRE",
+        "type": "string"
+      },
+      {
+        "key": "DATE_DEPART",
+        "type": "string"
+      },
+      {
+        "key": "HEURE_DEPART",
+        "type": "string"
+      },
+      {
+        "key": "LOGEMENT",
+        "type": "string"
+      },
+      {
+        "key": "CHAMBRE",
+        "type": "string"
+      },
+      {
+        "key": "DATE_ARRIVEE",
+        "type": "string"
+      },
+      {
+        "key": "LIEN_ACTION",
+        "type": "string"
+      },
+      {
+        "key": "REFERENCE_DOSSIER",
+        "type": "string"
+      }
+    ]
+  },
+  {
+    "kind": "CHECKOUT",
+    "name": "05 · Départ enregistré",
+    "alias": "haven-depart-enregistre",
+    "subject": "Votre départ est enregistré — {{{LOGEMENT}}}",
+    "preview": "Votre état des lieux de sortie et votre déclaration de dépôt des clés sont enregistrés.",
+    "trigger": "État des lieux de sortie et déclaration de dépôt des clés enregistrés.",
+    "file": "haven-depart-enregistre.html",
+    "variables": [
+      {
+        "key": "MENTION_TEST",
+        "type": "string"
+      },
+      {
+        "key": "PRENOM_LOCATAIRE",
+        "type": "string"
+      },
+      {
+        "key": "DATE_ACTION",
+        "type": "string"
+      },
+      {
+        "key": "LOGEMENT",
+        "type": "string"
+      },
+      {
+        "key": "CHAMBRE",
+        "type": "string"
+      },
+      {
+        "key": "DATE_ARRIVEE",
+        "type": "string"
+      },
+      {
+        "key": "DATE_DEPART",
+        "type": "string"
+      },
+      {
+        "key": "LIEN_ACTION",
+        "type": "string"
+      },
+      {
+        "key": "REFERENCE_DOSSIER",
+        "type": "string"
+      }
+    ]
+  },
+  {
+    "kind": "ACCOUNT_APPROVED",
+    "name": "06 · Compte validé",
+    "alias": "haven-compte-valide",
+    "subject": "Votre compte Haven est validé",
+    "preview": "Vous pouvez maintenant réserver votre prochain séjour.",
+    "trigger": "Décision de validation enregistrée ; dérogation de test explicitement signalée.",
+    "file": "haven-compte-valide.html",
+    "variables": [
+      {
+        "key": "MENTION_TEST",
+        "type": "string"
+      },
+      {
+        "key": "PRENOM_LOCATAIRE",
+        "type": "string"
+      },
+      {
+        "key": "MESSAGE_VALIDATION",
+        "type": "string"
+      },
+      {
+        "key": "LIEN_ACTION",
+        "type": "string"
+      },
+      {
+        "key": "REFERENCE_DOSSIER",
+        "type": "string"
+      }
+    ]
+  },
+  {
+    "kind": "ACCOUNT_CORRECTION",
+    "name": "07 · Dossier à corriger",
+    "alias": "haven-dossier-a-corriger",
+    "subject": "Votre dossier Haven est à corriger",
+    "preview": "Retrouvez les corrections demandées pour finaliser votre dossier.",
+    "trigger": "Décision de correction enregistrée par un administrateur.",
+    "file": "haven-dossier-a-corriger.html",
+    "variables": [
+      {
+        "key": "MENTION_TEST",
+        "type": "string"
+      },
+      {
+        "key": "PRENOM_LOCATAIRE",
+        "type": "string"
+      },
+      {
+        "key": "MOTIF_CORRECTION",
+        "type": "string"
+      },
+      {
+        "key": "LIEN_ACTION",
+        "type": "string"
+      },
+      {
+        "key": "REFERENCE_DOSSIER",
+        "type": "string"
+      }
+    ]
+  },
+  {
+    "kind": "CANCELLED",
+    "name": "08 · Réservation annulée",
+    "alias": "haven-reservation-annulee",
+    "subject": "Réservation annulée — {{{LOGEMENT}}}",
+    "preview": "Le récapitulatif de votre annulation et de son remboursement.",
+    "trigger": "Annulation enregistrée d’une réservation payée ; état réel ou simulé du remboursement.",
+    "file": "haven-reservation-annulee.html",
+    "variables": [
+      {
+        "key": "MENTION_TEST",
+        "type": "string"
+      },
+      {
+        "key": "PRENOM_LOCATAIRE",
+        "type": "string"
+      },
+      {
+        "key": "DATE_ACTION",
+        "type": "string"
+      },
+      {
+        "key": "INITIATIVE_ANNULATION",
+        "type": "string"
+      },
+      {
+        "key": "LOGEMENT",
+        "type": "string"
+      },
+      {
+        "key": "CHAMBRE",
+        "type": "string"
+      },
+      {
+        "key": "DATE_ARRIVEE",
+        "type": "string"
+      },
+      {
+        "key": "DATE_DEPART",
+        "type": "string"
+      },
+      {
+        "key": "MOTIF_ANNULATION",
+        "type": "string"
+      },
+      {
+        "key": "INFORMATION_REMBOURSEMENT",
+        "type": "string"
+      },
+      {
+        "key": "LIEN_ACTION",
+        "type": "string"
+      },
+      {
+        "key": "REFERENCE_DOSSIER",
+        "type": "string"
+      }
+    ]
+  },
+  {
+    "kind": "REVIEW_INVITE",
+    "name": "09 · Invitation à laisser un avis",
+    "alias": "haven-invitation-avis",
+    "subject": "Comment s’est passé votre séjour chez {{{LOGEMENT}}} ?",
+    "preview": "Partagez votre expérience pour aider les prochains locataires.",
+    "trigger": "24 h après le départ effectif, sans avis existant et dans la fenêtre de 7 jours.",
+    "file": "haven-invitation-avis.html",
+    "variables": [
+      {
+        "key": "MENTION_TEST",
+        "type": "string"
+      },
+      {
+        "key": "PRENOM_LOCATAIRE",
+        "type": "string"
+      },
+      {
+        "key": "LOGEMENT",
+        "type": "string"
+      },
+      {
+        "key": "CHAMBRE",
+        "type": "string"
+      },
+      {
+        "key": "DATE_ARRIVEE",
+        "type": "string"
+      },
+      {
+        "key": "DATE_DEPART",
+        "type": "string"
+      },
+      {
+        "key": "DATE_LIMITE_AVIS",
+        "type": "string"
+      },
+      {
+        "key": "LIEN_ACTION",
+        "type": "string"
+      },
+      {
+        "key": "REFERENCE_DOSSIER",
+        "type": "string"
+      }
+    ]
+  },
+  {
+    "kind": "EMAIL_VERIFICATION",
+    "name": "10 · Confirmer mon adresse e-mail",
+    "alias": "haven-confirmer-adresse-email",
+    "subject": "Confirmez votre adresse e-mail — Haven",
+    "preview": "Confirmez votre adresse pour compléter votre dossier Haven.",
+    "trigger": "Demande de confirmation par le membre connecté ; lien sécurisé généré par Firebase.",
+    "file": "haven-confirmer-adresse-email.html",
+    "variables": [
+      {
+        "key": "MENTION_TEST",
+        "type": "string"
+      },
+      {
+        "key": "PRENOM_LOCATAIRE",
+        "type": "string"
+      },
+      {
+        "key": "LIEN_ACTION",
+        "type": "string"
+      },
+      {
+        "key": "REFERENCE_DOSSIER",
+        "type": "string"
+      }
+    ]
+  },
+  {
+    "kind": "PASSWORD_RESET",
+    "name": "11 · Réinitialiser mon mot de passe",
+    "alias": "haven-reinitialiser-mot-de-passe",
+    "subject": "Réinitialisez votre mot de passe — Haven",
+    "preview": "Un lien personnel pour choisir un nouveau mot de passe Haven.",
+    "trigger": "Demande de réinitialisation ; lien sécurisé généré par Firebase, sans révéler l’existence du compte.",
+    "file": "haven-reinitialiser-mot-de-passe.html",
+    "variables": [
+      {
+        "key": "MENTION_TEST",
+        "type": "string"
+      },
+      {
+        "key": "PRENOM_LOCATAIRE",
+        "type": "string"
+      },
+      {
+        "key": "LIEN_ACTION",
+        "type": "string"
+      },
+      {
+        "key": "REFERENCE_DOSSIER",
+        "type": "string"
+      }
+    ]
+  }
+]

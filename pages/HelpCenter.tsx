@@ -1,19 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  Search, 
-  BookOpen, 
-  User, 
-  CreditCard, 
-  Compass, 
-  MapPin, 
-  ClipboardCheck, 
-  Mail, 
-  MessageSquare, 
-  ArrowRight,
-  ChevronRight,
-  HelpCircle
-} from 'lucide-react';
+import { Search, BookOpen, User, CreditCard, Compass, MapPin, ClipboardCheck, Mail, MessageSquare, ArrowRight, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface HelpArticle {

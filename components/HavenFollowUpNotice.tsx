@@ -1,4 +1,3 @@
-import React from 'react';
 import type { Incident } from '../types';
 export function HavenFollowUpNotice({ followUp }: { followUp?: Incident['havenFollowUp'] }) {
   if (!followUp) return null;

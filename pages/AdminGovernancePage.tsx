@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, History, Loader2, Shield, ShieldCheck, UserRoundCog } from 'lucide-react';
+import { ArrowLeft, History, Loader2, Shield, UserRoundCog } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '../contexts/AuthContext';
 import { apiService } from '../services/api';

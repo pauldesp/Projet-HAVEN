@@ -1,22 +1,11 @@
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  Search, 
-  MessageSquare, 
-  User as UserIcon, 
-  ChevronRight, 
-  Filter,
-  Loader2,
-  Clock,
-  Home,
-  ShieldCheck
-} from 'lucide-react';
+import { Search, MessageSquare, User as UserIcon, ChevronRight, Loader2, Clock, Home, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { apiService } from '../services/api';
 import { Message, User, Booking, Listing } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
-import { toast } from 'sonner';
 
 interface Conversation {
   bookingId: string;

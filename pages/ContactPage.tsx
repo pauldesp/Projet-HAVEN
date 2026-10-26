@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Mail, Send, CheckCircle2, MessageSquare, HelpCircle, ShieldCheck } from 'lucide-react';
+import { Send, CheckCircle2, MessageSquare, HelpCircle, ShieldCheck } from 'lucide-react';
 import { motion } from 'motion/react';
 import { apiService } from '../services/api';
 import { CONTACT_SUBJECTS, prepareContactRequest } from '../services/contactRequest';

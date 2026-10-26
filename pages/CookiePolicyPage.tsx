@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Shield, Cookie, CheckCircle2, Lock, ArrowLeft, RefreshCw } from 'lucide-react';
+import { Cookie, Lock } from 'lucide-react';
 import { toast } from 'sonner';
 
 export const CookiePolicyPage: React.FC = () => {
