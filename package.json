@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "node --env-file-if-exists=.env --import tsx server.ts",
+    "dev": "node --env-file-if-exists=.env --import tsx scripts/dev.mjs",
     "build": "vite build",
     "preview": "vite preview",
     "lint": "tsc --noEmit",
@@ -12,7 +12,8 @@
     "check": "npm run lint && npm test && npm run build",
     "mobile:sync": "npm run build && cap sync",
     "mobile:ios": "npm run mobile:sync && cap open ios",
-    "mobile:android": "npm run mobile:sync && cap open android"
+    "mobile:android": "npm run mobile:sync && cap open android",
+    "dev:stripe": "node --env-file-if-exists=.env scripts/dev-stripe.mjs"
   },
   "dependencies": {
     "@capacitor/android": "^8.5.0",

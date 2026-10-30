@@ -1,6 +1,10 @@
-import { OwnerAccessInstructions } from '../components/OwnerAccessInstructions';
+import { CleaningPolicyNotice } from '../components/CleaningPolicyNotice';
+import { CLEANING_POLICY_VERSION } from '../services/cleaningPolicy';
+import { ListingPublicInfoFields } from '../components/ListingPublicInfoFields';
+import { OwnerStayGuideButton } from '../components/OwnerStayGuideButton';
+import { useLanguage } from '../contexts/LanguageContext';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Save, Loader2, Camera, Plus, Trash2, Maximize2, Bath, Bed, Info, Building, Home as HomeIcon, MapPin, Upload, CheckCircle, Lock } from 'lucide-react';
 import { Button } from '../components/Button';
@@ -17,6 +21,8 @@ import { WardrobeIcon } from '../components/WardrobeIcon';
 import { userFacingErrorMessage } from '../services/errorHandling';
 
 export const EditListing: React.FC = () => {
+  const { tr } = useLanguage();
+  const guideSection = useRef<HTMLElement>(null);
   const { id } = useParams();
   const navigate = useNavigate();
   const { currentUser } = useAuth();
@@ -87,6 +93,7 @@ export const EditListing: React.FC = () => {
   const listingHasRoomWithoutOption = hasRoomWithoutOption(listing.rooms);
 
   const handleSave = async () => {
+    if (listing.cleaningPolicyVersion !== CLEANING_POLICY_VERSION) { setActiveTab('GENERAL'); toast.error('Confirmez votre engagement de ménage hebdomadaire.'); return; }
     if (listingHasIncompleteRoom) {
       setActiveTab('ROOMS');
       toast.error('Renseignez le nom, le prix par nuit et la surface de chaque chambre avant d’enregistrer.');
@@ -113,7 +120,7 @@ export const EditListing: React.FC = () => {
       setListing(optimizedListing);
       await updateListing(optimizedListing);
       toast.success("Annonce mise à jour avec succès !");
-      navigate('/owner/dashboard');
+      guideSection.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     } catch (e) {
       console.error(e);
       toast.error(userFacingErrorMessage(e));
@@ -248,7 +255,7 @@ export const EditListing: React.FC = () => {
               <p className="text-haven-stone text-sm">Gestion rapide de votre bien : {listing.title}</p>
             </div>
           </div>
-          <div className="flex gap-3 w-full md:w-auto">
+          <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
              <Button variant="ghost" onClick={() => navigate(`/listing/${listing.id}`)} className="flex-1 md:flex-none">Aperçu</Button>
              <Button 
                 onClick={handleSave} 
@@ -279,7 +286,7 @@ export const EditListing: React.FC = () => {
            ))}
         </div>
 
-        <div className="bg-white rounded-[2.5rem] shadow-premium p-8 md:p-12 border border-gray-100 animate-fade-in">
+        <div className="bg-white rounded-[2.5rem] shadow-premium p-4 sm:p-8 md:p-12 border border-gray-100 animate-fade-in">
           
           {activeTab === 'GENERAL' && (
             <div className="space-y-10">
@@ -305,7 +312,7 @@ export const EditListing: React.FC = () => {
                     </div>
                   </div>
                   <div className="space-y-3">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-haven-stone">Frais de ménage (€ par location)</label>
+                    <label className="text-[10px] font-black uppercase tracking-widest text-haven-stone">Forfait ménage (€ par location)</label>
                     <input 
                       type="number" 
                       value={listing.cleaningFee || 0}
@@ -325,7 +332,9 @@ export const EditListing: React.FC = () => {
                   </div>
                </div>
 
-               <OwnerAccessInstructions listingId={listing.id} />
+               <CleaningPolicyNotice audience="owner" />
+               <label className="flex items-start gap-3 rounded-2xl border border-gray-200 p-5 text-sm leading-relaxed"><input type="checkbox" checked={listing.cleaningPolicyVersion === CLEANING_POLICY_VERSION} onChange={event => setListing({ ...listing, cleaningPolicyVersion: event.target.checked ? CLEANING_POLICY_VERSION : '' })} className="mt-1" />Je m’engage à faire réaliser un ménage chaque semaine, par moi-même ou par un prestataire.</label>
+               <ListingPublicInfoFields value={listing} onChange={updates => setListing({ ...listing, ...updates })} />
                <div className="grid md:grid-cols-2 gap-8">
                   <div className="space-y-3">
                     <label className="text-[10px] font-black uppercase tracking-widest text-haven-stone">Heure d’arrivée</label>
@@ -423,7 +432,7 @@ export const EditListing: React.FC = () => {
 
                <div className="space-y-8">
                   {listing.rooms.map(room => (
-                    <div key={room.id} className="relative group p-8 rounded-[2rem] border border-gray-100 bg-gray-50/50 hover:bg-white hover:shadow-premium transition-all">
+                    <div key={room.id} className="relative group p-4 sm:p-8 rounded-[2rem] border border-gray-100 bg-gray-50/50 hover:bg-white hover:shadow-premium transition-all">
                        <button 
                         type="button"
                         onClick={() => removeRoom(room.id)}
@@ -484,7 +493,7 @@ export const EditListing: React.FC = () => {
                   {listing.galleryUrls.map((url, idx) => (
                     <div key={idx} className="aspect-[4/3] rounded-[2rem] overflow-hidden relative group border border-gray-100 shadow-premium">
                        <img src={url} className="w-full h-full object-cover" alt="" />
-                       <div className="absolute inset-0 bg-haven-navy/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                       <div className="haven-photo-actions absolute inset-0 bg-haven-navy/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                           <button onClick={() => removePhoto(idx)} className="w-10 h-10 rounded-xl bg-white text-haven-red flex items-center justify-center"><Trash2 size={20} /></button>
                           {idx !== 0 && (
                             <button onClick={() => setPrimaryPhoto(idx)} className="w-10 h-10 rounded-xl bg-white text-haven-navy flex items-center justify-center"><CheckCircle size={20} /></button>
@@ -533,6 +542,11 @@ export const EditListing: React.FC = () => {
             </div>
           )}
         </div>
+        {activeTab === 'GENERAL' && <section ref={guideSection} className="mt-8 scroll-mt-24 rounded-3xl border border-gray-100 bg-white p-6 md:p-8">
+          <h2 className="font-heading text-xl font-bold text-haven-navy">{tr('Préparez le séjour de vos locataires')}</h2>
+          <p className="mt-2 mb-5 text-sm leading-relaxed text-haven-stone">{tr('Complétez les accès, le Wi-Fi, le stationnement et les informations pratiques dans le guide privé du séjour.')}</p>
+          <OwnerStayGuideButton listingId={listing.id} title={listing.title} />
+        </section>}
       </div>
     </div>
   );

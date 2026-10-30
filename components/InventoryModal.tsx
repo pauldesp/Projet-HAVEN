@@ -1,3 +1,6 @@
+import { CHECKIN_VERSION, CHECKIN_AREAS, CHECKIN_QUESTIONS, emptyCheckinAssessments, checkinHasIssue as assessmentHasIssue, type CheckinArea, type CheckinField, type CheckinAssessment } from '../services/checkinAssessment';
+import { CleaningPolicyNotice } from './CleaningPolicyNotice';
+import { CLEANING_POLICY_VERSION, CHECKOUT_ROOM_TASKS, CHECKOUT_COMMON_TASKS, CHECKOUT_TASK_LABELS } from '../services/cleaningPolicy';
 import { MAX_CHECKIN_PHOTOS_PER_AREA } from '../services/inventoryPayload';
 import React, { useEffect, useState } from 'react';
 import { AlertTriangle, Camera, Check, CheckCircle, ChevronLeft, ChevronRight, Home, Info, KeyRound, Loader2, Sparkles, X } from 'lucide-react';
@@ -18,34 +21,9 @@ interface InventoryModalProps {
   onComplete: (data: any) => Promise<void>;
 }
 
-type CheckoutChecklistKey =
-  | 'private_clean'
-  | 'private_empty'
-  | 'kitchen_clean'
-  | 'common_clean'
-  | 'bathroom_clean'
-  | 'no_new_damage'
-  | 'keys_deposited';
+type CheckoutChecklistKey = keyof typeof CHECKOUT_TASK_LABELS;
 
-type CheckinArea = 'ROOM' | 'COMMONS';
-
-type CheckinAssessment = {
-  clean: boolean | null;
-  tidy: boolean | null;
-  conditionOk: boolean | null;
-  comment: string;
-  photos: string[];
-};
-
-const checkoutChecklistLabels: Record<CheckoutChecklistKey, string> = {
-  private_clean: 'Ma chambre est propre et rangée',
-  private_empty: 'J’ai retiré toutes mes affaires personnelles',
-  kitchen_clean: 'La cuisine est propre, la vaisselle rangée et mes aliments retirés',
-  common_clean: 'Les espaces communs sont propres et remis en ordre',
-  bathroom_clean: 'La salle de bain et les sanitaires sont propres',
-  no_new_damage: 'Je n’ai constaté aucune nouvelle dégradation non signalée',
-  keys_deposited: 'Les clés ont été déposées à l’emplacement prévu',
-};
+const checkoutChecklistLabels = CHECKOUT_TASK_LABELS;
 
 async function selectInventoryPhoto(): Promise<string | null> {
   return new Promise((resolve, reject) => {
@@ -77,30 +55,20 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
   const [isForcedOverride, setIsForcedOverride] = useState(false);
   const [earlyDepartureReason, setEarlyDepartureReason] = useState('');
 
-  const [checkoutChecklist, setCheckoutChecklist] = useState<Record<CheckoutChecklistKey, boolean>>({
-    private_clean: false,
-    private_empty: false,
-    kitchen_clean: false,
-    common_clean: false,
-    bathroom_clean: false,
-    no_new_damage: false,
-    keys_deposited: false,
-  });
+  const [checkoutChecklist, setCheckoutChecklist] = useState<Record<CheckoutChecklistKey, boolean>>(() => Object.fromEntries(Object.keys(CHECKOUT_TASK_LABELS).map(key => [key, false])) as Record<CheckoutChecklistKey, boolean>);
 
-  const [checkoutPhotos, setCheckoutPhotos] = useState<Record<'ROOM' | 'KITCHEN' | 'COMMONS' | 'KEYS' | 'DAMAGE', string[]>>({
+  const [checkoutPhotos, setCheckoutPhotos] = useState<Record<'ROOM' | 'KITCHEN' | 'COMMONS' | 'BATHROOM' | 'KEYS' | 'DAMAGE', string[]>>({
     ROOM: [],
     KITCHEN: [],
     COMMONS: [],
+    BATHROOM: [],
     KEYS: [],
     DAMAGE: [],
   });
   const [hasDamage, setHasDamage] = useState(false);
   const [damageDescription, setDamageDescription] = useState('');
 
-  const [checkinAssessments, setCheckinAssessments] = useState<Record<CheckinArea, CheckinAssessment>>({
-    ROOM: { clean: null, tidy: null, conditionOk: null, comment: '', photos: [] },
-    COMMONS: { clean: null, tidy: null, conditionOk: null, comment: '', photos: [] },
-  });
+  const [checkinAssessments, setCheckinAssessments] = useState(emptyCheckinAssessments);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -113,6 +81,13 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
       document.body.style.overflow = '';
     };
   }, [isOpen, type, booking.id]);
+
+  useEffect(() => {
+    setCheckoutChecklist(Object.fromEntries(Object.keys(CHECKOUT_TASK_LABELS).map(key => [key, false])) as Record<CheckoutChecklistKey, boolean>);
+    setCheckoutPhotos({ ROOM: [], KITCHEN: [], COMMONS: [], BATHROOM: [], KEYS: [], DAMAGE: [] });
+    setHasDamage(false); setDamageDescription('');
+    setCheckinAssessments(emptyCheckinAssessments());
+  }, [booking.id, type]);
 
   const [clockNow, setClockNow] = useState(() => new Date());
   useEffect(() => {
@@ -146,7 +121,7 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
 
   const setCheckinChoice = (
     area: CheckinArea,
-    field: 'clean' | 'tidy' | 'conditionOk',
+    field: CheckinField,
     value: boolean,
   ) => {
     setCheckinAssessments(prev => ({
@@ -156,10 +131,10 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
   };
 
   const addCheckinPhoto = async (area: CheckinArea) => {
-    if (checkinAssessments[area].photos.length >= MAX_CHECKIN_PHOTOS_PER_AREA) { setError('Cinq photos maximum par espace.'); return; }
+    if (checkinAssessments[area].photos.length >= (area === 'ARRIVAL' ? 2 : MAX_CHECKIN_PHOTOS_PER_AREA)) { setError(area === 'ARRIVAL' ? 'Deux photos maximum pour l’arrivée.' : 'Cinq photos maximum par espace.'); return; }
     try {
       const photo = await selectInventoryPhoto();
-      if (photo) setCheckinAssessments(prev => prev[area].photos.length >= MAX_CHECKIN_PHOTOS_PER_AREA ? prev : ({ ...prev, [area]: { ...prev[area], photos: [...prev[area].photos, photo] } }));
+      if (photo) setCheckinAssessments(prev => prev[area].photos.length >= (area === 'ARRIVAL' ? 2 : MAX_CHECKIN_PHOTOS_PER_AREA) ? prev : ({ ...prev, [area]: { ...prev[area], photos: [...prev[area].photos, photo] } }));
     } catch (error) { setError(error instanceof Error ? error.message : 'Photo illisible.'); }
   };
 
@@ -175,33 +150,25 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
 
   const checkinAreaComplete = (area: CheckinArea) => {
     const assessment = checkinAssessments[area];
-    return assessment.clean !== null && assessment.tidy !== null && assessment.conditionOk !== null;
+    return Object.keys(CHECKIN_QUESTIONS[area]).every(key => typeof assessment[key as CheckinField] === 'boolean');
   };
 
   const checkinHasIssue = (area: CheckinArea) => {
     const assessment = checkinAssessments[area];
-    return assessment.clean === false || assessment.tidy === false || assessment.conditionOk === false;
+    return assessmentHasIssue(assessment);
   };
 
   const checkinIssueComplete = (area: CheckinArea) => {
     if (!checkinHasIssue(area)) return true;
     const assessment = checkinAssessments[area];
-    return assessment.comment.trim().length >= 5 && assessment.photos.length >= 1;
+    return assessment.comment.trim().length >= 5 && (area === 'ARRIVAL' || assessment.photos.length >= 1);
   };
 
-  const checkoutStepOneComplete =
-    checkoutChecklist.private_clean &&
-    checkoutChecklist.private_empty &&
-    checkoutPhotos.ROOM.length >= 2;
-
-  const checkoutStepTwoComplete =
-    checkoutChecklist.kitchen_clean &&
-    checkoutChecklist.common_clean &&
-    checkoutChecklist.bathroom_clean &&
-    checkoutPhotos.KITCHEN.length >= 1 &&
-    checkoutPhotos.COMMONS.length >= 1;
+  const checkoutStepOneComplete = Object.keys(CHECKOUT_ROOM_TASKS).every(key => checkoutChecklist[key as CheckoutChecklistKey]) && checkoutPhotos.ROOM.length >= 2;
+  const checkoutStepTwoComplete = Object.keys(CHECKOUT_COMMON_TASKS).every(key => checkoutChecklist[key as CheckoutChecklistKey]) && checkoutPhotos.KITCHEN.length >= 1 && checkoutPhotos.COMMONS.length >= 1 && checkoutPhotos.BATHROOM.length >= 1;
 
   const checkoutStepThreeComplete =
+    checkoutChecklist.safety_closed &&
     checkoutChecklist.keys_deposited &&
     checkoutPhotos.KEYS.length >= 1 &&
     (hasDamage
@@ -223,14 +190,14 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
         throw new Error('Indiquez le motif de votre départ anticipé.');
       }
       if (type === 'IN') {
-        if (!checkinAreaComplete('ROOM') || !checkinAreaComplete('COMMONS')) {
-          throw new Error('Merci de valider la chambre et les espaces communs.');
+        if (!CHECKIN_AREAS.every(checkinAreaComplete)) {
+          throw new Error('Répondez aux contrôles de la chambre, des espaces communs et de votre arrivée.');
         }
-        if (!checkinIssueComplete('ROOM') || !checkinIssueComplete('COMMONS')) {
-          throw new Error('En cas de non-conformité, ajoutez un commentaire et au moins une photo.');
+        if (!CHECKIN_AREAS.every(checkinIssueComplete)) {
+          throw new Error('Décrivez chaque problème et ajoutez une photo pour les non-conformités de la chambre ou des espaces communs.');
         }
 
-        const nonConformities = (['ROOM', 'COMMONS'] as CheckinArea[])
+        const nonConformities = CHECKIN_AREAS
           .filter(checkinHasIssue)
           .map(area => ({
             area,
@@ -240,6 +207,7 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
         await onComplete({
           type: 'IN',
           condition: nonConformities.length === 0 ? 'EXCELLENT' : 'ISSUE_REPORTED',
+          checkinVersion: CHECKIN_VERSION,
           checkinAssessments,
           nonConformities,
         });
@@ -264,6 +232,7 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
 
         await onComplete({
           type: 'OUT',
+          cleaningPolicyVersion: CLEANING_POLICY_VERSION,
           condition: 'EXCELLENT',
           checklist,
           photos: checkoutPhotos,
@@ -291,7 +260,7 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
     <div className="fixed inset-0 z-[100] flex items-end md:items-center justify-center md:p-4">
       <div className="absolute inset-0 bg-haven-navy/45 backdrop-blur-md" onClick={onClose} />
 
-      <div className="relative bg-white rounded-t-[2rem] md:rounded-[2.5rem] w-full max-w-4xl max-h-[94dvh] md:max-h-[92vh] overflow-hidden shadow-2xl flex flex-col">
+      <div className="haven-dialog-panel relative bg-white rounded-t-[2rem] md:rounded-[2.5rem] w-full max-w-4xl max-h-[94dvh] md:max-h-[92vh] overflow-hidden shadow-2xl flex flex-col">
         <div className="px-5 py-5 md:px-8 md:py-6 border-b border-gray-100 flex items-center justify-between bg-white">
           <div>
             <p className="text-[11px] font-black uppercase tracking-[0.18em] text-haven-red mb-1">
@@ -316,7 +285,7 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
           />
         </div>
 
-        <div className="flex-1 overflow-y-auto p-5 md:p-8">
+        <div className="haven-dialog-scroll flex-1 overflow-y-auto p-5 md:p-8">
           {(inventoryTiming.isExpired || (type === 'OUT' && !inventoryTiming.isAvailable && !inventoryTiming.isEarlyDeparture)) ? <p className="p-8 text-center">Cet état des lieux ne peut pas être réalisé à cette date.</p> : type === 'IN' && !inventoryTiming.isAvailable ? (
             <div className="min-h-[420px] flex flex-col items-center justify-center text-center max-w-xl mx-auto space-y-6">
               <div className="w-20 h-20 rounded-full bg-haven-navy/5 text-haven-navy flex items-center justify-center">
@@ -370,15 +339,16 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
                       <div>
                         <h3 className="font-bold text-haven-navy">Vous êtes le contrôle qualité final</h3>
                         <p className="text-sm text-gray-600 mt-1 leading-relaxed">
-                          À votre arrivée, confirmez simplement que votre chambre et les espaces communs sont propres, rangés et en bon état. En cas de problème, une photo et un commentaire suffisent.
+                          Vérifiez la chambre, les espaces communs, les équipements et le mobilier annoncés, puis confirmez que l’accès au logement et la récupération des clés se sont bien passés.
                         </p>
                       </div>
                     </div>
                   </div>
 
                   <CheckinCard
+                    area="ROOM"
                     title="Ma chambre"
-                    subtitle="Contrôlez la propreté, le rangement et l’état général."
+                    subtitle="Propreté, état général, équipements et mobilier annoncés."
                     assessment={checkinAssessments.ROOM}
                     onChoice={(field, value) => setCheckinChoice('ROOM', field, value)}
                     onComment={comment => setCheckinAssessments(prev => ({ ...prev, ROOM: { ...prev.ROOM, comment } }))}
@@ -387,14 +357,19 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
                   />
 
                   <CheckinCard
+                    area="COMMONS"
                     title="Espaces communs"
-                    subtitle="Cuisine, séjour, salle d’eau et circulations."
+                    subtitle="Cuisine, séjour, salle d’eau : propreté, équipements et mobilier."
                     assessment={checkinAssessments.COMMONS}
                     onChoice={(field, value) => setCheckinChoice('COMMONS', field, value)}
                     onComment={comment => setCheckinAssessments(prev => ({ ...prev, COMMONS: { ...prev.COMMONS, comment } }))}
                     onAddPhoto={() => addCheckinPhoto('COMMONS')}
                     onRemovePhoto={index => removeCheckinPhoto('COMMONS', index)}
                   />
+                  <CheckinCard area="ARRIVAL" title="Mon arrivée et les clés" subtitle="Confirmez que les indications d’accès et la remise des clés ont permis votre arrivée autonome."
+                    assessment={checkinAssessments.ARRIVAL} onChoice={(field, value) => setCheckinChoice('ARRIVAL', field, value)}
+                    onComment={comment => setCheckinAssessments(prev => ({ ...prev, ARRIVAL: { ...prev.ARRIVAL, comment } }))}
+                    onAddPhoto={() => addCheckinPhoto('ARRIVAL')} onRemovePhoto={index => removeCheckinPhoto('ARRIVAL', index)} />
                 </div>
               )}
 
@@ -406,7 +381,7 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
                   <div>
                     <h3 className="text-2xl font-heading font-bold text-haven-navy">Confirmez votre arrivée</h3>
                     <p className="text-gray-600 mt-3 leading-relaxed">
-                      {checkinHasIssue('ROOM') || checkinHasIssue('COMMONS')
+                      {CHECKIN_AREAS.some(checkinHasIssue)
                         ? 'Vous avez signalé une non-conformité. Vos photos et commentaires seront conservés avec l’état des lieux horodaté.'
                         : 'Tout est conforme. Votre validation sera conservée comme contrôle d’entrée horodaté.'}
                     </p>
@@ -414,6 +389,7 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
                   <div className="grid grid-cols-2 gap-3 text-left">
                     <SummaryStatus label="Chambre" ok={!checkinHasIssue('ROOM')} />
                     <SummaryStatus label="Espaces communs" ok={!checkinHasIssue('COMMONS')} />
+                    <SummaryStatus label="Arrivée et clés" ok={!checkinHasIssue('ARRIVAL')} />
                   </div>
                 </div>
               )}
@@ -427,11 +403,14 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
                     title="1. Ma chambre"
                     text="Laissez votre espace privatif propre, rangé, vide de vos affaires et prêt pour le prochain locataire."
                   />
-                  <ChecklistItem checked={checkoutChecklist.private_clean} label={checkoutChecklistLabels.private_clean} onClick={() => toggleCheckoutItem('private_clean')} />
-                  <ChecklistItem checked={checkoutChecklist.private_empty} label={checkoutChecklistLabels.private_empty} onClick={() => toggleCheckoutItem('private_empty')} />
+                  <CleaningPolicyNotice />
+                  <CheckoutTasks tasks={CHECKOUT_ROOM_TASKS} checklist={checkoutChecklist} onToggle={toggleCheckoutItem} />
+                  <p className="text-sm text-gray-600 leading-relaxed">La personne chargée du ménage récupérera le sac de linge pour laver la parure et la remettre en place.</p>
                   <PhotoSection
                     label="Photos de votre chambre"
-                    helper="2 photos minimum"
+                    helper="2 photos requises"
+                    minPhotos={2}
+                    guidance="Prenez une vue d’ensemble montrant le sol, le lit sans sa parure et le sac de linge, puis une vue des surfaces et rangements nettoyés et vidés."
                     photos={checkoutPhotos.ROOM}
                     onAdd={() => addCheckoutPhoto('ROOM')}
                     onRemove={i => removeCheckoutPhoto('ROOM', i)}
@@ -446,12 +425,11 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
                     title="2. Espaces communs"
                     text="Remettez les espaces partagés au niveau que vous aimeriez trouver en arrivant."
                   />
-                  <ChecklistItem checked={checkoutChecklist.kitchen_clean} label={checkoutChecklistLabels.kitchen_clean} onClick={() => toggleCheckoutItem('kitchen_clean')} />
-                  <ChecklistItem checked={checkoutChecklist.common_clean} label={checkoutChecklistLabels.common_clean} onClick={() => toggleCheckoutItem('common_clean')} />
-                  <ChecklistItem checked={checkoutChecklist.bathroom_clean} label={checkoutChecklistLabels.bathroom_clean} onClick={() => toggleCheckoutItem('bathroom_clean')} />
+                  <CheckoutTasks tasks={CHECKOUT_COMMON_TASKS} checklist={checkoutChecklist} onToggle={toggleCheckoutItem} />
                   <div className="grid md:grid-cols-2 gap-5">
-                    <PhotoSection label="Cuisine" helper="1 photo minimum" photos={checkoutPhotos.KITCHEN} onAdd={() => addCheckoutPhoto('KITCHEN')} onRemove={i => removeCheckoutPhoto('KITCHEN', i)} compact />
-                    <PhotoSection label="Espaces communs" helper="1 photo minimum" photos={checkoutPhotos.COMMONS} onAdd={() => addCheckoutPhoto('COMMONS')} onRemove={i => removeCheckoutPhoto('COMMONS', i)} compact />
+                    <PhotoSection label="Cuisine" helper="1 photo minimum" minPhotos={1} guidance="Montrez le plan de travail, les plaques et l’évier nettoyés, sans vaisselle laissée en attente." photos={checkoutPhotos.KITCHEN} onAdd={() => addCheckoutPhoto('KITCHEN')} onRemove={i => removeCheckoutPhoto('KITCHEN', i)} compact />
+                    <PhotoSection label="Espaces communs" helper="1 photo minimum" minPhotos={1} guidance="Montrez les espaces partagés que vous avez utilisés, propres et remis en ordre." photos={checkoutPhotos.COMMONS} onAdd={() => addCheckoutPhoto('COMMONS')} onRemove={i => removeCheckoutPhoto('COMMONS', i)} compact />
+                    <PhotoSection label="Salle de bain et sanitaires" helper="1 photo minimum des espaces utilisés" minPhotos={1} guidance="Montrez la douche, le lavabo et les sanitaires utilisés après nettoyage." photos={checkoutPhotos.BATHROOM} onAdd={() => addCheckoutPhoto('BATHROOM')} onRemove={i => removeCheckoutPhoto('BATHROOM', i)} compact />
                   </div>
                 </div>
               )}
@@ -500,12 +478,13 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
                         rows={3}
                         className="w-full rounded-xl border border-amber-200 bg-white p-3 text-sm outline-none focus:ring-2 focus:ring-amber-200"
                       />
-                      <PhotoSection label="Photo de la dégradation" helper="1 photo minimum" photos={checkoutPhotos.DAMAGE} onAdd={() => addCheckoutPhoto('DAMAGE')} onRemove={i => removeCheckoutPhoto('DAMAGE', i)} compact />
+                      <PhotoSection label="Photo de la dégradation" helper="1 photo minimum" minPhotos={1} guidance="Montrez clairement la dégradation ; une seconde vue peut aider à la situer." photos={checkoutPhotos.DAMAGE} onAdd={() => addCheckoutPhoto('DAMAGE')} onRemove={i => removeCheckoutPhoto('DAMAGE', i)} compact />
                     </div>
                   )}
 
+                  <ChecklistItem checked={checkoutChecklist.safety_closed} label={checkoutChecklistLabels.safety_closed} onClick={() => toggleCheckoutItem('safety_closed')} />
                   <ChecklistItem checked={checkoutChecklist.keys_deposited} label={checkoutChecklistLabels.keys_deposited} onClick={() => toggleCheckoutItem('keys_deposited')} />
-                  <PhotoSection label="Preuve de dépôt des clés" helper="1 photo minimum" photos={checkoutPhotos.KEYS} onAdd={() => addCheckoutPhoto('KEYS')} onRemove={i => removeCheckoutPhoto('KEYS', i)} compact />
+                  <PhotoSection label="Preuve de dépôt des clés" helper="1 photo minimum" minPhotos={1} guidance="Photographiez les clés à l’emplacement de restitution prévu. Évitez de montrer un code d’accès." photos={checkoutPhotos.KEYS} onAdd={() => addCheckoutPhoto('KEYS')} onRemove={i => removeCheckoutPhoto('KEYS', i)} compact />
                 </div>
               )}
 
@@ -517,8 +496,27 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
                     </div>
                     <h3 className="text-2xl font-heading font-bold text-haven-navy">Dernière étape</h3>
                     <p className="text-gray-600 mt-3">
-                      Votre checklist et vos preuves photos seront horodatées. Vous pourrez retrouver votre état des lieux dans vos documents.
+                      Vérifiez les tâches déclarées et vos photos. En validant, vous confirmez avoir effectué la remise en état de départ. Le contrôle sera horodaté et disponible dans vos documents.
                     </p>
+                  </div>
+
+                  <div className="rounded-3xl border border-gray-200 overflow-hidden">
+                    <div className="bg-haven-navy text-white p-5 flex items-center justify-between gap-3">
+                      <h4 className="font-bold">Votre checklist de départ</h4>
+                      <span className="text-sm">{Object.values(checkoutPhotos).reduce((count, photos) => count + photos.length, 0)} photos jointes</span>
+                    </div>
+                    <div className="p-5 space-y-5">
+                      <CheckoutTasks tasks={CHECKOUT_ROOM_TASKS} checklist={checkoutChecklist} onToggle={() => setStep(1)} title="Ma chambre" />
+                      <CheckoutTasks tasks={CHECKOUT_COMMON_TASKS} checklist={checkoutChecklist} onToggle={() => setStep(2)} title="Espaces communs" />
+                      <div className="flex items-center gap-2 text-sm text-haven-navy"><CheckCircle size={18} className="text-green-600" /> Accès sécurisés et clés restituées</div>
+                      <p className="text-sm text-gray-600">{hasDamage ? `Dégradation signalée : ${damageDescription}` : 'Aucune nouvelle dégradation signalée.'}</p>
+                      <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+                        {Object.entries(checkoutPhotos).flatMap(([category, photos]) => photos.map((photo, index) => (
+                          <img key={`${category}-${index}`} src={photo} alt={`${({ ROOM: 'Chambre', KITCHEN: 'Cuisine', COMMONS: 'Espaces communs', BATHROOM: 'Sanitaires', KEYS: 'Clés', DAMAGE: 'Dégradation' } as Record<string, string>)[category]} — photo ${index + 1}`} className="aspect-square w-full rounded-xl object-cover" />
+                        )))}
+                      </div>
+                      <button type="button" onClick={() => setStep(1)} className="text-sm font-bold text-haven-red underline underline-offset-4">Revoir ma checklist et mes photos</button>
+                    </div>
                   </div>
 
                   <div className="rounded-2xl border border-haven-red/10 bg-haven-red/[0.04] p-5 text-sm text-gray-600">
@@ -537,7 +535,7 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
         </div>
 
         {!(inventoryTiming.isExpired || (type === 'OUT' && !inventoryTiming.isAvailable && !inventoryTiming.isEarlyDeparture)) && !((type === 'IN' && !inventoryTiming.isAvailable) || (type === 'OUT' && !inventoryTiming.isAvailable && !isForcedOverride)) && (
-          <div className="border-t border-gray-100 bg-white p-4 md:px-8 md:py-5 flex items-center justify-between gap-3">
+          <div className="haven-dialog-footer shrink-0 border-t border-gray-100 bg-white p-3 sm:p-4 md:px-8 md:py-5 flex items-center justify-between gap-3">
             <Button
               variant="outline"
               onClick={() => (step === 1 ? onClose() : setStep(prev => Math.max(1, prev - 1)))}
@@ -551,12 +549,12 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
                 onClick={() => {
                   setError(null);
                   if (type === 'IN' && step === 1) {
-                    if (!checkinAreaComplete('ROOM') || !checkinAreaComplete('COMMONS')) {
-                      setError('Validez les trois critères pour la chambre et les espaces communs.');
+                    if (!CHECKIN_AREAS.every(checkinAreaComplete)) {
+                      setError('Répondez à tous les contrôles de la chambre, des espaces communs et de votre arrivée.');
                       return;
                     }
-                    if (!checkinIssueComplete('ROOM') || !checkinIssueComplete('COMMONS')) {
-                      setError('En cas de non-conformité, ajoutez un commentaire et au moins une photo.');
+                    if (!CHECKIN_AREAS.every(checkinIssueComplete)) {
+                      setError('Décrivez chaque problème et ajoutez une photo pour les non-conformités de la chambre ou des espaces communs.');
                       return;
                     }
                   }
@@ -601,9 +599,28 @@ const IntroBlock: React.FC<{ icon: React.ReactNode; title: string; text: string 
   </div>
 );
 
+const CheckoutTasks: React.FC<{ tasks: Record<string, string>; checklist: Record<CheckoutChecklistKey, boolean>; onToggle: (key: CheckoutChecklistKey) => void; title?: string }> = ({ tasks, checklist, onToggle, title = 'À faire avant de partir' }) => {
+  const entries = Object.entries(tasks);
+  const done = entries.filter(([key]) => checklist[key as CheckoutChecklistKey]).length;
+  return (
+    <section className="space-y-3" aria-label={title}>
+      <div className="flex items-center justify-between gap-3">
+        <h4 className="font-bold text-haven-navy">{title}</h4>
+        <span role="status" className="text-xs font-semibold text-gray-500">{done}/{entries.length} tâches effectuées</span>
+      </div>
+      <div role="progressbar" aria-label={title} aria-valuemin={0} aria-valuemax={entries.length} aria-valuenow={done} className="h-1.5 rounded-full bg-gray-100 overflow-hidden">
+        <div className="h-full bg-haven-red transition-all" style={{ width: `${done / entries.length * 100}%` }} />
+      </div>
+      {entries.map(([key, label]) => <ChecklistItem key={key} checked={checklist[key as CheckoutChecklistKey]} label={label} onClick={() => onToggle(key as CheckoutChecklistKey)} />)}
+    </section>
+  );
+};
+
 const ChecklistItem: React.FC<{ checked: boolean; label: string; onClick: () => void }> = ({ checked, label, onClick }) => (
   <button
     type="button"
+    role="checkbox"
+    aria-checked={checked}
     onClick={onClick}
     className={`w-full flex items-center gap-3 p-4 rounded-2xl border text-left transition-all ${checked ? 'bg-green-50 border-green-200' : 'bg-white border-gray-200 hover:border-gray-300'}`}
   >
@@ -622,9 +639,11 @@ const PhotoSection: React.FC<{
   onRemove: (index: number) => void;
   compact?: boolean;
   maxPhotos?: number;
-}> = ({ label, helper, photos, onAdd, onRemove, compact, maxPhotos = 2 }) => (
+  minPhotos?: number;
+  guidance?: string;
+}> = ({ label, helper, photos, onAdd, onRemove, compact, maxPhotos = 2, minPhotos, guidance }) => (
   <div className={`rounded-2xl border border-gray-100 bg-gray-50 ${compact ? 'p-4' : 'p-5'}`}>
-    <div className="flex items-center justify-between mb-3">
+    <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
       <div>
         <div className="font-bold text-sm text-haven-navy">{label}</div>
         <div className="text-[11px] text-gray-500">{helper} · {photos.length}/{maxPhotos} photos</div>
@@ -633,12 +652,14 @@ const PhotoSection: React.FC<{
         <Camera size={16} /> Ajouter
       </button>
     </div>
+    {guidance && <p className="text-sm text-gray-600 leading-relaxed mb-3">{guidance}</p>}
+    {minPhotos !== undefined && <p role="status" className={`text-xs font-semibold mb-3 ${photos.length >= minPhotos ? 'text-green-700' : 'text-haven-red'}`}>{photos.length >= minPhotos ? 'Photos requises ajoutées' : `Encore ${minPhotos - photos.length} photo${minPhotos - photos.length > 1 ? 's' : ''} à ajouter`}</p>}
     {photos.length > 0 && (
       <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
         {photos.map((photo, index) => (
           <div key={`${photo}-${index}`} className="relative aspect-square rounded-xl overflow-hidden bg-gray-200">
-            <img src={photo} alt="Preuve" className="w-full h-full object-cover" />
-            <button type="button" onClick={() => onRemove(index)} className="absolute top-1 right-1 w-6 h-6 rounded-full bg-black/60 text-white flex items-center justify-center">
+            <img src={photo} alt={`${label} — photo ${index + 1}`} className="w-full h-full object-cover" />
+            <button type="button" aria-label={`Supprimer la photo ${index + 1} : ${label}`} onClick={() => onRemove(index)} className="absolute top-1 right-1 w-9 h-9 rounded-full bg-black/60 text-white flex items-center justify-center">
               <X size={13} />
             </button>
           </div>
@@ -649,15 +670,16 @@ const PhotoSection: React.FC<{
 );
 
 const CheckinCard: React.FC<{
+  area: CheckinArea;
   title: string;
   subtitle: string;
   assessment: CheckinAssessment;
-  onChoice: (field: 'clean' | 'tidy' | 'conditionOk', value: boolean) => void;
+  onChoice: (field: CheckinField, value: boolean) => void;
   onComment: (comment: string) => void;
   onAddPhoto: () => void;
   onRemovePhoto: (index: number) => void;
-}> = ({ title, subtitle, assessment, onChoice, onComment, onAddPhoto, onRemovePhoto }) => {
-  const hasIssue = assessment.clean === false || assessment.tidy === false || assessment.conditionOk === false;
+}> = ({ area, title, subtitle, assessment, onChoice, onComment, onAddPhoto, onRemovePhoto }) => {
+  const hasIssue = assessmentHasIssue(assessment);
   return (
     <div className="rounded-3xl border border-gray-100 bg-white shadow-sm overflow-hidden">
       <div className="p-5 md:p-6 border-b border-gray-100">
@@ -665,24 +687,23 @@ const CheckinCard: React.FC<{
         <p className="text-sm text-gray-500 mt-1">{subtitle}</p>
       </div>
       <div className="p-5 md:p-6 space-y-4">
-        <BinaryQuestion label="Propre" value={assessment.clean} onChange={value => onChoice('clean', value)} />
-        <BinaryQuestion label="Rangé" value={assessment.tidy} onChange={value => onChoice('tidy', value)} />
-        <BinaryQuestion label="Bon état général" value={assessment.conditionOk} onChange={value => onChoice('conditionOk', value)} />
+        {Object.entries(CHECKIN_QUESTIONS[area]).map(([key, label]) => <BinaryQuestion key={key} label={label} value={assessment[key as CheckinField] ?? null} onChange={value => onChoice(key as CheckinField, value)} />)}
 
         {hasIssue && (
           <div className="mt-5 rounded-2xl bg-amber-50 border border-amber-100 p-4 space-y-4">
             <div className="flex items-start gap-2 text-amber-800">
               <Info size={18} className="mt-0.5 shrink-0" />
-              <p className="text-xs leading-relaxed">Décrivez ce qui n’est pas conforme et ajoutez au moins une photo. Cette preuve sera horodatée.</p>
+              <p className="text-xs leading-relaxed">{area === 'ARRIVAL' ? 'Décrivez la difficulté rencontrée. Une photo peut être ajoutée si elle est utile, sans montrer de code d’accès.' : 'Décrivez ce qui n’est pas conforme et ajoutez au moins une photo. Cette preuve sera horodatée.'}</p>
             </div>
             <textarea
               value={assessment.comment}
+              maxLength={4500}
               onChange={e => onComment(e.target.value)}
-              placeholder="Ex. cuisine sale à mon arrivée, traces sur le plan de travail..."
+              placeholder={area === 'ARRIVAL' ? 'Ex. Indications imprécises, clé difficile à trouver ou serrure qui fonctionne mal…' : 'Ex. Équipement manquant, meuble abîmé, cuisine sale à mon arrivée…'}
               rows={3}
               className="w-full rounded-xl border border-amber-200 bg-white p-3 text-sm outline-none focus:ring-2 focus:ring-amber-200"
             />
-            <PhotoSection maxPhotos={MAX_CHECKIN_PHOTOS_PER_AREA} label="Photos de la non-conformité" helper="1 photo minimum, 5 maximum" photos={assessment.photos} onAdd={onAddPhoto} onRemove={onRemovePhoto} compact />
+            <PhotoSection maxPhotos={area === 'ARRIVAL' ? 2 : MAX_CHECKIN_PHOTOS_PER_AREA} label={area === 'ARRIVAL' ? 'Photos de la difficulté (facultatives)' : 'Photos de la non-conformité'} helper={area === 'ARRIVAL' ? '2 photos maximum' : '1 photo minimum, 5 maximum'} photos={assessment.photos} onAdd={onAddPhoto} onRemove={onRemovePhoto} compact />
           </div>
         )}
       </div>
@@ -691,11 +712,11 @@ const CheckinCard: React.FC<{
 };
 
 const BinaryQuestion: React.FC<{ label: string; value: boolean | null; onChange: (value: boolean) => void }> = ({ label, value, onChange }) => (
-  <div className="flex items-center justify-between gap-4 py-2">
+  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 py-2">
     <span className="font-medium text-sm text-haven-navy">{label}</span>
-    <div className="flex gap-2">
-      <button type="button" onClick={() => onChange(true)} className={`px-4 py-2 rounded-xl border text-xs font-bold transition-all ${value === true ? 'bg-green-50 border-green-200 text-green-700' : 'bg-white border-gray-200 text-gray-500'}`}>Oui</button>
-      <button type="button" onClick={() => onChange(false)} className={`px-4 py-2 rounded-xl border text-xs font-bold transition-all ${value === false ? 'bg-red-50 border-red-200 text-red-700' : 'bg-white border-gray-200 text-gray-500'}`}>Non</button>
+    <div className="flex shrink-0 gap-2">
+      <button type="button" aria-pressed={value === true} onClick={() => onChange(true)} className={`min-h-11 min-w-14 px-4 py-2 rounded-xl border text-xs font-bold transition-all ${value === true ? 'bg-green-50 border-green-200 text-green-700' : 'bg-white border-gray-200 text-gray-500'}`}>Oui</button>
+      <button type="button" aria-pressed={value === false} onClick={() => onChange(false)} className={`min-h-11 min-w-14 px-4 py-2 rounded-xl border text-xs font-bold transition-all ${value === false ? 'bg-red-50 border-red-200 text-red-700' : 'bg-white border-gray-200 text-gray-500'}`}>Non</button>
     </div>
   </div>
 );

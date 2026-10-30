@@ -25,3 +25,9 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Private Stripe development credentials and CLI runtime
+.stripe-local/
+
+# Local PDF payment previews can contain reservation details
+output/pdf/

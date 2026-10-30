@@ -298,7 +298,7 @@ service cloud.firestore {
           incoming().email == existing().email &&
           incoming().status == existing().status &&
           isSafeMemberRole(incoming().role) &&
-          incoming().diff(existing()).affectedKeys().hasOnly(['firstName', 'lastName', 'birthDate', 'avatarUrl', 'bio', 'school', 'favorites', 'city', 'job', 'phone', 'role', 'shareProfileWithHousemates', 'verificationSubmittedAt']) &&
+          incoming().diff(existing()).affectedKeys().hasOnly(['firstName', 'lastName', 'birthDate', 'avatarUrl', 'bio', 'school', 'favorites', 'city', 'job', 'phone', 'role', 'verificationSubmittedAt']) &&
           (incoming().get('verificationSubmittedAt', null) == existing().get('verificationSubmittedAt', null) || incoming().get('verificationSubmittedAt', null) == null) &&
           (!incoming().diff(existing()).affectedKeys().hasAny(['firstName', 'lastName', 'birthDate', 'phone']) || incoming().get('verificationSubmittedAt', null) == null) &&
           (!existing().get('identityVerified', false) || !incoming().diff(existing()).affectedKeys().hasAny(['firstName', 'lastName', 'birthDate'])) &&
@@ -408,6 +408,11 @@ service cloud.firestore {
       allow create, update, delete: if false;
     }
 
+    // Private platform feedback is available only through the authenticated admin API.
+    match /platform_feedback/{feedbackId} {
+      allow read, write: if false;
+    }
+
     match /reviews/{reviewId} {
       allow read: if true;
       // Reviews are created by the trusted server after validating the completed
@@ -437,6 +442,11 @@ service cloud.firestore {
       allow read: if true;
       allow write: if isAdmin();
     }
+
+    match /owner_stripe_accounts/{id} { allow read, write: if false; }
+    match /stripe_account_owners/{id} { allow read, write: if false; }
+    match /owner_settlements/{id} { allow read, write: if false; }
+    match /owner_arrivals/{id} { allow read, write: if false; }
 
     match /test/{docId} {
       allow read: if true;

@@ -87,7 +87,7 @@ export function tenantResendTemplate(job: TenantMailJob, profile: TenantMailProf
 export function authResendTemplate(kind: AuthMailKind, name: string, actionLink: string, authDomain: string) {
   const url = new URL(actionLink);
   const mode = kind === 'EMAIL_VERIFICATION' ? 'verifyEmail' : 'resetPassword';
-  if (url.protocol !== 'https:' || url.hostname !== authDomain || url.username || url.password || url.searchParams.get('mode') !== mode || !url.searchParams.get('oobCode')) throw new Error('Lien Firebase invalide.');
+  if (url.protocol !== 'https:' || url.hostname !== authDomain || url.username || url.password || !(kind === 'EMAIL_VERIFICATION' ? [mode, 'verifyAndChangeEmail'] : [mode]).includes(url.searchParams.get('mode') || '') || !url.searchParams.get('oobCode')) throw new Error('Lien Firebase invalide.');
   url.searchParams.set('lang', 'fr');
   return template(kind, { ...common(name, 'Sécurité de votre compte Haven', url.toString(), false) });
 }

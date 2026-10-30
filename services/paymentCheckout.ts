@@ -4,6 +4,7 @@ import type { PaymentMode } from './paymentConfiguration';
 
 export interface CheckoutDetails {
   mode: PaymentMode;
+  isTest?: boolean;
   booking: Booking;
   listing: { title: string; city: string; image: string };
   customer: { name: string; email: string };

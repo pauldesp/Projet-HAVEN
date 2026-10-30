@@ -1,7 +1,9 @@
+import { CHECKIN_QUESTIONS } from './checkinAssessment';
+import { CLEANING_POLICY_VERSION, CHECKOUT_TASK_LABELS } from './cleaningPolicy';
 import { HAVEN_LOGO_DATA_URL } from './havenLogo';
 import type { InventoryReport, Booking, Listing, User } from '../types';
 const escape = (value: unknown) => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
-const labels: Record<string, string> = { ROOM: 'Chambre', COMMONS: 'Espaces communs', KITCHEN: 'Cuisine', KEYS: 'Dépôt des clés', DAMAGE: 'Dégradation', private_clean: 'Chambre propre et rangée', private_empty: 'Affaires personnelles retirées', kitchen_clean: 'Cuisine propre', common_clean: 'Espaces communs propres', bathroom_clean: 'Sanitaires propres', keys_deposited: 'Clés déposées', no_new_damage: 'Aucune nouvelle dégradation', damage_reported: 'Dégradation signalée', clean: 'Propre', tidy: 'Rangé', conditionOk: 'Bon état' };
+const labels: Record<string, string> = { ...CHECKIN_QUESTIONS.ROOM, ...CHECKIN_QUESTIONS.ARRIVAL, ARRIVAL: 'Arrivée et remise des clés', ...CHECKOUT_TASK_LABELS, BATHROOM: 'Salle de bain et sanitaires', private_clean: 'Chambre propre et rangée', private_empty: 'Affaires personnelles retirées', kitchen_clean: 'Cuisine propre', common_clean: 'Espaces communs propres', bathroom_clean: 'Sanitaires propres', ROOM: 'Chambre', COMMONS: 'Espaces communs', KITCHEN: 'Cuisine', KEYS: 'Dépôt des clés', DAMAGE: 'Dégradation', keys_deposited: 'Clés déposées', no_new_damage: 'Aucune nouvelle dégradation', damage_reported: 'Dégradation signalée', clean: 'Propre', tidy: 'Rangé', conditionOk: 'Bon état' };
 export interface InventoryDocumentContext {
   booking?: Booking;
   listing?: Listing;
@@ -16,7 +18,7 @@ export function inventoryDocumentHtml(report: InventoryReport, title: string, co
   const entry = report.type !== 'OUT';
   const documentType = entry ? 'État des lieux d’entrée' : 'État des lieux de sortie';
   const findings = Object.values(data.assessments || {}) as any[];
-  const hasIssues = findings.some(value => ['clean', 'tidy', 'conditionOk'].some(key => value?.[key] === false)) || Boolean(data.incident?.description);
+  const hasIssues = findings.some(value => ['clean', 'tidy', 'conditionOk', 'equipmentOk', 'furnitureOk', 'accessInstructionsOk', 'keysOk'].some(key => value?.[key] === false)) || Boolean(data.incident?.description);
   const moment = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'long', timeStyle: 'short', timeZone: stay?.timeZone || 'Europe/Paris' }).format(new Date(report.date));
   const date = (value: string) => /^\d{4}-\d{2}-\d{2}$/.test(value) ? value.split('-').reverse().join('/') : 'Non renseigné';
   const booking = context.booking?.id === report.bookingId ? context.booking : undefined;
@@ -32,9 +34,10 @@ export function inventoryDocumentHtml(report: InventoryReport, title: string, co
     const images = photos.filter(src => typeof src === 'string' && /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(src));
     return images.length ? `<div class="gallery">${images.map((src, index) => `<figure><img src="${src}" alt="Photo ${index + 1} de l’état des lieux" /><figcaption>Photo ${index + 1}</figcaption></figure>`).join('')}</div>` : '';
   };
-  const rows = (values: Record<string, unknown>) => `<dl class="checks">${Object.entries(values || {}).filter(([key]) => key in labels).map(([key, value]) => `<div><dt>${escape(labels[key])}</dt><dd class="${value === false ? 'issue' : value === true ? 'ok' : 'neutral'}">${value === true ? 'Oui' : value === false ? 'Non' : 'Non renseigné'}</dd></div>`).join('')}</dl>`;
+  const documentLabels = { ...labels, ...(data.cleaningPolicyVersion === CLEANING_POLICY_VERSION ? CHECKOUT_TASK_LABELS : {}) };
+  const rows = (values: Record<string, unknown>) => `<dl class="checks">${Object.entries(values || {}).filter(([key]) => key in documentLabels).map(([key, value]) => `<div><dt>${escape(documentLabels[key])}</dt><dd class="${value === false ? 'issue' : value === true ? 'ok' : 'neutral'}">${value === true ? 'Oui' : value === false ? 'Non' : 'Non renseigné'}</dd></div>`).join('')}</dl>`;
   const assessments = Object.entries(data.assessments || {}).filter(([, value]) => value && typeof value === 'object').map(([area, value]: [string, any], index) => {
-    const issue = ['clean', 'tidy', 'conditionOk'].some(key => value?.[key] === false);
+    const issue = ['clean', 'tidy', 'conditionOk', 'equipmentOk', 'furnitureOk', 'accessInstructionsOk', 'keysOk'].some(key => value?.[key] === false);
     return `<section class="area"><div class="section-title"><h2><span class="number">0${index + 1}</span>${escape(labels[area] || area)}</h2><span class="badge ${issue ? 'warning' : 'success'}">${issue ? 'Non-conformité signalée' : 'Conforme'}</span></div>${rows(value)}${value.comment ? `<div class="observation"><h3>Observations du locataire</h3><p>${escape(value.comment)}</p></div>` : ''}${gallery(value.photos)}</section>`;
   }).join('');
   const photos = Object.entries(data.photos || {}).map(([area, values]) => `<section class="area"><h2>${escape(labels[area] || area)}</h2>${gallery(values)}</section>`).join('');

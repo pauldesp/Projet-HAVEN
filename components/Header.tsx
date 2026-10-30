@@ -2,7 +2,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { UserRole } from '../types';
 import { Button } from './Button';
-import { Globe, LayoutDashboard, ChevronDown, UserRound, Home, LogIn, LogOut, User as UserIcon, Settings, Shield, MessageSquare, UserRoundCog } from 'lucide-react';
+import { Globe, LayoutDashboard, ChevronDown, UserRound, Home, LogIn, LogOut, User as UserIcon, Settings, Shield, MessageSquare, UserRoundCog, ArrowRightLeft } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Logo } from './Logo';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -15,7 +15,7 @@ export const Header: React.FC = () => {
   const navigate = useNavigate();
   const isOwnerMode = currentUser?.role === UserRole.OWNER;
   const isAdmin = currentUser?.role === UserRole.ADMIN;
-  const { language, setLanguage, t } = useLanguage();
+  const { language, setLanguage, t, tr } = useLanguage();
   
   const [isLangOpen, setIsLangOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
@@ -39,7 +39,7 @@ export const Header: React.FC = () => {
   }, [currentUser]);
 
   useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
+    function handleClickOutside(event: PointerEvent) {
       if (langRef.current && !langRef.current.contains(event.target as Node)) {
         setIsLangOpen(false);
       }
@@ -47,8 +47,10 @@ export const Header: React.FC = () => {
         setIsUserMenuOpen(false);
       }
     }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    const escape = (event: KeyboardEvent) => { if (event.key === 'Escape') { setIsLangOpen(false); setIsUserMenuOpen(false); } };
+    document.addEventListener("pointerdown", handleClickOutside);
+    document.addEventListener('keydown', escape);
+    return () => { document.removeEventListener("pointerdown", handleClickOutside); document.removeEventListener('keydown', escape); };
   }, []);
 
   const handleLangChange = (lang: Language) => {
@@ -80,18 +82,18 @@ export const Header: React.FC = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16 md:h-20">
           <Link to="/" className="flex items-center gap-2 hover:opacity-90 transition-opacity">
-            <Logo className="h-8 md:h-10 w-auto" />
+            <Logo className="h-7 sm:h-8 md:h-10 w-auto" />
           </Link>
 
-          <nav className="hidden md:flex items-center gap-8">
+          <nav className="flex items-center gap-2 md:gap-8">
             <div className="relative" ref={langRef}>
               <Button 
                 variant="ghost" 
                 size="sm" 
-                className="flex items-center gap-2 uppercase text-haven-navy/70 hover:text-haven-navy text-sm font-semibold tracking-wide"
+                aria-label={tr("Choisir la langue")} aria-expanded={isLangOpen} className="flex items-center gap-2 px-2 md:px-4 uppercase text-haven-navy/70 hover:text-haven-navy text-sm font-semibold tracking-wide"
                 onClick={() => setIsLangOpen(!isLangOpen)}
               >
-                <Globe size={18} /> {language} <ChevronDown size={14} />
+                <Globe size={18} /> <span className="hidden sm:inline">{language}</span> <ChevronDown size={14} className="hidden md:block" />
               </Button>
 
               {isLangOpen && (
@@ -103,20 +105,20 @@ export const Header: React.FC = () => {
             </div>
             
             {currentUser && (
-              <div className="flex items-center gap-6 pl-6 border-l border-haven-gray">
+              <div className="flex items-center gap-2 md:gap-6 md:pl-6 md:border-l border-haven-gray">
                  {!isAdmin && (
                    <button 
                     onClick={handleRoleSwitch}
-                    className={`flex items-center gap-2 text-sm font-bold px-4 py-2 rounded-full transition-all ${
+                    className={`hidden md:flex items-center gap-2 text-sm font-bold px-4 py-2 rounded-full transition-all ${
                       isOwnerMode 
                       ? 'text-haven-red bg-haven-red/5 hover:bg-haven-red/10' 
                       : 'text-haven-navy/70 hover:text-haven-navy hover:bg-gray-200'
                     }`}
                   >
                     {isOwnerMode ? (
-                      <><UserRound size={16}/> Locataire</>
+                      <><UserRound size={16}/> {tr("Locataire")}</>
                     ) : (
-                      <><Home size={16}/> Mode Propriétaire</>
+                      <><Home size={16}/> {tr("Mode Propriétaire")}</>
                     )}
                   </button>
                  )}
@@ -124,15 +126,16 @@ export const Header: React.FC = () => {
                  {isAdmin && (
                    <Link 
                     to="/admin/dashboard"
-                    className="flex items-center gap-2 text-sm font-bold px-4 py-2 rounded-full transition-all text-haven-red bg-haven-red/5 hover:bg-haven-red/10"
+                    className="hidden md:flex items-center gap-2 text-sm font-bold px-4 py-2 rounded-full transition-all text-haven-red bg-haven-red/5 hover:bg-haven-red/10"
                    >
-                     <Shield size={16}/> Back-Office Admin
-                   </Link>
+                     <Shield size={16}/> {tr("Back-Office Admin")} </Link>
                  )}
 
                 <div className="relative flex items-center gap-4" ref={userMenuRef}>
                   <button 
-                    onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+                    aria-label={tr("Ouvrir le menu du compte")}
+                    aria-expanded={isUserMenuOpen}
+                    onClick={() => { setIsUserMenuOpen(!isUserMenuOpen); setIsLangOpen(false); }}
                     className="relative flex items-center gap-2 p-1 pl-3 pr-1 bg-white border border-gray-100 rounded-full hover:shadow-md transition-all active:scale-95 group"
                   >
                     <span className="text-xs font-bold text-haven-navy hidden lg:block">{currentUser.firstName}</span>
@@ -150,10 +153,10 @@ export const Header: React.FC = () => {
                   </button>
 
                   {isUserMenuOpen && (
-                    <div className="absolute top-full right-0 mt-3 w-64 bg-white rounded-[2rem] shadow-premium border border-gray-50 py-4 px-2 animate-fade-in-up z-50">
+                    <div className="absolute top-full right-0 mt-3 w-72 max-w-[calc(100vw-2rem)] max-h-[calc(100dvh-6rem)] overflow-y-auto bg-white rounded-[2rem] shadow-premium border border-gray-50 py-4 px-2 animate-fade-in-up z-50">
                       <div className="px-4 py-3 mb-2 border-b border-gray-50">
                         <p className="text-sm font-bold text-haven-navy">{currentUser.firstName} {currentUser.lastName}</p>
-                        <p className="text-[11px] text-gray-400">{currentUser.email}</p>
+                        <p className="break-all text-[11px] text-gray-400">{currentUser.email}</p>
                       </div>
                       
                       <div className="space-y-1">
@@ -163,23 +166,20 @@ export const Header: React.FC = () => {
                             onClick={() => setIsUserMenuOpen(false)}
                             className="flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 hover:text-haven-navy rounded-xl transition-colors"
                           >
-                            <Shield size={18} /> Administration
-                          </Link>
+                            <Shield size={18} /> {tr("Administration")} </Link>
                           <Link
                             to="/admin/governance"
                             onClick={() => setIsUserMenuOpen(false)}
                             className="flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 hover:text-haven-navy rounded-xl transition-colors"
                           >
-                            <UserRoundCog size={18} /> Gouvernance admin
-                          </Link>
+                            <UserRoundCog size={18} /> {tr("Gouvernance admin")} </Link>
                         </>) : (
                           <Link 
                             to={isOwnerMode ? "/owner/dashboard" : "/dashboard"}
                             onClick={() => setIsUserMenuOpen(false)}
                             className="flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 hover:text-haven-navy rounded-xl transition-colors"
                           >
-                            <LayoutDashboard size={18} /> Tableau de bord
-                          </Link>
+                            <LayoutDashboard size={18} /> {tr("Tableau de bord")} </Link>
                         )}
                         
                         {!isAdmin && (
@@ -190,7 +190,7 @@ export const Header: React.FC = () => {
                           >
                             <div className="flex items-center gap-3">
                               <MessageSquare size={18} />
-                              <span>Messages</span>
+                              <span>{tr("Messages")}</span>
                             </div>
                             {unreadCount > 0 && (
                               <span className="px-2 py-0.5 bg-haven-red text-white text-[10px] font-black rounded-full">
@@ -205,19 +205,19 @@ export const Header: React.FC = () => {
                           onClick={() => setIsUserMenuOpen(false)}
                           className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 hover:text-haven-navy rounded-xl transition-colors"
                         >
-                          {isAdmin ? <Shield size={18} /> : <UserIcon size={18} />} {isAdmin ? 'Mon espace' : 'Mon profil'}
+                          {isAdmin ? <Shield size={18} /> : <UserIcon size={18} />} {isAdmin ? tr("Mon espace") : tr("Mon profil")}
                         </Link>
                         {!isAdmin && (
                           <Link
-                            to={`/profile/${currentUser.id}`}
+                            to="/account"
                             onClick={() => setIsUserMenuOpen(false)}
                             className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 hover:text-haven-navy rounded-xl transition-colors"
                           >
-                            <Settings size={18} /> Mon compte
-                          </Link>
+                            <Settings size={18} /> {tr("Mon compte")} </Link>
                         )}
                       </div>
 
+                      {!isAdmin && <button type="button" onClick={() => void handleRoleSwitch()} className="flex min-h-11 w-full items-center gap-3 rounded-xl px-4 py-2.5 text-left text-sm font-bold text-haven-navy"><ArrowRightLeft size={18} />{isOwnerMode ? tr("Passer en mode locataire") : tr("Passer en mode propriétaire")}</button>}
                       <div className="mt-2 pt-2 border-t border-gray-50">
                         <button 
                           onClick={handleLogout}
@@ -235,7 +235,7 @@ export const Header: React.FC = () => {
             {!currentUser && (
               <div className="flex items-center gap-4">
                  <Link to="/login">
-                   <Button variant="primary" size="md" className="px-10 font-bold gap-2">
+                   <Button variant="primary" size="md" className="px-3 md:px-10 font-bold gap-2">
                      <LogIn size={18} /> {t('nav.login')}
                    </Button>
                  </Link>
@@ -243,22 +243,7 @@ export const Header: React.FC = () => {
             )}
           </nav>
 
-          <div className="flex items-center gap-2 md:hidden">
-            {!currentUser ? (
-              <Link to="/login" className="rounded-full bg-haven-navy px-4 py-2 text-xs font-bold text-white">
-                Connexion
-              </Link>
-            ) : (
-              <Link to={`/profile/${currentUser.id}`} aria-label="Ouvrir mon profil">
-                <img
-                  src={currentUser.avatarUrl}
-                  alt=""
-                  className="h-9 w-9 rounded-full border-2 border-white object-cover shadow-sm"
-                  referrerPolicy="no-referrer"
-                />
-              </Link>
-            )}
-          </div>
+
         </div>
       </div>
     </header>

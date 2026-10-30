@@ -52,10 +52,10 @@ export const LegalPage: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-haven-cream pt-32 pb-20 px-6">
+    <div className="min-h-screen bg-haven-cream pt-8 md:pt-20 pb-20 px-4 sm:px-6">
       <div className="max-w-4xl mx-auto">
-        <button 
-          onClick={() => navigate(-1)} 
+        <button
+          onClick={() => navigate(-1)}
           className="flex items-center gap-2 text-haven-stone hover:text-haven-navy font-bold mb-8 transition-colors"
         >
           <ArrowLeft size={20} /> Retour
@@ -70,7 +70,7 @@ export const LegalPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="prose prose-slate max-w-none 
+          <div className="haven-booking-terms prose prose-slate max-w-none
             prose-headings:font-heading prose-headings:text-haven-navy prose-headings:font-bold
             prose-p:text-haven-stone prose-p:leading-relaxed prose-p:mb-4 prose-p:mt-0
             prose-li:text-haven-stone prose-li:marker:text-haven-navy prose-li:my-1

@@ -13,12 +13,13 @@ export function prepareMemberApproval(
     throw new MemberApprovalError('La gestion des administrateurs passe par l’espace de gouvernance.', 403);
   }
   if (!isVerificationReadyForAdminReview(profile)) {
-    throw new MemberApprovalError('Le dossier doit être complet et transmis, avec e-mail confirmé, téléphone renseigné, pièce d’identité et CG acceptées.');
+    throw new MemberApprovalError('Le dossier doit être complet et transmis, avec e-mail confirmé, téléphone renseigné, pièce d’identité, adresse de résidence, justificatif de domicile et CG acceptées.');
   }
   return {
     status: 'APPROVED' as const,
     verificationException: null,
     identityVerified: true,
+    residenceVerified: true,
     isVerified: true,
     idVerifiedAt: now,
     identityReviewedBy: actorId,

@@ -56,6 +56,12 @@ export const ReportModal: React.FC<ReportModalProps> = ({
     setIncidentReport({ category: '', subCategory: '', description: '', photo: '' });
   }, [isOpen, targetId, targetType, bookingId]);
   const destination = isIncident ? stayIssueDestination(incidentReport.category, incidentReport.subCategory) : 'HAVEN';
+  useEffect(() => {
+    if (!isOpen) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = previous; };
+  }, [isOpen]);
   if (!isOpen) return null;
 
   const handleSubmitReport = async (e?: React.FormEvent) => {
@@ -126,7 +132,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
   if (isSuccess) {
     return (
       <div className="fixed inset-0 z-[110] flex items-center justify-center p-6 bg-haven-navy/40 backdrop-blur-sm">
-        <div className="bg-white rounded-[2.5rem] shadow-premium max-w-lg w-full p-10 text-center animate-fade-in-up">
+        <div className="bg-white rounded-[2.5rem] shadow-premium max-w-lg w-full p-5 sm:p-10 text-center animate-fade-in-up">
           <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
             <CheckCircle2 className="w-10 h-10 text-green-600" />
           </div>
@@ -143,11 +149,11 @@ export const ReportModal: React.FC<ReportModalProps> = ({
   }
 
   return (
-    <div className="fixed inset-0 z-[110] flex items-center justify-center p-6 bg-haven-navy/40 backdrop-blur-sm overflow-y-auto">
-      <div className="bg-white rounded-[2.5rem] shadow-premium max-w-4xl w-full relative animate-fade-in-up flex flex-col max-h-[95vh]">
+    <div className="fixed inset-0 z-[110] flex items-center justify-center p-2 sm:p-6 bg-haven-navy/40 backdrop-blur-sm overflow-y-auto">
+      <div className="haven-dialog-panel bg-white rounded-[2.5rem] shadow-premium max-w-4xl w-full relative animate-fade-in-up flex flex-col max-h-[95dvh]">
 
         {/* Header */}
-        <div className="p-8 border-b border-gray-100 flex items-center justify-between">
+        <div className="shrink-0 p-4 sm:p-8 border-b border-gray-100 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${isIncident ? 'bg-amber-100 text-amber-600' : 'bg-haven-red/10 text-haven-red'}`}>
               <AlertTriangle size={24} />
@@ -167,7 +173,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-8 space-y-8">
+        <div className="haven-dialog-scroll flex-1 overflow-y-auto p-4 sm:p-8 space-y-8">
           {bookingId && listingId && ownerId && <div className="grid gap-3 sm:grid-cols-2">
             <Button variant={isIncident ? 'primary' : 'outline'} disabled={isSubmitting} onClick={() => setIsIncident(true)}>Incident au propriétaire</Button>
             <Button variant={!isIncident ? 'primary' : 'outline'} disabled={isSubmitting} onClick={() => setIsIncident(false)}>Signalement à Haven</Button>
@@ -292,7 +298,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="p-8 border-t border-gray-100 bg-gray-50/50 flex gap-4">
+        <div className="haven-dialog-footer shrink-0 p-4 sm:p-8 border-t border-gray-100 bg-gray-50/50 flex gap-4">
           <Button variant="ghost" fullWidth onClick={onClose} type="button" className="h-14 font-bold rounded-2xl">Annuler</Button>
           <Button
             fullWidth

@@ -1,3 +1,5 @@
+import { AdminPlatformFeedback } from '../components/AdminPlatformFeedback';
+import { authenticatedFetch } from '../services/serverApi';
 import { VerificationExceptionDialog } from '../components/VerificationExceptionDialog';
 
 import React, { useState, useEffect } from 'react';
@@ -24,7 +26,7 @@ export const AdminDashboard: React.FC = () => {
   const { currentUser, isLoading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [activeTab, setActiveTab] = useState<'LISTINGS' | 'USERS' | 'OVERVIEW' | 'STAFF' | 'CONTACTS' | 'REPORTS' | 'LEGAL' | 'INCIDENTS' | 'AUDIT'>('LISTINGS');
+  const [activeTab, setActiveTab] = useState<'LISTINGS' | 'USERS' | 'OVERVIEW' | 'STAFF' | 'CONTACTS' | 'REPORTS' | 'LEGAL' | 'INCIDENTS' | 'AUDIT' | 'PLATFORM_FEEDBACK'>('LISTINGS');
   const { listings, refreshListings, isLoading: listingsLoading } = useListings();
   const [exceptionTarget, setExceptionTarget] = useState<{ type: 'USER' | 'LISTING'; id: string; label: string; revoke: boolean } | null>(null);
   const [listingReview, setListingReview] = useState<Listing | null>(null);
@@ -561,12 +563,16 @@ export const AdminDashboard: React.FC = () => {
     setIsEditingLegal(true);
   };
 
+  const [residenceDocumentOpened, setResidenceDocumentOpened] = useState(false);
+  const [residenceLabel, setResidenceLabel] = useState('');
   const [identityDocumentOpened, setIdentityDocumentOpened] = useState(false);
   const [identityReviewConfirmed, setIdentityReviewConfirmed] = useState(false);
 
   const openUserDetailModal = async (userId: string) => {
     setError(null);
     setIdentityDocumentOpened(false);
+    setResidenceDocumentOpened(false); setResidenceLabel('');
+    void authenticatedFetch(`/api/users/${encodeURIComponent(userId)}/residence`).then(async response => { if (!response.ok) return; const data = await response.json(); setResidenceLabel([data.address, data.postalCode, data.city, data.country].filter(Boolean).join(', ')); }).catch(() => {});
     setIdentityReviewConfirmed(false);
     setUserDetailModal(prev => ({ ...prev, isOpen: true, userId, isLoading: true, user: null, listings: [], bookings: [], ownerBookings: [] }));
     try {
@@ -647,13 +653,14 @@ export const AdminDashboard: React.FC = () => {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-20">
         
-        <div className="flex space-x-1 bg-white shadow-xl shadow-black/5 p-1 rounded-xl mb-8 w-fit border border-gray-100 overflow-x-auto max-w-full">
+        <div className="haven-tabs flex space-x-1 bg-white shadow-xl shadow-black/5 p-1 rounded-xl mb-8 w-fit border border-gray-100 overflow-x-auto max-w-full">
            {[
              { id: 'LISTINGS', label: 'Annonces', icon: CheckCircle, count: pendingListings.length },
              { id: 'USERS', label: 'Utilisateurs', icon: Users, count: pendingUsers.length },
              { id: 'INCIDENTS', label: 'Incidents', icon: AlertTriangle },
              { id: 'REPORTS', label: 'Signalements', icon: Flag, count: reports.filter(r => r.status === 'NEW').length },
              { id: 'CONTACTS', label: 'Contacts', icon: Mail, count: pendingContacts.length },
+             { id: 'PLATFORM_FEEDBACK', label: 'Avis Haven', icon: MessageSquare },
              { id: 'LEGAL', label: 'Légal', icon: FileText },
              { id: 'OVERVIEW', label: 'Stats', icon: TrendingUp }
            ].map((tab) => (
@@ -690,10 +697,12 @@ export const AdminDashboard: React.FC = () => {
             </div>
           )}
 
+          {activeTab === 'PLATFORM_FEEDBACK' && <AdminPlatformFeedback />}
+
           {activeTab === 'LISTINGS' && (
             <div className="space-y-6">
               <div className="bg-white rounded-3xl shadow-card border border-gray-100 overflow-hidden">
-                <div className="p-8 border-b border-gray-100 flex flex-wrap items-center justify-between gap-6">
+                <div className="p-4 sm:p-8 border-b border-gray-100 flex flex-wrap items-center justify-between gap-6">
                   <div>
                     <h2 className="font-heading font-bold text-2xl text-haven-navy mb-1">Gestion des annonces</h2>
                     <p className="text-gray-500 text-sm">Visualisez et gérez l'ensemble du catalogue.</p>
@@ -722,7 +731,7 @@ export const AdminDashboard: React.FC = () => {
                 </div>
 
                 <div className="overflow-x-auto">
-                  <table className="w-full text-left border-collapse">
+                  <table className="haven-table haven-table--filters w-full text-left border-collapse">
                     <thead>
                       <tr className="bg-gray-50 border-b border-gray-100">
                         <th className="p-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Aperçu</th>
@@ -798,25 +807,25 @@ export const AdminDashboard: React.FC = () => {
                     <tbody className="divide-y divide-gray-100">
                       {sortedListings.length > 0 ? sortedListings.map(listing => (
                         <tr key={listing.id} className="hover:bg-gray-50/50 transition-colors group">
-                          <td className="p-6">
+                          <td data-label="Aperçu" className="p-6">
                             <div className="relative w-20 h-14 rounded-lg overflow-hidden shadow-sm">
                               <img src={listing.mainPhotoUrl} className="w-full h-full object-cover" alt=""/>
                             </div>
                           </td>
-                          <td className="p-6">
+                          <td data-label="Nom du logement" className="p-6">
                             <div className="font-bold text-haven-navy text-sm">{listing.title}</div>
                             <div className="text-[10px] text-gray-400 font-medium">{listing.type === 'APARTMENT' ? 'Appartement' : 'Maison'}</div>
                           </td>
-                          <td className="p-6">
+                          <td data-label="Ville" className="p-6">
                             <div className="text-sm text-gray-600 font-medium">{listing.city}</div>
                           </td>
-                          <td className="p-6">
+                          <td data-label="Chambres" className="p-6">
                             <div className="text-sm text-haven-navy font-bold">{listing.totalRooms}</div>
                           </td>
-                          <td className="p-6">
+                          <td data-label="Propriétaire" className="p-6">
                             <div className="text-sm text-gray-600 font-medium">{getUserName(listing.ownerId)}</div>
                           </td>
-                          <td className="p-6">
+                          <td data-label="Statut" className="p-6">
                             <span className={`inline-flex whitespace-nowrap px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${
                               listing.status === 'DRAFT' ? 'bg-orange-50 text-orange-700 border-orange-100' :
                               listing.status === 'PENDING' ? 'bg-blue-50 text-blue-700 border-blue-100' :
@@ -826,7 +835,7 @@ export const AdminDashboard: React.FC = () => {
                               {listing.status === 'DRAFT' ? 'À compléter' : listing.status === 'PENDING' ? 'À examiner' : listing.status === 'APPROVED' ? 'Validée' : 'Refusée'}
                             </span>
                           </td>
-                          <td className="p-6">
+                          <td data-label="Actions" className="p-6">
                             <div className="flex items-center gap-2">
                               <button 
                                 onClick={() => { setError(null); setListingReview(listing); }}
@@ -857,7 +866,7 @@ export const AdminDashboard: React.FC = () => {
           {activeTab === 'USERS' && (
              <div className="space-y-6">
                <div className="bg-white rounded-3xl shadow-card border border-gray-100 overflow-hidden">
-                 <div className="p-8 border-b border-gray-100 flex flex-wrap items-center justify-between gap-6">
+                 <div className="p-4 sm:p-8 border-b border-gray-100 flex flex-wrap items-center justify-between gap-6">
                     <div>
                       <h2 className="font-heading font-bold text-2xl text-haven-navy mb-1">Gestion des utilisateurs</h2>
                       <p className="text-gray-500 text-sm">Gérez les comptes et les accès à la plateforme.</p>
@@ -898,7 +907,7 @@ export const AdminDashboard: React.FC = () => {
                  </div>
 
                   <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse">
+                    <table className="haven-table haven-table--filters w-full text-left border-collapse">
                       <thead>
                         <tr className="bg-gray-50 border-b border-gray-100">
                           <th className="p-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Profil</th>
@@ -995,30 +1004,30 @@ export const AdminDashboard: React.FC = () => {
                       <tbody className="divide-y divide-gray-100">
                         {sortedUsers.length > 0 ? sortedUsers.map(user => (
                           <tr key={user.id} className="hover:bg-gray-50/50 transition-colors group">
-                            <td className="p-6">
+                            <td data-label="Profil" className="p-6">
                               <img src={user.avatarUrl} className="w-10 h-10 rounded-full object-cover border border-gray-100" alt=""/>
                             </td>
-                            <td className="p-6">
+                            <td data-label="Prénom" className="p-6">
                               <div className="font-bold text-haven-navy text-sm">{user.firstName}</div>
                             </td>
-                            <td className="p-6">
+                            <td data-label="Nom" className="p-6">
                               <div className="font-bold text-haven-navy text-sm">{user.lastName}</div>
                             </td>
-                            <td className="p-6">
+                            <td data-label="E-mail" className="p-6">
                               <div className="text-sm text-gray-500">{user.email}</div>
                             </td>
-                            <td className="p-6">
+                            <td data-label="Téléphone" className="p-6">
                               <div className="text-sm text-gray-500">{user.phone || '-'}</div>
                             </td>
-                            <td className="p-6">
+                            <td data-label="Ville" className="p-6">
                               <div className="text-sm text-gray-500">{user.city || '-'}</div>
                             </td>
-                            <td className="p-6">
+                            <td data-label="Rôle" className="p-6">
                               <span className="text-sm text-gray-600 whitespace-nowrap">
                                 {user.role === UserRole.ADMIN ? 'Admin' : user.role === UserRole.OWNER ? 'Propriétaire' : 'Locataire'}
                               </span>
                             </td>
-                            <td className="p-6">
+                            <td data-label="Statut" className="p-6">
                               <span className={`inline-flex whitespace-nowrap px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${
                                 (user.status || 'PENDING') === 'APPROVED' ? 'bg-green-50 text-green-600 border-green-100' :
                                 (user.status || 'PENDING') === 'PENDING' ? (user.verificationSubmittedAt ? 'bg-blue-50 text-blue-700 border-blue-100' : 'bg-orange-50 text-orange-700 border-orange-100') :
@@ -1029,7 +1038,7 @@ export const AdminDashboard: React.FC = () => {
                                   : user.status === 'BANNED' ? 'Banni' : user.status === 'REJECTED' ? 'Refusé' : user.status === 'APPROVED' ? 'Validé' : 'En attente'}
                               </span>
                             </td>
-                            <td className="p-6">
+                            <td data-label="Actions" className="p-6">
                               <div className="flex items-center gap-2">
                                 <button 
                                   onClick={() => openUserDetailModal(user.id)}
@@ -1078,7 +1087,7 @@ export const AdminDashboard: React.FC = () => {
               </div>
 
               <div className="bg-white rounded-3xl shadow-card border border-gray-100 overflow-hidden">
-                <div className="p-8 border-b border-gray-100">
+                <div className="p-4 sm:p-8 border-b border-gray-100">
                   <h2 className="font-heading font-bold text-2xl text-haven-navy mb-1">Signalements & Modération</h2>
                   <p className="text-gray-500 text-sm">Gérez les signalements effectués par les utilisateurs.</p>
                 </div>
@@ -1086,7 +1095,7 @@ export const AdminDashboard: React.FC = () => {
                 {reports.filter(r => reportFilter === 'ALL' || r.status === reportFilter).length > 0 ? (
                   <div className="divide-y divide-gray-100">
                     {reports.filter(r => reportFilter === 'ALL' || r.status === reportFilter).map(report => (
-                      <div key={report.id} className="p-8 hover:bg-gray-50 transition-colors">
+                      <div key={report.id} className="p-4 sm:p-8 hover:bg-gray-50 transition-colors">
                         <div className="flex flex-col lg:flex-row gap-8">
                           <div className="flex-1">
                             <div className="flex justify-between items-start mb-4">
@@ -1193,7 +1202,7 @@ export const AdminDashboard: React.FC = () => {
 
           {activeTab === 'CONTACTS' && (
             <div className="bg-white rounded-3xl shadow-card border border-gray-100 overflow-hidden">
-              <div className="p-8 border-b border-gray-100">
+              <div className="p-4 sm:p-8 border-b border-gray-100">
                 <h2 className="font-heading font-bold text-2xl text-haven-navy mb-2">Messages à Haven</h2>
                 <p className="text-gray-500 text-sm">Avis, suggestions, dysfonctionnements du site, questions et réclamations sur le service Haven. Les problèmes liés aux séjours sont suivis dans Incidents et Signalements.</p>
               </div>
@@ -1201,7 +1210,7 @@ export const AdminDashboard: React.FC = () => {
               {contactRequests.length > 0 ? (
                 <div className="divide-y divide-gray-100">
                   {contactRequests.map(request => (
-                    <div key={request.id} className="p-8 hover:bg-gray-50 transition-colors">
+                    <div key={request.id} className="p-4 sm:p-8 hover:bg-gray-50 transition-colors">
                       <div className="flex flex-col lg:flex-row gap-8">
                         <div className="flex-1">
                           <div className="flex justify-between items-start mb-4">
@@ -1281,7 +1290,7 @@ export const AdminDashboard: React.FC = () => {
 
           {activeTab === 'STAFF' && (
             isPrimaryAdmin ? <div className="space-y-8">
-              <div className="bg-white rounded-3xl shadow-card border border-gray-100 p-8">
+              <div className="bg-white rounded-3xl shadow-card border border-gray-100 p-4 sm:p-8">
                 <div className="mb-7">
                   <div className="flex items-center gap-3 text-haven-navy"><Shield className="text-haven-red" /><h2 className="font-heading font-bold text-2xl">Administrateurs HAVEN</h2></div>
                   <p className="text-sm text-gray-500 mt-2">Vous êtes l’administrateur principal. Vous seul pouvez accorder ou retirer les accès administrateurs.</p>
@@ -1331,7 +1340,7 @@ export const AdminDashboard: React.FC = () => {
                 <p className="mt-4 text-xs text-gray-400">Le collaborateur doit déjà disposer d’un compte HAVEN avec cette adresse e-mail.</p>
               </div>
 
-              <div className="bg-white rounded-3xl shadow-card border border-gray-100 p-8">
+              <div className="bg-white rounded-3xl shadow-card border border-gray-100 p-4 sm:p-8">
                 <h3 className="font-heading font-bold text-xl text-haven-navy mb-6">Équipe HAVEN ({users.filter(u => u.role === UserRole.ADMIN).length})</h3>
                 <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {users.filter(u => u.role === UserRole.ADMIN).map(admin => (
@@ -1352,7 +1361,7 @@ export const AdminDashboard: React.FC = () => {
                   ))}
                 </div>
               </div>
-            </div> : <div className="rounded-3xl border border-amber-100 bg-amber-50 p-8 shadow-card">
+            </div> : <div className="rounded-3xl border border-amber-100 bg-amber-50 p-4 sm:p-8 shadow-card">
               <div className="flex items-start gap-4"><Shield className="mt-1 text-amber-600" /><div><h2 className="font-heading text-2xl font-bold text-haven-navy">Gouvernance administrateur</h2><p className="mt-2 max-w-2xl text-sm leading-relaxed text-gray-600">Cet espace regroupe la création des administrateurs, la gestion de leurs accès et la chaîne de responsabilité. Il sera accessible dès que votre compte aura été activé comme administrateur principal.</p><p className="mt-4 text-xs font-bold text-amber-700">Compte concerné : {currentUser?.email}</p></div></div>
             </div>
           )}
@@ -1367,14 +1376,14 @@ export const AdminDashboard: React.FC = () => {
                   const listing = listings.find(item => item.id === entry.targetId);
                   if (listing) { setError(null); setListingReview(listing); }
                 }
-              }} /> : <div className="rounded-3xl border border-gray-100 bg-white p-8 shadow-card">
+              }} /> : <div className="rounded-3xl border border-gray-100 bg-white p-4 sm:p-8 shadow-card">
               <div className="flex items-start gap-4"><History className="mt-1 text-haven-red" /><div><h2 className="font-heading text-2xl font-bold text-haven-navy">Journal des actions administratives</h2><p className="mt-2 max-w-2xl text-sm leading-relaxed text-gray-500">Vous retrouverez ici chaque décision prise dans le back-office, son auteur, sa date et l’élément concerné. La consultation est réservée à l’administrateur principal.</p></div></div>
             </div>
           )}
 
           {activeTab === 'LEGAL' && (
             <div className="space-y-8">
-              <div className="bg-white rounded-3xl shadow-card border border-gray-100 p-8">
+              <div className="bg-white rounded-3xl shadow-card border border-gray-100 p-4 sm:p-8">
                 <div className="flex items-center justify-between mb-8">
                   <div>
                     <h2 className="font-heading font-bold text-2xl text-haven-navy mb-1">Documents Légaux</h2>
@@ -1439,7 +1448,7 @@ export const AdminDashboard: React.FC = () => {
               </div>
 
               {isEditingLegal && (
-                <div className="bg-white rounded-3xl shadow-card border border-gray-100 p-8 animate-fade-in-up">
+                <div className="bg-white rounded-3xl shadow-card border border-gray-100 p-4 sm:p-8 animate-fade-in-up">
                   <div className="flex items-center justify-between mb-8">
                     <h3 className="font-heading font-bold text-xl text-haven-navy">
                       {selectedLegalDoc?.id.startsWith('new-') ? "Nouveau Document" : `Édition : ${selectedLegalDoc?.title || selectedLegalDoc?.id}`}
@@ -1656,7 +1665,7 @@ export const AdminDashboard: React.FC = () => {
                 {/* 2. Visual Graphs & Charts */}
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
                   {/* Left Graph: Commissions evolution */}
-                  <div className="bg-white p-10 rounded-[2.5rem] border border-gray-100 shadow-premium lg:col-span-7 flex flex-col justify-between">
+                  <div className="bg-white p-5 sm:p-10 rounded-[2.5rem] border border-gray-100 shadow-premium lg:col-span-7 flex flex-col justify-between">
                     <div>
                       <h3 className="font-heading font-bold text-2xl text-haven-navy leading-none mb-1">Marges brutes récoltées (15%)</h3>
                       <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-8">Évolution mensuelle des commissions</p>
@@ -1688,7 +1697,7 @@ export const AdminDashboard: React.FC = () => {
                   {/* Right Graphics: Distribution & Active regions */}
                   <div className="lg:col-span-5 space-y-8">
                     {/* Progress distribution */}
-                    <div className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-premium space-y-6">
+                    <div className="bg-white p-4 sm:p-8 rounded-[2.5rem] border border-gray-100 shadow-premium space-y-6">
                       <div>
                         <h4 className="font-heading font-bold text-xl text-haven-navy leading-none mb-1">États des Réservations</h4>
                         <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Répartition sectorielle globale</p>
@@ -1718,7 +1727,7 @@ export const AdminDashboard: React.FC = () => {
                     </div>
 
                     {/* Active cities */}
-                    <div className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-premium space-y-6">
+                    <div className="bg-white p-4 sm:p-8 rounded-[2.5rem] border border-gray-100 shadow-premium space-y-6">
                       <div>
                         <h4 className="font-heading font-bold text-xl text-haven-navy leading-none mb-1">Top villes</h4>
                         <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Activité locative par ville</p>
@@ -1750,8 +1759,8 @@ export const AdminDashboard: React.FC = () => {
                 </div>
 
                 {/* 3. Session Debug block */}
-                <div className="bg-gray-950 rounded-[2.5rem] p-10 text-white shadow-premium relative overflow-hidden">
-                  <div className="absolute top-0 right-0 p-12 opacity-10">
+                <div className="bg-gray-950 rounded-[2.5rem] p-5 sm:p-10 text-white shadow-premium relative overflow-hidden">
+                  <div className="absolute top-0 right-0 p-5 sm:p-12 opacity-10">
                     <Shield size={200} />
                   </div>
                   <div className="relative z-10">
@@ -1820,7 +1829,7 @@ export const AdminDashboard: React.FC = () => {
       {rejectionModal.isOpen && (
         <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-haven-navy/60 backdrop-blur-sm animate-fade-in">
           <div className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-md overflow-hidden animate-scale-in">
-            <div className="p-8 border-b border-gray-100 bg-gray-50">
+            <div className="p-4 sm:p-8 border-b border-gray-100 bg-gray-50">
               <div className="w-16 h-16 bg-red-100 text-red-600 rounded-2xl flex items-center justify-center mb-6">
                 <AlertTriangle size={32} />
               </div>
@@ -1829,7 +1838,7 @@ export const AdminDashboard: React.FC = () => {
                 Veuillez expliquer votre décision concernant {rejectionModal.type === 'LISTING' ? "cette annonce" : "ce compte"}. Ce message sera visible par l'utilisateur.
               </p>
             </div>
-            <div className="p-8 space-y-6">
+            <div className="p-4 sm:p-8 space-y-6">
               {rejectionModal.error && (
                 <div className="p-3 bg-red-50 border border-red-100 text-red-600 rounded-xl text-xs font-bold flex items-center gap-2">
                   <AlertCircle size={14} />
@@ -1870,8 +1879,8 @@ export const AdminDashboard: React.FC = () => {
       {/* User Detail Modal */}
       {userDetailModal.isOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-haven-navy/60 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col animate-scale-in">
-            <div className="p-8 border-b border-gray-100 bg-gray-50 flex justify-between items-center shrink-0">
+          <div className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-4xl max-h-[90dvh] overflow-hidden flex flex-col animate-scale-in">
+            <div className="p-4 sm:p-8 border-b border-gray-100 bg-gray-50 flex justify-between items-center shrink-0">
               <div className="flex items-center gap-4">
                 <div className="p-3 bg-haven-navy text-white rounded-2xl">
                   <Users size={24} />
@@ -1889,7 +1898,7 @@ export const AdminDashboard: React.FC = () => {
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
+            <div className="flex-1 overflow-y-auto p-4 sm:p-8 custom-scrollbar">
               {error && <p role="alert" className="mb-6 rounded-xl bg-red-50 p-4 text-sm font-semibold text-red-700">{error}</p>}
               {userDetailModal.isLoading ? (
                 <div className="flex flex-col items-center justify-center py-20">
@@ -2000,12 +2009,12 @@ export const AdminDashboard: React.FC = () => {
                           </div>
                           {userDetailModal.user.status !== 'APPROVED' && userDetailModal.user.role !== UserRole.ADMIN && (
                             <label className="mt-3 flex items-start gap-2 text-sm text-gray-700">
-                              <input type="checkbox" className="mt-1" checked={identityReviewConfirmed} disabled={!identityDocumentOpened}
+                              <input type="checkbox" className="mt-1" checked={identityReviewConfirmed} disabled={!identityDocumentOpened || !residenceDocumentOpened}
                                 onChange={event => setIdentityReviewConfirmed(event.target.checked)} />
-                              J’ai contrôlé la pièce d’identité et sa concordance avec le nom et la date de naissance.
+                              J’ai contrôlé la pièce d’identité et le justificatif de domicile : identité, date de naissance et adresse concordent.
                             </label>
                           )}
-                          <p className="mt-2 text-xs text-gray-500">Ouvrez la pièce d’identité ci-dessous. Comparez le nom et la date de naissance du profil avec la pièce d’identité avant validation.</p>
+                          <p className="mt-2 text-xs text-gray-500">Ouvrez les deux justificatifs ci-dessous et comparez-les aux informations déclarées avant validation.</p>
                           {userDetailModal.user.role !== UserRole.ADMIN && (
                             <p className="mt-2 text-xs font-semibold text-gray-600">
                               {userDetailModal.user.verificationSubmittedAt
@@ -2024,14 +2033,16 @@ export const AdminDashboard: React.FC = () => {
                     </div>
                   </div>
 
+                  <div className="rounded-2xl border border-gray-100 bg-white p-5"><h4 className="font-bold text-haven-navy">Domicile déclaré</h4><p className="mt-2 text-sm text-gray-600">{residenceLabel || 'Non renseigné'}</p></div>
                   {/* Documents Section */}
                   <div className="space-y-4">
                     <h4 className="font-heading font-bold text-xl text-haven-navy flex items-center gap-2">
-                      <Shield size={20} className="text-haven-red" /> Pièce d’identité
+                      <Shield size={20} className="text-haven-red" /> Justificatifs du dossier
                     </h4>
                     <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">
                       {[
                         { key: 'idCard', label: 'Pièce d\'identité' },
+                        { key: 'proofOfAddress', label: 'Justificatif de domicile' },
                       ].map(doc => {
                         const url = userDetailModal.user?.documents?.[doc.key as keyof typeof userDetailModal.user.documents];
                         return (
@@ -2039,7 +2050,11 @@ export const AdminDashboard: React.FC = () => {
                             <FileText size={24} className={url ? "text-haven-navy mb-2" : "text-gray-300 mb-2"} />
                             <p className="text-xs font-bold text-haven-navy mb-2">{doc.label}</p>
                             {url ? (
-                              <Button variant="outline" size="sm" onClick={() => { setIdentityDocumentOpened(true); setDocPreviewModal({ isOpen: true, title: doc.label, url }); }}>
+                              <Button variant="outline" size="sm" onClick={() => {
+                                if (doc.key === 'proofOfAddress') {
+                                  void authenticatedFetch(`/api/users/${userDetailModal.user!.id}/proof-of-address`).then(async response => { if (!response.ok) throw new Error('Justificatif indisponible.'); const data = await response.json(); setResidenceDocumentOpened(true); setDocPreviewModal({ isOpen: true, title: doc.label, url: data.dataUrl }); }).catch(() => toast.error('Impossible de charger le justificatif de domicile.'));
+                                } else { setIdentityDocumentOpened(true); setDocPreviewModal({ isOpen: true, title: doc.label, url }); }
+                              }}>
                                 Voir
                               </Button>
                             ) : (
@@ -2153,7 +2168,7 @@ export const AdminDashboard: React.FC = () => {
               )}
             </div>
             
-            <div className="p-8 border-t border-gray-100 bg-gray-50 shrink-0">
+            <div className="p-4 sm:p-8 border-t border-gray-100 bg-gray-50 shrink-0">
               <Button 
                 variant="primary" 
                 fullWidth 
@@ -2169,7 +2184,7 @@ export const AdminDashboard: React.FC = () => {
       {/* Document Preview Lightbox */}
       {docPreviewModal.isOpen && (
         <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-haven-navy/80 backdrop-blur-md animate-fade-in">
-          <div className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col animate-scale-in border border-white/10">
+          <div className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-3xl max-h-[90dvh] overflow-hidden flex flex-col animate-scale-in border border-white/10">
             <div className="p-6 border-b border-gray-100 bg-gray-50 flex justify-between items-center shrink-0">
               <div className="flex items-center gap-3">
                 <div className="p-2.5 bg-haven-navy text-white rounded-xl">
@@ -2202,7 +2217,7 @@ export const AdminDashboard: React.FC = () => {
                   title="PDF Viewer"
                 />
               ) : (
-                <div className="text-center p-8 space-y-4">
+                <div className="text-center p-4 sm:p-8 space-y-4">
                   <div className="w-16 h-16 bg-amber-50 text-amber-500 rounded-full flex items-center justify-center mx-auto">
                     <FileText size={32} />
                   </div>

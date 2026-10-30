@@ -171,7 +171,7 @@ export const ConversationsList: React.FC = () => {
                   )}
                 </div>
 
-                <div className="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className="flex-shrink-0 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
                   <ChevronRight size={18} className="text-haven-navy" />
                 </div>
               </motion.div>

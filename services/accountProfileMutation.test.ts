@@ -28,15 +28,13 @@ test('saving identity details resets an outstanding review but cannot approve th
   assert.equal(update?.verificationSubmittedAt, null);
   assert.equal(update?.phoneVerified, false);
   assert.equal(update?.isVerified, false);
-  assert.equal('status' in (update || {}), false);
+  assert.equal(update?.status, 'PENDING');
   assert.equal('identityVerified' in (update || {}), false);
 });
 
-test('verified identity and phone details cannot be silently changed', () => {
-  assert.throws(() => preparePersonalDetails({ ...profile, identityVerified: true }, {
-    firstName: 'Alex', lastName: 'Martin', birthDate: '1998-04-12', phone: '+33695398656'
-  }), /identité/);
-  assert.throws(() => preparePersonalDetails({ ...profile, phone: '+33695398656', phoneVerified: true }, {
-    firstName: 'Camille', lastName: 'Martin', birthDate: '1998-04-12', phone: '+33699999999'
-  }), /téléphone/);
+test('editing verified identity or phone clears their previous validation and requires a new review', () => {
+  const identity = preparePersonalDetails({ ...profile, identityVerified: true }, { firstName: 'Alex', lastName: 'Martin', birthDate: '1998-04-12', phone: '+33695398656' });
+  assert.equal(identity?.identityVerified, false); assert.equal(identity?.status, 'PENDING'); assert.equal(identity?.verificationException, null);
+  const phone = preparePersonalDetails({ ...profile, phone: '+33695398656', phoneVerified: true }, { firstName: 'Camille', lastName: 'Martin', birthDate: '1998-04-12', phone: '+33699999999' });
+  assert.equal(phone?.phoneVerified, false); assert.equal(phone?.verificationSubmittedAt, null);
 });

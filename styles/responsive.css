@@ -1,0 +1,55 @@
+/* Shared layout primitives. Keep overflow visible: fix the source of overflows. */
+html { -webkit-text-size-adjust: 100%; scroll-padding-top: 6rem; }
+body { margin: 0; }
+#root { min-height: 100dvh; }
+:where(main, section, article, aside, form, fieldset, .min-w-0) { min-width: 0; }
+:where(img, video, canvas, iframe) { max-width: 100%; }
+:where(button, a, input, select, textarea, summary) { touch-action: manipulation; }
+:where(button, a, input, select, textarea, summary):focus-visible { outline: 2px solid #A34343; outline-offset: 3px; }
+:where(input, select, textarea) { max-width: 100%; }
+:where(.flex, .grid) > :where(div, section, article, form) { min-width: 0; }
+:where(button, a, label) > svg { flex-shrink: 0; }
+.haven-content { overflow-wrap: anywhere; }
+:root .haven-dialog-panel { min-width: 0; max-height: calc(100dvh - 1.5rem); }
+:root .haven-dialog-panel:not(.flex) { overflow-y: auto; overscroll-behavior-y: contain; }
+.haven-dialog-panel > :is(header, footer) { flex-shrink: 0; }
+.haven-dialog-scroll { min-height: 0; overflow-y: auto; overscroll-behavior-y: contain; }
+.haven-mobile-nav { padding-bottom: max(.5rem, env(safe-area-inset-bottom)); }
+.haven-mobile-nav-spacer { height: calc(5rem + env(safe-area-inset-bottom)); }
+.haven-bottom-actions { padding-bottom: max(1rem, env(safe-area-inset-bottom)); }
+.haven-tabs { scrollbar-width: thin; scroll-snap-type: x proximity; }
+.haven-tabs > button { flex-shrink: 0; scroll-snap-align: start; }
+.haven-touch-action { min-height: 44px; min-width: 44px; }
+.haven-listing-actions { bottom: 0; padding-bottom: max(.75rem, env(safe-area-inset-bottom)); }
+@media (max-width: 767px) {
+  .haven-listing-actions { bottom: calc(4.5rem + env(safe-area-inset-bottom)); padding-bottom: .75rem; }
+}
+@media (max-width: 767px) {
+  /* 16px prevents automatic iOS zoom when a field receives focus. */
+  :root input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='file']), :root select, :root textarea { font-size: 16px; }
+  input[type='checkbox'], input[type='radio'] { flex-shrink: 0; width: 20px; height: 20px; }
+  :root .haven-dialog-panel { max-height: calc(100dvh - env(safe-area-inset-top) - .5rem); border-radius: 1.5rem 1.5rem 0 0; }
+  :root .haven-dialog-footer { padding-bottom: max(1rem, env(safe-area-inset-bottom)); }
+  .haven-tabs { flex-wrap: nowrap; gap: 1.25rem; overflow-x: auto; }
+  .haven-table { display: block; width: 100%; min-width: 0; }
+  .haven-table > thead { display: none; }
+  .haven-table--filters > thead { display: block; margin-bottom: 1rem; }
+  .haven-table--filters > thead > tr { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .5rem; padding: .5rem; }
+  .haven-table--filters > thead th { display: block; min-width: 0; padding: .5rem; }
+  .haven-table > tbody { display: grid; gap: 1rem; }
+  .haven-table > tbody > tr { display: block; min-width: 0; border: 1px solid #e5e7eb; border-radius: 1rem; padding: .75rem; }
+  .haven-table > tbody > tr > td { display: block; width: auto; min-width: 0; max-width: none; padding: .5rem; text-align: left; white-space: normal; overflow-wrap: anywhere; }
+  .haven-table td[data-label]::before { content: attr(data-label); display: block; margin-bottom: .3rem; font-size: 11px; font-weight: 700; color: #78716c; }
+  .haven-table td > .flex { flex-wrap: wrap; justify-content: flex-start; }
+  .haven-table td[colspan] { padding: .75rem; }
+  .haven-chat { height: calc(var(--haven-viewport-height, 100dvh) - 4rem); }
+  .haven-photo-actions { opacity: 1 !important; background: linear-gradient(transparent, rgb(30 41 59 / .55)); align-items: flex-end; padding-bottom: .5rem; }
+}
+@media (pointer: coarse) {
+  button { min-height: 44px; }
+  label:has(> input:is([type='checkbox'], [type='radio'])) { min-height: 44px; }
+  .signature-canvas { touch-action: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+}

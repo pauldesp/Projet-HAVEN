@@ -18,7 +18,7 @@ export function VerificationExceptionDialog({ targetType, targetId, label, revok
     catch (error) { setError(error instanceof Error ? error.message : 'Impossible d’enregistrer la dérogation.'); }
     finally { setSaving(false); }
   };
-  return <div className="fixed inset-0 z-[140] flex items-center justify-center bg-haven-navy/60 p-4"><section role="dialog" aria-modal="true" aria-labelledby="exception-title" className="w-full max-w-lg space-y-5 rounded-3xl bg-white p-6 shadow-xl">
+  return <div className="fixed inset-0 z-[140] flex items-center justify-center bg-haven-navy/60 p-4"><section role="dialog" aria-modal="true" aria-labelledby="exception-title" className="haven-dialog-panel w-full max-w-lg space-y-5 rounded-3xl bg-white p-6 shadow-xl">
     <header className="flex items-center justify-between gap-4"><h2 id="exception-title" className="text-xl font-bold text-haven-navy">{revoke ? 'Retirer la dérogation de test' : 'Validation exceptionnelle de test'}</h2><button aria-label="Fermer" disabled={saving} onClick={onClose}><XCircle/></button></header>
     <p className="font-semibold text-haven-navy">{label}</p>
     <p className="text-sm text-gray-600">{revoke ? 'L’élément repassera en attente. Une validation normale sera nécessaire pour conserver son accès.' : 'Cette action de l’administrateur principal autorise les parcours de test malgré un dossier incomplet. Elle ne vérifie ni les coordonnées ni les documents et reste identifiée comme une dérogation.'}</p>

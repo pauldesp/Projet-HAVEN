@@ -3,7 +3,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '../components/Button';
 import { BirthDateInput } from '../components/BirthDateInput';
-import { ShieldCheck, ArrowLeft, Mail, Lock, Loader2, AlertCircle, Phone, CheckCircle } from 'lucide-react';
+import { HavenPhotoBackground } from '../components/HavenPhotoBackground';
+import { ArrowLeft, Mail, Lock, Loader2, AlertCircle, Phone, CheckCircle } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { UserRole, User } from '../types';
 import { userFacingErrorMessage } from '../services/errorHandling';
@@ -13,6 +14,7 @@ import { normalizeAccountIdentifier } from '../services/accountEntry';
 import { clearPhoneRecaptcha, normalizePhoneForVerification, isValidPhoneForVerification, phoneVerificationErrorMessage } from '../services/phoneVerification';
 import { isValidPastBirthDate } from '../services/profileVerification';
 import { registrationPasswordError } from '../services/accountTerms';
+import { googleSignInErrorMessage } from '../services/googleSignIn';
 
 type AuthStep = 'IDENTIFIER' | 'LOGIN' | 'PROFILE' | 'PHONE_VERIFY' | 'FORGOT_PASSWORD' | 'FORGOT_PASSWORD_SUCCESS';
 
@@ -41,6 +43,7 @@ export const LoginPage: React.FC = () => {
   
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isGoogleSigningIn, setIsGoogleSigningIn] = useState(false);
 
   useEffect(() => {
     if (currentUser) {
@@ -57,7 +60,7 @@ export const LoginPage: React.FC = () => {
   useEffect(() => () => clearPhoneRecaptcha(recaptchaVerifier), []);
 
   useEffect(() => {
-    if (authError) setError(userFacingErrorMessage(authError));
+    if (authError) setError(googleSignInErrorMessage(authError));
   }, [authError]);
 
   const handleIdentifierSubmit = async (e: React.FormEvent) => {
@@ -226,18 +229,14 @@ export const LoginPage: React.FC = () => {
   const handleGoogleLogin = async () => {
     setError('');
     setIsLoading(true);
+    setIsGoogleSigningIn(true);
     try {
       await loginWithGoogle();
-    } catch (err: any) {
-      if (err?.code === 'auth/unauthorized-domain') {
-        setError('La connexion Google n’est pas encore autorisée depuis cette adresse. (Erreur 403)');
-      } else if (err?.code === 'auth/operation-not-allowed') {
-        setError('La connexion Google est momentanément indisponible. (Erreur 503)');
-      } else {
-        setError(userFacingErrorMessage(err));
-      }
+    } catch (err: unknown) {
+      setError(googleSignInErrorMessage(err));
     } finally {
       setIsLoading(false);
+      setIsGoogleSigningIn(false);
     }
   };
 
@@ -487,67 +486,26 @@ export const LoginPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col md:flex-row bg-white">
-      {/* Left side: HAVEN introduction */}
-      <aside className="hidden lg:flex lg:w-1/2 relative overflow-hidden flex-col justify-between p-16 text-white bg-haven-navy min-h-screen">
-        <div aria-hidden="true" className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute inset-0 bg-[linear-gradient(145deg,#102747_0%,#253953_55%,#583e4b_100%)]" />
-          <div className="absolute -top-24 -left-20 h-80 w-80 rounded-full bg-[#d8a178]/20 blur-3xl" />
-          <div className="absolute -bottom-36 right-[-5rem] h-[28rem] w-[28rem] rounded-full bg-haven-red/25 blur-3xl" />
-          <div className="absolute inset-x-0 bottom-0 h-[45%] bg-gradient-to-t from-[#07182e]/45 to-transparent" />
-          <div className="absolute left-16 top-0 h-full w-px bg-white/[0.08]" />
-        </div>
-
-        <div className="relative z-10 max-w-xl py-10 md:py-0">
-          <p className="mb-6 text-[11px] font-black tracking-[0.22em] uppercase text-white/60">
-            HAVEN · colocation flexible
-          </p>
-          <h1 className="font-heading font-bold text-4xl sm:text-5xl lg:text-6xl leading-[1.05] tracking-tight">
-            Trouvez votre place.<br />
-            <span className="text-white/65">Vivez à votre rythme.</span>
-          </h1>
-          <p className="mt-7 max-w-md text-base sm:text-lg leading-relaxed text-blue-100/85">
-            Une chambre accueillante pour quelques jours ou plusieurs semaines, avec tout ce qu’il faut pour vous sentir chez vous.
-          </p>
-
-          <div className="mt-10 rounded-3xl border border-white/15 bg-white/[0.08] p-5 sm:p-6 backdrop-blur-sm shadow-2xl shadow-black/10">
-            <p className="text-xs font-bold uppercase tracking-[0.16em] text-white/60">Votre séjour en trois temps</p>
-            <div className="mt-5 grid grid-cols-3 gap-3">
-              <div className="border-l border-white/20 pl-3">
-                <span className="text-xs font-black text-haven-red">01</span>
-                <p className="mt-1 text-sm font-semibold">Choisissez</p>
-                <p className="mt-1 text-xs leading-relaxed text-white/60">La chambre qui vous correspond.</p>
-              </div>
-              <div className="border-l border-white/20 pl-3">
-                <span className="text-xs font-black text-haven-red">02</span>
-                <p className="mt-1 text-sm font-semibold">Réservez</p>
-                <p className="mt-1 text-xs leading-relaxed text-white/60">Des dates et un prix clairs.</p>
-              </div>
-              <div className="border-l border-white/20 pl-3">
-                <span className="text-xs font-black text-haven-red">03</span>
-                <p className="mt-1 text-sm font-semibold">Installez-vous</p>
-                <p className="mt-1 text-xs leading-relaxed text-white/60">Votre séjour commence sereinement.</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="relative z-10 mb-8 lg:mb-88 flex items-center gap-3 text-sm text-white/75">
-          <span className="flex h-9 w-9 items-center justify-center rounded-full border border-white/15 bg-white/10 text-white"><ShieldCheck size={18} /></span>
-          <span>Des logements vérifiés et une réservation sécurisée.</span>
+    <div className="min-h-screen flex flex-col lg:flex-row bg-white">
+      {/* Below the form on mobile, beside it on desktop. */}
+      <aside className="order-2 lg:order-1 flex w-full lg:w-1/2 relative overflow-hidden flex-col justify-end p-6 sm:p-10 xl:p-16 text-white bg-haven-navy min-h-[320px] sm:min-h-[380px] lg:min-h-screen">
+        <HavenPhotoBackground imageClassName="object-[35%_center]" />
+        <div className="relative z-10 max-w-md lg:pb-8">
+          <h1 className="font-heading font-medium text-3xl lg:text-4xl xl:text-5xl leading-tight tracking-tight">Bienvenue chez Haven.</h1>
+          <p className="mt-4 text-base xl:text-lg leading-relaxed text-white/85">Réservez votre chambre en toute simplicité.</p>
         </div>
       </aside>
 
       {/* Right side: Auth Flow */}
-      <div className="w-full lg:w-1/2 flex flex-col items-center justify-center p-8 bg-haven-cream relative overflow-y-auto">
+      <div className="order-1 lg:order-2 w-full lg:w-1/2 flex flex-col items-center justify-center px-4 py-8 sm:p-8 bg-haven-cream relative overflow-y-auto">
         <button 
           onClick={() => navigate('/')} 
-          className="absolute top-8 left-8 flex items-center gap-2 text-haven-stone hover:text-haven-navy font-bold transition-colors"
+          className="absolute top-4 left-4 sm:top-8 sm:left-8 flex items-center gap-2 text-haven-stone hover:text-haven-navy font-bold transition-colors"
         >
           <ArrowLeft size={20} /> Retour au site
         </button>
 
-        <div className="w-full max-w-md animate-fade-in-up py-12 -translate-y-10 lg:-translate-y-48">
+        <div className="w-full max-w-md animate-fade-in-up pt-14 pb-4 sm:pb-8 lg:py-12 lg:-translate-y-48">
           <div id="registration-recaptcha" aria-hidden="true" />
           <div className="bg-white rounded-3xl shadow-premium border border-gray-100 overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-center relative">
@@ -609,10 +567,11 @@ export const LoginPage: React.FC = () => {
                       type="button"
                       onClick={handleGoogleLogin}
                       disabled={isLoading}
+                      aria-busy={isGoogleSigningIn}
                       className="w-full flex items-center justify-between px-4 py-3 bg-white border border-gray-900 rounded-xl font-bold text-haven-navy hover:bg-gray-50 transition-all active:scale-[0.98]"
                     >
                       <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-5 h-5" />
-                      <span className="flex-grow text-center text-sm">Continuer avec Google</span>
+                      <span className="flex flex-grow items-center justify-center gap-2 text-center text-sm">{isGoogleSigningIn && <Loader2 size={18} className="animate-spin" />}{isGoogleSigningIn ? 'Connexion Google en cours…' : 'Continuer avec Google'}</span>
                       <div className="w-5" />
                     </button>
                   </div>

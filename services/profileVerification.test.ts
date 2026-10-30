@@ -20,7 +20,7 @@ test('un dossier incomplet ne peut pas être transmis', () => {
 test('dépôt, transmission et validation administrative restent trois étapes distinctes', () => {
   const profile = {
     firstName: 'Camille', lastName: 'Martin', birthDate: '2000-02-29', phone: '+33612345678',
-    emailVerified: false, phoneVerified: false, documents: { idCard: 'data:image/jpeg;base64,abc' },
+    emailVerified: false, phoneVerified: false, documents: { idCard: 'data:image/jpeg;base64,abc', proofOfAddress: '/private-proof' }, residenceProvided: true,
     status: 'PENDING', identityVerified: false, legalAccepted: true, verificationSubmittedAt: null as string | null
   };
   assert.equal(isVerificationReadyToSubmit(profile), false, 'la pièce seule ne permet pas la transmission');

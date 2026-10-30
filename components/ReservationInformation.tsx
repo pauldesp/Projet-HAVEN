@@ -72,7 +72,7 @@ export function ReservationInformationDisclosure({ bookingId }: { bookingId: str
       <span className="flex items-center gap-2"><FileText size={18} className="shrink-0" />Informations de ma réservation</span><ChevronRight size={17} className="shrink-0" />
     </button>
     {open && createPortal(<div className="fixed inset-0 z-[90] flex items-center justify-center bg-haven-navy/50 p-3 backdrop-blur-sm sm:p-6" onClick={event => { if (event.target === event.currentTarget) setOpen(false); }}>
-      <div ref={panel} role="dialog" aria-modal="true" aria-labelledby={titleId} className="relative flex max-h-[90dvh] w-full max-w-3xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl">
+      <div ref={panel} role="dialog" aria-modal="true" aria-labelledby={titleId} className="haven-dialog-panel relative flex max-h-[90dvh] w-full max-w-3xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl">
         <header className="flex shrink-0 items-center justify-between gap-4 border-b border-gray-100 px-5 py-4 sm:px-7 sm:py-5">
           <div><p className="text-[10px] font-bold uppercase tracking-widest text-haven-stone">Mon séjour Haven</p><h2 id={titleId} className="mt-1 text-xl font-bold text-haven-navy">Informations de ma réservation</h2></div>
           <button ref={closeButton} type="button" onClick={() => setOpen(false)} aria-label="Fermer les informations de réservation" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gray-100 text-haven-navy hover:bg-gray-200"><X size={22} /></button>

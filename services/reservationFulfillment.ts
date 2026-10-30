@@ -1,6 +1,9 @@
+import { OWNER_CLEANING_RULE, TENANT_CLEANING_RULE } from './cleaningPolicy';
 import type { Booking, Listing } from '../types';
 
 export const HAVEN_HOUSE_RULES = [
+  OWNER_CLEANING_RULE,
+  TENANT_CLEANING_RULE,
   'Respectez le calme du logement, le voisinage et les autres occupants.',
   'Laissez les espaces communs propres après utilisation et prenez soin des équipements.',
   'Respectez les espaces privés et les effets personnels des autres occupants.',

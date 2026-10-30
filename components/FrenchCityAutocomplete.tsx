@@ -72,7 +72,7 @@ export function FrenchCityAutocomplete({ value, onChange, onSelect, placeholder 
           if (event.key === 'Enter' && open && active >= 0 && results[active]) { event.preventDefault(); choose(results[active]); }
         }} />
     </div>
-    {open && value !== selected && <div className="absolute top-full left-0 mt-4 w-full min-w-[260px] z-50 rounded-xl bg-white shadow-xl border border-gray-100 overflow-hidden">
+    {open && value !== selected && <div className="absolute top-full left-0 mt-4 w-full min-w-0 z-50 rounded-xl bg-white shadow-xl border border-gray-100 overflow-hidden">
       <ul id={`${id}-list`} role="listbox" aria-label="Villes proposées">
         {results.map((city, index) => <li key={city.code} id={`${id}-${index}`} role="option" aria-selected={index === active}
           className={`px-4 py-3 cursor-pointer text-left hover:bg-gray-50 ${index === active ? 'bg-gray-100' : ''}`}

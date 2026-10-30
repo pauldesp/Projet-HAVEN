@@ -1,3 +1,5 @@
+import { CleaningPolicyNotice } from './CleaningPolicyNotice';
+import { CLEANING_POLICY_VERSION } from '../services/cleaningPolicy';
 import { isRoomAvailableForStay } from '../services/availability';
 import { countNights, isBookableStay } from '../services/stay';
 import { createRandomId } from '../services/randomId';
@@ -52,10 +54,11 @@ export const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose, lis
     finally { setCheckingAvailability(false); }
   };
   const [step, setStep] = useState(1);
+  const [cleaningAccepted, setCleaningAccepted] = useState(false);
   const [isSigned, setIsSigned] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
+
   // Legal states
   const [isLegalModalOpen, setIsLegalModalOpen] = useState(false);
   const [legalDoc, setLegalDoc] = useState<LegalDocument | null>(null);
@@ -68,6 +71,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose, lis
   useEffect(() => {
     if (!isOpen) return;
     setStep(1);
+    setCleaningAccepted(false);
     setIsSigned(false);
     setError(null);
     document.body.style.overflow = 'hidden';
@@ -87,12 +91,12 @@ export const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose, lis
     try {
       const docs = await apiService.settings.getAllLegalDocuments();
       // On cherche d'abord le document spécifique aux réservations par son titre ou son ID
-      const bookingTerms = docs.find(d => 
-        d.id === 'conditions-generales-de-reservations' || 
+      const bookingTerms = docs.find(d =>
+        d.id === 'conditions-generales-de-reservations' ||
         d.title.toLowerCase().includes('réservation') ||
         d.id === 'booking-terms'
       );
-      
+
       const terms = bookingTerms || docs.find(d => d.id === 'terms') || {
         id: 'terms',
         title: 'Conditions Générales de Réservation',
@@ -137,8 +141,9 @@ export const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose, lis
     setError(null);
     setStep(s => s + 1);
   };
-  
+
   const handlePayment = async () => {
+    if (!cleaningAccepted) { setError('Confirmez les engagements de ménage avant de continuer.'); return; }
     if (!await checkAvailability()) return;
     if (!isBookableStay(startDate, endDate)) { setError('La date d’arrivée doit être aujourd’hui ou ultérieure.'); return; }
     if (nights < minimumNights(listing.minStay)) { setError("Dates de séjour invalides."); return; }
@@ -168,12 +173,13 @@ export const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose, lis
         platformFee,
         totalPrice: total,
         createdAt: new Date().toISOString(),
+        cleaningPolicyVersion: CLEANING_POLICY_VERSION,
         paymentStatus: 'PENDING'
       };
 
       await apiService.bookings.create(bookingData);
       createdBookingId = bookingId;
-      
+
       window.location.hash = `#/payment/${encodeURIComponent(bookingId)}`;
       onClose();
     } catch (e: unknown) {
@@ -198,8 +204,8 @@ export const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose, lis
     <>
       <div role="dialog" aria-modal="true" aria-label="Réserver ce logement" className="fixed inset-0 z-[60] flex items-end justify-center md:items-center md:p-4">
         <div className="absolute inset-0 bg-haven-navy/40 backdrop-blur-sm" onClick={onClose}></div>
-        
-        <div className="relative bg-white rounded-t-[2rem] md:rounded-3xl w-full max-w-2xl max-h-[92dvh] md:max-h-[90vh] overflow-y-auto shadow-2xl flex flex-col">
+
+        <div className="haven-dialog-panel relative bg-white rounded-t-[2rem] md:rounded-3xl w-full max-w-2xl max-h-[92dvh] md:max-h-[90dvh] overflow-y-auto shadow-2xl flex flex-col">
           <div className="mx-auto mt-2 h-1.5 w-12 rounded-full bg-gray-200 md:hidden" />
           {/* Header */}
           <div className="flex justify-between items-center px-4 py-4 md:p-6 border-b border-gray-100 sticky top-0 bg-white z-10">
@@ -216,7 +222,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose, lis
                 <p className="text-xs text-gray-400">Étape {step} sur 2</p>
               </div>
             </div>
-            <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full text-gray-500">
+            <button onClick={onClose} aria-label="Fermer la réservation" className="haven-touch-action p-2 hover:bg-gray-100 rounded-full text-gray-500">
               <X size={20} />
             </button>
           </div>
@@ -224,8 +230,8 @@ export const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose, lis
           {/* Progress Bar */}
           {step < 5 && (
             <div className="w-full bg-gray-100 h-1.5">
-              <div 
-                className="bg-haven-red h-1.5 transition-all duration-500 ease-out" 
+              <div
+                className="bg-haven-red h-1.5 transition-all duration-500 ease-out"
                 style={{ width: `${(step / 3) * 100}%` }}
               ></div>
             </div>
@@ -245,16 +251,16 @@ export const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose, lis
                       <p className="mt-2 text-xs font-semibold text-haven-navy">Arrivée à partir de {listing.checkInTime || '15:00'} · Départ avant {listing.checkOutTime || '11:00'}</p>
                     </div>
                   </div>
-                  
+
                   <div className="space-y-3 text-sm text-gray-600">
-                    <div className="flex justify-between"><span>Loyer ({nights} nuit(s))</span><span>{basePrice}€</span></div>
-                  <div className="flex justify-between"><span>Ménage (par location)</span><span>{cleaningFee}€</span></div>
+                    <div className="flex justify-between"><span>{nights} {nights === 1 ? 'nuit' : 'nuits'} × {room.pricePerDay} €</span><span>{basePrice}€</span></div>
+                  <div className="flex justify-between"><span>Forfait ménage (par location)</span><span>{cleaningFee}€</span></div>
                   <div className="flex justify-between"><span>Frais HAVEN (15%)</span><span>{platformFee}€</span></div>
                   <div className="flex justify-between font-bold text-haven-navy text-lg pt-2 border-t border-gray-100">
                     <span>Total à payer</span><span>{total}€</span>
                   </div>
                 </div>
-                
+
                 <Button fullWidth disabled={checkingAvailability || !roomAvailable} onClick={handleNext}>{checkingAvailability ? 'Vérification…' : roomAvailable ? 'Valider et continuer' : 'Chambre indisponible'}</Button>
               </div>
             )}
@@ -291,9 +297,9 @@ export const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose, lis
                     </div>
                     {isSigned && <CheckCircle className="text-green-600" size={24} />}
                   </div>
-                  <Button 
-                    fullWidth 
-                    variant={isSigned ? "outline" : "primary"} 
+                  <Button
+                    fullWidth
+                    variant={isSigned ? "outline" : "primary"}
                     onClick={handleOpenLegal}
                     className="rounded-xl"
                     disabled={isLoadingLegal}
@@ -308,7 +314,9 @@ export const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose, lis
                   </div>
                 )}
 
-                <Button fullWidth size="lg" disabled={!isSigned || isProcessing || checkingAvailability || !roomAvailable} onClick={handlePayment} className="py-4 shadow-xl shadow-haven-red/10">
+                <CleaningPolicyNotice />
+                <label className="flex items-start gap-3 rounded-xl border border-gray-200 p-4 text-sm leading-relaxed text-gray-700"><input type="checkbox" checked={cleaningAccepted} onChange={event => setCleaningAccepted(event.target.checked)} className="mt-1" />Je comprends que le forfait finance le ménage hebdomadaire organisé par le propriétaire et que je dois nettoyer et ranger avant mon départ.</label>
+                <Button fullWidth size="lg" disabled={!cleaningAccepted || !isSigned || isProcessing || checkingAvailability || !roomAvailable} onClick={handlePayment} className="py-4 shadow-xl shadow-haven-red/10">
                   {isProcessing ? 'Ouverture du paiement…' : `Continuer vers le paiement · ${total} €`}
                 </Button>
                 <p className="text-xs text-center text-gray-500">Votre réservation sera confirmée après le paiement.</p>
@@ -322,10 +330,10 @@ export const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose, lis
       {isLegalModalOpen && legalDoc && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-0 md:p-8">
           <div className="absolute inset-0 bg-haven-navy/80 backdrop-blur-md" onClick={() => setIsLegalModalOpen(false)} />
-          <div className="relative bg-white w-full max-w-5xl h-full md:h-[90vh] md:rounded-[3rem] shadow-2xl flex flex-col overflow-hidden animate-fade-in-up">
-            <div className="px-8 py-6 border-b border-gray-100 flex items-center justify-between bg-white sticky top-0 z-10">
+          <div className="relative bg-white w-full max-w-5xl h-[100dvh] md:h-[90dvh] md:rounded-[3rem] shadow-2xl flex flex-col overflow-hidden animate-fade-in-up">
+            <div className="shrink-0 px-4 py-4 sm:px-8 sm:py-6 border-b border-gray-100 flex items-center justify-between bg-white sticky top-0 z-10">
               <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-haven-red/10 rounded-2xl flex items-center justify-center text-haven-red">
+                <div className="shrink-0 w-10 h-10 sm:w-12 sm:h-12 bg-haven-red/10 rounded-2xl flex items-center justify-center text-haven-red">
                   <Shield size={24} />
                 </div>
                 <div>
@@ -333,27 +341,27 @@ export const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose, lis
                   <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Document officiel HAVEN</p>
                 </div>
               </div>
-              <button onClick={() => setIsLegalModalOpen(false)} className="w-12 h-12 rounded-2xl hover:bg-gray-100 flex items-center justify-center text-haven-stone transition-all hover:rotate-90">
+              <button onClick={() => setIsLegalModalOpen(false)} className="shrink-0 w-11 h-11 rounded-2xl hover:bg-gray-100 flex items-center justify-center text-haven-stone transition-all hover:rotate-90">
                 <XCircle size={28} />
               </button>
             </div>
 
-            <div ref={modalScrollRef} onScroll={handleLegalScroll} className="flex-grow overflow-y-auto p-8 md:p-16 bg-white scroll-smooth leading-relaxed">
-              <div className="max-w-3xl mx-auto">
-                <div className="prose prose-slate max-w-none 
+            <div ref={modalScrollRef} onScroll={handleLegalScroll} className="min-h-0 min-w-0 flex-grow overflow-y-auto overflow-x-hidden p-5 sm:p-8 md:p-16 bg-white scroll-smooth leading-relaxed">
+              <div className="w-full min-w-0 max-w-3xl mx-auto">
+                <div className="haven-booking-terms prose prose-slate max-w-none
                   prose-headings:font-heading prose-headings:text-haven-navy prose-headings:font-bold
                   prose-p:text-haven-stone prose-p:text-lg prose-p:leading-relaxed prose-p:mb-6
                   prose-li:text-haven-stone prose-li:text-lg prose-li:mb-2
                   prose-strong:text-haven-navy prose-strong:font-bold
                 ">
-                  <div 
+                  <div
                     dangerouslySetInnerHTML={{ __html: sanitizeHtml(legalDoc.content) }}
                   />
                 </div>
               </div>
             </div>
 
-            <div className="px-8 py-8 border-t border-gray-100 bg-gray-50/50 backdrop-blur-sm flex flex-col md:flex-row items-center justify-between gap-6">
+            <div className="haven-dialog-footer shrink-0 px-4 py-3 sm:px-8 sm:py-8 border-t border-gray-100 bg-gray-50/50 backdrop-blur-sm flex flex-col md:flex-row items-center justify-between gap-3 md:gap-6">
               <div className="flex flex-col gap-1">
                 {!legalScrolled ? (
                   <div className="flex items-center gap-3 text-haven-red font-bold text-sm animate-pulse">
@@ -371,18 +379,18 @@ export const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose, lis
                   </div>
                 )}
               </div>
-              
-              <div className="flex gap-4 w-full md:w-auto">
-                <Button variant="ghost" onClick={() => setIsLegalModalOpen(false)} className="px-8 py-4 font-bold">
+
+              <div className="flex gap-2 md:gap-4 w-full md:w-auto">
+                <Button variant="ghost" onClick={() => setIsLegalModalOpen(false)} className="px-3 md:px-8 py-3 md:py-4 font-bold">
                   Fermer
                 </Button>
-                <Button 
+                <Button
                   disabled={!legalScrolled}
                   onClick={() => {
                     setIsSigned(true);
                     setIsLegalModalOpen(false);
                   }}
-                  className="px-12 py-4 font-bold min-w-[240px] shadow-xl shadow-haven-red/20"
+                  className="flex-1 px-3 md:px-12 py-3 md:py-4 font-bold min-w-0 md:min-w-[240px] shadow-xl shadow-haven-red/20"
                 >
                   J'accepte et je valide
                 </Button>

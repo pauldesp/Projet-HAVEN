@@ -1,3 +1,4 @@
+import { assertDetailedCheckout, CLEANING_POLICY_VERSION } from './cleaningPolicy';
 import { compactCheckinComments } from './inventoryPayload';
 import type { Booking, InventoryReport, Listing } from '../types';
 import { getInventoryTiming, formatScheduledMoment, stayLocalDate } from './inventoryTiming';
@@ -39,6 +40,12 @@ export function prepareInventoryReport(booking: Booking, listing: Listing, actor
   if (input.type === 'IN' && typeof input.comments === 'string') {
     try { input = { ...input, comments: compactCheckinComments(input.comments) }; }
     catch (error) { throw new BookingLifecycleError(error instanceof Error ? error.message : 'Photos invalides.', 422); }
+  }
+  if (input.type === 'OUT') {
+    let details: any; try { details = JSON.parse(input.comments); } catch { /* Legacy reports may be plain text. */ }
+    if (booking.cleaningPolicyVersion === CLEANING_POLICY_VERSION || details?.cleaningPolicyVersion === CLEANING_POLICY_VERSION) {
+      try { assertDetailedCheckout(details); } catch (error) { throw new BookingLifecycleError((error as Error).message, 422); }
+    }
   }
   if (typeof input.comments !== 'string' || new TextEncoder().encode(input.comments).length > 780 * 1024) throw new BookingLifecycleError('Les photos de l’état des lieux sont trop volumineuses.', 422);
   return { ...input, date: now.toISOString(), ...(input.type === 'OUT' ? { isEarlyDeparture: Boolean(early), scheduledDepartureAt: timing.scheduledAt.toISOString() } : {}) };

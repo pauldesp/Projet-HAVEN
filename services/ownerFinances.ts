@@ -1,36 +1,32 @@
-import { Booking, Payment } from '../types';
-
-type OwnerBooking = Pick<Booking, 'id' | 'status' | 'startDate' | 'totalPrice'>;
+import type { OwnerPayout } from '../types';
 
 export interface OwnerFinanceStats {
-  /** Revenus des loyers encaissés, diminués des remboursements. */
+  /** Net bank payouts confirmed paid by the payment provider. */
   totalRevenue: number;
-  /** Loyers déjà réglés pour des séjours qui n'ont pas encore commencé. */
+  /** Actual scheduled/processing bank payouts, independent of stay dates. */
   pendingRevenue: number;
 }
 
-export function calculateOwnerFinanceStats(
-  bookings: OwnerBooking[],
-  payments: Payment[],
-  now = new Date()
-): OwnerFinanceStats {
-  const completedRentPayments = payments.filter(payment =>
-    payment.status === 'COMPLETED' && payment.type === 'RENT'
-  );
-  const refundedPayments = payments.filter(payment =>
-    payment.status === 'REFUNDED' && payment.type === 'REFUND'
-  );
-  const paidBookingIds = new Set(completedRentPayments.map(payment => payment.bookingId));
-
-  return {
-    totalRevenue: completedRentPayments.reduce((total, payment) => total + payment.amount, 0)
-      - refundedPayments.reduce((total, payment) => total + payment.amount, 0),
-    pendingRevenue: bookings
-      .filter(booking =>
-        booking.status === 'CONFIRMED' &&
-        paidBookingIds.has(booking.id) &&
-        new Date(`${booking.startDate}T00:00:00`).getTime() > now.getTime()
-      )
-      .reduce((total, booking) => total + booking.totalPrice, 0),
-  };
+export function realOwnerPayouts(payouts: OwnerPayout[]): OwnerPayout[] {
+  return payouts.filter(payout => payout.provider === 'STRIPE' && payout.isTest === false && payout.currency === 'EUR' &&
+    Number.isSafeInteger(payout.amountCents) && payout.amountCents > 0 &&
+    (payout.status !== 'PAID' || Boolean(payout.providerPayoutId && payout.paidAt && Number.isFinite(Date.parse(payout.paidAt)))));
 }
+
+export function calculateOwnerFinanceStats(payouts: OwnerPayout[]): OwnerFinanceStats {
+  const records = [...new Map(realOwnerPayouts(payouts).map(payout => [payout.id, payout])).values()];
+  const paidReferences = new Set<string>();
+  let paid = 0, pending = 0;
+  for (const payout of records) {
+    // A tenant payment, a transfer to a Stripe balance or a simulation is not a bank payout.
+    if (payout.status === 'PAID' && payout.providerPayoutId && payout.paidAt && Number.isFinite(Date.parse(payout.paidAt))) {
+      if (!paidReferences.has(payout.providerPayoutId)) { paid += payout.amountCents; paidReferences.add(payout.providerPayoutId); }
+    } else if (payout.status === 'PENDING' || payout.status === 'PROCESSING') pending += payout.amountCents;
+  }
+  return { totalRevenue: paid / 100, pendingRevenue: pending / 100 };
+}
+
+export const ownerPayoutStatusLabel = (status: OwnerPayout['status']) => ({
+  PENDING: 'Virement en attente', PROCESSING: 'Virement en cours', PAID: 'Versé',
+  FAILED: 'Virement échoué', CANCELLED: 'Virement annulé', REVERSED: 'Virement retourné',
+})[status] || 'Statut indisponible';

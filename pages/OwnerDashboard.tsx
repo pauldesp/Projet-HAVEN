@@ -1,21 +1,24 @@
+import { OwnerPayoutSettings } from '../components/OwnerPayoutSettings';
+import { OwnerBookingActions } from '../components/OwnerBookingActions';
+import { OwnerRecentActivity } from '../components/OwnerRecentActivity';
 import { BookingCountdown } from '../components/BookingCountdown';
 import { bookingCategory } from '../services/bookingLifecycle';
 import { hasVerificationException } from '../services/verificationException';
 import { hasRequiredPhoneNumber, isVerificationPending } from '../services/profileVerification';
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { OwnerIncidentDetail, incidentStatusLabel } from '../components/OwnerIncidentDetail';
 import { Button } from '../components/Button';
-import { Plus, Home, Calendar, TrendingUp, Users, CheckCircle, Clock, MoreHorizontal, Loader2, DollarSign, MessageSquare, AlertTriangle, ArrowRightLeft, Filter, Download, Eye, ShieldCheck, Wallet, Edit, MessageCircle, Inbox, FileText, Upload } from 'lucide-react';
+import { Plus, Home, Calendar, TrendingUp, CheckCircle, Clock, Loader2, DollarSign, MessageSquare, AlertTriangle, ArrowRightLeft, Filter, Download, Eye, ShieldCheck, Wallet, Edit, MessageCircle, Inbox, FileText, Upload } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useListings } from '../contexts/ListingContext';
 import { apiService } from '../services/api';
-import { Booking, UserRole, Incident, Payment, User } from '../types';
+import { Booking, UserRole, Incident, Payment, OwnerPayout, User } from '../types';
 import { AccountStatusOverlay } from '../components/AccountStatusOverlay';
 import { ConversationsList } from '../components/ConversationsList';
 import { CancellationModal } from '../components/CancellationModal';
 import { toast } from 'sonner';
-import { calculateOwnerFinanceStats } from '../services/ownerFinances';
+import { calculateOwnerFinanceStats, realOwnerPayouts, ownerPayoutStatusLabel } from '../services/ownerFinances';
 
 interface BookingWithTenant extends Booking {
   tenant: User;
@@ -23,15 +26,32 @@ interface BookingWithTenant extends Booking {
 
 export const OwnerDashboard: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { currentUser, updateUserRole } = useAuth();
   const { listings } = useListings();
-  const [activeTab, setActiveTab] = useState<'OVERVIEW' | 'LISTINGS' | 'BOOKINGS' | 'MESSAGES' | 'FINANCES' | 'DOCUMENTS' | 'INCIDENTS'>('OVERVIEW');
+  const [activeTab, setActiveTab] = useState<'OVERVIEW' | 'LISTINGS' | 'BOOKINGS' | 'MESSAGES' | 'FINANCES' | 'DOCUMENTS' | 'INCIDENTS'>(searchParams.has('stripe') ? 'FINANCES' : 'OVERVIEW');
   const [ownerBookings, setOwnerBookings] = useState<BookingWithTenant[]>([]);
   const [ownerIncidents, setOwnerIncidents] = useState<Incident[]>([]);
   const [selectedIncidentId, setSelectedIncidentId] = useState<string | null>(null);
   const [incidentError, setIncidentError] = useState('');
   const selectedIncident = ownerIncidents.find(item => item.id === selectedIncidentId);
   const [ownerPayments, setOwnerPayments] = useState<Payment[]>([]);
+  const [ownerPayouts, setOwnerPayouts] = useState<OwnerPayout[]>([]);
+  const [payoutLoading, setPayoutLoading] = useState(true);
+  const [payoutError, setPayoutError] = useState('');
+  const money = (amount: number) => new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(amount);
+  useEffect(() => {
+    let active = true;
+    setOwnerPayouts([]); setPayoutLoading(true); setPayoutError('');
+    if (!currentUser?.id) return;
+    const load = async () => {
+      try { const payouts = await apiService.ownerPayouts.getMine(); if (active) { setOwnerPayouts(payouts); setPayoutError(''); } }
+      catch { if (active) setPayoutError('Les virements sont momentanément indisponibles.'); }
+      finally { if (active) setPayoutLoading(false); }
+    };
+    void load(); const timer = setInterval(load, 30_000);
+    return () => { active = false; clearInterval(timer); };
+  }, [currentUser?.id]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [isVerificationModalOpen, setIsVerificationModalOpen] = useState(false);
@@ -141,7 +161,7 @@ export const OwnerDashboard: React.FC = () => {
     }
   };
 
-  const financeStats = calculateOwnerFinanceStats(ownerBookings, ownerPayments);
+  const financeStats = calculateOwnerFinanceStats(ownerPayouts);
   const stats = {
     totalRevenue: financeStats.totalRevenue,
     pendingRevenue: financeStats.pendingRevenue,
@@ -168,7 +188,7 @@ export const OwnerDashboard: React.FC = () => {
             <h1 className="font-heading font-bold text-3xl text-white mb-2 tracking-tight">
               Espace Propriétaire
             </h1>
-            <div className="flex items-center gap-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
               <p className="text-blue-200 font-medium">Gérez votre patrimoine et suivez vos performances.</p>
               <Link to={`/profile/${currentUser?.id}`} className="text-white/70 hover:text-white text-xs font-bold underline underline-offset-4 decoration-white/30">
                 Voir mon profil public
@@ -223,25 +243,27 @@ export const OwnerDashboard: React.FC = () => {
         {/* Quick Stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
           {[
-            { label: 'Revenus Totaux', value: `${stats.totalRevenue}€`, icon: DollarSign, color: 'text-green-600', bg: 'bg-green-50' },
-            { label: 'Virements en attente', value: `${stats.pendingRevenue}€`, icon: Wallet, color: 'text-blue-600', bg: 'bg-blue-50' },
+            { label: 'Revenus versés', value: payoutLoading || payoutError ? '—' : money(stats.totalRevenue), icon: DollarSign, color: 'text-green-600', bg: 'bg-green-50' },
+            { label: 'Virements en attente', value: payoutLoading || payoutError ? '—' : money(stats.pendingRevenue), icon: Wallet, color: 'text-blue-600', bg: 'bg-blue-50' },
             { label: 'Réservations confirmées', value: stats.activeBookings, icon: Clock, color: 'text-orange-600', bg: 'bg-orange-50' },
             { label: 'Sinistres ouverts', value: stats.openIncidents, icon: AlertTriangle, color: 'text-haven-red', bg: 'bg-red-50' },
           ].map((stat, i) => (
-            <div key={i} className="bg-white p-6 rounded-[2rem] shadow-premium border border-gray-50 flex items-center gap-4">
+            <div key={i} className="min-w-0 bg-white p-4 lg:p-6 rounded-3xl shadow-premium border border-gray-50 flex flex-col items-start gap-3 lg:flex-row lg:items-center lg:gap-4">
               <div className={`w-12 h-12 ${stat.bg} ${stat.color} rounded-2xl flex items-center justify-center`}>
                 <stat.icon size={24} />
               </div>
               <div>
                 <p className="text-[10px] uppercase font-black tracking-widest text-gray-400">{stat.label}</p>
-                <p className="text-xl font-bold text-haven-navy">{stat.value}</p>
+                <p className="break-words text-lg lg:text-xl font-bold text-haven-navy">{stat.value}</p>
               </div>
             </div>
           ))}
         </div>
 
-        <div className="bg-white rounded-[2.5rem] shadow-premium p-8 min-h-[500px] border border-gray-50">
-          <div className="flex flex-wrap gap-4 md:gap-8 border-b border-gray-100 mb-8 overflow-x-auto">
+        <p className={`mb-6 text-xs ${payoutError ? 'text-haven-red' : 'text-gray-500'}`} role={payoutError ? 'alert' : undefined}>{payoutError || 'Revenus et virements : seuls les versements bancaires réels sont comptabilisés. Les simulations sont exclues.'}</p>
+
+        <div className="bg-white rounded-[2.5rem] shadow-premium p-4 sm:p-8 min-h-[500px] border border-gray-50">
+          <div className="haven-tabs flex gap-4 md:gap-8 border-b border-gray-100 mb-8 overflow-x-auto">
             {[
               { id: 'OVERVIEW', label: 'Vue d\'ensemble', icon: Home },
               { id: 'LISTINGS', label: 'Mes Logements', icon: Home },
@@ -253,7 +275,7 @@ export const OwnerDashboard: React.FC = () => {
             ].map(tab => (
               <button 
                 key={tab.id}
-                className={`pb-4 font-bold text-sm transition-all relative flex items-center gap-2 whitespace-nowrap ${activeTab === tab.id ? 'text-haven-navy' : 'text-gray-300 hover:text-gray-500'}`}
+                className={`min-h-12 pb-4 font-bold text-sm transition-all relative flex items-center gap-2 whitespace-nowrap ${activeTab === tab.id ? 'text-haven-navy' : 'text-gray-300 hover:text-gray-500'}`}
                 onClick={() => setActiveTab(tab.id as any)}
               >
                 <tab.icon size={16} />
@@ -271,23 +293,11 @@ export const OwnerDashboard: React.FC = () => {
                   <h3 className="font-heading font-bold text-xl text-haven-navy flex items-center gap-2">
                     <TrendingUp size={20} className="text-haven-red" /> Activité Récente
                   </h3>
-                  <div className="space-y-4">
-                    {ownerBookings.slice(0, 5).map(booking => (
-                      <div key={booking.id} className="flex items-center gap-4 p-4 rounded-2xl bg-gray-50 border border-gray-100">
-                        <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-haven-navy shadow-sm">
-                          <Users size={20} />
-                        </div>
-                        <div className="flex-1">
-                          <p className="text-sm font-bold text-haven-navy">Nouvelle demande de réservation</p>
-                          <p className="text-xs text-gray-500">De {booking.tenant.firstName} pour votre logement à {listings.find(l => l.id === booking.listingId)?.city}</p>
-                        </div>
-                        <span className="text-[10px] font-black text-gray-400 uppercase">{new Date(booking.createdAt).toLocaleDateString()}</span>
-                      </div>
-                    ))}
-                    {ownerBookings.length === 0 && (
-                      <p className="text-gray-400 text-center py-4">Aucune activité récente.</p>
-                    )}
-                  </div>
+                  <OwnerRecentActivity bookings={ownerBookings} listings={listings} onView={booking => {
+                    const category = bookingCategory(booking);
+                    setBookingSubTab(category === 'PAST' ? 'PAST' : category === 'CURRENT' ? 'CURRENT' : 'UPCOMING');
+                    setActiveTab('BOOKINGS');
+                  }} />
                 </div>
                 <div className="space-y-6">
                   <h3 className="font-heading font-bold text-xl text-haven-navy flex items-center gap-2">
@@ -295,7 +305,7 @@ export const OwnerDashboard: React.FC = () => {
                   </h3>
                   <div 
                     onClick={() => setActiveTab('MESSAGES')}
-                    className={`rounded-[2.5rem] p-8 text-center border transition-all duration-500 cursor-pointer shadow-sm hover:shadow-xl ${unreadCount > 0 ? 'bg-haven-red/5 border-haven-red/20 ring-4 ring-haven-red/5' : 'bg-gray-50 border-gray-100'}`}
+                    className={`rounded-[2.5rem] p-4 sm:p-8 text-center border transition-all duration-500 cursor-pointer shadow-sm hover:shadow-xl ${unreadCount > 0 ? 'bg-haven-red/5 border-haven-red/20 ring-4 ring-haven-red/5' : 'bg-gray-50 border-gray-100'}`}
                   >
                     <div className="relative inline-block">
                       <MessageSquare size={48} className={`mx-auto mb-4 ${unreadCount > 0 ? 'text-haven-red' : 'text-gray-200'}`} />
@@ -384,7 +394,7 @@ export const OwnerDashboard: React.FC = () => {
                 </div>
 
                 <div className="overflow-x-auto">
-                  <table className="w-full text-left">
+                  <table className="haven-table w-full text-left">
                     <thead>
                       <tr className="border-b border-gray-100">
                         <th className="pb-4 text-[10px] font-black uppercase tracking-widest text-gray-400">Locataire</th>
@@ -397,7 +407,7 @@ export const OwnerDashboard: React.FC = () => {
                     <tbody className="divide-y divide-gray-50">
                       {displayedBookings.map(booking => (
                         <tr key={booking.id} className="group hover:bg-gray-50/50 transition-colors">
-                          <td className="py-4">
+                          <td data-label="Locataire" className="py-4">
                             <div className="flex items-center gap-3">
                               <div className="w-8 h-8 bg-haven-navy/10 rounded-full overflow-hidden flex items-center justify-center">
                                 <img src={booking.tenant.avatarUrl} className="w-full h-full object-cover" alt="" />
@@ -405,15 +415,15 @@ export const OwnerDashboard: React.FC = () => {
                               <span className="text-sm font-bold text-haven-navy">{booking.tenant.firstName} {booking.tenant.lastName}</span>
                             </div>
                           </td>
-                          <td className="py-4">
+                          <td data-label="Logement" className="py-4">
                             <span className="text-sm font-medium text-gray-600">{listings.find(l => l.id === booking.listingId)?.title}</span>
                           </td>
-                          <td className="py-4">
+                          <td data-label="Dates" className="py-4">
                             <span className="text-xs font-bold text-haven-navy">
                               {new Date(booking.startDate).toLocaleDateString()} - {new Date(booking.endDate).toLocaleDateString()}
                             </span>
                           </td>
-                          <td className="py-4">
+                          <td data-label="Statut" className="py-4">
                             <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase ${
                               booking.status === 'CONFIRMED' ? 'bg-green-100 text-green-600' :
                               booking.status === 'APPROVED' ? 'bg-blue-100 text-blue-600' :
@@ -425,8 +435,8 @@ export const OwnerDashboard: React.FC = () => {
                             </span>
                             <BookingCountdown booking={booking} />
                           </td>
-                          <td className="py-4 text-right">
-                              <div className="flex justify-end gap-2">
+                          <td data-label="Actions" className="py-4 text-right">
+                              <div className="flex flex-wrap justify-end gap-2">
                                 <Link to={`/messages/${booking.id}`}>
                                   <Button size="sm" variant="ghost" className="text-haven-navy"><MessageCircle size={16} /></Button>
                                 </Link>
@@ -440,7 +450,7 @@ export const OwnerDashboard: React.FC = () => {
                                     Annuler le séjour
                                   </Button>
                                 )}
-                                <Button size="sm" variant="ghost" className="text-gray-400"><MoreHorizontal size={16} /></Button>
+                                <OwnerBookingActions booking={booking} listing={listings.find(item => item.id === booking.listingId)} tenant={booking.tenant} onCancel={() => setCancellationBooking(booking)} />
                               </div>
                           </td>
                         </tr>
@@ -473,27 +483,34 @@ export const OwnerDashboard: React.FC = () => {
 
             {activeTab === 'FINANCES' && (
               <div className="space-y-8">
+                <OwnerPayoutSettings payouts={ownerPayouts} />
                 <div className="grid md:grid-cols-2 gap-6">
-                  <div className="bg-haven-navy rounded-3xl p-8 text-white min-h-[160px] flex flex-col justify-center">
-                    <p className="text-[10px] font-black uppercase tracking-widest opacity-50">Revenus encaissés</p>
-                    <p className="text-4xl font-bold mt-2">{stats.totalRevenue}€</p>
+                  <div className="bg-haven-navy rounded-3xl p-4 sm:p-8 text-white min-h-[160px] flex flex-col justify-center">
+                    <p className="text-[10px] font-black uppercase tracking-widest opacity-50">Revenus versés</p>
+                    <p className="text-4xl font-bold mt-2">{payoutLoading || payoutError ? '—' : money(stats.totalRevenue)}</p>
                     <p className="text-xs text-blue-200 mt-4 leading-relaxed italic opacity-80">
-                      Revenus des séjours réglés, hors remboursements.
+                      Montants nets effectivement versés sur votre compte bancaire, hors frais Haven et simulations.
                     </p>
                   </div>
-                  <div className="bg-blue-50 rounded-3xl p-8 border border-blue-100 flex flex-col justify-center">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-blue-400">Revenus à venir</p>
-                    <p className="text-3xl font-bold text-haven-navy mt-2">{stats.pendingRevenue}€</p>
+                  <div className="bg-blue-50 rounded-3xl p-4 sm:p-8 border border-blue-100 flex flex-col justify-center">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-blue-400">Virements en attente</p>
+                    <p className="text-3xl font-bold text-haven-navy mt-2">{payoutLoading || payoutError ? '—' : money(stats.pendingRevenue)}</p>
                     <p className="text-xs text-gray-500 mt-4 italic">
-                      Séjours réglés dont l’arrivée est à venir.
+                      Virements réels programmés ou en cours, jusqu’à confirmation de leur versement.
                     </p>
                   </div>
                 </div>
 
+                {payoutError && <p role="alert" className="text-sm text-haven-red">{payoutError}</p>}
+                <section className="space-y-4">
+                  <h3 className="font-heading font-bold text-xl text-haven-navy">Vos virements</h3>
+                  {payoutLoading ? <p className="text-sm text-gray-500">Chargement des virements…</p> : !payoutError && realOwnerPayouts(ownerPayouts).length === 0 ? <p className="rounded-2xl border border-gray-100 bg-gray-50 p-5 text-sm text-gray-500">Aucun virement réel enregistré. Les paiements simulés des réservations ne sont pas inclus dans vos revenus.</p> : !payoutError && <div className="overflow-x-auto"><table className="haven-table w-full text-left text-sm"><thead><tr className="border-b border-gray-100 text-xs text-gray-500"><th className="py-3">Date</th><th>Référence</th><th>Montant net</th><th>Statut</th></tr></thead><tbody>{realOwnerPayouts(ownerPayouts).sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt)).map(payout => <tr key={payout.id} className="border-b border-gray-50"><td data-label="Date" className="py-4">{new Date(payout.paidAt || payout.createdAt).toLocaleDateString('fr-FR')}</td><td data-label="Référence" className="max-w-48 break-all pr-4 text-xs text-gray-500">{payout.providerPayoutId || payout.id}</td><td data-label="Montant net" className="font-bold">{money(payout.amountCents / 100)}</td><td data-label="Statut">{ownerPayoutStatusLabel(payout.status)}</td></tr>)}</tbody></table></div>}
+                </section>
                 <div className="space-y-4">
-                  <h3 className="font-heading font-bold text-xl text-haven-navy">Historique des transactions</h3>
+                  <h3 className="font-heading font-bold text-xl text-haven-navy">Paiements des réservations</h3>
+                  <p className="text-sm text-gray-500">Règlements des locataires, frais Haven inclus. Ces montants ne correspondent pas aux virements vers votre compte bancaire.</p>
                   <div className="overflow-x-auto">
-                    <table className="w-full text-left">
+                    <table className="haven-table w-full text-left">
                       <thead>
                         <tr className="border-b border-gray-100">
                           <th className="pb-4 text-[10px] font-black uppercase tracking-widest text-gray-400">Date</th>
@@ -505,14 +522,15 @@ export const OwnerDashboard: React.FC = () => {
                       <tbody className="divide-y divide-gray-50">
                         {ownerPayments.map(payment => {
                           const isRefund = payment.type === 'REFUND';
-                          const paymentStatus = payment.status === 'COMPLETED' ? 'Encaissé' : payment.status === 'REFUNDED' ? 'Remboursé' : payment.status === 'PENDING' ? 'En attente' : 'Échoué';
+                          const paymentIsTest = payment.isTest === true || payment.provider === 'SIMULATION' || ownerBookings.find(booking => booking.id === payment.bookingId)?.paymentIsTest === true;
+                          const paymentStatus = paymentIsTest ? isRefund ? 'Remboursement simulé' : 'Paiement simulé' : payment.status === 'COMPLETED' ? 'Réglé par le locataire' : payment.status === 'REFUNDED' ? 'Remboursé' : payment.status === 'PENDING' ? 'En attente' : 'Échoué';
                           return (
                           <tr key={payment.id}>
-                            <td className="py-4 text-sm text-gray-600">{new Date(payment.createdAt).toLocaleDateString()}</td>
-                            <td className="py-4 text-sm font-bold text-haven-navy">{isRefund ? 'Remboursement' : 'Loyer'} - {listings.find(l => l.id === payment.listingId)?.title || 'Logement supprimé'}</td>
-                            <td className={`py-4 text-sm font-black ${isRefund ? 'text-haven-red' : payment.status === 'COMPLETED' ? 'text-green-600' : 'text-gray-500'}`}>{isRefund ? '-' : '+'}{payment.amount}€</td>
-                            <td className="py-4">
-                              <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase ${payment.status === 'COMPLETED' ? 'bg-green-100 text-green-600' : payment.status === 'REFUNDED' ? 'bg-red-50 text-haven-red' : payment.status === 'PENDING' ? 'bg-amber-50 text-amber-700' : 'bg-gray-100 text-gray-600'}`}>{paymentStatus}</span>{payment.isTest && <span className="ml-2 text-xs font-bold text-amber-700">Test</span>}
+                            <td data-label="Date" className="py-4 text-sm text-gray-600">{new Date(payment.createdAt).toLocaleDateString()}</td>
+                            <td data-label="Réservation" className="py-4 text-sm font-bold text-haven-navy">{isRefund ? 'Remboursement' : 'Réservation'} - {listings.find(l => l.id === payment.listingId)?.title || 'Logement supprimé'}</td>
+                            <td data-label="Montant" className={`py-4 text-sm font-black ${isRefund ? 'text-haven-red' : payment.status === 'COMPLETED' ? 'text-green-600' : 'text-gray-500'}`}>{isRefund ? '-' : '+'}{payment.amount}€</td>
+                            <td data-label="Statut" className="py-4">
+                              <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase ${payment.status === 'COMPLETED' ? 'bg-green-100 text-green-600' : payment.status === 'REFUNDED' ? 'bg-red-50 text-haven-red' : payment.status === 'PENDING' ? 'bg-amber-50 text-amber-700' : 'bg-gray-100 text-gray-600'}`}>{paymentStatus}</span>{paymentIsTest && <span className="ml-2 text-xs font-bold text-amber-700">Test</span>}
                             </td>
                           </tr>
                           );

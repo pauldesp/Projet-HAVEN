@@ -1,3 +1,4 @@
+import { hasRequiredResidence } from './residence';
 import { hasVerificationException } from './verificationException';
 export function isValidPastBirthDate(value: unknown, today = new Date().toISOString().slice(0, 10)): boolean {
   if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
@@ -26,7 +27,8 @@ export function hasCompleteVerificationDetails(profile: {
 type VerificationProfile = Parameters<typeof hasCompleteVerificationDetails>[0] & {
   emailVerified?: unknown;
   phoneVerified?: unknown;
-  documents?: { idCard?: unknown } | null;
+  documents?: { idCard?: unknown; proofOfAddress?: unknown } | null;
+  residenceProvided?: unknown;
   verificationSubmittedAt?: unknown;
   identityVerified?: unknown;
   status?: unknown;
@@ -42,7 +44,7 @@ export function isVerificationReadyToSubmit(profile: VerificationProfile): boole
 }
 
 export function isVerificationReadyForAdminReview(profile: VerificationProfile): boolean {
-  return isVerificationReadyToSubmit(profile) &&
+  return isVerificationReadyToSubmit(profile) && hasRequiredResidence(profile) &&
     profile.legalAccepted === true &&
     typeof profile.verificationSubmittedAt === 'string' &&
     profile.verificationSubmittedAt.length > 0;

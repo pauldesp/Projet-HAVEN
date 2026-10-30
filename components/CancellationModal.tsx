@@ -48,7 +48,7 @@ export const CancellationModal: React.FC<CancellationModalProps> = ({ booking, a
   return (
     <div role="dialog" aria-modal="true" aria-labelledby="cancel-booking-title" className="fixed inset-0 z-[70] flex items-end justify-center p-0 sm:items-center sm:p-4">
       <button type="button" aria-label="Fermer" onClick={onClose} className="absolute inset-0 bg-haven-navy/45 backdrop-blur-sm" />
-      <div className="relative w-full max-w-lg rounded-t-[2rem] bg-white p-6 shadow-2xl sm:rounded-[2rem] sm:p-8">
+      <div className="haven-dialog-panel overflow-y-auto relative w-full max-w-lg rounded-t-[2rem] bg-white p-6 shadow-2xl sm:rounded-[2rem] sm:p-8">
         <div className="mb-5 flex items-start justify-between gap-4">
           <div>
             <h2 id="cancel-booking-title" className="font-heading text-2xl font-bold text-haven-navy">Annuler le séjour</h2>

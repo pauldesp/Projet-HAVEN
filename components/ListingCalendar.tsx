@@ -205,13 +205,13 @@ export const ListingCalendar: React.FC<ListingCalendarProps> = ({
 
   return (
     <>
-      <div className={`bg-white rounded-2xl border ${isBlockingMode ? 'border-haven-red ring-2 ring-haven-red/10' : 'border-gray-100'} p-6 shadow-sm transition-all overflow-hidden relative`}>
+      <div className={`bg-white rounded-2xl border ${isBlockingMode ? 'border-haven-red ring-2 ring-haven-red/10' : 'border-gray-100'} p-3 sm:p-6 shadow-sm transition-all overflow-hidden relative`}>
         
         {isBlockingMode && (
           <div className="absolute inset-0 bg-haven-red/[0.02] pointer-events-none z-0"></div>
         )}
 
-        <div className="flex justify-between items-center mb-6 relative z-10">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-6 relative z-10">
           <div className="flex flex-col">
             <h3 className="font-heading font-bold text-lg text-haven-navy capitalize">
               {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
@@ -221,7 +221,7 @@ export const ListingCalendar: React.FC<ListingCalendarProps> = ({
             )}
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex w-full flex-wrap items-center justify-between gap-3 sm:w-auto">
             {isOwner && (
               <div className="flex gap-2">
                 {!isBlockingMode ? (
@@ -252,7 +252,7 @@ export const ListingCalendar: React.FC<ListingCalendarProps> = ({
               </div>
             )}
             
-            <div className="flex gap-2 text-[10px] font-bold items-center pr-4">
+            <div className="flex flex-wrap gap-2 text-[10px] font-bold items-center sm:pr-4">
               {!isOwner && selectedStart && (
                 <div className="flex items-center gap-1.5 mr-3 text-gray-500">
                   <div className="w-2.5 h-2.5 rounded-full bg-gray-300 border border-gray-400"></div>
@@ -274,10 +274,10 @@ export const ListingCalendar: React.FC<ListingCalendarProps> = ({
             </div>
             
             <div className="flex gap-2">
-              <button onClick={prevMonth} className="p-2 rounded-full hover:bg-gray-100 text-gray-600">
+              <button type="button" aria-label="Mois précédent" onClick={prevMonth} className="haven-touch-action p-2 rounded-full hover:bg-gray-100 text-gray-600">
                 <ChevronLeft size={20} />
               </button>
-              <button onClick={nextMonth} className="p-2 rounded-full hover:bg-gray-100 text-gray-600">
+              <button type="button" aria-label="Mois suivant" onClick={nextMonth} className="haven-touch-action p-2 rounded-full hover:bg-gray-100 text-gray-600">
                 <ChevronRight size={20} />
               </button>
             </div>
@@ -303,13 +303,13 @@ export const ListingCalendar: React.FC<ListingCalendarProps> = ({
           </div>
         )}
 
-        <div className="grid grid-cols-7 gap-2 mb-2 text-center relative z-10">
+        <div className="grid grid-cols-7 gap-1 sm:gap-2 mb-2 text-center relative z-10">
           {['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'].map(d => (
             <div key={d} className="text-xs font-bold text-gray-400 uppercase">{d}</div>
           ))}
         </div>
 
-        <div className="grid grid-cols-7 gap-2">
+        <div className="grid grid-cols-7 gap-1 sm:gap-2">
           {[...Array(firstDayIndex)].map((_, i) => <div key={`empty-${i}`} />)}
 
           {[...Array(daysInMonth)].map((_, i) => {
@@ -340,6 +340,9 @@ export const ListingCalendar: React.FC<ListingCalendarProps> = ({
               >
                 <button
                   disabled={!isOwner && (isPast || (isBooked && !(selectedStart && !selectedEnd && new Date(year, month, day) > new Date(`${selectedStart}T00:00:00`))))}
+                  type="button"
+                  aria-label={`${day} ${monthNames[month]} ${year}${isBooked ? ', indisponible' : ', disponible'}`}
+                  aria-pressed={isSelected}
                   onClick={() => handleDayClick(day)}
                   className={`
                     h-14 w-full rounded-xl text-sm font-medium flex flex-col items-center justify-start pt-1.5 transition-all relative border overflow-visible

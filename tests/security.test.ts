@@ -72,7 +72,7 @@ test('uploading an identity document always resets approval for a manual review'
 test('checkout requires authentication and Stripe webhook verification', () => {
   assert.match(server, /create-checkout-session", sensitiveApiLimiter, requireAuth/);
   assert.match(server, /webhooks\.constructEvent/);
-  assert.match(server, /payment_status === "paid"/);
+  assert.match(server, /if \(!bookingId \|\| session\.payment_status !== 'paid'\) return/);
 });
 
 test('simulation requires a dedicated authenticated action and uses the shared settlement path', () => {

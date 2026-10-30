@@ -1,3 +1,4 @@
+import { CLEANING_POLICY_VERSION } from './cleaningPolicy';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import type { Listing, User } from '../types';
@@ -9,7 +10,7 @@ const owner = {
   emailVerified: true, phoneVerified: false, documents: { idCard: 'document' }
 } as User;
 const listing = {
-  id: 'listing-1', ownerId: 'owner-1', status: 'PENDING', title: 'Maison calme',
+  cleaningPolicyVersion: CLEANING_POLICY_VERSION, id: 'listing-1', ownerId: 'owner-1', status: 'PENDING', title: 'Maison calme',
   description: 'Une maison en colocation.', address: '10 rue des Fleurs', city: 'Paris',
   mainPhotoUrl: 'photo1', galleryUrls: ['photo1', 'photo2', 'photo3'], totalRooms: 1,
   rooms: [{ id: 'room-1', name: 'Chambre 1', size: 12, pricePerDay: 25, hasDesk: true, photoUrl: 'room-photo' }]

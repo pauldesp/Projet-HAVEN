@@ -124,6 +124,21 @@
         font-family: 'DM Sans', sans-serif;
       }
       /* Custom scrollbar */
+      .haven-booking-terms,
+      .haven-booking-terms * {
+        min-width: 0;
+        max-width: 100%;
+        overflow-wrap: anywhere;
+        white-space: normal;
+      }
+      .haven-booking-terms pre {
+        white-space: pre-wrap;
+        overflow: visible;
+      }
+      .haven-booking-terms table {
+        width: 100%;
+        table-layout: fixed;
+      }
       ::-webkit-scrollbar { width: 8px; }
       ::-webkit-scrollbar-track { background: #FDFCFB; }
       ::-webkit-scrollbar-thumb { background: #E2E8F0; border-radius: 10px; }

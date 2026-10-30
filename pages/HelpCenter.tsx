@@ -66,8 +66,8 @@ export const HelpCenter: React.FC = () => {
       id: 'art-6',
       category: 'BOOKING',
       title: "Comment fonctionne l’empreinte bancaire ?",
-      excerpt: "Comprendre dans quels cas une empreinte peut être demandée et utilisée.",
-      content: "HAVEN ne demande pas de caution. Une empreinte bancaire peut être autorisée lors de la réservation. Elle n’est débitée qu’en cas de manquement contractuel ou de dégradation constatée et documentée lors de l’état des lieux."
+      excerpt: "Le fonctionnement actuel et les informations à connaître.",
+      content: "Aucune empreinte bancaire de caution n’est actuellement demandée sur HAVEN. Si cette fonctionnalité est proposée à l’avenir, son montant et ses conditions vous seront présentés avant toute autorisation."
     },
     {
       id: 'art-7',

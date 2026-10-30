@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, X } from 'lucide-react';
 
@@ -11,25 +11,31 @@ interface DateRangePickerProps {
 
 export const DateRangePicker: React.FC<DateRangePickerProps> = ({ startDate, endDate, onChange }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const panel = useRef<HTMLDivElement>(null);
+  const trigger = useRef<HTMLButtonElement>(null);
   const [viewDate, setViewDate] = useState(new Date());
   const [hoveredDate, setHoveredDate] = useState<string | null>(null);
 
-  // Close on Escape key
   useEffect(() => {
-    const handleEsc = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setIsOpen(false);
+    if (!isOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    const previousFocus = document.activeElement as HTMLElement | null;
+    document.body.style.overflow = 'hidden';
+    panel.current?.focus();
+    const handleKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); setIsOpen(false); }
+      if (event.key !== 'Tab' || !panel.current) return;
+      const buttons = Array.from(panel.current.querySelectorAll<HTMLButtonElement>('button:not(:disabled)'));
+      const first = buttons[0], last = buttons[buttons.length - 1];
+      if (event.shiftKey && (document.activeElement === first || document.activeElement === panel.current)) { event.preventDefault(); last?.focus(); }
+      else if (!event.shiftKey && (document.activeElement === last || document.activeElement === panel.current)) { event.preventDefault(); first?.focus(); }
     };
-    window.addEventListener('keydown', handleEsc);
-    return () => window.removeEventListener('keydown', handleEsc);
-  }, []);
-
-  // Prevent scroll when modal is open
-  useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = 'unset';
-    }
+    document.addEventListener('keydown', handleKey, true);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener('keydown', handleKey, true);
+      previousFocus?.focus();
+    };
   }, [isOpen]);
 
   const getDaysInMonth = (year: number, month: number) => new Date(year, month + 1, 0).getDate();
@@ -44,20 +50,20 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({ startDate, end
   const isWithinRange = (date: Date) => {
     if (!startDate) return false;
     const d = date.getTime();
-    const s = new Date(startDate).getTime();
-    
+    const s = new Date(`${startDate}T00:00:00`).getTime();
+
     if (endDate) {
-      const e = new Date(endDate).getTime();
+      const e = new Date(`${endDate}T00:00:00`).getTime();
       return d > s && d < e;
     }
-    
+
     if (hoveredDate) {
-      const h = new Date(hoveredDate).getTime();
+      const h = new Date(`${hoveredDate}T00:00:00`).getTime();
       if (h > s) {
         return d > s && d < h;
       }
     }
-    
+
     return false;
   };
 
@@ -79,7 +85,7 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({ startDate, end
     if (!startDate || (startDate && endDate)) {
       onChange(dateStr, '');
     } else {
-      const start = new Date(startDate);
+      const start = new Date(`${startDate}T00:00:00`);
       if (date < start) {
         onChange(dateStr, '');
       } else if (dateStr === startDate) {
@@ -102,7 +108,7 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({ startDate, end
 
     const days = [];
     for (let i = 0; i < firstDayIndex; i++) {
-      days.push(<div key={`empty-${year}-${month}-${i}`} className="h-9 w-full" />);
+      days.push(<div key={`empty-${year}-${month}-${i}`} className="h-11 w-full" />);
     }
 
     for (let d = 1; d <= daysInMonth; d++) {
@@ -114,35 +120,37 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({ startDate, end
       const past = isPast(date);
       const today = isToday(date);
 
-      const isRangeStart = isSelectedStart && (endDate || (hoveredDate && new Date(hoveredDate) > new Date(startDate)));
-      const isRangeEnd = isSelectedEnd || (hoveredDate === dateStr && startDate && !endDate && new Date(hoveredDate) > new Date(startDate));
+      const isRangeStart = isSelectedStart && (endDate || (hoveredDate && new Date(`${hoveredDate}T00:00:00`) > new Date(`${startDate}T00:00:00`)));
+      const isRangeEnd = isSelectedEnd || (hoveredDate === dateStr && startDate && !endDate && new Date(`${hoveredDate}T00:00:00`) > new Date(`${startDate}T00:00:00`));
 
       days.push(
-        <div 
-          key={`day-${year}-${month}-${d}`} 
-          className="relative h-9 w-full flex items-center justify-center group"
+        <div
+          key={`day-${year}-${month}-${d}`}
+          className="relative h-11 w-full flex items-center justify-center group"
           onMouseEnter={() => !past && setHoveredDate(dateStr)}
           onMouseLeave={() => setHoveredDate(null)}
         >
           {/* Background for range highlight */}
           {(inRange || isRangeStart || isRangeEnd) && (
             <div className={`absolute inset-y-1 w-full transition-all duration-200 ${
-              inRange ? 'bg-haven-navy/5' : 
+              inRange ? 'bg-haven-navy/5' :
               isRangeStart ? 'bg-haven-navy/5 left-1/2 right-0' :
               isRangeEnd ? 'bg-haven-navy/5 left-0 right-1/2' : ''
             }`} />
           )}
-          
+
           <button
             type="button"
             disabled={past}
+            aria-label={date.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+            aria-pressed={isSelectedStart || isSelectedEnd}
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
               handleDateClick(date);
             }}
             className={`
-              h-7 w-7 flex flex-col items-center justify-center text-[11px] font-semibold transition-all relative z-10 rounded-full
+              h-11 w-full flex flex-col items-center justify-center text-sm font-semibold transition-all relative z-10 rounded-full
               ${past ? 'text-gray-200 cursor-not-allowed' : 'text-gray-700 hover:bg-haven-navy/10'}
               ${isSelectedStart || isSelectedEnd ? 'bg-haven-navy text-white hover:bg-haven-navy shadow-lg scale-110' : ''}
               ${inRange ? 'text-haven-navy font-bold' : ''}
@@ -176,54 +184,54 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({ startDate, end
 
   return (
     <div className="w-full h-full">
-      <div 
-        className="flex items-center gap-3 text-gray-600 cursor-pointer group/date h-full"
+      <button type="button" ref={trigger} aria-haspopup="dialog" aria-expanded={isOpen} aria-label="Choisir les dates du séjour"
+        className="flex min-h-11 w-full items-center gap-3 text-left text-gray-600 cursor-pointer group/date h-full"
         onClick={() => setIsOpen(true)}
       >
         <CalendarIcon size={20} className="flex-shrink-0 text-haven-navy group-hover/date:text-haven-red transition-colors duration-300" />
         <div className={`w-full truncate select-none transition-colors duration-300 leading-none ${startDate ? 'text-gray-900 font-bold text-base' : 'text-gray-400 font-bold text-base'}`}>
           {startDate ? (
             <span className="flex items-center gap-1">
-              {new Date(startDate).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })} 
-              <span className="text-gray-300 font-normal mx-0.5">→</span> 
-              {endDate ? new Date(endDate).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) : "..."}
+              {new Date(`${startDate}T00:00:00`).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
+              <span className="text-gray-300 font-normal mx-0.5">→</span>
+              {endDate ? new Date(`${endDate}T00:00:00`).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) : "..."}
             </span>
           ) : (
             "Dates de séjour"
           )}
         </div>
-      </div>
+      </button>
 
       {/* MODAL OVERLAY - Rendered in a Portal to ensure viewport centering */}
       {isOpen && createPortal(
         <div className="fixed inset-0 z-[100] flex items-center justify-center">
           {/* Backdrop avec flou */}
-          <div 
-            className="absolute inset-0 bg-haven-navy/20 backdrop-blur-sm animate-fade-in" 
+          <div
+            className="absolute inset-0 bg-haven-navy/20 backdrop-blur-sm animate-fade-in"
             onClick={() => setIsOpen(false)}
           />
-          
+
           {/* Modal Content */}
-          <div 
-            className="relative bg-white w-[90%] max-w-[560px] rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.2)] overflow-hidden animate-fade-in p-6"
+          <div ref={panel} role="dialog" aria-modal="true" aria-label="Dates du séjour" tabIndex={-1}
+            className="relative bg-white w-[calc(100%_-_1rem)] max-w-[560px] max-h-[calc(100dvh-2rem)] rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.2)] overflow-y-auto animate-fade-in px-3 pb-4 pt-12 sm:px-6 sm:pb-6 sm:pt-14"
             onClick={(e) => e.stopPropagation()}
           >
-            
+
             {/* Minimal Navigation Header */}
             <div className="flex items-center justify-between mb-6">
-              <button 
+              <button
                 type="button"
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
                   prevMonth();
-                }} 
-                className="p-2 hover:bg-gray-100 rounded-full transition-colors text-haven-navy"
+                }}
+                aria-label="Mois précédent" className="haven-touch-action p-2 hover:bg-gray-100 rounded-full transition-colors text-haven-navy"
               >
                 <ChevronLeft size={20} />
               </button>
-              
-              <div className="flex gap-20">
+
+              <div className="flex gap-4 md:gap-12">
                 <h4 className="font-heading font-bold text-sm text-haven-navy min-w-[120px] text-center">
                   {["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"][viewDate.getMonth()]} {viewDate.getFullYear()}
                 </h4>
@@ -232,14 +240,14 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({ startDate, end
                 </h4>
               </div>
 
-              <button 
+              <button
                 type="button"
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
                   nextMonth();
-                }} 
-                className="p-2 hover:bg-gray-100 rounded-full transition-colors text-haven-navy"
+                }}
+                aria-label="Mois suivant" className="haven-touch-action p-2 hover:bg-gray-100 rounded-full transition-colors text-haven-navy"
               >
                 <ChevronRight size={20} />
               </button>
@@ -256,13 +264,13 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({ startDate, end
             </div>
 
             {/* Hidden close button for accessibility/fallback */}
-            <button 
+            <button
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
                 setIsOpen(false);
               }}
-              className="absolute top-3 right-3 p-1.5 text-haven-red hover:bg-haven-red/10 rounded-full transition-all"
+              className="haven-touch-action absolute top-1 right-1 p-1.5 text-haven-red hover:bg-haven-red/10 rounded-full transition-all"
               aria-label="Fermer"
             >
               <X size={18} />

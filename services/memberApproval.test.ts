@@ -6,7 +6,7 @@ const submitted = {
   role: 'TENANT', status: 'PENDING', firstName: 'Camille', lastName: 'Martin',
   birthDate: '1998-02-14', phone: '+33612345678', phoneVerified: false,
   emailVerified: true, identityVerified: false, legalAccepted: true,
-  documents: { idCard: 'data:image/jpeg;base64,example' }, verificationSubmittedAt: '2026-10-16T20:00:00.000Z'
+  residenceProvided: true, documents: { idCard: 'data:image/jpeg;base64,example', proofOfAddress: '/private-proof' }, verificationSubmittedAt: '2026-10-16T20:00:00.000Z'
 };
 test('une décision admin valide ensemble identité et compte sans exiger de SMS', () => {
   const approval = prepareMemberApproval(submitted, 'admin-1', '2026-10-16T21:00:00.000Z');
@@ -18,7 +18,7 @@ test('une décision admin valide ensemble identité et compte sans exiger de SMS
   assert.equal(approval.rejectionReason, null);
 });
 test('aucun critère du dossier ne peut être ignoré par la validation admin', () => {
-  for (const missing of [{ verificationSubmittedAt: null }, { documents: {} }, { emailVerified: false }, { legalAccepted: false }, { phone: '' }]) {
+  for (const missing of [{ verificationSubmittedAt: null }, { documents: {} }, { emailVerified: false }, { legalAccepted: false }, { phone: '' }, { residenceProvided: false }]) {
     assert.throws(() => prepareMemberApproval({ ...submitted, ...missing }, 'admin-1'), /dossier/);
   }
   assert.throws(() => prepareMemberApproval({ ...submitted, role: 'ADMIN' }, 'admin-1'), /gouvernance/);

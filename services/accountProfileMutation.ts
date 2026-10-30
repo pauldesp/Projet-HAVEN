@@ -36,15 +36,11 @@ export function preparePersonalDetails(profile: SavedProfile, details: PersonalD
   }
   const identityChanged = profile.firstName !== firstName || profile.lastName !== lastName || profile.birthDate !== birthDate;
   const phoneChanged = profile.phone !== phone;
-  if (identityChanged && profile.identityVerified === true) {
-    throw new Error('Votre identité est déjà confirmée. Contactez l’assistance pour modifier ces informations.');
-  }
-  if (phoneChanged && profile.phoneVerified === true) {
-    throw new Error('Votre téléphone est déjà confirmé. Contactez l’assistance pour le modifier.');
-  }
   if (!identityChanged && !phoneChanged) return null;
   return {
     ...personalDetailsUpdate(profile as PersonalDetailsInput & { verificationSubmittedAt?: string | null }, { firstName, lastName, birthDate, phone }),
-    ...(phoneChanged ? { phoneVerified: false, phoneVerifiedAt: null, isVerified: false } : {})
+    status: 'PENDING' as const, verificationSubmittedAt: null, verificationException: null, isVerified: false,
+    ...(identityChanged ? { identityVerified: false, idVerifiedAt: null } : {}),
+    ...(phoneChanged ? { phoneVerified: false, phoneVerifiedAt: null } : {})
   };
 }

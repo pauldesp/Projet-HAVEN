@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { apiService } from '../services/api';
 import { Booking, Listing, InventoryReport, InventoryItem } from '../types';
 import { Button } from '../components/Button';
-import { CheckCircle, Camera, Star, Info, ArrowRight, Shield, User as UserIcon, Layout, Signature as SignatureIcon, Loader2, Calendar, Lock, Check, MapPin, CreditCard, FileText, List } from 'lucide-react';
+import { CheckCircle, Camera, Star, Info, ArrowRight, User as UserIcon, Layout, Signature as SignatureIcon, Loader2, Calendar, Lock, Check, MapPin, CreditCard, FileText, List } from 'lucide-react';
 import { toast } from 'sonner';
 import SignatureCanvas from 'react-signature-canvas';
 import { motion } from 'motion/react';
@@ -209,7 +209,7 @@ export const EntryInventory = () => {
   if (entryTiming && !entryTiming.isAvailable) {
     return (
       <div className="min-h-screen bg-haven-cream flex items-center justify-center p-6 text-center">
-        <div className="max-w-md w-full p-10 bg-white rounded-[3rem] shadow-premium">
+        <div className="max-w-md w-full p-5 sm:p-10 bg-white rounded-[3rem] shadow-premium">
           <Calendar className="mx-auto text-haven-stone mb-6" size={64} />
           <h1 className="text-3xl font-heading font-bold text-haven-navy mb-4">Accès non autorisé</h1>
           <p className="text-haven-stone mb-8">
@@ -238,7 +238,7 @@ export const EntryInventory = () => {
               <p className="text-haven-stone max-w-lg mx-auto">Veuillez confirmer que vos informations personnelles sont exactes avant de procéder à l'état des lieux.</p>
             </div>
 
-            <div className="bg-white rounded-[2.5rem] p-8 shadow-sm border border-gray-100 space-y-6">
+            <div className="bg-white rounded-[2.5rem] p-4 sm:p-8 shadow-sm border border-gray-100 space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Prénom</label>
@@ -308,7 +308,7 @@ export const EntryInventory = () => {
               {filteredItems.map((item, idx) => {
                 const globalIdx = inventoryData.items?.findIndex(i => i === item) ?? -1;
                 return (
-                  <div key={idx} className="bg-white rounded-[2.5rem] p-8 shadow-sm border border-gray-100 space-y-6">
+                  <div key={idx} className="bg-white rounded-[2.5rem] p-4 sm:p-8 shadow-sm border border-gray-100 space-y-6">
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                       <div className="flex items-center gap-4">
                         <div className="w-12 h-12 bg-haven-navy/5 rounded-2xl flex items-center justify-center text-haven-navy">
@@ -354,7 +354,7 @@ export const EntryInventory = () => {
 
             <div className="flex gap-4">
               <Button variant="ghost" onClick={handleBack} className="flex-1 py-6 rounded-3xl font-bold">Retour</Button>
-              <Button onClick={handleNext} className="flex-[2] py-6 rounded-3xl text-xl">Valider les éléments <ArrowRight size={24} className="ml-2" /></Button>
+              <Button onClick={handleNext} className="flex-[2] px-3 py-4 sm:py-6 rounded-3xl text-sm sm:text-xl">Valider les éléments <ArrowRight size={24} className="ml-2" /></Button>
             </div>
           </motion.div>
         );
@@ -377,7 +377,7 @@ export const EntryInventory = () => {
                 { key: 'houseRating' as const, label: 'État général du logement', desc: 'Parties communes, cuisine, salon, équipements.' },
                 { key: 'cleanlinessRating' as const, label: 'Niveau de propreté du locataire précédent', desc: "État de propreté tel que laissé par l'occupant avant votre arrivée." }
               ].map((rater) => (
-                <div key={rater.key} className="bg-white rounded-[2.5rem] p-8 shadow-sm border border-gray-100 text-center space-y-4">
+                <div key={rater.key} className="bg-white rounded-[2.5rem] p-4 sm:p-8 shadow-sm border border-gray-100 text-center space-y-4">
                   <div>
                     <h3 className="font-heading font-bold text-2xl text-haven-navy">{rater.label}</h3>
                     <p className="text-sm text-haven-stone">{rater.desc}</p>
@@ -402,7 +402,7 @@ export const EntryInventory = () => {
               <Button 
                 onClick={handleNext} 
                 disabled={!inventoryData.roomRating || !inventoryData.houseRating || !inventoryData.cleanlinessRating}
-                className="flex-[2] py-6 rounded-3xl text-xl"
+                className="flex-[2] px-3 py-4 sm:py-6 rounded-3xl text-sm sm:text-xl"
               >
                 Passer au récapitulatif <ArrowRight size={24} className="ml-2" />
               </Button>
@@ -437,7 +437,7 @@ export const EntryInventory = () => {
                 </div>
               </div>
 
-              <div className="p-10 space-y-10">
+              <div className="p-5 sm:p-10 space-y-10">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                   <div className="space-y-2">
                     <div className="flex items-center gap-2 text-haven-stone text-xs font-black uppercase tracking-widest">
@@ -453,15 +453,10 @@ export const EntryInventory = () => {
                     </div>
                     <p className="text-haven-navy font-bold">{booking?.totalPrice}€ au total</p>
                   </div>
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2 text-haven-stone text-xs font-black uppercase tracking-widest">
-                       <Shield size={14} className="text-haven-red" /> Empreinte bancaire
-                    </div>
-                    <p className="text-haven-navy font-bold">Débit possible en cas de manquement ou de dégradation constatée</p>
-                  </div>
+
                 </div>
 
-                <div className="bg-haven-red/5 p-8 rounded-3xl border border-haven-red/10 flex items-start gap-4">
+                <div className="bg-haven-red/5 p-4 sm:p-8 rounded-3xl border border-haven-red/10 flex items-start gap-4">
                   <Info className="text-haven-red mt-1 shrink-0" size={20} />
                   <div className="space-y-1">
                     <p className="text-haven-navy font-bold">Note sur le ménage</p>
@@ -475,7 +470,7 @@ export const EntryInventory = () => {
 
             <div className="flex gap-4">
               <Button variant="ghost" onClick={handleBack} className="flex-1 py-6 rounded-3xl font-bold">Retour</Button>
-              <Button onClick={handleNext} className="flex-[2] py-6 rounded-3xl text-xl">Procéder à la signature <ArrowRight size={24} className="ml-2" /></Button>
+              <Button onClick={handleNext} className="flex-[2] px-3 py-4 sm:py-6 rounded-3xl text-sm sm:text-xl">Procéder à la signature <ArrowRight size={24} className="ml-2" /></Button>
             </div>
           </motion.div>
         );
@@ -501,7 +496,7 @@ export const EntryInventory = () => {
                 ref={sigCanvas}
                 penColor="#0C2036"
                 canvasProps={{ 
-                  className: "signature-canvas w-full h-[300px] cursor-crosshair",
+                  className: "signature-canvas w-full h-[300px] touch-none cursor-crosshair",
                   style: { width: '100%', height: '300px' } 
                 }}
               />
@@ -509,7 +504,7 @@ export const EntryInventory = () => {
 
             <div className="flex gap-4">
               <Button variant="ghost" onClick={handleBack} className="flex-1 py-6 rounded-3xl font-bold">Retour</Button>
-              <Button onClick={saveSignature} className="flex-[2] py-6 rounded-3xl text-xl">Signer et Terminer <SignatureIcon size={24} className="ml-2" /></Button>
+              <Button onClick={saveSignature} className="flex-[2] px-3 py-4 sm:py-6 rounded-3xl text-sm sm:text-xl">Signer et Terminer <SignatureIcon size={24} className="ml-2" /></Button>
             </div>
           </motion.div>
         );

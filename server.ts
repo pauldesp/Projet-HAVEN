@@ -1,3 +1,11 @@
+import { createStripeConnect, ConnectError } from './services/stripeConnectServer';
+import { CONNECT_POLICY_VERSION, DEPOSIT_POLICY } from './services/stripeConnect';
+import { normalizePlatformFeedback } from './services/platformFeedback';
+import { normalizeRoomGuide, normalizeRoomGuides } from './services/roomGuide';
+import { CLEANING_POLICY_VERSION, assertCleaningPolicyAccepted } from './services/cleaningPolicy';
+import { normalizePracticalInfo, releasedStayGuide, formatStayGuide } from './services/stayGuide';
+import { normalizeResidence, hasRequiredResidence, validResidenceDocument } from './services/residence';
+import { publicTenantProfile, validateCommunityProfile } from './services/publicProfile';
 import { nextAuthMailLimit, sendAuthActionMail, type AuthMailLimit } from './services/authMail';
 import { resendTemplatesEnabled, reservationResendTemplate, tenantResendTemplate, selectMailContent, type ResendTemplate, type AuthMailKind } from './services/resendTemplates';
 import { accountDecisionMail, cancellationMail, reviewInvitationMail, isTenantMailKind, tenantMailDisposition, tenantNotificationEmail, type TenantMailJob } from './services/tenantMail';
@@ -5,7 +13,7 @@ import { canSendReservationRecipient, initialReservationMailJobs, reservationMai
 import { stayLocalDate } from './services/inventoryTiming';
 import { createReservationConfirmation, canReleaseArrivalInstructions, type ReservationConfirmation } from './services/reservationFulfillment';
 import { paymentReceiptPdf } from './services/paymentReceiptPdf';
-import { getPaymentMode, PaymentConfigurationError } from './services/paymentConfiguration';
+import { getPaymentMode, getConnectConfiguration, PaymentConfigurationError } from './services/paymentConfiguration';
 import { preparePaymentConfirmation, simulationSessionId, type PaymentReceipt } from './services/paymentCheckout';
 import { isOwnerBookingVisible } from './services/bookingVisibility';
 import { BookingLifecycleError, bookingDeadline, isBookingExpired, assertBookingPayable, prepareInventoryReport, recoverInventoryReport } from './services/bookingLifecycle';
@@ -67,7 +75,7 @@ function getEmailProvider() {
   return { resend: new Resend(apiKey) } as const;
 }
 
-interface AuthenticatedRequest extends Request { user?: { uid: string; email?: string } }
+interface AuthenticatedRequest extends Request { user?: { uid: string; email?: string; authTime?: number } }
 
 type AdminActor = { uid: string; name: string; level: 'PRIMARY' | 'STANDARD' };
 
@@ -82,7 +90,7 @@ async function requireAuth(req: AuthenticatedRequest, res: Response, next: NextF
     const decoded = await adminAuth.verifyIdToken(token);
     const profile = await adminDb.collection('users').doc(decoded.uid).get();
     if (profile.data()?.status === 'BANNED') return sendApiError(res, 403, 'Ce compte est banni. Contactez Haven pour toute question.');
-    req.user = { uid: decoded.uid, email: decoded.email };
+    req.user = { uid: decoded.uid, email: decoded.email, authTime: decoded.auth_time };
     next();
   } catch {
     return sendApiError(res, 401, "Session invalide ou expirée");
@@ -207,6 +215,58 @@ function getStripe(): Stripe {
   return stripeClient;
 }
 
+const connectConfiguration = () => getConnectConfiguration();
+
+const ownerConnect = createStripeConnect(adminDb, getStripe, connectConfiguration);
+
+async function synchronizeCheckout(session: Stripe.Checkout.Session) {
+  if (session.livemode === connectConfiguration().isTest) throw new Error('Stripe mode mismatch.');
+  const bookingId = session.metadata?.bookingId;
+  if (!bookingId || session.payment_status !== 'paid') return;
+  const result = await settleBookingPayment({ bookingId, sessionId: session.id, provider: 'STRIPE', amountCents: session.amount_total || 0, currency: session.currency || '', isTest: !session.livemode });
+  if (result.disposition === 'REFUND') {
+    const intent = typeof session.payment_intent === 'string' ? session.payment_intent : session.payment_intent?.id;
+    if (!intent) throw new Error('Payment intent missing.');
+    await getStripe().refunds.create({ payment_intent: intent }, { idempotencyKey: `stale-checkout-${session.id}` });
+  } else await ownerConnect.registerPayment(result.booking as Booking, session);
+}
+
+async function synchronizeRefund(refundId: string) {
+  const refund = await getStripe().refunds.retrieve(refundId);
+  const bookingId = refund.metadata?.bookingId;
+  if (!bookingId) return;
+  const intentId = typeof refund.payment_intent === 'string' ? refund.payment_intent : refund.payment_intent?.id;
+  if (!intentId || (await getStripe().paymentIntents.retrieve(intentId)).livemode === connectConfiguration().isTest) return;
+  const ref = adminDb.collection('bookings').doc(bookingId);
+  await adminDb.runTransaction(async transaction => {
+    const saved = await transaction.get(ref), data = saved.data();
+    if (data?.cancellation?.refundId !== refund.id) return;
+    const refundStatus = refund.status === 'succeeded' ? 'COMPLETED' : ['failed', 'canceled'].includes(refund.status || '') ? 'FAILED' : 'PENDING';
+    transaction.update(ref, { 'cancellation.refundStatus': refundStatus });
+    transaction.set(adminDb.collection('payments').doc(refund.id), { status: refundStatus === 'COMPLETED' ? 'REFUNDED' : refundStatus === 'FAILED' ? 'FAILED' : 'PENDING' }, { merge: true });
+  });
+}
+
+let checkoutReconciliationRunning = false;
+async function reconcileStripe() {
+  if (!connectConfiguration().enabled || checkoutReconciliationRunning) return;
+  checkoutReconciliationRunning = true;
+  try {
+    // Rebuild missing settlement records even if a webhook was lost after a crash.
+    const bookings = await adminDb.collection('bookings').where('paymentProvider', '==', 'STRIPE').get();
+    for (const doc of bookings.docs) {
+      const data = doc.data(), sessionId = data.checkoutSessionId || data.stripeSessionId;
+      if (!sessionId || data.paymentIsTest === !connectConfiguration().isTest) continue;
+      if (data.cancellation?.refundId?.startsWith('re_')) try { await synchronizeRefund(data.cancellation.refundId); } catch { console.error('Stripe refund reconciliation requires a retry.'); }
+      if (data.paymentStatus === 'PAID' && (await adminDb.collection('owner_settlements').doc(doc.id).get()).exists) continue;
+      try { await synchronizeCheckout(await getStripe().checkout.sessions.retrieve(sessionId)); }
+      catch { console.error('Stripe checkout reconciliation requires a retry.'); }
+    }
+    await ownerConnect.reconcileAll();
+  } catch { console.error('Stripe reconciliation unavailable; retry scheduled.'); }
+  finally { checkoutReconciliationRunning = false; }
+}
+
 async function settleBookingPayment(receipt: PaymentReceipt, actorId?: string) {
   const ref = adminDb.collection('bookings').doc(receipt.bookingId);
   const result = await adminDb.runTransaction(async transaction => {
@@ -249,7 +309,7 @@ async function settleBookingPayment(receipt: PaymentReceipt, actorId?: string) {
   return result;
 }
 
-async function deliverAuthAction(kind: AuthMailKind, email: string, name: string) {
+async function deliverAuthAction(kind: AuthMailKind, email: string, name: string, previousEmail?: string) {
   const provider = getEmailProvider();
   if ('error' in provider || !resendTemplatesEnabled(process.env)) throw new Error('AUTH_MAIL_UNAVAILABLE');
   if (!canSendReservationRecipient(emailFrom, email, process.env.RESEND_TEST_EMAIL_TO)) throw new Error('AUTH_MAIL_DOMAIN');
@@ -262,7 +322,7 @@ async function deliverAuthAction(kind: AuthMailKind, email: string, name: string
       transaction.set(limitRef, { ...update, expiresAt: new Date(Date.now() + 86400_000) });
       return true;
     }),
-    generate: () => kind === 'EMAIL_VERIFICATION' ? adminAuth.generateEmailVerificationLink(email) : adminAuth.generatePasswordResetLink(email),
+    generate: () => previousEmail ? adminAuth.generateVerifyAndChangeEmailLink(previousEmail, email) : kind === 'EMAIL_VERIFICATION' ? adminAuth.generateEmailVerificationLink(email) : adminAuth.generatePasswordResetLink(email),
     send: async content => {
       const result = await provider.resend.emails.send({ from: emailFrom, to: email, ...(emailReplyTo ? { replyTo: emailReplyTo } : {}), ...content }, { idempotencyKey: `auth-${kind}-${randomUUID()}` });
       // Do not log provider payloads or Firebase action links.
@@ -344,7 +404,8 @@ async function deliverReservationMail() {
           let instructions = '';
           if (job.kind === 'ARRIVAL') {
             const access = await adminDb.collection('listing_access').doc(booking.listingId).get();
-            instructions = access.data()?.instructions?.trim() || '';
+            const room = await adminDb.collection('listing_access').doc(booking.listingId).collection('room_guides').doc(booking.roomId).get();
+            instructions = formatStayGuide(access.data(), room.exists ? normalizeRoomGuide(room.data()) : undefined);
           }
           mail = reservationLifecycleEmail(job.kind, receipt, { instructions, occurredAt: job.occurredAt, appOrigin: process.env.APP_ORIGIN });
           selectedTemplate = resendTemplatesEnabled(process.env) ? reservationResendTemplate(job.kind, receipt, { instructions, occurredAt: job.occurredAt, appOrigin: process.env.APP_ORIGIN }) : undefined;
@@ -437,31 +498,28 @@ async function startServer() {
   // until Tailwind is bundled, while enabling Helmet's other security headers.
   app.use(helmet({ contentSecurityPolicy: false }));
 
-  app.post("/api/stripe/webhook", express.raw({ type: "application/json", limit: "1mb" }), async (req, res) => {
-    try { if (getPaymentMode() !== 'STRIPE') return sendApiError(res, 503, 'Stripe est désactivé.'); }
-    catch { return sendApiError(res, 503, 'Stripe n’est pas configuré.'); }
-    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
-    if (!webhookSecret) return res.status(503).json({ error: "Webhook Stripe non configuré" });
-    try {
-      const event = getStripe().webhooks.constructEvent(req.body, req.headers["stripe-signature"] as string, webhookSecret);
-      if (event.type === "checkout.session.completed") {
-        const session = event.data.object;
-        const bookingId = session.metadata?.bookingId;
-        if (bookingId && session.payment_status === "paid") {
-          const result = await settleBookingPayment({ bookingId, sessionId: session.id, provider: 'STRIPE', amountCents: session.amount_total || 0, currency: session.currency || '', isTest: !session.livemode });
-          if (result.disposition === 'REFUND') {
-            const paymentIntent = typeof session.payment_intent === 'string' ? session.payment_intent : session.payment_intent?.id;
-            if (!paymentIntent) throw new Error('Payment intent missing for stale checkout');
-            await getStripe().refunds.create({ payment_intent: paymentIntent }, { idempotencyKey: `stale-checkout-${session.id}` });
-          }
-        }
+  for (const [route, secretName] of [['/api/stripe/webhook', 'STRIPE_WEBHOOK_SECRET'], ['/api/stripe/connect-webhook', 'STRIPE_CONNECT_WEBHOOK_SECRET']]) {
+    app.post(route, express.raw({ type: 'application/json', limit: '1mb' }), async (req, res) => {
+      try { if (getPaymentMode() !== 'STRIPE') return sendApiError(res, 503, 'Stripe est désactivé.'); }
+      catch { return sendApiError(res, 503, 'Stripe n’est pas configuré.'); }
+      const secret = process.env[secretName];
+      if (!secret) return sendApiError(res, 503, 'Webhook non configuré.');
+      let event: Stripe.Event;
+      try { event = getStripe().webhooks.constructEvent(req.body, req.headers['stripe-signature'] as string, secret); }
+      catch { return sendApiError(res, 400, 'Signature Stripe invalide.'); }
+      // A Connect endpoint can receive both test/live events. Never mix ledgers.
+      if (event.livemode === connectConfiguration().isTest) return res.json({ received: true, ignored: true });
+      try {
+        if (!event.account && (event.type === 'checkout.session.completed' || event.type === 'checkout.session.async_payment_succeeded')) await synchronizeCheckout(event.data.object as Stripe.Checkout.Session);
+        if (!event.account && ['refund.created', 'refund.updated', 'refund.failed'].includes(event.type)) await synchronizeRefund((event.data.object as Stripe.Refund).id);
+        await ownerConnect.handleEvent(event);
+        return res.json({ received: true });
+      } catch {
+        console.error('Stripe webhook processing failed; provider retry required.', event.id);
+        return sendApiError(res, 500, 'Synchronisation en attente de nouvelle tentative.');
       }
-      return res.json({ received: true });
-    } catch (error) {
-      console.error("Stripe webhook rejected", error);
-      return res.status(400).json({ error: "Webhook invalide" });
-    }
-  });
+    });
+  }
 
   app.use(createApiRequestBodyParser());
 
@@ -517,6 +575,7 @@ async function startServer() {
           typeof startDate !== 'string' || typeof endDate !== 'string' || !isBookableStay(startDate, endDate)) {
         return sendApiError(res, 422, 'Les informations ou les dates du séjour sont invalides');
       }
+      try { assertCleaningPolicyAccepted(req.body?.cleaningPolicyVersion); } catch (error) { return sendApiError(res, 422, (error as Error).message); }
       const userRef = adminDb.collection('users').doc(req.user!.uid);
       const listingRef = adminDb.collection('listings').doc(listingId);
       const bookingRef = adminDb.collection('bookings').doc(id);
@@ -560,7 +619,7 @@ async function startServer() {
           id, listingId, listingTitle: listing.title, roomId, roomName: room.name || 'Chambre', tenantId: req.user!.uid,
           ownerId: listing.ownerId, startDate, endDate, status: 'PENDING', basePrice, cleaningFee,
           platformFee, totalPrice: basePrice + cleaningFee + platformFee, createdAt,
-          paymentStatus: 'PENDING', bookingMode: 'INSTANT',
+          paymentStatus: 'PENDING', bookingMode: 'INSTANT', cleaningPolicyVersion: CLEANING_POLICY_VERSION, cleaningPolicyAcceptedAt: createdAt,
           checkInTime: listing.checkInTime || '15:00', checkOutTime: listing.checkOutTime || '11:00',
         };
         transaction.set(roomLockRef, { updatedAt: createdAt });
@@ -618,6 +677,7 @@ async function startServer() {
         if (issues.length > 3) throw new BookingLifecycleError('Trop de problèmes dans cet état des lieux.', 422);
         const routedIssues = issues.map((issue, index) => routeStayIssue({ ...issue, id: `inc-${report.id}-${index}`, bookingId: id, listingId: booking.listingId, ownerId: booking.ownerId, reporterId: booking.tenantId, createdAt: now.toISOString() }));
         transaction.create(adminDb.collection('inventory').doc(report.id), report);
+        if (report.type === 'IN') transaction.create(adminDb.collection('owner_arrivals').doc(id), { reportId: report.id, tenantId: booking.tenantId, arrivedAt: now.toISOString() });
         const mailKind = report.type === 'IN' ? 'CHECKIN' : 'CHECKOUT';
         transaction.create(adminDb.collection('reservation_mail_outbox').doc(`${id}-${mailKind}`), reservationMailJob(id, mailKind, report.date, report.id));
         for (const issue of routedIssues) {
@@ -643,6 +703,7 @@ async function startServer() {
         return report;
       });
       void deliverReservationMail();
+      if (report.type === 'IN') void ownerConnect.releaseArrivedBookings().catch(() => console.error('Arrival transfer queued for retry.'));
       return res.status(201).json({ report });
     } catch (error) {
       if (error instanceof BookingLifecycleError) return sendApiError(res, error.status, error.message);
@@ -693,6 +754,9 @@ async function startServer() {
       const reviewRef = adminDb.collection('reviews').doc(reviewIdForBooking(bookingId));
       const rating = req.body?.rating;
       const comment = typeof req.body?.comment === 'string' ? req.body.comment.trim() : '';
+      let platformFeedback;
+      try { platformFeedback = normalizePlatformFeedback(req.body?.platformFeedback); }
+      catch (error) { return sendApiError(res, 422, error instanceof Error ? error.message : 'Avis Haven invalide.'); }
       if (!Number.isInteger(rating) || rating < 1 || rating > 5 || comment.length > 2000) {
         return sendApiError(res, 422, 'La note ou le commentaire est invalide');
       }
@@ -734,6 +798,10 @@ async function startServer() {
           isAutomatic: false,
           createdAt,
         });
+        if (platformFeedback) transaction.create(adminDb.collection('platform_feedback').doc(reviewRef.id), {
+          id: reviewRef.id, bookingId, authorId: req.user!.uid, authorName: tenant.firstName || 'Locataire',
+          rating: platformFeedback.rating, comment: platformFeedback.comment, createdAt,
+        });
         if (listingSnap.exists) transaction.update(listingRef, {
           rating: Number(((previousAverage * previousCount + rating) / newCount).toFixed(1)),
           reviewsCount: newCount,
@@ -746,6 +814,23 @@ async function startServer() {
       console.error('Stay review creation failed', error);
       return sendApiError(res, 500, 'Impossible d’enregistrer cet avis');
     }
+  });
+
+  app.get('/api/admin/platform-feedback', sensitiveApiLimiter, requireAuth, async (req: AuthenticatedRequest, res) => {
+    if (!await requireAdmin(req, res)) return;
+    try {
+      let query = adminDb.collection('platform_feedback').orderBy('createdAt', 'desc').limit(50);
+      const cursor = typeof req.query.cursor === 'string' ? req.query.cursor : '';
+      if (cursor) {
+        if (!/^[a-zA-Z0-9_-]{1,200}$/.test(cursor)) return sendApiError(res, 422, 'Pagination invalide.');
+        const previous = await adminDb.collection('platform_feedback').doc(cursor).get();
+        if (!previous.exists) return sendApiError(res, 422, 'Pagination invalide.');
+        query = query.startAfter(previous);
+      }
+      const snapshot = await query.get();
+      res.setHeader('Cache-Control', 'no-store');
+      return res.json({ feedback: snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id })), nextCursor: snapshot.size === 50 ? snapshot.docs[snapshot.size - 1].id : null });
+    } catch { return sendApiError(res, 503, 'Les retours Haven sont indisponibles.'); }
   });
 
   app.post('/api/reviews/finalize-expired', sensitiveApiLimiter, requireAuth, async (_req: AuthenticatedRequest, res) => {
@@ -892,7 +977,7 @@ async function startServer() {
           transaction.get(ownerRef), transaction.get(adminDb.collection('verification_exceptions').doc(`USER_${req.user!.uid}`))
         ]);
         if (!profile.exists || !hasTrustedVerificationException(profile.data()!, exception.data(), req.user!.uid)) throw new VerificationExceptionError('Dérogation de test absente ou retirée.', 403);
-        const fields = ['id', 'title', 'description', 'city', 'address', 'coordinates', 'type', 'totalRooms', 'availableRooms', 'surface', 'amenities', 'mainPhotoUrl', 'galleryUrls', 'rooms', 'bathrooms', 'minStay', 'cleaningFee', 'bookingMode', 'checkInTime', 'checkOutTime', 'blockedDates'];
+        const fields = ['id', 'title', 'description', 'city', 'address', 'postalCode', 'country', 'neighborhood', 'arrivalMethod', 'coordinates', 'type', 'totalRooms', 'availableRooms', 'surface', 'amenities', 'mainPhotoUrl', 'galleryUrls', 'rooms', 'bathrooms', 'minStay', 'cleaningFee', 'cleaningPolicyVersion', 'bookingMode', 'checkInTime', 'checkOutTime', 'blockedDates'];
         const listing = { ...Object.fromEntries(fields.filter(key => input[key] !== undefined).map(key => [key, input[key]])), ownerId: req.user!.uid, bookingMode: 'INSTANT', status: 'PENDING', rating: 0, reviewsCount: 0, verificationException: null } as import('./types').Listing;
         prepareListingReview(listing, profile.data() as import('./types').User, 'APPROVED', true, undefined, req.user!.uid, undefined, true);
         transaction.create(listingRef, listing);
@@ -1020,7 +1105,7 @@ async function startServer() {
       if (!actor) return;
       const userId = String(req.params.userId);
       if (!/^[a-zA-Z0-9_-]{1,128}$/.test(userId)) return sendApiError(res, 422, 'Utilisateur invalide.');
-      if (req.body?.identityReviewed !== true) return sendApiError(res, 422, 'Examinez la pièce d’identité avant de valider le profil.');
+      if (req.body?.identityReviewed !== true || req.body?.residenceReviewed !== true) return sendApiError(res, 422, 'Examinez la pièce d’identité et le justificatif de domicile avant de valider le profil.');
       const userRef = adminDb.collection('users').doc(userId);
       const auditRef = adminDb.collection('admin_audit').doc();
       const approval = await adminDb.runTransaction(async transaction => {
@@ -1130,9 +1215,31 @@ async function startServer() {
     }
   });
 
-  // Shows only the voluntary public profiles of confirmed tenants whose stay
+  // Shows only the limited public profiles of confirmed tenants whose stay
   // overlaps the dates requested by a signed-in prospective housemate. Contacts,
   // legal identity and payment information never leave the server here.
+  app.patch('/api/users/me/community-profile', sensitiveApiLimiter, requireAuth, async (req: AuthenticatedRequest, res) => {
+    let fields;
+    try { fields = validateCommunityProfile(req.body || {}); }
+    catch (error) { return sendApiError(res, 422, error instanceof Error ? error.message : 'Profil invalide.'); }
+    try {
+      await adminDb.collection('users').doc(req.user!.uid).update(fields);
+      return res.json(fields);
+    } catch { return sendApiError(res, 500, 'Impossible d’enregistrer votre profil.'); }
+  });
+
+  app.get('/api/users/:userId/public-profile', sensitiveApiLimiter, requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      const id = String(req.params.userId);
+      if (!/^[a-zA-Z0-9_-]{1,128}$/.test(id)) return sendApiError(res, 404, 'Profil indisponible.');
+      const snapshot = await adminDb.collection('users').doc(id).get();
+      const user = snapshot.exists ? { ...snapshot.data(), id } as import('./types').User : undefined;
+      if (!user || user.role === 'ADMIN' || user.status === 'BANNED') return sendApiError(res, 404, 'Profil indisponible.');
+      if (user.role === 'TENANT') return res.json(publicTenantProfile(user));
+      return res.json({ id, firstName: user.firstName, avatarUrl: user.avatarUrl, role: user.role, bio: user.bio || '', createdAt: user.createdAt || '', status: user.status || '', rating: user.rating || 0, reviewsCount: user.reviewsCount || 0 });
+    } catch { return sendApiError(res, 500, 'Profil indisponible.'); }
+  });
+
   app.get('/api/bookings/:bookingId/housemates', requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
       const id = String(req.params.bookingId);
@@ -1175,20 +1282,47 @@ async function startServer() {
     }
   });
 
-  app.put("/api/users/me/housemate-visibility", sensitiveApiLimiter, requireAuth, async (req: AuthenticatedRequest, res) => {
+  app.get('/api/users/:userId/residence', sensitiveApiLimiter, requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
-      if (typeof req.body?.shareProfileWithHousemates !== "boolean") {
-        return sendApiError(res, 422, "Préférence de visibilité invalide");
-      }
-      const userRef = adminDb.collection("users").doc(req.user!.uid);
-      const userSnap = await userRef.get();
-      if (!userSnap.exists) return sendApiError(res, 404, "Profil introuvable");
-      await userRef.update({ shareProfileWithHousemates: req.body.shareProfileWithHousemates });
-      return res.json({ shareProfileWithHousemates: req.body.shareProfileWithHousemates });
-    } catch (error) {
-      console.error("Housemate visibility update failed", error);
-      return sendApiError(res, 500, "Impossible de mettre à jour la visibilité du profil");
-    }
+      const id = String(req.params.userId);
+      if (!/^[a-zA-Z0-9_-]{1,128}$/.test(id)) return sendApiError(res, 404, 'Domicile introuvable.');
+      if (id !== req.user!.uid && !await requireAdmin(req, res)) return;
+      const snapshot = await adminDb.collection('user_residences').doc(id).get();
+      res.setHeader('Cache-Control', 'no-store');
+      return res.json(snapshot.data() || {});
+    } catch { return sendApiError(res, 500, 'Impossible de charger le domicile.'); }
+  });
+  app.get('/api/users/:userId/proof-of-address', sensitiveApiLimiter, requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      const id = String(req.params.userId);
+      if (!/^[a-zA-Z0-9_-]{1,128}$/.test(id)) return sendApiError(res, 404, 'Document introuvable.');
+      if (id !== req.user!.uid && !await requireAdmin(req, res)) return;
+      const snapshot = await adminDb.collection('residence_documents').doc(id).get();
+      if (!snapshot.exists) return sendApiError(res, 404, 'Document introuvable.');
+      res.setHeader('Cache-Control', 'no-store');
+      return res.json({ dataUrl: snapshot.data()!.dataUrl });
+    } catch { return sendApiError(res, 500, 'Impossible de charger le justificatif.'); }
+  });
+  app.put('/api/users/me/residence', sensitiveApiLimiter, requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      const residence = normalizeResidence(req.body?.residence);
+      const proof = req.body?.documentDataUrl;
+      if (proof !== undefined && !validResidenceDocument(proof)) return sendApiError(res, 422, 'Justificatif de domicile invalide ou trop volumineux.');
+      const userRef = adminDb.collection('users').doc(req.user!.uid);
+      const residenceRef = adminDb.collection('user_residences').doc(req.user!.uid);
+      const proofRef = adminDb.collection('residence_documents').doc(req.user!.uid);
+      await adminDb.runTransaction(async transaction => {
+        const [user, previous] = await Promise.all([transaction.get(userRef), transaction.get(residenceRef)]);
+        if (!user.exists || user.data()!.role === 'ADMIN') throw new Error('Profil de membre requis.');
+        const changed = Object.entries(residence).some(([key, value]) => previous.data()?.[key] !== value);
+        if (!changed && !proof) return;
+        transaction.set(residenceRef, { ...residence, updatedAt: new Date().toISOString() });
+        if (proof) transaction.set(proofRef, { dataUrl: proof, uploadedAt: new Date().toISOString() });
+        else if (changed) transaction.delete(proofRef);
+        transaction.update(userRef, { residenceProvided: true, residenceVerified: false, 'documents.proofOfAddress': proof ? `/api/users/${req.user!.uid}/proof-of-address` : '', status: 'PENDING', isVerified: false, verificationException: null, verificationSubmittedAt: null, rejectionReason: null });
+      });
+      return res.json({ saved: true });
+    } catch (error) { return sendApiError(res, 422, error instanceof Error ? error.message : 'Impossible d’enregistrer le domicile.'); }
   });
 
   // Personal verification details are written by the authenticated server.
@@ -1252,6 +1386,23 @@ async function startServer() {
       return sendApiError(res, 503, 'Impossible d’envoyer le lien pour le moment. Réessayez dans quelques instants.');
     }
   });
+  app.post('/api/users/me/request-email-change', authMailLimiter, requireAuth, async (req: AuthenticatedRequest, res) => {
+    const email = normalizeEmail(req.body?.email);
+    if (!email || email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return sendApiError(res, 422, 'Adresse e-mail invalide.');
+    if (!req.user!.authTime || Date.now() / 1000 - req.user!.authTime > 300) return sendApiError(res, 401, 'Reconnectez-vous puis réessayez pour modifier votre e-mail.');
+    try {
+      const [account, profile] = await Promise.all([adminAuth.getUser(req.user!.uid), adminDb.collection('users').doc(req.user!.uid).get()]);
+      if (!account.email || account.disabled || !profile.exists || normalizeEmail(req.user!.email) !== normalizeEmail(account.email)) return sendApiError(res, 409, 'Reconnectez-vous avant de modifier votre e-mail.');
+      if (email === normalizeEmail(account.email)) return sendApiError(res, 422, 'Cette adresse est déjà celle du compte.');
+      await adminDb.collection('email_changes').doc(req.user!.uid).set({ previousEmail: normalizeEmail(account.email), email, expiresAt: Date.now() + 86400_000 });
+      const sent = await deliverAuthAction('EMAIL_VERIFICATION', email, String(profile.data()!.firstName || 'à vous'), account.email);
+      if (!sent) return sendApiError(res, 429, 'Patientez avant de demander un nouveau lien.');
+      return res.json({ sent: true });
+    } catch (error) {
+      return sendApiError(res, 503, error instanceof Error && error.message === 'AUTH_MAIL_DOMAIN' ? 'Resend est en mode test : un domaine validé est nécessaire pour envoyer à cette nouvelle adresse.' : 'Impossible d’envoyer ce lien. Vérifiez l’adresse et réessayez.');
+    }
+  });
+
   app.post('/api/auth/request-password-reset', authMailLimiter, async (req, res) => {
     const email = normalizeEmail(req.body?.email);
     if (!email || email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return sendApiError(res, 422, 'Adresse e-mail invalide.');
@@ -1280,7 +1431,16 @@ async function startServer() {
       const userSnap = await userRef.get();
       if (!userSnap.exists) return sendApiError(res, 404, "Profil introuvable");
       const profile = userSnap.data()!;
-      if (normalizeEmail(profile.email) !== email) return sendApiError(res, 409, "L’adresse e-mail du profil ne correspond pas à celle du compte.");
+      if (normalizeEmail(profile.email) !== email) {
+        const pendingRef = adminDb.collection('email_changes').doc(req.user!.uid);
+        await adminDb.runTransaction(async transaction => {
+          const [pending, fresh] = await Promise.all([transaction.get(pendingRef), transaction.get(userRef)]);
+          const change = pending.data();
+          if (!change || change.email !== email || change.previousEmail !== normalizeEmail(fresh.data()?.email) || change.expiresAt < Date.now()) throw new Error('Changement d’e-mail non autorisé ou expiré.');
+          transaction.update(userRef, { email, emailVerified: true, emailVerifiedAt: new Date().toISOString() });
+          transaction.delete(pendingRef);
+        });
+      }
       const emailVerifiedAt = new Date().toISOString();
       await userRef.update({
         emailVerified: true,
@@ -1379,6 +1539,7 @@ async function startServer() {
         }
         termsAcceptance = { legalAccepted: true, legalAcceptedAt: new Date().toISOString(), legalDocumentId: terms!.id, legalVersion: terms!.lastUpdated, legalContentHash: createHash('sha256').update(terms!.content).digest('hex') };
       }
+      if (!hasRequiredResidence(profile)) return sendApiError(res, 422, 'Renseignez votre adresse de résidence et transmettez un justificatif de domicile dans Mon compte.');
       if (!isVerificationReadyToSubmit(profile)) {
         if (profile.emailVerified !== true) {
           return sendApiError(res, 422, "Confirmez votre adresse e-mail avant d’envoyer le dossier.");
@@ -1417,7 +1578,7 @@ async function startServer() {
       const terms = getCancellationTerms(booking as Pick<Booking, 'status' | 'startDate' | 'totalPrice' | 'paymentStatus'>, actor);
       if (!terms.canCancel) return sendApiError(res, 409, terms.detail);
 
-      let refundStatus: "NOT_REQUIRED" | "SIMULATED" | "COMPLETED" = "NOT_REQUIRED";
+      let refundStatus: "NOT_REQUIRED" | "SIMULATED" | "COMPLETED" | "PENDING" | "FAILED" = "NOT_REQUIRED";
       let refundId: string | undefined;
       const shouldRefund = booking.paymentStatus === "PAID" && terms.refundAmount > 0;
       if (shouldRefund) {
@@ -1438,8 +1599,9 @@ async function startServer() {
             payment_intent: paymentIntent,
             amount: Math.round(terms.refundAmount * 100),
             metadata: { bookingId, cancelledBy: actor },
-          });
-          refundStatus = "COMPLETED";
+          }, { idempotencyKey: `haven-cancellation-refund-${bookingId}` });
+          if (["failed", "canceled"].includes(refund.status || "")) return sendApiError(res, 503, "Le remboursement Stripe a échoué. Votre réservation reste active. Contactez Haven.");
+          refundStatus = refund.status === "succeeded" ? "COMPLETED" : "PENDING";
           refundId = refund.id;
         }
       }
@@ -1481,7 +1643,10 @@ async function startServer() {
             ownerId: booking.ownerId,
             tenantId: booking.tenantId,
             amount: terms.refundAmount,
-            status: "REFUNDED",
+            ...(booking.paymentProvider ? { provider: booking.paymentProvider } : {}),
+            isTest: booking.paymentIsTest === true || booking.paymentProvider === 'SIMULATION',
+            currency: 'EUR',
+            status: refundStatus === "PENDING" ? "PENDING" : "REFUNDED",
             type: "REFUND",
             createdAt: cancelledAt,
           });
@@ -1527,12 +1692,11 @@ async function startServer() {
         return res.send(await paymentReceiptPdf(receipt));
       }
       const jobs = await Promise.all(['CONFIRMATION', 'ARRIVAL'].map(kind => adminDb.collection('reservation_mail_outbox').doc(`${id}-${kind}`).get()));
-      let instructions = '';
-      if (canReleaseArrivalInstructions(booking, receipt.instructionsDueAt)) {
-        const access = await adminDb.collection('listing_access').doc(booking.listingId).get();
-        instructions = access.data()?.instructions || '';
-      }
-      return res.json({ ...receipt, bookingStatus: booking.status, instructions, emailStatus: jobs[0].data()?.status || 'PENDING', arrivalEmailStatus: jobs[1].data()?.status || 'PENDING', emailConfigured: !('error' in getEmailProvider()), reservationEmailsEnabled: reservationEmailConfiguration(process.env).enabled, resendTemplatesEnabled: resendTemplatesEnabled(process.env) });
+      const guideAvailable = canReleaseArrivalInstructions(booking, receipt.instructionsDueAt);
+      const access = guideAvailable ? (await adminDb.collection('listing_access').doc(booking.listingId).get()).data() : undefined;
+      const room = guideAvailable ? await adminDb.collection('listing_access').doc(booking.listingId).collection('room_guides').doc(booking.roomId).get() : undefined;
+      const guide = releasedStayGuide(booking, receipt.instructionsDueAt, access, Date.now(), room?.exists ? normalizeRoomGuide(room.data()) : undefined);
+      return res.json({ ...receipt, bookingStatus: booking.status, ...guide, emailStatus: jobs[0].data()?.status || 'PENDING', arrivalEmailStatus: jobs[1].data()?.status || 'PENDING', emailConfigured: !('error' in getEmailProvider()), reservationEmailsEnabled: reservationEmailConfiguration(process.env).enabled, resendTemplatesEnabled: resendTemplatesEnabled(process.env) });
     } catch { return sendApiError(res, 503, 'Les informations du séjour sont indisponibles.'); }
   });
 
@@ -1545,14 +1709,63 @@ async function startServer() {
       if (!listing.exists || (listing.data()?.ownerId !== req.user!.uid && !await getAdminActor(req))) return sendApiError(res, 403, 'Accès refusé.');
       const ref = adminDb.collection('listing_access').doc(id);
       res.setHeader('Cache-Control', 'no-store');
-      if (req.method === 'GET') { const data = (await ref.get()).data(); return res.json({ instructions: data?.instructions || '', timeZone: data?.timeZone || 'Europe/Paris' }); }
+      const rooms = (listing.data()?.rooms || []) as { id: string; name: string }[];
+      if (req.method === 'GET') {
+        const [saved, guides] = await Promise.all([ref.get(), ref.collection('room_guides').get()]);
+        const data = saved.data();
+        return res.json({ instructions: data?.instructions || '', timeZone: data?.timeZone || 'Europe/Paris', practicalInfo: normalizePracticalInfo(data?.practicalInfo), rooms: rooms.map(({ id, name }) => ({ id, name })), roomGuides: Object.fromEntries(guides.docs.filter(doc => rooms.some(room => room.id === doc.id)).map(doc => [doc.id, normalizeRoomGuide(doc.data())])) });
+      }
       if (req.method !== 'PUT') return sendApiError(res, 405, 'Méthode non autorisée.');
       if (typeof req.body.instructions !== 'string' || req.body.instructions.length > 6000) return sendApiError(res, 422, 'Consignes invalides (6 000 caractères maximum).');
+      let practicalInfo;
+      let roomGuides;
+      try {
+        practicalInfo = req.body.practicalInfo === undefined ? undefined : normalizePracticalInfo(req.body.practicalInfo);
+        roomGuides = req.body.roomGuides === undefined ? undefined : normalizeRoomGuides(req.body.roomGuides, rooms.map(room => room.id));
+      }
+      catch (error) { return sendApiError(res, 422, error instanceof Error ? error.message : 'Informations pratiques invalides.'); }
       const timeZone = req.body.timeZone || 'Europe/Paris';
       try { new Intl.DateTimeFormat('fr-FR', { timeZone }).format(); } catch { return sendApiError(res, 422, 'Fuseau horaire invalide.'); }
-      await ref.set({ timeZone, instructions: req.body.instructions.trim(), updatedAt: new Date().toISOString(), updatedBy: req.user!.uid });
+      const batch = adminDb.batch();
+      batch.set(ref, { timeZone, instructions: req.body.instructions.trim(), ...(practicalInfo ? { practicalInfo } : {}), updatedAt: new Date().toISOString(), updatedBy: req.user!.uid }, { merge: true });
+      for (const [roomId, guide] of Object.entries(roomGuides || {})) batch.set(ref.collection('room_guides').doc(roomId), guide);
+      await batch.commit();
       return res.json({ success: true });
     } catch { return sendApiError(res, 503, 'Impossible d’enregistrer les consignes.'); }
+  });
+
+  app.get('/api/owner/connect', requireAuth, async (req: AuthenticatedRequest, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    try {
+      const account = await ownerConnect.syncAccount(req.user!.uid);
+      const snapshot = await adminDb.collection('owner_settlements').where('ownerId', '==', req.user!.uid).get();
+      return res.json({ account, deposit: DEPOSIT_POLICY, settlements: snapshot.docs.filter(doc => doc.data().isTest === account.isTest).map(doc => {
+        const data = doc.data();
+        return { bookingId: doc.id, amountCents: data.amountCents, state: data.state, isTest: data.isTest, updatedAt: data.updatedAt, error: data.error || null };
+      }) });
+    } catch { return sendApiError(res, 503, 'Impossible de vérifier votre compte Stripe. Réessayez.'); }
+  });
+  for (const action of ['onboarding', 'dashboard'] as const) app.post(`/api/owner/connect/${action}`, sensitiveApiLimiter, requireAuth, async (req: AuthenticatedRequest, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    try {
+      return res.json(action === 'onboarding' ? await ownerConnect.onboarding(req.user!.uid, req.user!.email, new URL(process.env.APP_ORIGIN || '').origin) : await ownerConnect.dashboard(req.user!.uid));
+    } catch (error) {
+      return sendApiError(res, error instanceof ConnectError ? error.status : 503, error instanceof ConnectError ? error.message : 'Le service de configuration des versements est indisponible.');
+    }
+  });
+
+  // Only provider/server output belongs here. Clients cannot create or mark payouts paid.
+  app.get('/api/owner/payouts', requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      await ownerConnect.reconcileOwner(req.user!.uid);
+      const snapshot = await adminDb.collection('owner_payouts').where('ownerId', '==', req.user!.uid).get();
+      res.setHeader('Cache-Control', 'no-store');
+      return res.json({ payouts: snapshot.docs.map(doc => {
+        const data = doc.data();
+        return { id: doc.id, ownerId: req.user!.uid, amountCents: data.amountCents, currency: data.currency, provider: data.provider, isTest: data.isTest,
+          status: data.status, createdAt: data.createdAt, paidAt: data.paidAt, expectedArrivalAt: data.expectedArrivalAt, providerPayoutId: data.providerPayoutId };
+      }) });
+    } catch { return sendApiError(res, 503, 'Impossible de charger les virements. Réessayez dans un instant.'); }
   });
 
   app.get('/api/payments/:bookingId', requireAuth, async (req: AuthenticatedRequest, res) => {
@@ -1571,9 +1784,9 @@ async function startServer() {
       ]);
       const profile = customer.data();
       res.set('Cache-Control', 'no-store');
-      return res.json({ mode, booking, expiresAt: bookingDeadline(booking), listing: { title: booking.listingTitle || listing.data()?.title || 'Votre logement', city: listing.data()?.city || '', image: listing.data()?.mainPhotoUrl || '' }, customer: { name: [profile?.firstName, profile?.lastName].filter(Boolean).join(' '), email: profile?.email || '' } });
+      return res.json({ mode, isTest: mode === 'SIMULATION' || connectConfiguration().isTest, booking, expiresAt: bookingDeadline(booking), listing: { title: booking.listingTitle || listing.data()?.title || 'Votre logement', city: listing.data()?.city || '', image: listing.data()?.mainPhotoUrl || '' }, customer: { name: [profile?.firstName, profile?.lastName].filter(Boolean).join(' '), email: profile?.email || '' } });
     } catch (error) {
-      if (error instanceof BookingLifecycleError || error instanceof PaymentConfigurationError) return sendApiError(res, error.status, error.message);
+      if (error instanceof BookingLifecycleError || error instanceof PaymentConfigurationError || error instanceof ConnectError) return sendApiError(res, error.status, error.message);
       console.error('Checkout details failed', error);
       return sendApiError(res, 503, 'Le récapitulatif du paiement est momentanément indisponible.');
     }
@@ -1592,7 +1805,7 @@ async function startServer() {
       if (result.disposition === 'REFUND') return sendApiError(res, 409, 'Cette réservation ne peut plus être confirmée. Recommencez votre réservation.');
       return res.json({ bookingId: id, status: result.booking.status, paidAt: result.booking.paidAt, mode: 'SIMULATION', isTest: true });
     } catch (error) {
-      if (error instanceof BookingLifecycleError || error instanceof PaymentConfigurationError) return sendApiError(res, error.status, error.message);
+      if (error instanceof BookingLifecycleError || error instanceof PaymentConfigurationError || error instanceof ConnectError) return sendApiError(res, error.status, error.message);
       console.error('Payment simulation failed', error);
       return sendApiError(res, 503, 'La simulation n’a pas pu aboutir. Vous pouvez réessayer sans créer de doublon.');
     }
@@ -1613,9 +1826,13 @@ async function startServer() {
       if (mode === 'SIMULATION') return res.json({ mode, url: safeReturnUrl(req, `/#/payment/${encodeURIComponent(bookingId)}`) });
       if (booking.paymentProvider === 'SIMULATION') throw new BookingLifecycleError('Cette réservation appartient au mode simulation. Créez une nouvelle réservation pour utiliser Stripe.');
       const stripe = getStripe();
+      const ownerAccountId = await ownerConnect.readyAccount(booking.ownerId);
       if (booking.checkoutSessionId || booking.stripeSessionId) {
         const existing = await stripe.checkout.sessions.retrieve(booking.checkoutSessionId || booking.stripeSessionId!);
-        if (existing.status === 'open' && existing.url) return res.json({ mode, id: existing.id, url: existing.url });
+        if (existing.status === 'open' && existing.url) {
+          if (existing.metadata?.connectPolicy !== CONNECT_POLICY_VERSION || existing.metadata.ownerAccountId !== ownerAccountId) return sendApiError(res, 409, 'Recommencez votre réservation pour utiliser les versements sécurisés.');
+          return res.json({ mode, id: existing.id, url: existing.url });
+        }
         if (existing.payment_status === 'paid') return sendApiError(res, 409, 'Le paiement a déjà été effectué. Sa confirmation est en cours.');
         return sendApiError(res, 409, 'Cette session de paiement est terminée. Recommencez votre réservation.');
       }
@@ -1630,7 +1847,8 @@ async function startServer() {
         expires_at: Math.floor(Date.parse(booking.createdAt) / 1000) + 60 * 60,
         line_items: [{ quantity: 1, price_data: { currency: 'eur', unit_amount: Math.round(booking.totalPrice * 100), product_data: { name: String(booking.listingTitle || listing?.title || 'Séjour HAVEN').slice(0, 200), description: `${booking.roomName || 'Chambre'} · ${booking.startDate} → ${booking.endDate}` } } }],
         success_url: successUrl, cancel_url: cancelUrl,
-        metadata: { bookingId, listingId: booking.listingId, tenantId: booking.tenantId }
+        payment_intent_data: { transfer_group: `haven_${bookingId}`, metadata: { bookingId, connectPolicy: CONNECT_POLICY_VERSION, ownerAccountId } },
+        metadata: { bookingId, listingId: booking.listingId, tenantId: booking.tenantId, connectPolicy: CONNECT_POLICY_VERSION, ownerAccountId }
       }, { idempotencyKey: `checkout-${bookingId}` });
       await adminDb.runTransaction(async transaction => {
         const fresh = await transaction.get(bookingRef);
@@ -1640,7 +1858,7 @@ async function startServer() {
       });
       return res.json({ mode, id: session.id, url: session.url });
     } catch (error) {
-      if (error instanceof BookingLifecycleError || error instanceof PaymentConfigurationError) return sendApiError(res, error.status, error.message);
+      if (error instanceof BookingLifecycleError || error instanceof PaymentConfigurationError || error instanceof ConnectError) return sendApiError(res, error.status, error.message);
       console.error('Stripe checkout failed', (error as { type?: string }).type || 'unavailable');
       return sendApiError(res, 503, 'Le paiement est momentanément indisponible. Aucun paiement simulé n’a été effectué.');
     }
@@ -1652,6 +1870,11 @@ async function startServer() {
 
   // Run a catch-up sweep at startup and hourly. The authenticated history read
   // also triggers the same idempotent sweep so downtime never loses a rating.
+  void reconcileStripe();
+  const connectSweep = setInterval(() => void reconcileStripe(), 5 * 60_000);
+  connectSweep.unref();
+  const arrivalSweep = setInterval(() => void ownerConnect.releaseArrivedBookings().catch(() => console.error('Arrival transfer retry unavailable.')), 30_000);
+  arrivalSweep.unref();
   void deliverReservationMail();
   const reservationMailSweep = setInterval(() => void deliverReservationMail(), 30_000);
   reservationMailSweep.unref();
@@ -1669,6 +1892,7 @@ async function startServer() {
       const vite = await createViteServer({
         server: { 
           middlewareMode: true,
+          fs: { deny: ['.env', '.env.*', '*.{crt,pem}', '**/.git/**', '**/.stripe-local/**'] },
           hmr: false, // Disable HMR as per guidelines
         },
         appType: "spa",

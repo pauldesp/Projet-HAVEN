@@ -38,6 +38,8 @@ export interface User {
   email: string;
   phone?: string;
   birthDate?: string;
+  residenceProvided?: boolean;
+  residenceVerified?: boolean;
   marketingOptIn?: boolean;
   legalAccepted?: boolean;
   avatarUrl: string;
@@ -60,6 +62,10 @@ export interface User {
   verificationSubmittedAt?: string | null;
   city?: string;
   bio?: string;
+  activity?: import('./services/publicProfile').Activity;
+  interests?: string[];
+  age?: number;
+  activityLabel?: string;
   school?: string;
   job?: string;
   idDocumentUrl?: string;
@@ -68,8 +74,6 @@ export interface User {
   rating?: number;
   reviewsCount?: number;
   favorites?: string[]; // Array of listing IDs
-  /** Consentement explicite pour apparaître auprès des futurs colocataires. */
-  shareProfileWithHousemates?: boolean;
   documents?: {
     idCard?: string;
     proofOfAddress?: string;
@@ -111,6 +115,9 @@ export interface Listing {
   description: string;
   city: string;
   address: string;
+  /** Secteur public, sans adresse précise. */
+  neighborhood?: string;
+  arrivalMethod?: 'SELF_CHECK_IN' | 'HOST_WELCOME' | 'TO_COORDINATE';
   postalCode?: string;
   country?: string;
   coordinates: Coordinates;
@@ -129,7 +136,8 @@ export interface Listing {
   reviewsCount: number;
   bathrooms: number;
   minStay: number; // Minimum number of nights; default 4, owner-configurable (>= 1).
-  cleaningFee: number; // Fixed cleaning fee for the listing
+  cleaningFee: number; // Fixed contribution per booking, not per week
+  cleaningPolicyVersion?: string;
   bookingMode?: 'INSTANT' | 'MANUAL'; // Mode de réservation (Instantannée ou Manuelle)
   /** Horaires locaux définis par le propriétaire pour les états des lieux. */
   checkInTime?: string;
@@ -150,7 +158,7 @@ export interface BookingCancellation {
   reason: string;
   refundPercent: number;
   refundAmount: number;
-  refundStatus: 'NOT_REQUIRED' | 'SIMULATED' | 'COMPLETED';
+  refundStatus: 'NOT_REQUIRED' | 'SIMULATED' | 'COMPLETED' | 'PENDING' | 'FAILED';
   refundId?: string;
 }
 
@@ -182,6 +190,8 @@ export interface Booking {
     mainPhotoUrl: string;
   };
   roomName?: string;
+  cleaningPolicyVersion?: string;
+  cleaningPolicyAcceptedAt?: string;
   paymentStatus?: 'PENDING' | 'PAID';
   stripeSessionId?: string;
   checkoutSessionId?: string;
@@ -207,13 +217,14 @@ export interface BookingAvailability {
   updatedAt: string;
 }
 
-/** Consent-based subset shown to a signed-in prospective housemate. */
+/** Minimal public subset shown to a signed-in prospective housemate. */
 export interface HousematePreview {
   id: string;
   firstName: string;
   avatarUrl: string;
   age?: number;
   activity?: string;
+  interests?: string[];
   coverage: 'FULL' | 'PARTIAL';
 }
 
@@ -323,6 +334,21 @@ export interface Incident {
 }
 
 // Type Paiement / Transaction
+/** Authoritative bank payout recorded by the server/payment provider, separate from tenant payments. */
+export interface OwnerPayout {
+  id: string;
+  ownerId: string;
+  amountCents: number; // Net amount sent to the owner's bank account, excluding Haven fees.
+  currency: 'EUR';
+  provider: 'STRIPE' | 'SIMULATION';
+  isTest: boolean;
+  status: 'PENDING' | 'PROCESSING' | 'PAID' | 'FAILED' | 'CANCELLED' | 'REVERSED';
+  createdAt: string;
+  paidAt?: string;
+  expectedArrivalAt?: string;
+  providerPayoutId?: string;
+}
+
 export interface Payment {
   provider?: 'SIMULATION' | 'STRIPE';
   isTest?: boolean;

@@ -1,3 +1,7 @@
+import { CityAutocomplete } from '../components/CityAutocomplete';
+import { DateRangePicker } from '../components/DateRangePicker';
+import { SearchLoading } from '../components/SearchLoading';
+import { cheapestStayPrice } from '../services/stayPrice';
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
@@ -45,9 +49,27 @@ const FilterSection: React.FC<{
 );
 
 export const SearchPage: React.FC = () => {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const cityParam = searchParams.get('city') || '';
   const cityCode = searchParams.get('cityCode') || '';
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+  const [searchCity, setSearchCity] = useState(cityParam);
+  const [searchCityCode, setSearchCityCode] = useState(cityCode);
+  const [searchStart, setSearchStart] = useState(searchParams.get('start') || '');
+  const [searchEnd, setSearchEnd] = useState(searchParams.get('end') || '');
+  useEffect(() => {
+    setSearchCity(cityParam); setSearchCityCode(cityCode);
+    setSearchStart(searchParams.get('start') || ''); setSearchEnd(searchParams.get('end') || '');
+  }, [searchParams, cityParam, cityCode]);
+  const submitSearch = (event: React.FormEvent) => {
+    event.preventDefault();
+    const next = new URLSearchParams(searchParams);
+    for (const [key, value] of Object.entries({ city: searchCity, cityCode: searchCityCode, start: searchStart, end: searchEnd })) {
+      if (value) next.set(key, value); else next.delete(key);
+    }
+    setSearchParams(next); setMobileFiltersOpen(false);
+  };
+
   const { start: startDate, end: endDate } = readSearchDates(searchParams);
   const [geocodingError, setGeocodingError] = useState(false);
   
@@ -90,7 +112,7 @@ export const SearchPage: React.FC = () => {
   };
 
   const priceCeiling = useMemo(() => {
-    const highest = Math.max(0, ...allListings.filter(listing => listing.rooms?.length).map(listingStayPrice));
+    const highest = Math.max(0, ...allListings.flatMap(listing => listing.rooms.map(room => { const base = room.pricePerDay * stayNights; return base + (listing.cleaningFee || 0) + Math.round(base * 0.15); })));
     return Math.max(100, Math.ceil(highest / 100) * 100);
   }, [allListings, stayNights]);
 
@@ -139,8 +161,6 @@ export const SearchPage: React.FC = () => {
     const listingsMatchingFilters = approvedListings.filter(listing => {
       // Handle case where rooms might be empty
       if (!listing.rooms || listing.rooms.length === 0) return false;
-      const stayPrice = listingStayPrice(listing);
-      if (stayPrice < priceMin || stayPrice > priceMax) return false;
       if (selectedTypes.length > 0 && !selectedTypes.includes(listing.type)) return false;
       const roomCount = listing.totalRooms || listing.rooms.length;
       if (roomCount < minRooms || roomCount > maxRooms) return false;
@@ -157,12 +177,16 @@ export const SearchPage: React.FC = () => {
       const listingCityNormalized = listing.city.toLowerCase().trim();
       return listingCityNormalized.includes(normalizedParam) || normalizedParam.includes(listingCityNormalized);
     };
+    const matchesStayPrice = (listing: Listing, start = startDate, end = endDate) => {
+      const price = cheapestStayPrice(listing, availability, start, end)?.total ?? listingStayPrice(listing);
+      return price >= priceMin && price <= priceMax;
+    };
     const isAvailableForRequestedStay = (listing: Listing) =>
       listingHasAvailableRoom(listing, availability, startDate, endDate);
 
     // 2. Exact city and exact requested stay.
     const exactCityListings = listingsMatchingFilters.filter(isInRequestedCity);
-    const exactMatches = exactCityListings.filter(isAvailableForRequestedStay);
+    const exactMatches = exactCityListings.filter(listing => isAvailableForRequestedStay(listing) && matchesStayPrice(listing));
 
     // 3. Same city, same duration, at the closest available dates. This section
     // comes after exact results and never replaces them.
@@ -171,7 +195,7 @@ export const SearchPage: React.FC = () => {
         .filter(listing => !isAvailableForRequestedStay(listing))
         .flatMap(listing => {
           const nearbyStay = findClosestAvailableStay(listing, availability, startDate, endDate);
-          return nearbyStay ? [{ ...listing, nearbyStay }] : [];
+          return nearbyStay && matchesStayPrice(listing, nearbyStay.startDate, nearbyStay.endDate) ? [{ ...listing, nearbyStay }] : [];
         })
         .sort((a, b) => Math.abs(a.nearbyStay.offsetDays) - Math.abs(b.nearbyStay.offsetDays))
       : [];
@@ -181,7 +205,7 @@ export const SearchPage: React.FC = () => {
     let nearbyMatches: ListingWithDistance[] = [];
     if (cityParam && dynamicCityCoords) {
       nearbyMatches = sortByDistance(
-        listingsMatchingFilters.filter(listing => isAvailableForRequestedStay(listing) && !isInRequestedCity(listing)),
+        listingsMatchingFilters.filter(listing => isAvailableForRequestedStay(listing) && matchesStayPrice(listing) && !isInRequestedCity(listing)),
         dynamicCityCoords
       );
       // Distance limit removed as requested
@@ -218,7 +242,9 @@ export const SearchPage: React.FC = () => {
     setSelectedRoomOptions([]);
   };
 
-  if ((startDate || endDate) && (isAvailabilityLoading || availabilityError)) return <div className="mx-auto max-w-xl p-12 text-center text-haven-navy" role={availabilityError ? 'alert' : 'status'}>{availabilityError || 'Vérification des chambres disponibles…'}{availabilityError && <p className="mt-3 text-sm text-gray-500">Réessayez dans un instant. La réservation reste bloquée tant que les disponibilités ne peuvent pas être vérifiées.</p>}</div>;
+  const isSearching = isGeocoding || listingsLoading || isAvailabilityLoading;
+
+  if ((startDate || endDate) && availabilityError) return <div className="mx-auto max-w-xl p-12 text-center text-haven-navy" role={availabilityError ? 'alert' : 'status'}>{availabilityError || 'Vérification des chambres disponibles…'}{availabilityError && <p className="mt-3 text-sm text-gray-500">Réessayez dans un instant. La réservation reste bloquée tant que les disponibilités ne peuvent pas être vérifiées.</p>}</div>;
 
   return (
     <div className="min-h-screen bg-haven-cream pt-8 pb-20">
@@ -236,8 +262,14 @@ export const SearchPage: React.FC = () => {
           </p>
         </div>
 
+        <form onSubmit={submitSearch} className="relative z-20 mb-6 grid gap-3 rounded-3xl border border-gray-200 bg-white p-4 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_auto]">
+          <label className="min-w-0"><span className="mb-2 block text-xs font-bold text-gray-500">Ville</span><div className="min-h-11"><CityAutocomplete value={searchCity} onChange={value => { setSearchCity(value); setSearchCityCode(''); }} onSelect={place => setSearchCityCode(place.cityCode || '')} placeholder="Où cherchez-vous ?" /></div></label>
+          <div className="min-w-0"><p className="mb-2 text-xs font-bold text-gray-500">Dates du séjour</p><div className="min-h-11"><DateRangePicker startDate={searchStart} endDate={searchEnd} onChange={(start, end) => { setSearchStart(start); setSearchEnd(end); }} /></div></div>
+          <Button type="submit" className="self-end sm:col-span-2 lg:col-span-1">Rechercher</Button>
+        </form>
+
         {/* Banner: Exact dates are unavailable in the requested city */}
-        {exactMatches.length === 0 && cityParam && (nearbyDateMatches.length > 0 || nearbyMatches.length > 0) && (
+        {!isSearching && exactMatches.length === 0 && cityParam && (nearbyDateMatches.length > 0 || nearbyMatches.length > 0) && (
           <div className="mb-8 bg-orange-50 border border-orange-200 rounded-3xl p-6 flex flex-col md:flex-row items-center gap-6 animate-fade-in-up">
             <div className="bg-orange-100 p-4 rounded-2xl text-orange-600">
               <MapPin size={32} />
@@ -253,11 +285,12 @@ export const SearchPage: React.FC = () => {
 
         <div className="flex flex-col lg:flex-row gap-8">
           {/* Sidebar Filters */}
-          <aside className="w-full lg:w-1/4 h-fit bg-white p-6 rounded-3xl shadow-premium border border-gray-100 sticky top-24">
+          <aside className="w-full min-w-0 lg:w-1/4 h-fit bg-white p-4 lg:p-6 rounded-3xl shadow-premium border border-gray-100 lg:sticky lg:top-24">
             <div className="mb-2 flex items-center justify-between gap-3 text-haven-navy">
               <div className="flex items-center gap-2">
                 <SlidersHorizontal size={20} />
-                <h2 className="font-bold text-lg">Ajuster ma recherche</h2>
+                <h2 className="hidden font-bold text-lg lg:block">Ajuster ma recherche</h2>
+                <button type="button" aria-expanded={mobileFiltersOpen} aria-controls="search-filters" onClick={() => setMobileFiltersOpen(value => !value)} className="min-h-11 text-left font-bold lg:hidden">{mobileFiltersOpen ? 'Fermer les filtres' : 'Filtrer les résultats'}</button>
               </div>
               <button
                 type="button"
@@ -268,6 +301,7 @@ export const SearchPage: React.FC = () => {
               </button>
             </div>
 
+            <div id="search-filters" className={`${mobileFiltersOpen ? 'block' : 'hidden'} lg:block`}>
             <FilterSection title="Prix du séjour" isOpen={openFilter === 'PRICE'} onToggle={() => setOpenFilter(openFilter === 'PRICE' ? null : 'PRICE')}>
               <p className="text-sm text-gray-500">{stayNights} nuit{stayNights > 1 ? 's' : ''}, tous frais compris</p>
               <div className="mt-5 flex h-20 items-end gap-0.5 px-1" aria-hidden="true">
@@ -368,11 +402,13 @@ export const SearchPage: React.FC = () => {
                 ))}
               </div>
             </FilterSection>
+            <Button type="button" fullWidth onClick={() => setMobileFiltersOpen(false)} className="lg:hidden">Afficher les résultats</Button>
+            </div>
           </aside>
 
           {/* Results Grid */}
-          <div className="w-full lg:w-3/4 space-y-12">
-            {exactMatches.length > 0 && (
+          <div className="w-full min-w-0 lg:w-3/4 space-y-8 lg:space-y-12">
+            {!isSearching && exactMatches.length > 0 && (
               <div className="space-y-6">
                 <div className="flex items-center gap-3">
                   <div className="h-px flex-1 bg-gray-100"></div>
@@ -387,7 +423,7 @@ export const SearchPage: React.FC = () => {
               </div>
             )}
 
-            {nearbyDateMatches.length > 0 && (
+            {!isSearching && nearbyDateMatches.length > 0 && (
               <div className="space-y-6">
                 <div className="rounded-3xl border border-blue-100 bg-blue-50/60 p-5">
                   <h2 className="font-heading font-bold text-lg text-haven-navy">Disponibles à des dates proches</h2>
@@ -403,7 +439,7 @@ export const SearchPage: React.FC = () => {
               </div>
             )}
 
-            {nearbyMatches.length > 0 && (
+            {!isSearching && nearbyMatches.length > 0 && (
               <div className="space-y-6">
                 <div className="flex items-center gap-3">
                   <div className="h-px flex-1 bg-gray-100"></div>
@@ -424,7 +460,7 @@ export const SearchPage: React.FC = () => {
               </div>
             )}
 
-            {(isGeocoding || listingsLoading || isAvailabilityLoading) && <p role="status" className="text-gray-500">Recherche des logements disponibles…</p>}
+            {isSearching && <SearchLoading message={isAvailabilityLoading ? 'Vérification des chambres disponibles…' : 'Recherche des logements disponibles…'} />}
             {listingsError && <p role="alert" className="text-haven-red">{listingsError}</p>}
             {geocodingError && <p role="alert" className="text-haven-red">La localisation de cette ville est indisponible. Réessayez la recherche pour afficher les logements à proximité.</p>}
             {!isGeocoding && !listingsLoading && !isAvailabilityLoading && !listingsError && !geocodingError && exactMatches.length === 0 && nearbyDateMatches.length === 0 && nearbyMatches.length === 0 && (

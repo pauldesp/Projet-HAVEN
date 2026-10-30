@@ -8,7 +8,7 @@ const confirmed = (tenantId: string, startDate = '2026-10-20', endDate = '2026-1
 });
 const visible = (id: string): HousemateProfile => ({
   id, firstName: 'Camille', avatarUrl: 'https://example.test/avatar.jpg',
-  birthDate: '2000-10-15', job: 'Architecte', shareProfileWithHousemates: true,
+  birthDate: '2000-10-15', job: 'Architecte',
 });
 
 test('seules les réservations confirmées dans une autre chambre et avec une nuit commune sont éligibles', () => {
@@ -24,7 +24,7 @@ test('seules les réservations confirmées dans une autre chambre et avec une nu
   assert.deepEqual(eligibleHousemateBookings(bookings, stay), [eligible]);
 });
 
-test('le consentement est nécessaire et la réponse ne contient aucune donnée privée', () => {
+test('les anciens choix de visibilité ne masquent plus un colocataire et les données privées restent exclues', () => {
   const profiles = new Map<string, HousemateProfile>([
     ['visible', { ...visible('visible'), email: 'private@example.test', phone: '+33600000000' } as HousemateProfile],
     ['hidden', { ...visible('hidden'), shareProfileWithHousemates: false }],
@@ -34,7 +34,10 @@ test('le consentement est nécessaire et la réponse ne contient aucune donnée 
     new Date('2026-10-13T12:00:00'),
   );
   assert.deepEqual(result, [{
-    id: 'visible', firstName: 'Camille', avatarUrl: 'https://example.test/avatar.jpg',
+    id: 'visible', firstName: 'Camille', avatarUrl: '',
+    age: 25, activity: 'Architecte', coverage: 'FULL',
+  }, {
+    id: 'hidden', firstName: 'Camille', avatarUrl: '',
     age: 25, activity: 'Architecte', coverage: 'FULL',
   }]);
   assert.equal(JSON.stringify(result).includes('private@example.test'), false);

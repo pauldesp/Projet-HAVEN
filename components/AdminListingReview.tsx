@@ -13,7 +13,7 @@ export function AdminListingReview({ listing, ownerName, processing, error, onCl
   const photos = getListingPhotoUrls(listing);
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-haven-navy/60 p-4 backdrop-blur-sm">
-      <section role="dialog" aria-modal="true" aria-labelledby="listing-review-title" className="flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl">
+      <section role="dialog" aria-modal="true" aria-labelledby="listing-review-title" className="haven-dialog-panel flex max-h-[90dvh] w-full max-w-5xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl">
         <header className="flex items-center justify-between gap-4 border-b border-gray-100 p-6">
           <div className="flex items-center gap-3"><Home className="text-haven-red"/><div><p className="text-xs font-bold uppercase tracking-widest text-gray-400">Examen de l’annonce</p><h2 id="listing-review-title" className="text-xl font-bold text-haven-navy">{listing.title}</h2></div></div>
           <button aria-label="Fermer la fiche" onClick={onClose} disabled={processing} className="p-2 text-gray-400"><XCircle/></button>

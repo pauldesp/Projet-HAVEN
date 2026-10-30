@@ -1,3 +1,4 @@
+import { profileAge, profileActivity, profileInterests } from './publicProfile';
 import { Booking, HousematePreview } from '../types';
 
 export interface HousemateBooking {
@@ -14,8 +15,11 @@ export interface HousemateProfile {
   firstName?: unknown;
   avatarUrl?: unknown;
   birthDate?: unknown;
+  activity?: unknown;
+  interests?: unknown;
   job?: unknown;
   school?: unknown;
+  /** Legacy field, ignored: minimal profiles are always visible. */
   shareProfileWithHousemates?: unknown;
   status?: unknown;
 }
@@ -39,16 +43,7 @@ export const eligibleHousemateBookings = (bookings: HousemateBooking[], stay: St
     booking.startDate < stay.endDate && booking.endDate > stay.startDate
   );
 
-const ageOf = (birthDate: unknown, today: Date) => {
-  if (typeof birthDate !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(birthDate)) return undefined;
-  const date = new Date(`${birthDate}T12:00:00Z`);
-  if (Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== birthDate) return undefined;
-  let age = today.getFullYear() - date.getFullYear();
-  if (new Date(today.getFullYear(), date.getMonth(), date.getDate()) > today) age -= 1;
-  return age >= 18 && age <= 120 ? age : undefined;
-};
-
-/** The response contains only fields covered by the member's opt-in. */
+/** Only minimal public information is shown for tenants sharing the stay. */
 export const buildHousematePreviews = (
   bookings: HousemateBooking[],
   profilesById: Map<string, HousemateProfile>,
@@ -58,7 +53,7 @@ export const buildHousematePreviews = (
   const byTenant = new Map<string, HousematePreview>();
   for (const booking of eligibleHousemateBookings(bookings, stay)) {
     const profile = profilesById.get(booking.tenantId);
-    if (profile?.shareProfileWithHousemates !== true || profile.status === 'BANNED') continue;
+    if (!profile || profile.status === 'BANNED') continue;
     const coverage = booking.startDate <= stay.startDate && booking.endDate >= stay.endDate ? 'FULL' : 'PARTIAL';
     const existing = byTenant.get(booking.tenantId);
     if (existing) {
@@ -66,15 +61,14 @@ export const buildHousematePreviews = (
       if (coverage === 'FULL') existing.coverage = 'FULL';
       continue;
     }
-    const job = typeof profile.job === 'string' ? profile.job.trim() : '';
-    const school = typeof profile.school === 'string' ? profile.school.trim() : '';
     byTenant.set(booking.tenantId, {
       id: profile.id,
       firstName: typeof profile.firstName === 'string' && profile.firstName.trim()
         ? profile.firstName.trim().slice(0, 100) : 'Membre HAVEN',
-      avatarUrl: typeof profile.avatarUrl === 'string' ? profile.avatarUrl : '',
-      age: ageOf(profile.birthDate, today),
-      activity: job ? job.slice(0, 120) : school ? `Étudie à ${school.slice(0, 100)}` : undefined,
+      avatarUrl: '',
+      age: profileAge(profile.birthDate, today),
+      activity: profileActivity(profile),
+      ...(profileInterests(profile.interests).length ? { interests: profileInterests(profile.interests) } : {}),
       coverage,
     });
   }

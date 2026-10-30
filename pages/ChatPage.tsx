@@ -1,3 +1,5 @@
+import { createChatMessage } from '../services/chatMessage';
+import { userFacingErrorMessage } from '../services/errorHandling';
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -23,6 +25,8 @@ export const ChatPage: React.FC = () => {
   const [newMessage, setNewMessage] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
+  const [sendError, setSendError] = useState('');
+  const sendInProgress = useRef(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -36,6 +40,12 @@ export const ChatPage: React.FC = () => {
   useEffect(() => {
     if (!bookingId || !currentUser) return;
 
+    let disposed = false;
+    let unsubscribeMessages: (() => void) | undefined;
+    setIsLoading(true);
+    setMessages([]);
+    setNewMessage('');
+    setSendError('');
     const fetchData = async () => {
       try {
         const bookingData = await apiService.bookings.getById(bookingId);
@@ -61,6 +71,7 @@ export const ChatPage: React.FC = () => {
 
         const otherUserId = isTenant ? listingData.ownerId : bookingData.tenantId;
         const otherUserData = await apiService.users.getById(otherUserId);
+        if (disposed) return;
         if (otherUserData) setOtherUser(otherUserData);
 
         // Real-time messages - fetch all conversations of this user and filter by bookingId locally
@@ -70,7 +81,7 @@ export const ChatPage: React.FC = () => {
           where('participants', 'array-contains', currentUser.id)
         );
 
-        const unsubscribe = onSnapshot(q, (snapshot) => {
+        unsubscribeMessages = onSnapshot(q, (snapshot) => {
           const allMsgs = snapshot.docs.map(doc => doc.data() as Message);
           // Filter by bookingId locally
           const bookingMsgs = allMsgs.filter(m => m.bookingId === bookingId);
@@ -80,48 +91,52 @@ export const ChatPage: React.FC = () => {
           setIsLoading(false);
 
           // Mark as read - only messages where I am the receiver
-          apiService.messages.markAsRead(bookingId, currentUser.id);
+          void apiService.messages.markAsRead(bookingId, currentUser.id).catch(error => console.error('Error marking chat as read:', error));
         }, (error) => {
           console.error('Error listening to messages:', error);
           setIsLoading(false);
           toast.error("Impossible de charger les messages en temps réel.");
         });
 
-        return () => unsubscribe();
+        if (disposed) unsubscribeMessages?.();
       } catch (error) {
         console.error('Error fetching chat data:', error);
         setIsLoading(false);
       }
     };
 
-    fetchData();
+    void fetchData();
+    return () => { disposed = true; unsubscribeMessages?.(); };
   }, [bookingId, currentUser, navigate]);
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newMessage.trim() || !currentUser || !booking || !otherUser || isSending) return;
+    if (!newMessage.trim() || !currentUser || !booking || !otherUser || sendInProgress.current) return;
 
+    sendInProgress.current = true;
     setIsSending(true);
+    setSendError('');
+    const submittedContent = newMessage;
     try {
-      const message: Message = {
-        id: crypto.randomUUID(),
-        senderId: currentUser.id,
-        receiverId: otherUser.id,
-        bookingId: booking.id,
-        content: newMessage.trim(),
-        timestamp: new Date().toISOString(),
-        isRead: false,
-        participants: [currentUser.id, otherUser.id]
-      };
-
+      const message = createChatMessage(submittedContent, currentUser.id, otherUser.id, booking.id);
       await apiService.messages.create(message);
-      setNewMessage('');
+      setNewMessage(current => current === submittedContent ? '' : current);
     } catch (error) {
       console.error('Error sending message:', error);
+      setSendError(`Le message n’a pas été envoyé. ${userFacingErrorMessage(error)} Votre texte est conservé ; vous pouvez réessayer.`);
     } finally {
+      sendInProgress.current = false;
       setIsSending(false);
     }
   };
+
+  useEffect(() => {
+    const viewport = window.visualViewport;
+    const resize = () => document.documentElement.style.setProperty('--haven-viewport-height', `${viewport?.height || window.innerHeight}px`);
+    resize(); viewport?.addEventListener('resize', resize);
+    window.addEventListener('resize', resize);
+    return () => { viewport?.removeEventListener('resize', resize); window.removeEventListener('resize', resize); document.documentElement.style.removeProperty('--haven-viewport-height'); };
+  }, []);
 
   if (isLoading) {
     return (
@@ -134,9 +149,9 @@ export const ChatPage: React.FC = () => {
   if (!booking || !otherUser || !listing) return null;
 
   return (
-    <div className="max-w-4xl mx-auto px-6 py-8 h-[calc(100vh-160px)] flex flex-col">
+    <div className="haven-chat max-w-4xl mx-auto w-full min-w-0 px-3 py-3 sm:px-6 sm:py-6 md:h-[calc(100dvh-80px)] flex flex-col">
       {/* Header */}
-      <div className="flex items-center gap-4 mb-6 bg-white p-4 rounded-3xl shadow-sm border border-haven-navy/5">
+      <div className="flex shrink-0 items-center gap-2 sm:gap-4 mb-3 sm:mb-6 bg-white p-3 sm:p-4 rounded-3xl shadow-sm border border-haven-navy/5">
         <button 
           onClick={() => navigate(-1)}
           className="p-2 hover:bg-gray-100 rounded-full transition-colors"
@@ -144,7 +159,7 @@ export const ChatPage: React.FC = () => {
           <ArrowLeft className="w-6 h-6 text-haven-navy" />
         </button>
         
-        <div className="w-12 h-12 rounded-full overflow-hidden bg-gray-100 border-2 border-haven-red/20">
+        <div className="w-11 h-11 shrink-0 rounded-full overflow-hidden bg-gray-100 border-2 border-haven-red/20">
           {otherUser.avatarUrl ? (
             <img src={otherUser.avatarUrl} alt={otherUser.firstName} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
           ) : (
@@ -154,9 +169,9 @@ export const ChatPage: React.FC = () => {
           )}
         </div>
 
-        <div className="flex-grow">
+        <div className="min-w-0 flex-grow">
           <h2 className="font-bold text-haven-navy">{otherUser.firstName} {otherUser.lastName}</h2>
-          <div className="flex items-center gap-3 text-xs text-gray-500">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500">
             <span className="flex items-center gap-1">
               <Home className="w-3 h-3" />
               {listing.title}
@@ -170,7 +185,7 @@ export const ChatPage: React.FC = () => {
       </div>
 
       {/* Messages Area */}
-      <div className="flex-grow overflow-y-auto mb-6 space-y-4 pr-2 custom-scrollbar">
+      <div className="min-h-0 flex-grow overflow-y-auto overscroll-contain mb-3 space-y-4 pr-2 custom-scrollbar">
         {messages.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center text-center p-8">
             <div className="w-16 h-16 bg-haven-cream rounded-full flex items-center justify-center mb-4">
@@ -188,7 +203,7 @@ export const ChatPage: React.FC = () => {
                 animate={{ opacity: 1, y: 0 }}
                 className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}
               >
-                <div className={`max-w-[70%] p-4 rounded-2xl shadow-sm ${
+                <div className={`min-w-0 max-w-[88%] sm:max-w-[70%] break-words p-3 sm:p-4 rounded-2xl shadow-sm ${
                   isMe 
                     ? 'bg-haven-navy text-white rounded-tr-none' 
                     : 'bg-white text-haven-navy border border-haven-navy/5 rounded-tl-none'
@@ -208,18 +223,22 @@ export const ChatPage: React.FC = () => {
       </div>
 
       {/* Input Area */}
-      <form onSubmit={handleSendMessage} className="bg-white p-4 rounded-3xl shadow-lg border border-haven-navy/5 flex gap-3">
+      {sendError && <p role="alert" className="mb-3 rounded-xl border border-red-100 bg-red-50 p-3 text-sm text-red-700">{sendError}</p>}
+      <form aria-busy={isSending} onSubmit={handleSendMessage} className="haven-bottom-actions bg-white p-2 sm:p-4 rounded-3xl shadow-lg border border-haven-navy/5 flex shrink-0 gap-2 sm:gap-3">
         <input 
           type="text"
+          aria-label="Votre message"
+          maxLength={4999}
           value={newMessage}
           onChange={(e) => setNewMessage(e.target.value)}
           placeholder="Votre message..."
-          className="flex-grow px-6 py-3 bg-gray-50 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-haven-red/20 focus:border-haven-red transition-all"
+          className="min-w-0 w-full flex-1 px-3 sm:px-6 py-3 bg-gray-50 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-haven-red/20 focus:border-haven-red transition-all"
         />
         <button 
           type="submit"
+          aria-label={isSending ? 'Envoi en cours' : 'Envoyer le message'}
           disabled={!newMessage.trim() || isSending}
-          className="w-12 h-12 bg-haven-red text-white rounded-2xl flex items-center justify-center hover:bg-haven-red/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-haven-red/20"
+          className="shrink-0 w-12 h-12 bg-haven-red text-white rounded-2xl flex items-center justify-center hover:bg-haven-red/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-haven-red/20"
         >
           {isSending ? (
             <Loader2 className="w-5 h-5 animate-spin" />

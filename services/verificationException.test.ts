@@ -1,3 +1,4 @@
+import { CLEANING_POLICY_VERSION } from './cleaningPolicy';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { hasTrustedVerificationException, hasVerificationException, prepareVerificationException } from './verificationException';
@@ -55,7 +56,7 @@ test('une annonce incomplète peut être validée en test mais pas par le parcou
 
 test('la validation normale d’une annonce ne croit pas une dérogation propriétaire sans preuve serveur', () => {
   const listing = {
-    status: 'PENDING', title: 'Logement test', description: 'Description', address: '1 rue Test', city: 'Paris',
+    cleaningPolicyVersion: CLEANING_POLICY_VERSION, status: 'PENDING', title: 'Logement test', description: 'Description', address: '1 rue Test', city: 'Paris',
     totalRooms: 1, mainPhotoUrl: 'photo1', galleryUrls: ['photo1', 'photo2', 'photo3'],
     rooms: [{ name: 'Chambre', size: 12, pricePerDay: 20, hasDesk: true, photoUrl: 'room' }]
   } as Listing;

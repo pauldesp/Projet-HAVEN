@@ -1,3 +1,8 @@
+import { CleaningPolicyNotice } from '../components/CleaningPolicyNotice';
+import { CLEANING_POLICY_VERSION } from '../services/cleaningPolicy';
+import { OwnerStayGuideButton } from '../components/OwnerStayGuideButton';
+import { useLanguage } from '../contexts/LanguageContext';
+import { ListingPublicInfoFields } from '../components/ListingPublicInfoFields';
 import { hasVerificationException } from '../services/verificationException';
 import { hasRequiredPhoneNumber, isVerificationPending } from '../services/profileVerification';
 
@@ -44,6 +49,8 @@ import ReactMarkdown from 'react-markdown';
 import { sanitizeHtml } from '../services/sanitizeHtml';
 
 export const PublishListing: React.FC = () => {
+  const { tr } = useLanguage();
+  const [createdListingId, setCreatedListingId] = useState<string | null>(null);
   const navigate = useNavigate();
   const { currentUser, isLoading: isAuthLoading } = useAuth();
   const { addListing } = useListings();
@@ -149,7 +156,7 @@ export const PublishListing: React.FC = () => {
           <div className="w-24 h-24 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-8 shadow-lg shadow-red-100/50">
             <Lock className="text-haven-red" size={48} />
           </div>
-          <h1 className="text-4xl font-heading font-bold text-haven-navy mb-4">{isSubmittedForReview ? 'Dossier en cours de vérification' : 'Vérification requise'}</h1>
+          <h1 className="text-3xl md:text-4xl font-heading font-bold text-haven-navy mb-4">{isSubmittedForReview ? 'Dossier en cours de vérification' : 'Vérification requise'}</h1>
           <p className="text-haven-stone text-lg mb-10 leading-relaxed">
             Avant toute mise en ligne, HAVEN doit valider votre identité après vérification de votre dossier.
             Cette étape protège les locataires comme les propriétaires.
@@ -175,6 +182,8 @@ export const PublishListing: React.FC = () => {
     type: 'APARTMENT' as 'APARTMENT' | 'HOUSE',
     title: '',
     description: '',
+    neighborhood: '',
+    arrivalMethod: 'TO_COORDINATE' as NonNullable<Listing['arrivalMethod']>,
     country: 'France',
     city: '',
     address: '',
@@ -186,6 +195,7 @@ export const PublishListing: React.FC = () => {
     totalRooms: 1,
     bathrooms: 1,
     cleaningFee: 15,
+    cleaningPolicyVersion: '',
     minStay: DEFAULT_MINIMUM_NIGHTS,
     checkInTime: '15:00',
     checkOutTime: '11:00',
@@ -265,7 +275,7 @@ export const PublishListing: React.FC = () => {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
       const { formData: savedData, currentStep: savedStep } = JSON.parse(saved);
-      setFormData({ ...savedData, minStay: savedData.minStay ?? DEFAULT_MINIMUM_NIGHTS });
+      setFormData({ ...savedData, neighborhood: savedData.neighborhood || '', arrivalMethod: savedData.arrivalMethod || 'TO_COORDINATE', minStay: savedData.minStay ?? DEFAULT_MINIMUM_NIGHTS });
       setCurrentStep(savedStep);
     }
     setShowResumePrompt(false);
@@ -475,6 +485,7 @@ export const PublishListing: React.FC = () => {
   };
 
   const handleSubmit = async () => {
+    if (formData.cleaningPolicyVersion !== CLEANING_POLICY_VERSION) { toast.error('Confirmez votre engagement de ménage hebdomadaire.'); return; }
     if (!currentUser) {
       toast.error('Vous devez être connecté pour publier un logement.');
       return;
@@ -503,6 +514,8 @@ export const PublishListing: React.FC = () => {
       title: formData.title || "Nouveau logement",
       description: limitListingDescription(formData.description),
       city: formData.city,
+      neighborhood: formData.neighborhood || '',
+      arrivalMethod: formData.arrivalMethod || 'TO_COORDINATE',
       postalCode: formData.zipCode,
       country: formData.country,
       address: `${formData.address}${formData.addressComplement ? ', ' + formData.addressComplement : ''}`,
@@ -522,10 +535,12 @@ export const PublishListing: React.FC = () => {
       reviewsCount: 0,
       bathrooms: formData.bathrooms,
       cleaningFee: formData.cleaningFee,
+      cleaningPolicyVersion: formData.cleaningPolicyVersion,
       rooms: formData.rooms.map(normalizeRoomPhotos),
       galleryUrls: formData.galleryUrls.slice(0, MAX_LISTING_PHOTOS)
       };
       await addListing(newListing);
+      setCreatedListingId(newListing.id);
       setCurrentStep('SUCCESS');
       localStorage.removeItem(STORAGE_KEY);
     } catch (error) {
@@ -547,7 +562,7 @@ export const PublishListing: React.FC = () => {
       case 'ROOMS': return !hasIncompleteRoom(formData.rooms) && !hasRoomWithoutOption(formData.rooms);
       case 'PHOTOS': return formData.galleryUrls.length >= 3 && !hasMissingRoomPhoto(formData.rooms);
       case 'REVIEW': return true;
-      case 'LEGAL': return legalReadStatus.specifications.validated && legalReadStatus.terms.validated;
+      case 'LEGAL': return formData.cleaningPolicyVersion === CLEANING_POLICY_VERSION && legalReadStatus.specifications.validated && legalReadStatus.terms.validated;
       default: return false;
     }
   };
@@ -557,7 +572,7 @@ export const PublishListing: React.FC = () => {
   if (showResumePrompt) {
     return (
       <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-haven-navy/40 backdrop-blur-sm animate-fade-in">
-        <div className="bg-white rounded-[2.5rem] shadow-premium max-w-lg w-full p-10 text-center space-y-8 animate-fade-in-up">
+        <div className="bg-white rounded-[2.5rem] shadow-premium max-w-lg w-full p-5 sm:p-10 text-center space-y-8 animate-fade-in-up">
           <div className="w-20 h-20 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto shadow-inner"><RotateCcw size={36} /></div>
           <div className="space-y-3">
             <h1 className="text-3xl font-heading font-bold text-haven-navy">Reprendre là où vous vous étiez arrêté ?</h1>
@@ -577,8 +592,13 @@ export const PublishListing: React.FC = () => {
       <div className="min-h-screen bg-haven-cream flex items-center justify-center p-6 text-center">
         <div className="max-w-md w-full animate-fade-in-up">
           <div className="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-8 shadow-lg shadow-green-100/50"><CheckCircle className="text-green-600" size={48} /></div>
-          <h1 className="text-4xl font-heading font-bold text-haven-navy mb-4">Annonce envoyée !</h1>
+          <h1 className="text-3xl md:text-4xl font-heading font-bold text-haven-navy mb-4">Annonce envoyée !</h1>
           <p className="text-haven-stone text-lg mb-10 leading-relaxed">Votre logement est maintenant en cours de vérification par notre équipe. Il sera visible sur HAVEN d'ici 24h.</p>
+          {createdListingId && <section className="mb-6 rounded-3xl border border-gray-100 bg-white p-6 text-left">
+            <h2 className="font-heading text-lg font-bold text-haven-navy">{tr('Préparez le séjour de vos locataires')}</h2>
+            <p className="mt-2 mb-5 text-sm leading-relaxed text-haven-stone">{tr('Complétez les accès, le Wi-Fi, le stationnement et les informations pratiques dans le guide privé du séjour.')}</p>
+            <OwnerStayGuideButton listingId={createdListingId} title={formData.title} />
+          </section>}
           <div className="space-y-4">
             <Button fullWidth size="lg" onClick={() => navigate('/owner/dashboard')}>Aller au tableau de bord</Button>
             <Button fullWidth variant="ghost" onClick={() => navigate('/')}>Retour à l'accueil</Button>
@@ -591,7 +611,7 @@ export const PublishListing: React.FC = () => {
   return (
     <div className="min-h-screen bg-haven-cream font-body flex flex-col">
       {/* Header Sticky Progress */}
-      <div className="sticky top-24 z-40 bg-white/80 backdrop-blur-md border-b border-gray-100 px-6 py-4 flex justify-between items-center">
+      <div className="sticky top-16 md:top-20 z-40 bg-white/80 backdrop-blur-md border-b border-gray-100 px-4 sm:px-6 py-3 sm:py-4 flex flex-wrap gap-3 justify-between items-center">
         <div className="flex items-center gap-4">
           <button onClick={() => navigate('/owner/dashboard')} className="text-haven-stone hover:text-haven-navy transition-colors"><XCircle size={24} /></button>
           <div className="h-6 w-px bg-gray-200" />
@@ -610,19 +630,19 @@ export const PublishListing: React.FC = () => {
         <button onClick={handleRestart} className="text-[10px] font-black uppercase tracking-widest text-haven-stone hover:text-haven-red flex items-center gap-1.5 transition-colors"><RotateCcw size={12} /> Recommencer</button>
       </div>
 
-      <div className="flex-1 max-w-5xl mx-auto w-full px-6 py-12 pb-32">
+      <div className="flex-1 max-w-5xl mx-auto w-full px-4 sm:px-6 py-8 sm:py-12 pb-32">
         {currentStep === 'TYPE' && (
           <div className="space-y-8 animate-fade-in-up">
             <div className="space-y-2 text-center md:text-left">
-              <h1 className="text-4xl font-heading font-bold text-haven-navy">Quel type de logement proposez-vous ?</h1>
+              <h1 className="text-3xl md:text-4xl font-heading font-bold text-haven-navy">Quel type de logement proposez-vous ?</h1>
               <p className="text-haven-stone">Sélectionnez la catégorie qui correspond le mieux à votre bien.</p>
             </div>
             <div className="grid md:grid-cols-2 gap-6">
-              <div onClick={() => setFormData({...formData, type: 'APARTMENT'})} className={`p-8 border-2 rounded-3xl cursor-pointer transition-all duration-300 flex flex-col gap-4 ${formData.type === 'APARTMENT' ? 'border-haven-navy bg-haven-navy/5 shadow-premium' : 'border-gray-100 bg-white hover:border-gray-200 shadow-soft'}`}>
+              <div onClick={() => setFormData({...formData, type: 'APARTMENT'})} className={`p-4 sm:p-8 border-2 rounded-3xl cursor-pointer transition-all duration-300 flex flex-col gap-4 ${formData.type === 'APARTMENT' ? 'border-haven-navy bg-haven-navy/5 shadow-premium' : 'border-gray-100 bg-white hover:border-gray-200 shadow-soft'}`}>
                 <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${formData.type === 'APARTMENT' ? 'bg-haven-navy text-white' : 'bg-gray-50 text-haven-stone'}`}><Building size={28} /></div>
                 <div><h3 className="font-bold text-xl text-haven-navy">Appartement</h3><p className="text-sm text-haven-stone">Logement situé dans un immeuble partagé.</p></div>
               </div>
-              <div onClick={() => setFormData({...formData, type: 'HOUSE'})} className={`p-8 border-2 rounded-3xl cursor-pointer transition-all duration-300 flex flex-col gap-4 ${formData.type === 'HOUSE' ? 'border-haven-navy bg-haven-navy/5 shadow-premium' : 'border-gray-100 bg-white hover:border-gray-200 shadow-soft'}`}>
+              <div onClick={() => setFormData({...formData, type: 'HOUSE'})} className={`p-4 sm:p-8 border-2 rounded-3xl cursor-pointer transition-all duration-300 flex flex-col gap-4 ${formData.type === 'HOUSE' ? 'border-haven-navy bg-haven-navy/5 shadow-premium' : 'border-gray-100 bg-white hover:border-gray-200 shadow-soft'}`}>
                 <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${formData.type === 'HOUSE' ? 'bg-haven-navy text-white' : 'bg-gray-50 text-haven-stone'}`}><Home size={28} /></div>
                 <div><h3 className="font-bold text-xl text-haven-navy">Maison</h3><p className="text-sm text-haven-stone">Propriété individuelle avec ou sans extérieur.</p></div>
               </div>
@@ -633,11 +653,11 @@ export const PublishListing: React.FC = () => {
         {currentStep === 'LOCATION' && (
           <div className="space-y-8 animate-fade-in-up">
             <div className="space-y-2">
-              <h1 className="text-4xl font-heading font-bold text-haven-navy">Où est situé votre logement ?</h1>
+              <h1 className="text-3xl md:text-4xl font-heading font-bold text-haven-navy">Où est situé votre logement ?</h1>
               <p className="text-haven-stone">Saisissez l'adresse précise pour garantir une mise en relation efficace.</p>
             </div>
             <div className="space-y-8">
-              <div className="bg-white p-8 rounded-3xl border border-gray-100 shadow-soft">
+              <div className="bg-white p-4 sm:p-8 rounded-3xl border border-gray-100 shadow-soft">
                 <label className="block text-[10px] font-black text-haven-stone uppercase tracking-widest mb-4">Recherchez votre adresse exacte</label>
                 <CityAutocomplete 
                   value={formData.address} 
@@ -660,7 +680,7 @@ export const PublishListing: React.FC = () => {
         {currentStep === 'ADDRESS_CONFIRM' && (
           <div className="space-y-8 animate-fade-in-up">
             <div className="space-y-2">
-              <h1 className="text-4xl font-heading font-bold text-haven-navy">Confirmez votre adresse</h1>
+              <h1 className="text-3xl md:text-4xl font-heading font-bold text-haven-navy">Confirmez votre adresse</h1>
             </div>
             <div className="bg-white rounded-2xl border border-gray-300 overflow-hidden shadow-soft">
               <div className="px-4 py-3 border-b border-gray-200 bg-white">
@@ -689,9 +709,10 @@ export const PublishListing: React.FC = () => {
         {currentStep === 'DETAILS' && (
           <div className="space-y-8 animate-fade-in-up">
             <div className="space-y-2">
-              <h1 className="text-4xl font-heading font-bold text-haven-navy">Les caractéristiques du bien</h1>
+              <h1 className="text-3xl md:text-4xl font-heading font-bold text-haven-navy">Les caractéristiques du bien</h1>
             </div>
-            <div className="bg-white p-8 rounded-3xl border border-gray-100 shadow-soft space-y-4">
+            <div className="bg-white p-4 sm:p-8 rounded-3xl border border-gray-100 shadow-soft space-y-4">
+              <ListingPublicInfoFields value={formData} onChange={updates => setFormData(prev => ({ ...prev, ...updates }))} />
               <label className="block text-[10px] font-black text-haven-stone uppercase tracking-widest">Nom de la colocation</label>
               <input 
                 type="text" 
@@ -759,7 +780,7 @@ export const PublishListing: React.FC = () => {
                     <input type="time" value={formData.checkOutTime} onChange={event => setFormData(prev => ({ ...prev, checkOutTime: event.target.value }))} className="w-full rounded-xl border border-gray-200 p-3" />
                   </div>
                 </div>
-                <label className="block text-[10px] font-black text-haven-stone uppercase tracking-widest mb-4">Frais de ménage (€ par location)</label>
+                <label className="block text-[10px] font-black text-haven-stone uppercase tracking-widest mb-4">Forfait ménage (€ par location)</label>
                 <div className="flex items-center gap-4 mt-2">
                   <button 
                     onClick={() => setFormData(prev => ({ ...prev, cleaningFee: Math.max(0, prev.cleaningFee - 5) }))}
@@ -788,10 +809,10 @@ export const PublishListing: React.FC = () => {
         {currentStep === 'DESCRIPTION' && (
           <div className="space-y-8 animate-fade-in-up">
             <div>
-              <h1 className="text-4xl font-heading font-bold text-haven-navy">Présentez votre logement</h1>
+              <h1 className="text-3xl md:text-4xl font-heading font-bold text-haven-navy">Présentez votre logement</h1>
               <p className="mt-2 text-haven-stone">Décrivez simplement les espaces, l’ambiance et les équipements importants.</p>
             </div>
-            <div className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-premium">
+            <div className="bg-white p-4 sm:p-8 rounded-[2.5rem] border border-gray-100 shadow-premium">
               <textarea 
                 rows={10} 
                 value={formData.description || ''} 
@@ -808,10 +829,10 @@ export const PublishListing: React.FC = () => {
         {currentStep === 'AMENITIES' && (
           <div className="space-y-8 animate-fade-in-up">
             <div className="space-y-2">
-              <h1 className="text-4xl font-heading font-bold text-haven-navy">Équipements et services</h1>
+              <h1 className="text-3xl md:text-4xl font-heading font-bold text-haven-navy">Équipements et services</h1>
               <div className="bg-blue-50 p-4 rounded-2xl flex items-center gap-3 border border-blue-100">
                 <Info size={18} className="text-blue-500" />
-                <p className="text-xs text-blue-800">Cuisine équipée et ménage inclus d'office.</p>
+                <p className="text-xs text-blue-800">Cuisine équipée et ménage hebdomadaire organisé par le propriétaire.</p>
               </div>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -828,7 +849,7 @@ export const PublishListing: React.FC = () => {
         {currentStep === 'ROOMS' && (
           <div className="space-y-8 animate-fade-in-up">
             <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-              <h1 className="text-4xl font-heading font-bold text-haven-navy">Configurez vos chambres</h1>
+              <h1 className="text-3xl md:text-4xl font-heading font-bold text-haven-navy">Configurez vos chambres</h1>
               <Button 
                 variant="ghost" 
                 size="sm" 
@@ -845,7 +866,7 @@ export const PublishListing: React.FC = () => {
               {formData.rooms.map(room => (
                 <div key={room.id} className="bg-white rounded-[2.5rem] border border-gray-100 shadow-premium overflow-hidden flex flex-col lg:flex-row">
                   {/* Form Part */}
-                  <div className="flex-1 p-8 md:p-10 space-y-10 border-r border-gray-50">
+                  <div className="flex-1 p-4 sm:p-8 md:p-10 space-y-10 border-r border-gray-50">
                     <div className="flex items-center justify-between border-b border-gray-100 pb-4">
                       <div className="space-y-1">
                         <label className="text-[10px] font-black text-haven-stone uppercase tracking-widest">Nom de la chambre</label>
@@ -903,7 +924,7 @@ export const PublishListing: React.FC = () => {
                   </div>
 
                   {/* Photos Part */}
-                  <div className="w-full lg:w-72 bg-gray-50/50 p-8 flex flex-col gap-4">
+                  <div className="w-full lg:w-72 bg-gray-50/50 p-4 sm:p-8 flex flex-col gap-4">
                     <label className="text-[10px] font-black text-haven-stone uppercase tracking-widest mb-1 flex items-center gap-2">
                       <Camera size={14}/> Photo de la chambre
                     </label>
@@ -940,7 +961,7 @@ export const PublishListing: React.FC = () => {
         {currentStep === 'PHOTOS' && (
           <div className="space-y-8 animate-fade-in-up">
             <div className="space-y-2 text-center">
-              <h1 className="text-4xl font-heading font-bold text-haven-navy">Mise en lumière globale</h1>
+              <h1 className="text-3xl md:text-4xl font-heading font-bold text-haven-navy">Mise en lumière globale</h1>
               <p className="text-haven-stone">Ajoutez entre 3 et 5 photos des parties communes (salon, cuisine, terrasse...).</p>
               <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold uppercase tracking-widest ${formData.galleryUrls.length >= 3 ? 'bg-green-50 text-green-600' : 'bg-haven-red/5 text-haven-red'}`}>
                 {formData.galleryUrls.length < 3 ? (
@@ -1010,7 +1031,7 @@ export const PublishListing: React.FC = () => {
         {currentStep === 'REVIEW' && (
           <div className="space-y-10 animate-fade-in-up">
             <div className="space-y-2">
-              <h1 className="text-4xl font-heading font-bold text-haven-navy">Récapitulatif de votre annonce</h1>
+              <h1 className="text-3xl md:text-4xl font-heading font-bold text-haven-navy">Récapitulatif de votre annonce</h1>
               <p className="text-haven-stone">Vérifiez les détails avant de mettre votre bien en ligne.</p>
             </div>
 
@@ -1018,7 +1039,7 @@ export const PublishListing: React.FC = () => {
               {/* Technical Recap (Left Column) */}
               <div className="lg:col-span-2 space-y-8">
                 {/* General Infos */}
-                <div className="bg-white rounded-[2rem] p-8 border border-gray-100 shadow-soft space-y-6">
+                <div className="bg-white rounded-[2rem] p-4 sm:p-8 border border-gray-100 shadow-soft space-y-6">
                   <div className="flex items-center gap-3 text-haven-navy">
                     <Info size={24} className="text-haven-red" />
                     <h3 className="font-heading font-bold text-xl">Informations Générales</h3>
@@ -1033,7 +1054,7 @@ export const PublishListing: React.FC = () => {
                 </div>
 
                 {/* Rooms List */}
-                <div className="bg-white rounded-[2rem] p-8 border border-gray-100 shadow-soft space-y-6">
+                <div className="bg-white rounded-[2rem] p-4 sm:p-8 border border-gray-100 shadow-soft space-y-6">
                   <div className="flex items-center gap-3 text-haven-navy">
                     <ListChecks size={24} className="text-haven-red" />
                     <h3 className="font-heading font-bold text-xl">Détail des chambres ({formData.rooms.length})</h3>
@@ -1064,7 +1085,7 @@ export const PublishListing: React.FC = () => {
                 </div>
 
                 {/* Description Preview */}
-                <div className="bg-white rounded-[2rem] p-8 border border-gray-100 shadow-soft space-y-4">
+                <div className="bg-white rounded-[2rem] p-4 sm:p-8 border border-gray-100 shadow-soft space-y-4">
                   <h3 className="font-heading font-bold text-xl text-haven-navy">Description</h3>
                   <div className="prose prose-sm prose-slate max-w-none 
                   prose-p:text-haven-stone prose-p:leading-relaxed prose-p:mb-4 prose-p:mt-0
@@ -1078,12 +1099,12 @@ export const PublishListing: React.FC = () => {
                 </div>
 
                 {/* Gallery Preview */}
-                <div className="bg-white rounded-[2rem] p-8 border border-gray-100 shadow-soft space-y-6">
+                <div className="bg-white rounded-[2rem] p-4 sm:p-8 border border-gray-100 shadow-soft space-y-6">
                   <div className="flex items-center gap-3 text-haven-navy">
                     <Camera size={24} className="text-haven-red" />
                     <h3 className="font-heading font-bold text-xl">Photos des parties communes ({formData.galleryUrls.length})</h3>
                   </div>
-                  <div className="grid grid-cols-4 gap-4">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                     {formData.galleryUrls.map((url, idx) => (
                       <div key={idx} className="aspect-square rounded-2xl overflow-hidden border border-gray-100">
                         <img src={url} className="w-full h-full object-cover" alt="" />
@@ -1142,8 +1163,10 @@ export const PublishListing: React.FC = () => {
 
         {currentStep === 'LEGAL' && (
           <div className="space-y-10 animate-fade-in-up">
+            <CleaningPolicyNotice audience="owner" />
+            <label className="flex items-start gap-3 rounded-2xl border border-gray-200 bg-white p-5 text-sm leading-relaxed"><input type="checkbox" checked={formData.cleaningPolicyVersion === CLEANING_POLICY_VERSION} onChange={event => setFormData(current => ({ ...current, cleaningPolicyVersion: event.target.checked ? CLEANING_POLICY_VERSION : '' }))} className="mt-1" />Je m’engage à faire réaliser un ménage chaque semaine, par moi-même ou par un prestataire.</label>
             <div className="space-y-4">
-              <h1 className="text-4xl font-heading font-bold text-haven-navy">Validation Légale</h1>
+              <h1 className="text-3xl md:text-4xl font-heading font-bold text-haven-navy">Validation Légale</h1>
               <p className="text-haven-stone text-lg max-w-2xl">
                 Pour garantir la sécurité et la qualité de la plateforme, nous vous demandons de prendre connaissance et d'accepter les documents suivants.
               </p>
@@ -1151,7 +1174,7 @@ export const PublishListing: React.FC = () => {
 
             <div className="grid md:grid-cols-2 gap-8">
               {/* Cahier des charges Card */}
-              <div className={`relative bg-white rounded-[2.5rem] p-10 border transition-all duration-500 flex flex-col h-full ${
+              <div className={`relative bg-white rounded-[2.5rem] p-5 sm:p-10 border transition-all duration-500 flex flex-col h-full ${
                 legalReadStatus.specifications.validated 
                   ? 'border-green-200 shadow-sm' 
                   : 'border-gray-100 shadow-premium hover:shadow-2xl hover:-translate-y-1'
@@ -1188,7 +1211,7 @@ export const PublishListing: React.FC = () => {
               </div>
 
               {/* Conditions Générales Card */}
-              <div className={`relative bg-white rounded-[2.5rem] p-10 border transition-all duration-500 flex flex-col h-full ${
+              <div className={`relative bg-white rounded-[2.5rem] p-5 sm:p-10 border transition-all duration-500 flex flex-col h-full ${
                 legalReadStatus.terms.validated 
                   ? 'border-green-200 shadow-sm' 
                   : 'border-gray-100 shadow-premium hover:shadow-2xl hover:-translate-y-1'
@@ -1225,7 +1248,7 @@ export const PublishListing: React.FC = () => {
               </div>
             </div>
 
-            <div className="bg-haven-navy/5 p-8 rounded-[2.5rem] border border-haven-navy/10 flex items-start gap-4">
+            <div className="bg-haven-navy/5 p-4 sm:p-8 rounded-[2.5rem] border border-haven-navy/10 flex items-start gap-4">
               <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-haven-navy shadow-sm shrink-0">
                 <Info size={20} />
               </div>
@@ -1241,9 +1264,9 @@ export const PublishListing: React.FC = () => {
       {isLegalModalOpen && activeLegalDoc && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-0 md:p-8">
           <div className="absolute inset-0 bg-haven-navy/80 backdrop-blur-md animate-fade-in" onClick={closeLegalModal} />
-          <div className="relative bg-white w-full max-w-5xl h-full md:h-[90vh] md:rounded-[3rem] shadow-2xl flex flex-col overflow-hidden animate-fade-in-up">
+          <div className="relative bg-white w-full max-w-5xl h-full md:h-[90dvh] md:rounded-[3rem] shadow-2xl flex flex-col overflow-hidden animate-fade-in-up">
             {/* Modal Header */}
-            <div className="px-8 py-6 border-b border-gray-100 flex items-center justify-between bg-white sticky top-0 z-10">
+            <div className="shrink-0 px-4 py-4 sm:px-8 sm:py-6 border-b border-gray-100 flex items-center justify-between bg-white sticky top-0 z-10">
               <div className="flex items-center gap-4">
                 <div className="w-12 h-12 bg-haven-red/10 rounded-2xl flex items-center justify-center text-haven-red">
                   {activeLegalDoc.id === 'specifications' ? <FileText size={24} /> : <Shield size={24} />}
@@ -1265,7 +1288,7 @@ export const PublishListing: React.FC = () => {
             <div 
               ref={modalScrollRef}
               onScroll={(e) => handleScroll(e, activeLegalDoc.id)}
-              className="flex-grow overflow-y-auto p-8 md:p-16 bg-white scroll-smooth"
+              className="flex-grow overflow-y-auto p-4 sm:p-8 md:p-16 bg-white scroll-smooth"
             >
               <div className="max-w-3xl mx-auto">
                 <div className="prose prose-slate max-w-none 
@@ -1297,7 +1320,7 @@ export const PublishListing: React.FC = () => {
             </div>
 
             {/* Modal Footer */}
-            <div className="px-8 py-8 border-t border-gray-100 bg-gray-50/50 backdrop-blur-sm flex flex-col md:flex-row items-center justify-between gap-6">
+            <div className="haven-dialog-footer shrink-0 px-4 py-4 sm:px-8 sm:py-8 border-t border-gray-100 bg-gray-50/50 backdrop-blur-sm flex flex-col md:flex-row items-center justify-between gap-6">
               <div className="flex flex-col gap-1">
                 {!legalReadStatus[activeLegalDoc.id].scrolled ? (
                   <div className="flex items-center gap-3 text-haven-red font-bold text-sm animate-pulse">
@@ -1316,14 +1339,14 @@ export const PublishListing: React.FC = () => {
                 )}
               </div>
               
-              <div className="flex gap-4 w-full md:w-auto">
+              <div className="flex gap-2 md:gap-4 w-full md:w-auto">
                 <Button variant="ghost" onClick={closeLegalModal} className="px-8 py-4 font-bold">
                   Fermer
                 </Button>
                 <Button 
                   disabled={!legalReadStatus[activeLegalDoc.id].scrolled}
                   onClick={() => validateLegalDoc(activeLegalDoc.id)}
-                  className="px-12 py-4 font-bold min-w-[240px] shadow-xl shadow-haven-red/20"
+                  className="px-4 md:px-12 py-4 font-bold min-w-0 md:min-w-[240px] shadow-xl shadow-haven-red/20"
                 >
                   J'accepte et je valide
                 </Button>
@@ -1333,15 +1356,15 @@ export const PublishListing: React.FC = () => {
         </div>
       )}
 
-      <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-gray-100 px-8 py-6 z-40">
-        <div className="max-w-5xl mx-auto flex justify-between items-center">
+      <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-gray-100 px-4 py-3 md:px-8 md:py-6 z-40 haven-bottom-actions">
+        <div className="max-w-5xl mx-auto flex justify-between items-center gap-3">
           <button onClick={handleBack} className={`flex items-center gap-2 font-bold text-haven-stone hover:text-haven-navy transition-colors ${currentStep === 'TYPE' ? 'invisible' : ''}`}><ArrowLeft size={20} /> Retour</button>
           {currentStep === 'LEGAL' ? (
-            <Button variant="secondary" size="lg" onClick={handleSubmit} disabled={isSubmitting || !isStepValid()} className="px-12 py-4 text-lg shadow-xl shadow-haven-red/20">
+            <Button variant="secondary" size="lg" onClick={handleSubmit} disabled={isSubmitting || !isStepValid()} className="px-4 md:px-12 py-3 md:py-4 text-sm md:text-lg shadow-xl shadow-haven-red/20">
               {isSubmitting ? (<><Loader2 className="animate-spin mr-2" size={20} /> Publication...</>) : ("Finaliser et Publier")}
             </Button>
           ) : (
-            <Button size="lg" onClick={handleNext} disabled={currentStep === 'ROOMS' ? hasIncompleteRoom(formData.rooms) : !isStepValid()} className="px-12 py-4 text-lg gap-2">
+            <Button size="lg" onClick={handleNext} disabled={currentStep === 'ROOMS' ? hasIncompleteRoom(formData.rooms) : !isStepValid()} className="px-4 md:px-12 py-3 md:py-4 text-sm md:text-lg gap-2">
               Suivant <ArrowRight size={20} />
             </Button>
           )}

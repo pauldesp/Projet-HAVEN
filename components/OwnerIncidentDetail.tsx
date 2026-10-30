@@ -21,9 +21,9 @@ export function OwnerIncidentDetail({ incident, listingTitle, onClose, onUpdated
     finally { setProcessing(false); }
   };
   return <div className="fixed inset-0 z-[110] flex items-center justify-center bg-haven-navy/60 p-4 backdrop-blur-sm">
-    <section role="dialog" aria-modal="true" aria-labelledby="owner-incident-title" className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-3xl bg-white shadow-xl">
+    <section role="dialog" aria-modal="true" aria-labelledby="owner-incident-title" className="haven-dialog-panel flex max-h-[90dvh] w-full max-w-2xl flex-col overflow-hidden rounded-3xl bg-white shadow-xl">
       <header className="flex items-center justify-between gap-4 border-b p-6"><div><p className="text-sm text-gray-500">{listingTitle} · {incidentStatusLabel(incident.status)}</p><h2 id="owner-incident-title" className="text-xl font-bold text-haven-navy">{incident.title}</h2></div><button onClick={onClose} disabled={processing} aria-label="Fermer"><XCircle/></button></header>
-      <div className="space-y-5 overflow-y-auto p-6">
+      <div className="haven-dialog-scroll space-y-5 overflow-y-auto p-6">
         {error && <p role="alert" className="rounded-xl bg-red-50 p-3 text-red-700">{error}</p>}
         <p className="whitespace-pre-wrap text-gray-700">{incident.description}</p>
         <div className="space-y-1 text-sm text-gray-500">
@@ -37,7 +37,7 @@ export function OwnerIncidentDetail({ incident, listingTitle, onClose, onUpdated
         <label className="block text-sm font-bold text-haven-navy">Votre suivi<textarea maxLength={2000} rows={4} disabled={!isOpen || processing} value={notes} onChange={event => setNotes(event.target.value)} placeholder="Intervention prévue, actions réalisées…" className="mt-2 w-full rounded-xl border p-3 font-normal"/></label>
         <p className="text-xs text-gray-500">Haven peut consulter le suivi. Vous assurez la prise en charge de cet incident.</p>
       </div>
-      <footer className="flex flex-wrap justify-end gap-3 border-t bg-gray-50 p-5">
+      <footer className="haven-dialog-footer flex flex-wrap justify-end gap-3 border-t bg-gray-50 p-5">
         {isOpen && <><Button variant="outline" disabled={processing} onClick={() => void update('INVESTIGATING')}>{incident.status === 'NEW' ? 'Prendre en charge' : 'Enregistrer le suivi'}</Button><Button disabled={processing} onClick={() => void update('RESOLVED')}>{processing && <Loader2 size={16} className="mr-2 animate-spin"/>}Marquer comme résolu</Button></>}
         <Button variant="outline" onClick={onClose} disabled={processing}>Fermer</Button>
       </footer>

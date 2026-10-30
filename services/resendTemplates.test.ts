@@ -71,3 +71,11 @@ test('authentication mail claims the limit before generation and never sends an 
   assert.equal(await sendAuthActionMail('EMAIL_VERIFICATION','Camille',authDomain,{...actions,claim:async()=>true}),true);assert.equal(sent,1);
   await assert.rejects(sendAuthActionMail('EMAIL_VERIFICATION','Camille',authDomain,{...actions,claim:async()=>true,generate:async()=> 'https://attacker.example/'}));assert.equal(sent,1);
 });
+
+test('changing an email uses only the verified Firebase change action with the existing verification template', () => {
+  const authDomain = 'example.firebaseapp.com';
+  const content = authResendTemplate('EMAIL_VERIFICATION', 'Camille', `https://${authDomain}/__/auth/action?mode=verifyAndChangeEmail&oobCode=FICTIF`, authDomain);
+  assert.equal(content.template.id, RESEND_TEMPLATE_IDS.EMAIL_VERIFICATION);
+  assert.throws(() => authResendTemplate('PASSWORD_RESET', 'Camille', `https://${authDomain}/__/auth/action?mode=verifyAndChangeEmail&oobCode=FICTIF`, authDomain));
+  assert.throws(() => authResendTemplate('EMAIL_VERIFICATION', 'Camille', `https://attacker.test/__/auth/action?mode=verifyAndChangeEmail&oobCode=FICTIF`, authDomain));
+});

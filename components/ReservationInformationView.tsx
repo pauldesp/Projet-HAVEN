@@ -1,8 +1,14 @@
+import { RoomArrivalGuide } from './RoomArrivalGuide';
+import type { RoomGuide } from '../services/roomGuide';
+import { CleaningPolicyNotice } from './CleaningPolicyNotice';
+import { StayPracticalInformation } from './StayPracticalInformation';
+import type { StayPracticalInfo } from '../services/stayGuide';
 import React from 'react';
 import { CalendarDays, ChevronDown, Download, FileCheck2, KeyRound, Loader2, MapPin, ShieldCheck } from 'lucide-react';
 import type { ReservationConfirmation } from '../services/reservationFulfillment';
 
 export type ReservationInformationData = ReservationConfirmation & {
+  practicalInfo?: StayPracticalInfo; arrivalInformationAvailable?: boolean; roomGuide?: RoomGuide;
   instructions: string; emailStatus: string; emailConfigured: boolean; bookingStatus: string;
 };
 const dateLabel = (value: string) => new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${value.slice(0, 10)}T12:00:00Z`));
@@ -39,6 +45,12 @@ export function ReservationInformationView({ data, error, downloading, onDownloa
         {data.instructions ? <p className="mt-3 whitespace-pre-line break-words text-sm leading-relaxed">{data.instructions}</p> : <p className="mt-3 text-sm leading-relaxed text-gray-600">{instructionsDue ? 'Les consignes d’entrée sont en attente du propriétaire. Contactez-le depuis la messagerie de votre séjour.' : 'Vos consignes seront disponibles ici et envoyées par e-mail 72 h avant votre arrivée. Pour une réservation de dernière minute, l’envoi est prévu dès confirmation.'}</p>}
       </section>}
     </div>
+
+    {data.bookingStatus === 'CONFIRMED' && <RoomArrivalGuide available={data.arrivalInformationAvailable === true} guide={data.roomGuide} roomName={data.roomName} />}
+
+    {data.bookingStatus === 'CONFIRMED' && <StayPracticalInformation available={data.arrivalInformationAvailable === true} info={data.practicalInfo} />}
+
+    <CleaningPolicyNotice />
 
     {children}
 

@@ -116,12 +116,12 @@ export const AdminGovernancePage: React.FC = () => {
         </div>
 
         {!isPrimaryAdmin ? (
-          <div className="mt-8 rounded-3xl border border-amber-100 bg-amber-50 p-8 shadow-card"><div className="flex items-start gap-4"><Shield className="mt-1 text-amber-600" /><div><h2 className="font-heading text-2xl font-bold text-haven-navy">Accès réservé à l’administrateur principal</h2><p className="mt-2 max-w-2xl text-sm leading-relaxed text-gray-600">Cette page est prête. Votre compte <strong>{currentUser.email}</strong> sera le seul à pouvoir gérer les administrateurs et consulter le journal dès l’activation de son statut principal.</p></div></div></div>
+          <div className="mt-8 rounded-3xl border border-amber-100 bg-amber-50 p-4 sm:p-8 shadow-card"><div className="flex items-start gap-4"><Shield className="mt-1 text-amber-600" /><div><h2 className="font-heading text-2xl font-bold text-haven-navy">Accès réservé à l’administrateur principal</h2><p className="mt-2 max-w-2xl text-sm leading-relaxed text-gray-600">Cette page est prête. Votre compte <strong>{currentUser.email}</strong> sera le seul à pouvoir gérer les administrateurs et consulter le journal dès l’activation de son statut principal.</p></div></div></div>
         ) : isLoadingPage && team.length === 0 && entries.length === 0 ? (
           <div className="flex min-h-64 items-center justify-center text-gray-400"><Loader2 className="mr-3 animate-spin" size={24} />Chargement…</div>
         ) : section === 'TEAM' ? (
           <div className="mt-8 space-y-7">
-            <div className="rounded-3xl border border-gray-100 bg-white p-8 shadow-card">
+            <div className="rounded-3xl border border-gray-100 bg-white p-4 sm:p-8 shadow-card">
               <h2 className="font-heading text-2xl font-bold text-haven-navy">Accorder un accès administrateur</h2>
               <p className="mt-2 text-sm text-gray-500">La personne doit déjà avoir créé son compte HAVEN avec l’adresse indiquée.</p>
               <form onSubmit={addAdministrator} className="mt-7 grid gap-4 md:grid-cols-4">
@@ -131,7 +131,7 @@ export const AdminGovernancePage: React.FC = () => {
                 <Button type="submit" disabled={isSaving} className="bg-haven-navy text-white">{isSaving ? <Loader2 className="animate-spin" size={17} /> : 'Accorder l’accès'}</Button>
               </form>
             </div>
-            <div className="rounded-3xl border border-gray-100 bg-white p-8 shadow-card">
+            <div className="rounded-3xl border border-gray-100 bg-white p-4 sm:p-8 shadow-card">
               <h2 className="font-heading text-2xl font-bold text-haven-navy">Équipe d’administration</h2>
               <div className="mt-6 grid gap-4 md:grid-cols-2">
                 {team.map(admin => <div key={admin.id} className="flex items-center gap-4 rounded-2xl border border-gray-100 bg-gray-50 p-5"><img src={admin.avatarUrl} alt="" className="h-12 w-12 rounded-full border-2 border-white object-cover" /><div className="min-w-0 flex-1"><p className="truncate font-bold text-haven-navy">{admin.firstName} {admin.lastName}</p><p className="truncate text-xs text-gray-400">{admin.email}</p><p className={`mt-2 text-[10px] font-black uppercase tracking-widest ${admin.adminLevel === 'PRIMARY' ? 'text-amber-600' : 'text-haven-red'}`}>{admin.adminLevel === 'PRIMARY' ? 'Administrateur principal' : 'Administrateur'}</p></div>{admin.adminLevel !== 'PRIMARY' && <button onClick={() => void revokeAdministrator(admin)} disabled={isSaving} className="rounded-lg border border-red-100 px-3 py-2 text-[10px] font-black uppercase tracking-wider text-haven-red hover:bg-red-50">Retirer</button>}</div>)}

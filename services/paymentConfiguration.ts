@@ -18,3 +18,19 @@ export function getPaymentMode(env: Record<string, string | undefined> = process
   }
   return 'STRIPE';
 }
+
+/** Hosted Connect returns may use HTTP only for local development with test keys. */
+export function getConnectConfiguration(env: Record<string, string | undefined> = process.env) {
+  const isTest = !env.STRIPE_SECRET_KEY?.startsWith('sk_live_');
+  try {
+    const origin = new URL(env.APP_ORIGIN || '');
+    const host = origin.hostname;
+    const octets = host.split('.').map(Number);
+    const privateIPv4 = octets.length === 4 && octets.every(value => Number.isInteger(value) && value >= 0 && value <= 255) &&
+      (octets[0] === 10 || octets[0] === 127 || (octets[0] === 192 && octets[1] === 168) || (octets[0] === 172 && octets[1] >= 16 && octets[1] <= 31));
+    const local = host === 'localhost' || host === '[::1]' || host.endsWith('.local') || privateIPv4;
+    const allowedOrigin = origin.protocol === 'https:' || (env.NODE_ENV !== 'production' && isTest && origin.protocol === 'http:' && local);
+    const enabled = getPaymentMode(env) === 'STRIPE' && /^whsec_[a-zA-Z0-9]+$/.test(env.STRIPE_CONNECT_WEBHOOK_SECRET || '') && allowedOrigin && !origin.username && !origin.password;
+    return { enabled: Boolean(enabled), isTest };
+  } catch { return { enabled: false, isTest }; }
+}

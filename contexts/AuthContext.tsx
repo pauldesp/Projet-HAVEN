@@ -1,11 +1,14 @@
-import React, { createContext, useContext, useState, ReactNode, useEffect, useMemo } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useEffect, useMemo, useCallback } from 'react';
 import { User, UserRole, UserStatus } from '../types';
 import { auth, db, googleProvider, seedFirestore } from '../firebase';
-import { onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, signInWithRedirect, getRedirectResult, User as FirebaseUser } from 'firebase/auth';
+import { onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, signInWithPopup, getRedirectResult, User as FirebaseUser } from 'firebase/auth';
 import { requestPasswordResetEmail } from '../services/authEmailApi';
-import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
+import { doc, getDoc, setDoc, onSnapshot, runTransaction } from 'firebase/firestore';
 import { createPendingMemberProfile } from '../services/memberProfile';
 import { registrationPasswordError } from '../services/accountTerms';
+import { createGooglePopupSignIn } from '../services/googleSignIn';
+
+let legacyRedirectResult: ReturnType<typeof getRedirectResult> | undefined;
 
 interface AuthContextType {
   currentUser: User | null;
@@ -40,20 +43,25 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [isLoading, setIsLoading] = useState(true);
   const [authError, setAuthError] = useState<unknown | null>(null);
 
-  const completeSocialSignIn = async (firebaseUser: FirebaseUser) => {
-    const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
-    if (userDoc.exists()) {
-      const user = userDoc.data() as User;
-      setCurrentUser(user);
-      return user;
-    }
-
-    const newUser = createPendingMemberProfile(firebaseUser);
-    await setDoc(doc(db, 'users', firebaseUser.uid), newUser);
+  const completeSocialSignIn = useCallback(async (firebaseUser: FirebaseUser) => {
+    const reference = doc(db, 'users', firebaseUser.uid);
+    // Never overwrite an existing member's dossier when callbacks overlap.
+    const profile = await runTransaction(db, async transaction => {
+      const snapshot = await transaction.get(reference);
+      if (snapshot.exists()) return snapshot.data() as User;
+      const pendingProfile = createPendingMemberProfile(firebaseUser);
+      transaction.set(reference, pendingProfile);
+      return pendingProfile;
+    });
     seedFirestore().catch(console.error);
-    setCurrentUser(newUser);
-    return newUser;
-  };
+    if (auth.currentUser?.uid === firebaseUser.uid) setCurrentUser(profile);
+    return profile;
+  }, []);
+
+  const googlePopupSignIn = useMemo(() => createGooglePopupSignIn({
+    openPopup: () => signInWithPopup(auth, googleProvider),
+    completeProfile: completeSocialSignIn,
+  }), [completeSocialSignIn]);
 
   // Vérifier la session au chargement
   useEffect(() => {
@@ -102,20 +110,22 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     };
   }, []);
 
-  // A redirect works consistently in Safari, on iPad and in browsers that
-  // block pop-ups. Google still displays its standard account chooser.
+  // Finish any redirect started before popup sign-in was introduced.
   useEffect(() => {
+    let active = true;
     const finishGoogleRedirect = async () => {
       try {
-        const result = await getRedirectResult(auth);
-        if (result?.user) await completeSocialSignIn(result.user);
+        legacyRedirectResult ??= getRedirectResult(auth);
+        const result = await legacyRedirectResult;
+        if (active && result?.user) await completeSocialSignIn(result.user);
       } catch (error) {
         console.error('Google redirect error', error);
-        setAuthError(error);
+        if (active) setAuthError(error);
       }
     };
     void finishGoogleRedirect();
-  }, []);
+    return () => { active = false; };
+  }, [completeSocialSignIn]);
 
   const login = async (email: string, password?: string): Promise<boolean> => {
     if (!password) return false;
@@ -187,10 +197,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setIsLoading(true);
     setAuthError(null);
     try {
-      // Popup-based OAuth is unreliable on Safari and can be blocked by a
-      // browser. A same-window redirect is robust across all HAVEN devices.
-      await signInWithRedirect(auth, googleProvider);
-      return false;
+      // Cross-domain redirects lose their result in Safari's partitioned
+      // storage. Open Google's window directly from the visitor's click.
+      return await googlePopupSignIn();
     } catch (error: any) {
       console.error("Google Login error", error);
       throw error;

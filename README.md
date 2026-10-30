@@ -1,43 +1,60 @@
-# HAVEN - Plateforme de Colocation Courte Durée
+# Haven — colocation courte durée
 
-Bienvenue dans le code source de la Phase 1 & 2 de HAVEN. Ce projet est une Single Page Application (SPA) construite avec React, TypeScript et TailwindCSS.
+Application web responsive avec espaces locataire, propriétaire et administration. Ce dépôt contient le code source, les ressources visuelles, les tests et la documentation de configuration.
 
-## 🏗 Structure du Projet
+## Architecture actuelle
 
-Voici comment j'ai organisé le code pour qu'il soit propre et scalable :
+- **Interface** : React 18, TypeScript, React Router, Tailwind CSS et Vite.
+- **Serveur** : Express dans `server.ts`, lancé avec Node.js et `tsx`. En développement, Vite est intégré au serveur ; en production, Express sert le dossier `dist` compilé.
+- **Comptes et données** : Firebase Authentication, Firestore et Firebase Admin côté serveur. La configuration publique du projet est dans `firebase-applet-config.json` ; les règles sont dans `firestore.rules`.
+- **Paiements** : Stripe Checkout et Stripe Connect, avec environnement de test et suivi des transferts/virements. Une simulation interne reste disponible en développement.
+- **E-mails et documents** : Resend et génération de justificatifs PDF côté serveur.
+- **Applications mobiles** : projets Capacitor dans `ios/` et `android/`.
 
-*   **`index.html`** : Le point d'entrée. C'est ici que j'ai configuré **TailwindCSS** pour utiliser ta charte graphique (Bleu Nuit, Framboise, Blanc Cassé) et chargé les polices **DM Sans** et **Inter**.
-*   **`App.tsx`** : Le cerveau de l'application. Il gère le routing (navigation entre les pages) et l'état global (qui est connecté ?).
-*   **`types.ts`** : Le dictionnaire. J'y ai défini à quoi ressemble un `User`, une `Listing` (logement), une `Room`, pour que TypeScript nous aide à ne pas faire d'erreurs.
-*   **`services/mockData.ts`** : Les fausses données. Pour le moment, pas de base de données réelle. J'ai créé des objets statiques pour que tu puisses voir l'interface remplie.
-*   **`components/`** : Les briques LEGO réutilisables.
-    *   `Button.tsx` : Un bouton standardisé.
-    *   `Header.tsx` : La barre de navigation intelligente (change si on est connecté).
-    *   `ListingCard.tsx` : La carte qui affiche un logement.
-*   **`pages/`** : Les écrans complets.
-    *   `Home.tsx` : La page d'accueil avec le Hero et la recherche.
-    *   `ListingDetails.tsx` : La page d'un logement spécifique.
+## Installation locale
 
-## 🚀 Prochaines Étapes (Roadmap)
+Prérequis : Node.js 22 ou ultérieur et npm.
 
-Tu as maintenant la **coquille vide mais jolie** de ton application. Voici ce qu'il faut faire ensuite pour la rendre réelle (Phase 3 à 10) :
+```sh
+npm ci
+cp .env.example .env
+npm run dev
+```
 
-1.  **Backend (Next.js)** : Migrer ce code React vers un vrai projet Next.js pour avoir une API.
-2.  **Base de Données (Prisma + Postgres)** : Remplacer `mockData.ts` par des vrais appels à une base de données.
-3.  **Authentification (Clerk)** : Remplacer l'objet `CURRENT_USER` par le vrai hook `<SignedIn>` de Clerk.
-4.  **Paiement (Stripe)** : Brancher le bouton "Réserver" sur l'API Stripe Connect.
+Le site s’ouvre sur `http://localhost:3000`. Le fichier d’exemple utilise la simulation de paiement, sans clé Stripe. Les fonctions serveur qui accèdent aux comptes et réservations nécessitent des identifiants Firebase Admin autorisés : configurer les Application Default Credentials ou `GOOGLE_APPLICATION_CREDENTIALS` avec un fichier privé extérieur au dépôt.
 
-## 🎨 Design System
+Pour tester directement avec Stripe, suivre [la configuration Sandbox](docs/STRIPE-SANDBOX.md). La commande habituelle `npm run dev` démarre aussi le relais de notifications lorsque les clés de test et l’identifiant de la Sandbox sont configurés. Le CLI Stripe local doit alors être installé selon la procédure indiquée. Les clés et identifiants privés ne sont pas inclus dans cette sauvegarde et doivent être configurés séparément dans chaque environnement.
 
-J'ai respecté scrupuleusement tes couleurs :
-*   `bg-haven-cream` (#F9FAF5) pour le fond.
-*   `text-haven-navy` (#0B245B) pour les textes.
-*   `bg-haven-red` (#9A073C) pour les actions importantes.
+## Vérifications
 
-Pour tester, lance simplement l'application. Tu peux naviguer de l'accueil vers un détail de logement en cliquant sur une carte.
+```sh
+npm run lint     # Vérification TypeScript
+npm test         # Tests métier et de sécurité
+npm run build    # Compilation web dans dist/
+npm run check    # Les trois vérifications, dans cet ordre
+```
 
-## À reprendre : e-mails Firebase
+## Repères pour reprendre le projet dans un autre outil
 
-Le projet Firebase et son nom public ont été renommés **Haven**. La prochaine session doit finaliser les modèles transactionnels dans Firebase Authentication : validation d'adresse e-mail, réinitialisation de mot de passe, changement d'adresse e-mail et notification d'activation MFA.
+- `App.tsx` : routes et chargement des pages.
+- `pages/` et `components/` : écrans et composants réutilisables.
+- `contexts/` : état partagé, authentification et langues.
+- `services/` : règles métier, accès API, documents et tests unitaires.
+- `server.ts` : API authentifiée, intégrations et traitements périodiques.
+- `types.ts` : modèles des données.
+- `public/` et `styles/` : ressources publiques et styles responsives.
+- `docs/` : documentation des paiements, e-mails, guides du séjour, mobile et connexions.
+- `output/imagegen/` : propositions visuelles et prompts d’origine.
 
-Pour améliorer durablement la délivrabilité, configurer ensuite un domaine d'envoi personnalisé dans Firebase Authentication ou Resend, puis publier les enregistrements DNS SPF, DKIM et DMARC fournis par le prestataire. Sans cette authentification de domaine, aucun service ne peut garantir que les messages n'iront jamais dans les indésirables.
+Ce dépôt n’exporte pas les utilisateurs, réservations, fichiers privés ou données de la base Firebase. Accéder au code ne donne pas automatiquement accès aux services externes. Les clés Stripe, Resend et identifiants Firebase Admin restent exclusivement côté serveur. Ne pas mettre de clé secrète dans une variable `VITE_`.
+
+Les dossiers `.stripe-local/`, `node_modules/`, `dist/`, les fichiers `.env` et les aperçus PDF locaux sont exclus de Git. `.env.example` documente les paramètres sans contenir de secrets.
+
+## Documentation utile
+
+- [Paiements et reversements propriétaires](docs/PAYMENTS.md)
+- [Sandbox Stripe](docs/STRIPE-SANDBOX.md)
+- [Connexion Google](docs/GOOGLE-SIGN-IN.md)
+- [Adaptation mobile](docs/MOBILE.md)
+
+La publication du code sur GitHub ne déploie pas le site. Un hébergement doit prendre en charge le serveur Node.js et ses traitements périodiques ; un hébergement statique seul ne suffit pas pour les fonctionnalités serveur.

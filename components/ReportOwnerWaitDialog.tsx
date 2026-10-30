@@ -15,7 +15,7 @@ export function ReportOwnerWaitDialog({ report, onClose }: { report: Report; onC
     catch (error) { setError(error instanceof Error ? error.message : 'Impossible d’enregistrer cette décision.'); }
     finally { setSending(false); }
   };
-  return <div className="fixed inset-0 z-[120] flex items-center justify-center bg-haven-navy/60 p-4"><section role="dialog" aria-modal="true" aria-labelledby="owner-wait-title" className="w-full max-w-xl space-y-5 rounded-3xl bg-white p-6 shadow-xl">
+  return <div className="fixed inset-0 z-[120] flex items-center justify-center bg-haven-navy/60 p-4"><section role="dialog" aria-modal="true" aria-labelledby="owner-wait-title" className="haven-dialog-panel w-full max-w-xl space-y-5 rounded-3xl bg-white p-6 shadow-xl">
     <header className="flex items-center justify-between gap-4"><h2 id="owner-wait-title" className="text-xl font-bold text-haven-navy">Laisser le propriétaire intervenir</h2><button aria-label="Fermer" disabled={sending} onClick={onClose}><XCircle/></button></header>
     <p className="text-sm text-gray-600">Le signalement reste ouvert et passe en attente du propriétaire. Vous pourrez reprendre son examen à tout moment.</p>
     <label className="block text-sm font-bold text-haven-navy">Message visible par le locataire et le propriétaire<textarea value={note} maxLength={2000} rows={5} disabled={sending} onChange={event => setNote(event.target.value)} className="mt-2 w-full rounded-xl border p-3 font-normal"/></label>

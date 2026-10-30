@@ -1,3 +1,4 @@
+import { cheapestStayPrice } from '../services/stayPrice';
 import { isRoomAvailableForStay } from '../services/availability';
 
 import React from 'react';
@@ -14,12 +15,13 @@ interface ListingCardProps {
 }
 
 export const ListingCard: React.FC<ListingCardProps> = ({ listing, stayOverride, availability }) => {
-  const { t } = useLanguage();
+  const { t, tr, locale } = useLanguage();
   const [searchParams] = useSearchParams();
   const stayParams = new URLSearchParams();
   const dates = stayOverride || readSearchDates(searchParams);
   const rooms = availability && dates.start && dates.end ? listing.rooms.filter(room => isRoomAvailableForStay(room, listing, availability, dates.start, dates.end)) : listing.rooms;
-  const minPrice = rooms.length ? Math.min(...rooms.map(room => room.pricePerDay)) : 0;
+  const quote = availability ? cheapestStayPrice(listing, availability, dates.start, dates.end) : null;
+  const money = (amount: number) => new Intl.NumberFormat(locale, { style: 'currency', currency: 'EUR', maximumFractionDigits: 2 }).format(amount);
   if (dates.start) stayParams.set('start', dates.start);
   if (dates.end) stayParams.set('end', dates.end);
   const stayQuery = stayParams.toString();
@@ -72,11 +74,11 @@ export const ListingCard: React.FC<ListingCardProps> = ({ listing, stayOverride,
 
         <div className="flex items-center justify-between pt-4 border-t border-gray-100">
           <div className="flex flex-col">
-            <span className="text-[10px] text-gray-400 uppercase font-black tracking-widest">{t('card.from')}</span>
-            <div className="flex items-baseline gap-1">
-              <span className="font-heading font-bold text-xl text-haven-navy">{minPrice}€</span>
-              <span className="text-gray-400 text-xs font-medium">/ nuit</span>
-            </div>
+            {quote ? <>
+              <span className="text-[10px] text-gray-400 uppercase font-black tracking-widest">{t('card.from')}</span>
+              <span className="font-heading font-bold text-xl text-haven-navy">{money(quote.total)} <span className="text-sm font-medium">{tr('au total')}</span></span>
+              <span className="mt-1 text-xs text-gray-500">{quote.nights} {tr(quote.nights === 1 ? 'nuit · frais inclus' : 'nuits · frais inclus')}</span>
+            </> : <span className="text-sm font-semibold text-haven-navy">{tr(dates.start && dates.end ? availability ? 'Indisponible pour ces dates' : 'Vérification du prix…' : 'Choisissez vos dates pour voir le prix du séjour')}</span>}
           </div>
           <div className="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center text-haven-navy group-hover:bg-haven-red group-hover:text-white transition-all duration-300">
             <ArrowRight size={18} />

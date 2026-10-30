@@ -1,23 +1,31 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { calculateOwnerFinanceStats } from '../services/ownerFinances';
+import type { OwnerPayout } from '../types';
 
-const rent = {
-  id: 'payment-rent', bookingId: 'booking-upcoming', listingId: 'listing-1', ownerId: 'owner-1', tenantId: 'tenant-1',
-  amount: 180, status: 'COMPLETED' as const, type: 'RENT' as const, createdAt: '2026-09-28T12:00:00.000Z',
-};
-
-test('owner finance totals include completed rents, deduct refunds and forecast only paid upcoming stays', () => {
-  const stats = calculateOwnerFinanceStats([
-    { id: 'booking-upcoming', status: 'CONFIRMED', startDate: '2026-10-10', totalPrice: 180 },
-    { id: 'booking-unpaid', status: 'CONFIRMED', startDate: '2026-10-12', totalPrice: 250 },
-    { id: 'booking-past', status: 'CONFIRMED', startDate: '2026-09-10', totalPrice: 90 },
-  ], [
-    rent,
-    { ...rent, id: 'payment-past', bookingId: 'booking-past', amount: 90 },
-    { ...rent, id: 'refund-1', bookingId: 'booking-past', amount: 30, status: 'REFUNDED', type: 'REFUND' },
-    { ...rent, id: 'pending-1', bookingId: 'booking-unpaid', amount: 250, status: 'PENDING' },
-  ], new Date('2026-09-28T12:00:00.000Z'));
-
-  assert.deepEqual(stats, { totalRevenue: 240, pendingRevenue: 180 });
+const paid: OwnerPayout = { id: 'payout-1', ownerId: 'owner', amountCents: 12345, currency: 'EUR', provider: 'STRIPE', isTest: false,
+  status: 'PAID', createdAt: '2026-10-20T12:00:00Z', paidAt: '2026-10-21T12:00:00Z', providerPayoutId: 'po_1' };
+test('owner revenue counts only net confirmed bank payouts and actual pending/processing payouts', () => {
+  assert.deepEqual(calculateOwnerFinanceStats([paid,
+    { ...paid, id: 'payout-2', providerPayoutId: 'po_2', status: 'PENDING', amountCents: 10001 },
+    { ...paid, id: 'payout-3', providerPayoutId: 'po_3', status: 'PROCESSING', amountCents: 2033 },
+  ]), { totalRevenue: 123.45, pendingRevenue: 120.34 });
+});
+test('simulations, unknown mode, invalid amounts and unsuccessful transfers never inflate owner finances', () => {
+  assert.deepEqual(calculateOwnerFinanceStats([
+    { ...paid, id: 'sim', provider: 'SIMULATION', isTest: true }, { ...paid, id: 'test', isTest: true },
+    { ...paid, id: 'legacy', isTest: undefined } as unknown as OwnerPayout,
+    { ...paid, id: 'failed', status: 'FAILED' }, { ...paid, id: 'cancelled', status: 'CANCELLED' },
+    { ...paid, id: 'returned', status: 'REVERSED' }, { ...paid, id: 'invalid', amountCents: NaN },
+    { ...paid, id: 'negative', amountCents: -1 }, { ...paid, id: 'fraction', amountCents: 20.5 },
+    { ...paid, id: 'unconfirmed', paidAt: undefined }, { ...paid, id: 'unreferenced', providerPayoutId: undefined },
+  ]), { totalRevenue: 0, pendingRevenue: 0 });
+});
+test('tenant payment history alone produces no owner revenue or pending bank payout', () => {
+  assert.deepEqual(calculateOwnerFinanceStats([]), { totalRevenue: 0, pendingRevenue: 0 });
+});
+test('repeated paid records are counted once and payout status transitions move amounts between indicators', () => {
+  assert.deepEqual(calculateOwnerFinanceStats([paid, paid, { ...paid, id: 'duplicate' }]), { totalRevenue: 123.45, pendingRevenue: 0 });
+  assert.deepEqual(calculateOwnerFinanceStats([{ ...paid, status: 'PENDING' }]), { totalRevenue: 0, pendingRevenue: 123.45 });
+  assert.deepEqual(calculateOwnerFinanceStats([{ ...paid, status: 'PAID' }]), { totalRevenue: 123.45, pendingRevenue: 0 });
 });

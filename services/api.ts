@@ -1,3 +1,5 @@
+import type { OwnerConnectView, OwnerSettlementView } from './stripeConnect';
+import { assertCleaningPolicyAccepted } from './cleaningPolicy';
 import { submitInventoryReport } from './inventorySubmission';
 import { loadAvailability, listenAvailability } from './publicAvailability';
 import { isOwnerBookingVisible } from './bookingVisibility';
@@ -6,7 +8,7 @@ import { hasVerificationException } from './verificationException';
 import { routeStayIssue } from './stayIssueRouting';
 import { db, auth } from '../firebase';
 import { collection, getDocs, getDoc, doc, setDoc, updateDoc, query, where, deleteField, onSnapshot } from 'firebase/firestore';
-import { Listing, User, Booking, BookingAvailability, ListingStatus, UserStatus, Message, ContactRequest, Report, Incident, Payment, InventoryReport, AppDocument, HousematePreview, AdminAuditEntry } from '../types';
+import { Listing, User, Booking, BookingAvailability, ListingStatus, UserStatus, Message, ContactRequest, Report, Incident, Payment, OwnerPayout, InventoryReport, AppDocument, HousematePreview, AdminAuditEntry } from '../types';
 import { authenticatedFetch } from './serverApi';
 import { hasMissingRoomPhoto, normalizeListingPhotos } from './media';
 import { normalizeListingDescription } from './listingDescription';
@@ -98,7 +100,7 @@ export const apiService = {
     },
     async approveProfile(userId: string) {
       const response = await authenticatedFetch(`/api/admin/users/${encodeURIComponent(userId)}/approve`, {
-        method: 'POST', body: JSON.stringify({ identityReviewed: true })
+        method: 'POST', body: JSON.stringify({ identityReviewed: true, residenceReviewed: true })
       });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(payload.error || `Erreur ${response.status}`);
@@ -141,20 +143,6 @@ export const apiService = {
         await setDoc(doc(db, 'users', user.id), user);
       } catch (e) {
         handleFirestoreError(e, 'UPDATE', `users/${user.id}`);
-      }
-    },
-    async setHousemateVisibility(shareProfileWithHousemates: boolean) {
-      try {
-        const response = await authenticatedFetch('/api/users/me/housemate-visibility', {
-          method: 'PUT',
-          body: JSON.stringify({ shareProfileWithHousemates })
-        });
-        if (!response.ok) {
-          const payload = await response.json().catch(() => ({}));
-          throw new Error(payload.error || `Erreur ${response.status}`);
-        }
-      } catch (e) {
-        return handleFirestoreError(e, 'UPDATE_HOUSEMATE_VISIBILITY', 'users/me/housemate-visibility');
       }
     },
     async updateStatus(id: string, status: UserStatus, rejectionReason?: string) {
@@ -300,6 +288,7 @@ export const apiService = {
     },
     async create(listing: Listing) {
       try {
+        assertCleaningPolicyAccepted(listing.cleaningPolicyVersion);
         if (!auth.currentUser || listing.ownerId !== auth.currentUser.uid) throw new Error('Vous devez être connecté en tant que propriétaire pour créer ce logement. (Erreur 401)');
         if (hasIncompleteRoom(listing.rooms)) throw new Error('Chaque chambre doit avoir un nom, un prix par nuit et une surface.');
         if (hasRoomWithoutOption(listing.rooms)) throw new Error('Chaque chambre doit disposer d’au moins une option du cahier des charges HAVEN.');
@@ -325,6 +314,7 @@ export const apiService = {
     },
     async update(listing: Listing) {
       try {
+        if (listing.cleaningPolicyVersion !== undefined) assertCleaningPolicyAccepted(listing.cleaningPolicyVersion);
         if (!auth.currentUser || listing.ownerId !== auth.currentUser.uid) throw new Error('Vous n’êtes pas autorisé à modifier ce logement. (Erreur 403)');
         const existingSnapshot = await getDoc(doc(db, 'listings', listing.id));
         if (!existingSnapshot.exists()) throw new Error('Ce logement n’existe plus. (Erreur 404)');
@@ -391,7 +381,7 @@ export const apiService = {
         }
         const response = await authenticatedFetch('/api/bookings', {
           method: 'POST',
-          body: JSON.stringify({ id: booking.id, listingId: booking.listingId, roomId: booking.roomId, startDate: booking.startDate, endDate: booking.endDate })
+          body: JSON.stringify({ id: booking.id, listingId: booking.listingId, roomId: booking.roomId, startDate: booking.startDate, endDate: booking.endDate, cleaningPolicyVersion: booking.cleaningPolicyVersion })
         });
         const payload = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(`${payload.error || 'Impossible de créer la réservation'} (Erreur ${response.status})`);
@@ -491,9 +481,11 @@ export const apiService = {
     async create(review: any) {
       try {
         const response = await authenticatedFetch(`/api/bookings/${encodeURIComponent(review.bookingId)}/review`, {
-          method: 'POST', body: JSON.stringify({ rating: review.rating, comment: review.comment })
+          method: 'POST', body: JSON.stringify({ rating: review.rating, comment: review.comment, ...(review.platformFeedback ? { platformFeedback: review.platformFeedback } : {}) })
         });
-        return await response.json();
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Impossible d’enregistrer cet avis.');
+        return data;
       } catch (e) {
         throw e;
       }
@@ -747,6 +739,32 @@ export const apiService = {
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(payload.error || `Erreur ${response.status}`);
       return payload;
+    }
+  },
+
+  ownerConnect: {
+    async getMine(): Promise<{ account: OwnerConnectView; settlements: OwnerSettlementView[] }> {
+      const response = await authenticatedFetch('/api/owner/connect');
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'La vérification Stripe est indisponible.');
+      return data;
+    },
+    async open(action: 'onboarding' | 'dashboard'): Promise<string> {
+      const response = await authenticatedFetch(`/api/owner/connect/${action}`, { method: 'POST', body: '{}' });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Le service Stripe est indisponible.');
+      const destination = new URL(data.url);
+      if (destination.protocol !== 'https:' || !destination.hostname.endsWith('.stripe.com')) throw new Error('Lien Stripe invalide.');
+      return destination.href;
+    }
+  },
+
+  ownerPayouts: {
+    async getMine(): Promise<OwnerPayout[]> {
+      const response = await authenticatedFetch('/api/owner/payouts');
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Les virements sont indisponibles.');
+      return data.payouts;
     }
   },
 

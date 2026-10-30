@@ -132,7 +132,7 @@ export const InboxPage: React.FC = () => {
             <motion.div 
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              className="bg-white rounded-[2rem] p-16 text-center shadow-premium border border-haven-navy/5"
+              className="bg-white rounded-[2rem] p-6 sm:p-16 text-center shadow-premium border border-haven-navy/5"
             >
               <div className="w-20 h-20 bg-haven-cream rounded-full flex items-center justify-center mx-auto mb-6">
                 <MessageSquare className="w-10 h-10 text-haven-navy/20" />
@@ -153,12 +153,12 @@ export const InboxPage: React.FC = () => {
                 exit={{ opacity: 0, scale: 0.95 }}
                 layout
                 onClick={() => navigate(`/messages/${conv.bookingId}`)}
-                className="group bg-white hover:bg-gray-50 p-6 rounded-[2rem] shadow-premium border border-haven-navy/5 cursor-pointer transition-all active:scale-[0.98]"
+                className="group bg-white hover:bg-gray-50 p-4 sm:p-6 rounded-[2rem] shadow-premium border border-haven-navy/5 cursor-pointer transition-all active:scale-[0.98]"
               >
-                <div className="flex items-center gap-6">
+                <div className="flex items-center gap-3 sm:gap-6">
                   {/* User Avatar */}
-                  <div className="relative">
-                    <div className="w-20 h-20 rounded-full overflow-hidden bg-gray-100 border-4 border-white shadow-md">
+                  <div className="relative shrink-0">
+                    <div className="w-12 h-12 sm:w-20 sm:h-20 rounded-full overflow-hidden bg-gray-100 border-4 border-white shadow-md">
                       {conv.otherUser?.avatarUrl ? (
                         <img 
                           src={conv.otherUser.avatarUrl} 
@@ -181,7 +181,7 @@ export const InboxPage: React.FC = () => {
 
                   {/* Info */}
                   <div className="flex-grow min-w-0">
-                    <div className="flex items-center justify-between mb-1">
+                    <div className="flex flex-col items-start sm:flex-row sm:items-center justify-between gap-1 mb-1">
                       <h3 className={`font-bold text-lg ${conv.unreadCount > 0 ? 'text-haven-navy' : 'text-gray-700'}`}>
                         {conv.otherUser?.firstName} {conv.otherUser?.lastName}
                       </h3>
@@ -196,7 +196,7 @@ export const InboxPage: React.FC = () => {
                       {conv.latestMessage.content}
                     </p>
 
-                    <div className="flex items-center gap-4">
+                    <div className="flex flex-wrap items-center gap-2 sm:gap-4">
                       {conv.listing && (
                         <div className="flex items-center gap-1.5 px-3 py-1 bg-haven-cream rounded-full">
                           <Home size={12} className="text-haven-navy/50" />
