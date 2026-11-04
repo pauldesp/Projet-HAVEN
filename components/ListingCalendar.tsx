@@ -11,6 +11,7 @@ interface ListingCalendarProps {
   onDateSelect: (start: string, end: string) => void;
   selectedStart: string;
   selectedEnd: string;
+  recurringStays?: { start: string; end: string; label: string; available: boolean }[];
   isOwner?: boolean;
   blockedDates?: string[];
   listingBlockedDates?: string[];
@@ -25,6 +26,7 @@ export const ListingCalendar: React.FC<ListingCalendarProps> = ({
   onDateSelect,
   selectedStart,
   selectedEnd,
+  recurringStays = [],
   isOwner = false,
   blockedDates = [],
   listingBlockedDates = [],
@@ -255,10 +257,11 @@ export const ListingCalendar: React.FC<ListingCalendarProps> = ({
             <div className="flex flex-wrap gap-2 text-[10px] font-bold items-center sm:pr-4">
               {!isOwner && selectedStart && (
                 <div className="flex items-center gap-1.5 mr-3 text-gray-500">
-                  <div className="w-2.5 h-2.5 rounded-full bg-gray-300 border border-gray-400"></div>
-                  <span>Votre séjour</span>
+                  <div className={`w-2.5 h-2.5 rounded-full border ${recurringStays.length ? 'bg-haven-navy border-haven-navy' : 'bg-gray-300 border-gray-400'}`}></div>
+                  <span>{recurringStays.length ? 'Séjour consulté' : 'Votre séjour'}</span>
                 </div>
               )}
+              {!isOwner && recurringStays.length > 0 && <div className="flex items-center gap-1.5 text-haven-red"><div className="w-2.5 h-2.5 rounded-full border border-haven-red/30 bg-haven-red/10"></div><span>Autres séjours recherchés</span></div>}
               <div className="flex items-center gap-1.5 mr-3 text-gray-400">
                 <div className="w-2.5 h-2.5 rounded-full bg-white border border-gray-200"></div>
                 <span>Libre</span>
@@ -328,6 +331,9 @@ export const ListingCalendar: React.FC<ListingCalendarProps> = ({
             const isSelected = isDateSelected(year, month, day);
             const isSelectedNight = isStayNight(year, month, day);
             const isCheckoutDay = isCheckout(year, month, day);
+            const recurringStay = !isOwner ? recurringStays.find(stay => dateStr >= stay.start && dateStr < stay.end)
+              || recurringStays.find(stay => dateStr === stay.end) : undefined;
+            const otherStay = recurringStay && !(recurringStay.start === selectedStart && recurringStay.end === selectedEnd) ? recurringStay : undefined;
             const tenants = getTenantsOnDate(year, month, day);
             const dateKey = `${year}-${month}-${day}`;
 
@@ -341,7 +347,8 @@ export const ListingCalendar: React.FC<ListingCalendarProps> = ({
                 <button
                   disabled={!isOwner && (isPast || (isBooked && !(selectedStart && !selectedEnd && new Date(year, month, day) > new Date(`${selectedStart}T00:00:00`))))}
                   type="button"
-                  aria-label={`${day} ${monthNames[month]} ${year}${isBooked ? ', indisponible' : ', disponible'}`}
+                  aria-label={`${day} ${monthNames[month]} ${year}${isBooked ? ', indisponible' : ', disponible'}${recurringStay ? ` · ${recurringStay.label}${dateStr === recurringStay.end ? ', départ' : ''}${!recurringStay.available ? ', séjour non disponible pour ce logement' : ''}` : ''}`}
+                  data-recurring-stay={recurringStay?.label}
                   aria-pressed={isSelected}
                   onClick={() => handleDayClick(day)}
                   className={`
@@ -352,7 +359,7 @@ export const ListingCalendar: React.FC<ListingCalendarProps> = ({
                       : isBlockingMode && tempBlockedDates.includes(dateStr)
                       ? 'bg-haven-red/20 text-haven-red border-haven-red shadow-sm scale-105 z-10'
                       : isSelectedNight
-                        ? 'bg-gray-200 text-haven-navy border-gray-300 shadow-sm z-10'
+                        ? recurringStays.length ? 'bg-haven-navy text-white border-haven-navy shadow-sm z-10' : 'bg-gray-200 text-haven-navy border-gray-300 shadow-sm z-10'
                         : isCheckoutDay
                           ? 'bg-gray-100 text-haven-navy border-gray-400 border-dashed shadow-sm z-10'
                         : isBooked 
@@ -363,7 +370,7 @@ export const ListingCalendar: React.FC<ListingCalendarProps> = ({
                           : 'bg-gray-50 text-gray-400 border-transparent cursor-not-allowed opacity-60' 
                         : isSelected 
                           ? 'bg-haven-navy text-white border-haven-navy shadow-md z-10' 
-                          : 'bg-white border-gray-100 hover:border-haven-navy/50 text-gray-700'
+                          : otherStay ? 'bg-haven-red/10 border-haven-red/30 text-haven-red' : 'bg-white border-gray-100 hover:border-haven-navy/50 text-gray-700'
                     }
                     ${isBlockingMode && !tempBlockedDates.includes(dateStr) ? 'hover:bg-haven-red/5' : ''}
                   `}
@@ -371,6 +378,7 @@ export const ListingCalendar: React.FC<ListingCalendarProps> = ({
                   <span className={`z-10 ${isToday(year, month, day) ? 'font-black relative after:content-[""] after:absolute after:-bottom-1 after:left-1/2 after:-translate-x-1/2 after:w-1 after:h-1 after:bg-haven-red after:rounded-full' : ''}`}>
                     {day}
                   </span>
+                  {recurringStay && <span className={`mt-0.5 text-[8px] leading-tight sm:text-[9px] ${isSelectedNight ? 'text-white' : 'text-haven-red'}`}>{recurringStay.label.replace('Séjour ', 'S')}{dateStr === recurringStay.end ? ' · dép.' : ''}</span>}
                   
                   {isManualBlocked && (
                     <div className="absolute top-1 right-1">

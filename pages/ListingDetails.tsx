@@ -624,6 +624,7 @@ export const ListingDetails: React.FC = () => {
                   allHouseBookings={allHouseBookings}
                   selectedStart={startDate}
                   selectedEnd={endDate}
+                  recurringStays={recurringMatch?.periods.map((period, index) => ({ ...(period.stay || period.requested), label: `Séjour ${index + 1}`, available: Boolean(period.stay) }))}
                   onDateSelect={handleDateSelect}
                   isOwner={isListingOwner}
                   blockedDates={isBlockingWholeListing ? (listing.blockedDates || []) : (blockedRoom.blockedDates || [])}
