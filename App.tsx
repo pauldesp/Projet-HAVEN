@@ -37,6 +37,7 @@ const InboxPage = lazy(() => import('./pages/InboxPage').then(module => ({ defau
 const LegalPage = lazy(() => import('./pages/LegalPage').then(module => ({ default: module.LegalPage })));
 const EntryInventory = lazy(() => import('./pages/EntryInventory').then(module => ({ default: module.EntryInventory })));
 const HowItWorks = lazy(() => import('./pages/HowItWorks').then(module => ({ default: module.HowItWorks })));
+const RecurringBookingGuide = lazy(() => import('./pages/RecurringBookingGuide').then(module => ({ default: module.RecurringBookingGuide })));
 const ForPartners = lazy(() => import('./pages/ForPartners').then(module => ({ default: module.ForPartners })));
 const BecomeOwner = lazy(() => import('./pages/BecomeOwner').then(module => ({ default: module.BecomeOwner })));
 const FaqPage = lazy(() => import('./pages/FaqPage').then(module => ({ default: module.FaqPage })));
@@ -134,6 +135,7 @@ const AppContent: React.FC = () => {
           <Route path="/legal/:docId" element={<LegalPage />} />
           <Route path="/inventory/in/:bookingId" element={<ProtectedRoute><EntryInventory /></ProtectedRoute>} />
           <Route path="/how-it-works" element={<HowItWorks />} />
+          <Route path="/reservation-recurrente" element={<RecurringBookingGuide />} />
           <Route path="/partners" element={<ForPartners />} />
           <Route path="/become-owner" element={<BecomeOwner />} />
           <Route path="/faq" element={<FaqPage />} />

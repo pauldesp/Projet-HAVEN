@@ -16,7 +16,7 @@ test('booking → direct payment → confirmation → arrival → departure rele
   const approved = { ...base };
   assert.equal(bookingDeadline(approved), Date.parse(created) + 30 * 60_000);
   const paid = { ...approved, status: 'CONFIRMED', paymentStatus: 'PAID', stripeSessionId: 'checkout' } as Booking;
-  assert.equal(paymentDisposition({ ...approved, stripeSessionId: 'checkout' }, 'checkout', 16100), 'CONFIRM');
+  assert.equal(paymentDisposition({ ...approved, stripeSessionId: 'checkout' }, 'checkout', 16100, Date.parse(created)), 'CONFIRM');
   assert.equal(bookingCategory(paid, new Date(2026, 10, 7, 15)), 'CURRENT');
   const entry = prepareInventoryReport(paid, listing, 'tenant', report(paid, 'IN'), new Date(2026, 10, 7, 15));
   const checkedIn = { ...paid, checkInReportId: entry.id };

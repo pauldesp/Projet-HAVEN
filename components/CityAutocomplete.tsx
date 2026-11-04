@@ -14,6 +14,8 @@ export interface PlaceData {
 }
 
 interface CityAutocompleteProps {
+  inputId?: string;
+  ariaLabel?: string;
   value: string;
   onChange: (value: string) => void;
   onSelect?: (place: PlaceData) => void;

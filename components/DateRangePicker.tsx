@@ -2,19 +2,22 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { countNights } from '../services/stay';
 
 interface DateRangePickerProps {
   startDate: string;
   endDate: string;
   onChange: (start: string, end: string) => void;
+  otherStays?: { start: string; end: string; label: string }[];
 }
 
-export const DateRangePicker: React.FC<DateRangePickerProps> = ({ startDate, endDate, onChange }) => {
+export const DateRangePicker: React.FC<DateRangePickerProps> = ({ startDate, endDate, onChange, otherStays = [] }) => {
   const [isOpen, setIsOpen] = useState(false);
   const panel = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const [viewDate, setViewDate] = useState(new Date());
   const [hoveredDate, setHoveredDate] = useState<string | null>(null);
+  const completedOtherStays = otherStays.filter(stay => countNights(stay.start, stay.end) > 0);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -119,6 +122,9 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({ startDate, end
       const inRange = isWithinRange(date);
       const past = isPast(date);
       const today = isToday(date);
+      const previousStays = completedOtherStays.filter(stay => dateStr >= stay.start && dateStr <= stay.end);
+      const previousEndpoint = previousStays.some(stay => stay.start === dateStr || stay.end === dateStr);
+      const currentRange = Boolean(inRange || isSelectedStart || isSelectedEnd);
 
       const isRangeStart = isSelectedStart && (endDate || (hoveredDate && new Date(`${hoveredDate}T00:00:00`) > new Date(`${startDate}T00:00:00`)));
       const isRangeEnd = isSelectedEnd || (hoveredDate === dateStr && startDate && !endDate && new Date(`${hoveredDate}T00:00:00`) > new Date(`${startDate}T00:00:00`));
@@ -130,10 +136,11 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({ startDate, end
           onMouseEnter={() => !past && setHoveredDate(dateStr)}
           onMouseLeave={() => setHoveredDate(null)}
         >
+          {previousStays.length > 0 && !currentRange && <div aria-hidden="true" className="absolute inset-y-1 w-full bg-haven-red/10" />}
           {/* Background for range highlight */}
           {(inRange || isRangeStart || isRangeEnd) && (
-            <div className={`absolute inset-y-1 w-full transition-all duration-200 ${
-              inRange ? 'bg-haven-navy/5' :
+            <div className={`absolute inset-y-1 transition-all duration-200 ${
+              inRange ? 'bg-haven-navy/5 inset-x-0' :
               isRangeStart ? 'bg-haven-navy/5 left-1/2 right-0' :
               isRangeEnd ? 'bg-haven-navy/5 left-0 right-1/2' : ''
             }`} />
@@ -142,7 +149,9 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({ startDate, end
           <button
             type="button"
             disabled={past}
-            aria-label={date.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+            aria-label={`${date.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}${previousStays.length ? ` · ${previousStays.map(stay => stay.label).join(', ')} déjà renseigné` : ''}`}
+            title={previousStays.length ? previousStays.map(stay => `${stay.label} : ${stay.start} → ${stay.end}`).join('\n') : undefined}
+            data-previous-stay={previousStays.length ? 'true' : undefined}
             aria-pressed={isSelectedStart || isSelectedEnd}
             onClick={(e) => {
               e.preventDefault();
@@ -151,7 +160,8 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({ startDate, end
             }}
             className={`
               h-11 w-full flex flex-col items-center justify-center text-sm font-semibold transition-all relative z-10 rounded-full
-              ${past ? 'text-gray-200 cursor-not-allowed' : 'text-gray-700 hover:bg-haven-navy/10'}
+              ${past ? 'text-gray-200 cursor-not-allowed' : isSelectedStart || isSelectedEnd ? 'text-white' : previousStays.length && !currentRange ? 'text-haven-red hover:bg-haven-red/20' : 'text-gray-700 hover:bg-haven-navy/10'}
+              ${previousEndpoint && !currentRange ? 'border border-haven-red/30 bg-haven-red/10' : ''}
               ${isSelectedStart || isSelectedEnd ? 'bg-haven-navy text-white hover:bg-haven-navy shadow-lg scale-110' : ''}
               ${inRange ? 'text-haven-navy font-bold' : ''}
               ${today && !isSelectedStart && !isSelectedEnd ? 'border border-haven-navy/20' : ''}
@@ -186,7 +196,12 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({ startDate, end
     <div className="w-full h-full">
       <button type="button" ref={trigger} aria-haspopup="dialog" aria-expanded={isOpen} aria-label="Choisir les dates du séjour"
         className="flex min-h-11 w-full items-center gap-3 text-left text-gray-600 cursor-pointer group/date h-full"
-        onClick={() => setIsOpen(true)}
+        onClick={() => {
+          const initialDate = startDate || completedOtherStays[completedOtherStays.length - 1]?.start;
+          if (initialDate) { const date = new Date(`${initialDate}T12:00:00`); setViewDate(new Date(date.getFullYear(), date.getMonth(), 1)); }
+          setHoveredDate(null);
+          setIsOpen(true);
+        }}
       >
         <CalendarIcon size={20} className="flex-shrink-0 text-haven-navy group-hover/date:text-haven-red transition-colors duration-300" />
         <div className={`w-full truncate select-none transition-colors duration-300 leading-none ${startDate ? 'text-gray-900 font-bold text-base' : 'text-gray-400 font-bold text-base'}`}>
@@ -262,6 +277,16 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({ startDate, end
                 {renderSingleMonth(nextMonthDate)}
               </div>
             </div>
+
+            {completedOtherStays.length > 0 && <div className="mt-5 border-t border-gray-100 pt-4 text-xs text-gray-600" aria-label="Légende des séjours">
+              <div className="flex flex-wrap gap-x-5 gap-y-2">
+                <span className="flex items-center gap-2"><span aria-hidden="true" className="h-3 w-3 rounded bg-haven-navy" />Séjour en cours de sélection</span>
+                <span className="flex items-center gap-2"><span aria-hidden="true" className="h-3 w-3 rounded border border-haven-red/30 bg-haven-red/10" />Séjours déjà renseignés</span>
+              </div>
+              <ul className="mt-3 max-h-24 space-y-1 overflow-y-auto">{completedOtherStays.map(stay => <li key={`${stay.label}-${stay.start}`}>
+                {stay.label} · {new Date(`${stay.start}T12:00:00`).toLocaleDateString('fr-FR')} → {new Date(`${stay.end}T12:00:00`).toLocaleDateString('fr-FR')}
+              </li>)}</ul>
+            </div>}
 
             {/* Hidden close button for accessibility/fallback */}
             <button

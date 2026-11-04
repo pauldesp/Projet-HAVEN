@@ -1,10 +1,9 @@
 
-import React, { useState } from 'react';
+import React from 'react';
 import { motion } from 'motion/react';
-import { Search, Calendar as CalendarIcon, ShieldCheck, Sparkles, TrendingUp, BarChart3, AlertCircle, Users, Route, Info } from 'lucide-react';
+import { Calendar as CalendarIcon, ShieldCheck, Sparkles, TrendingUp, BarChart3, AlertCircle, Users, Route, Info } from 'lucide-react';
 import { Button } from '../components/Button';
-import { CityAutocomplete } from '../components/CityAutocomplete';
-import { DateRangePicker } from '../components/DateRangePicker';
+import { HomeSearchPreview } from '../components/HomeSearchPreview';
 import { Logo } from '../components/Logo';
 import { HavenPhotoBackground } from '../components/HavenPhotoBackground';
 import { useNavigate } from 'react-router-dom';
@@ -17,21 +16,6 @@ export const Home: React.FC = () => {
   const { t } = useLanguage();
   const { currentUser } = useAuth();
   
-  const [city, setCity] = useState('');
-  const [cityCode, setCityCode] = useState('');
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
-
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    const params = new URLSearchParams();
-    if (city) params.append('city', city);
-    if (cityCode) params.append('cityCode', cityCode);
-    if (startDate) params.append('start', startDate);
-    if (endDate) params.append('end', endDate);
-    navigate(`/search?${params.toString()}`);
-  };
-
   const handlePublishClick = (e: React.MouseEvent) => {
     e.preventDefault();
     if (!currentUser) {
@@ -46,10 +30,12 @@ export const Home: React.FC = () => {
   return (
     <div className="w-full bg-haven-cream font-body selection:bg-haven-navy/10">
       {/* Refined Minimalist Hero */}
-      <div className="relative flex md:h-[85vh] md:min-h-[600px] w-full flex-col justify-center items-center px-4 py-10 md:py-0">
+      <div className="home-search-hero relative flex min-h-[680px] w-full flex-col items-center px-4 py-10 md:py-16">
         
         {/* Background */}
-        <HavenPhotoBackground />
+        <div className="home-search-backdrop" aria-hidden="true">
+          <div className="home-search-backdrop-frame"><HavenPhotoBackground /></div>
+        </div>
 
         {/* Hero Content */}
         <div className="relative z-10 w-full max-w-4xl text-center space-y-6 animate-fade-in">
@@ -63,44 +49,8 @@ export const Home: React.FC = () => {
             </p>
           </div>
 
-          <div className="flex flex-col items-center gap-4 pt-4 md:pt-8 w-full">
-            <form 
-              onSubmit={handleSearch} 
-              style={{ width: '914px' }}
-              className="bg-white p-1.5 rounded-3xl md:rounded-full shadow-[0_20px_50px_rgba(0,0,0,0.15)] flex flex-col md:flex-row items-stretch max-w-full border border-gray-100 relative group/form"
-            >
-              {/* Where Section */}
-              <div className="flex-1 min-w-0 px-5 md:px-8 py-4 w-full border-b md:border-b-0 md:border-r border-gray-100 text-left bg-transparent cursor-pointer rounded-t-2xl md:rounded-l-full md:rounded-tr-none group">
-                <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-[0.15em] mb-1.5 group-hover:text-haven-navy transition-colors">{t('search.label_where')}</label>
-                <div className="h-8 flex items-center">
-                  <CityAutocomplete value={city} onChange={(value) => { setCity(value); setCityCode(''); }} onSelect={(place) => setCityCode(place.cityCode || '')} placeholder={t('search.placeholder_where')} />
-                </div>
-              </div>
-
-              {/* When Section */}
-              <div className="flex-1 min-w-0 px-5 md:px-8 py-4 w-full border-b md:border-b-0 border-gray-100 text-left hover:bg-gray-50/80 transition-colors cursor-pointer md:rounded-none group">
-                <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-[0.15em] mb-1.5 group-hover:text-haven-navy transition-colors">{t('search.label_when')}</label>
-                <div className="h-8 flex items-center">
-                  <DateRangePicker 
-                    startDate={startDate}
-                    endDate={endDate}
-                    onChange={(start, end) => { setStartDate(start); setEndDate(end); }}
-                  />
-                </div>
-              </div>
-
-              {/* Search Button */}
-              <div className="px-4 pb-4 md:pb-0 md:pr-6 flex items-center justify-center">
-                <button 
-                  type="submit" 
-                  className="bg-haven-red hover:bg-[#8B3939] text-white h-12 px-8 rounded-xl md:rounded-full transition-all duration-500 font-bold text-sm flex items-center justify-center gap-2 w-full md:w-auto active:scale-[0.97] shadow-lg shadow-haven-red/20 group/btn overflow-hidden relative"
-                >
-                  <div className="absolute inset-0 bg-white/10 translate-y-full group-hover/btn:translate-y-0 transition-transform duration-500"></div>
-                  <Search size={16} strokeWidth={3} className="relative z-10 group-hover/btn:scale-110 transition-transform duration-500" />
-                  <span className="relative z-10 tracking-wide uppercase text-[10px]">{t('search.button')}</span>
-                </button>
-              </div>
-            </form>
+          <div className="pt-3 md:pt-5 w-full">
+            <HomeSearchPreview />
           </div>
         </div>
       </div>

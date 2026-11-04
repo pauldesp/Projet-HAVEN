@@ -4,12 +4,12 @@ import type { PlaceData } from './CityAutocomplete';
 
 type Commune = { code: string; nom: string; codesPostaux: string[]; departement?: { nom: string; code: string } };
 
-export function FrenchCityAutocomplete({ value, onChange, onSelect, placeholder }: {
-  value: string; onChange: (value: string) => void; onSelect?: (place: PlaceData) => void; placeholder?: string;
+export function FrenchCityAutocomplete({ value, onChange, onSelect, placeholder, inputId, ariaLabel }: {
+  value: string; onChange: (value: string) => void; onSelect?: (place: PlaceData) => void; placeholder?: string; inputId?: string; ariaLabel?: string;
 }) {
   const id = useId();
   const input = useRef<HTMLInputElement>(null);
-  const [selected, setSelected] = useState<string | null>(null);
+  const [selected, setSelected] = useState<string | null>(value || null);
   const [open, setOpen] = useState(false);
   const [results, setResults] = useState<Commune[]>([]);
   const [status, setStatus] = useState('');
@@ -57,7 +57,7 @@ export function FrenchCityAutocomplete({ value, onChange, onSelect, placeholder 
   }}>
     <div className="flex gap-3 items-center h-full">
       <MapPin size={20} className="shrink-0 text-haven-red" />
-      <input ref={input} role="combobox" aria-label="Ville" aria-autocomplete="list" aria-expanded={open}
+      <input ref={input} id={inputId} role="combobox" aria-label={ariaLabel || 'Ville'} aria-autocomplete="list" aria-expanded={open}
         aria-controls={`${id}-list`} aria-activedescendant={active >= 0 ? `${id}-${active}` : undefined}
         autoComplete="off" value={value} placeholder={placeholder || 'Ville ou code postal'}
         className="w-full bg-transparent outline-none font-bold text-haven-navy placeholder:text-gray-400"

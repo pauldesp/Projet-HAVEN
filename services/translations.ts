@@ -15,7 +15,7 @@ export const translations = {
 
     // Home Hero
     "hero.title": "La colocation flexible pour ta vie mobile",
-    "hero.subtitle": "Trouve une chambre chaleureuse en courte durée. Idéal pour alternants, stagiaires, ou actifs en mobilité. Réserve en toute simplicité",
+    "hero.subtitle": "Réserve une fois quand tu es de passage, ou en récurrence quand tu reviens souvent. Une chambre en colocation, prête à vivre.",
     "search.placeholder_where": "Ville",
     "search.label_where": "Où ?",
     "search.label_when": "Quand ?",

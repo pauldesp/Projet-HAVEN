@@ -3,7 +3,7 @@ import { DateRangePicker } from '../components/DateRangePicker';
 import { SearchLoading } from '../components/SearchLoading';
 import { cheapestStayPrice } from '../services/stayPrice';
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { ListingCard } from '../components/ListingCard';
 import { BookingAvailability, Listing } from '../types';
@@ -16,6 +16,9 @@ import { apiService } from '../services/api';
 import { readSearchDates } from '../services/searchDates';
 import { findClosestAvailableStay, NearbyStay } from '../services/nearbyStays';
 import { countNights } from '../services/stay';
+import { minimumNights } from '../services/minimumStay';
+import { parseRecurringPeriods, matchRecurringStays, completionForPeriod, recurringScore } from '../services/recurringSearch';
+import { distanceKm, validCoordinates } from '../services/proximity';
 import { AMENITIES_LIST } from '../services/amenities';
 
 interface ListingWithDistance extends Listing {
@@ -50,27 +53,41 @@ const FilterSection: React.FC<{
 
 export const SearchPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
+  const requestedPeriods = useMemo(() => parseRecurringPeriods(searchParams), [searchParams]);
+  const isRecurring = requestedPeriods.length > 1;
+  const [recurringSearchOpen, setRecurringSearchOpen] = useState(false);
+  const [sortChoice, setSortChoice] = useState<'best' | 'coverage'>('best');
+  const flexibleDates = searchParams.get('flex') === '1';
   const cityParam = searchParams.get('city') || '';
   const cityCode = searchParams.get('cityCode') || '';
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [searchCity, setSearchCity] = useState(cityParam);
   const [searchCityCode, setSearchCityCode] = useState(cityCode);
   const [searchStart, setSearchStart] = useState(searchParams.get('start') || '');
+  const [editedPeriods, setEditedPeriods] = useState(requestedPeriods);
   const [searchEnd, setSearchEnd] = useState(searchParams.get('end') || '');
   useEffect(() => {
+    setEditedPeriods(requestedPeriods);
     setSearchCity(cityParam); setSearchCityCode(cityCode);
     setSearchStart(searchParams.get('start') || ''); setSearchEnd(searchParams.get('end') || '');
-  }, [searchParams, cityParam, cityCode]);
+  }, [searchParams, cityParam, cityCode, requestedPeriods]);
   const submitSearch = (event: React.FormEvent) => {
     event.preventDefault();
     const next = new URLSearchParams(searchParams);
     for (const [key, value] of Object.entries({ city: searchCity, cityCode: searchCityCode, start: searchStart, end: searchEnd })) {
       if (value) next.set(key, value); else next.delete(key);
     }
-    setSearchParams(next); setMobileFiltersOpen(false);
+    if (isRecurring) {
+      const validated = parseRecurringPeriods(new URLSearchParams({ periods: JSON.stringify(editedPeriods) }));
+      if (validated.length !== editedPeriods.length) { setSearchError('Renseigne des séjours valides, sans chevauchement.'); return; }
+      next.set('periods', JSON.stringify(validated));
+      next.set('start', validated[0].start); next.set('end', validated[0].end);
+    }
+    setSearchError(''); setSearchParams(next); setMobileFiltersOpen(false); setRecurringSearchOpen(false);
   };
 
   const { start: startDate, end: endDate } = readSearchDates(searchParams);
+  const [searchError, setSearchError] = useState('');
   const [geocodingError, setGeocodingError] = useState(false);
   
   // Consommation du contexte global
@@ -105,16 +122,18 @@ export const SearchPage: React.FC = () => {
   const [selectedRoomOptions, setSelectedRoomOptions] = useState<string[]>([]);
   const [openFilter, setOpenFilter] = useState<string | null>('PRICE');
 
+  const recurrenceMatches = useMemo(() => new Map(allListings.map(listing => [listing.id, matchRecurringStays(listing, availability, requestedPeriods, flexibleDates, selectedRoomOptions)])), [allListings, availability, requestedPeriods, flexibleDates, selectedRoomOptions]);
   const stayNights = countNights(startDate, endDate) || 1;
   const listingStayPrice = (listing: Listing) => {
+    if (isRecurring) return recurrenceMatches.get(listing.id)?.average || 0;
     const roomPrice = Math.min(...listing.rooms.map(room => room.pricePerDay)) * stayNights;
     return roomPrice + (Number(listing.cleaningFee) || 0) + Math.round(roomPrice * 0.15);
   };
 
   const priceCeiling = useMemo(() => {
-    const highest = Math.max(0, ...allListings.flatMap(listing => listing.rooms.map(room => { const base = room.pricePerDay * stayNights; return base + (listing.cleaningFee || 0) + Math.round(base * 0.15); })));
+    const highest = isRecurring ? Math.max(0, ...Array.from(recurrenceMatches.values()).map(match => match.average)) : Math.max(0, ...allListings.flatMap(listing => listing.rooms.map(room => { const base = room.pricePerDay * stayNights; return base + (listing.cleaningFee || 0) + Math.round(base * 0.15); })));
     return Math.max(100, Math.ceil(highest / 100) * 100);
-  }, [allListings, stayNights]);
+  }, [allListings, stayNights, isRecurring, recurrenceMatches]);
 
   const maxRoomCount = useMemo(() => Math.max(1, ...allListings.map(listing => listing.totalRooms || listing.rooms?.length || 1)), [allListings]);
   const sortedAmenities = useMemo(() => [...AMENITIES_LIST].sort((a, b) => a.id.localeCompare(b.id, 'fr')), []);
@@ -126,15 +145,21 @@ export const SearchPage: React.FC = () => {
     });
     const peak = Math.max(1, ...bins);
     return bins.map(value => Math.max(8, Math.round((value / peak) * 100)));
-  }, [allListings, stayNights, priceCeiling]);
+  }, [allListings, stayNights, priceCeiling, isRecurring, recurrenceMatches]);
 
+  const previousPriceCeiling = useRef(priceCeiling);
   useEffect(() => {
-    setPriceMax(current => Math.min(current, priceCeiling));
+    const previous = previousPriceCeiling.current;
+    previousPriceCeiling.current = priceCeiling;
+    setPriceMax(current => current >= previous ? priceCeiling : Math.min(current, priceCeiling));
     setPriceMin(current => Math.min(current, priceCeiling));
   }, [priceCeiling]);
 
+  const previousMaxRoomCount = useRef(maxRoomCount);
   useEffect(() => {
-    setMaxRooms(current => Math.min(current, maxRoomCount));
+    const previous = previousMaxRoomCount.current;
+    previousMaxRoomCount.current = maxRoomCount;
+    setMaxRooms(current => current >= previous ? maxRoomCount : Math.min(current, maxRoomCount));
     setMinRooms(current => Math.min(current, maxRoomCount));
   }, [maxRoomCount]);
 
@@ -152,7 +177,7 @@ export const SearchPage: React.FC = () => {
   }, [cityParam, cityCode]);
 
   // Filter Logic
-  const { exactMatches, nearbyDateMatches, nearbyMatches } = useMemo(() => {
+  const { exactMatches, nearbyDateMatches, nearbyMatches, completionCandidates } = useMemo(() => {
     // 0. Security Filter: ONLY APPROVED LISTINGS
     const approvedListings = allListings.filter(l => l.status === 'APPROVED');
 
@@ -161,6 +186,7 @@ export const SearchPage: React.FC = () => {
     const listingsMatchingFilters = approvedListings.filter(listing => {
       // Handle case where rooms might be empty
       if (!listing.rooms || listing.rooms.length === 0) return false;
+      if (!isRecurring && startDate && endDate && countNights(startDate, endDate) < minimumNights(listing.minStay)) return false;
       if (selectedTypes.length > 0 && !selectedTypes.includes(listing.type)) return false;
       const roomCount = listing.totalRooms || listing.rooms.length;
       if (roomCount < minRooms || roomCount > maxRooms) return false;
@@ -178,11 +204,12 @@ export const SearchPage: React.FC = () => {
       return listingCityNormalized.includes(normalizedParam) || normalizedParam.includes(listingCityNormalized);
     };
     const matchesStayPrice = (listing: Listing, start = startDate, end = endDate) => {
-      const price = cheapestStayPrice(listing, availability, start, end)?.total ?? listingStayPrice(listing);
+      const price = isRecurring ? recurrenceMatches.get(listing.id)?.average ?? 0 : cheapestStayPrice(listing, availability, start, end)?.total ?? listingStayPrice(listing);
       return price >= priceMin && price <= priceMax;
     };
-    const isAvailableForRequestedStay = (listing: Listing) =>
-      listingHasAvailableRoom(listing, availability, startDate, endDate);
+    const isAvailableForRequestedStay = (listing: Listing) => isRecurring
+      ? Boolean(recurrenceMatches.get(listing.id)?.availableCount)
+      : listingHasAvailableRoom(listing, availability, startDate, endDate);
 
     // 2. Exact city and exact requested stay.
     const exactCityListings = listingsMatchingFilters.filter(isInRequestedCity);
@@ -190,7 +217,7 @@ export const SearchPage: React.FC = () => {
 
     // 3. Same city, same duration, at the closest available dates. This section
     // comes after exact results and never replaces them.
-    const nearbyDateMatches: ListingWithNearbyStay[] = startDate && endDate
+    const nearbyDateMatches: ListingWithNearbyStay[] = !isRecurring && startDate && endDate
       ? exactCityListings
         .filter(listing => !isAvailableForRequestedStay(listing))
         .flatMap(listing => {
@@ -211,12 +238,34 @@ export const SearchPage: React.FC = () => {
       // Distance limit removed as requested
     }
 
-    return { 
+    if (isRecurring) {
+      const rank = (a: ListingWithDistance, b: ListingWithDistance) => {
+        const am = recurrenceMatches.get(a.id)!, bm = recurrenceMatches.get(b.id)!;
+        if (sortChoice === 'coverage' && am.availableCount !== bm.availableCount) return bm.availableCount - am.availableCount;
+        const distance = (listing: ListingWithDistance) => dynamicCityCoords && validCoordinates(listing.coordinates) ? distanceKm(dynamicCityCoords, listing.coordinates) : undefined;
+        return recurringScore(b, bm, distance(b)) - recurringScore(a, am, distance(a)) || a.id.localeCompare(b.id);
+      };
+      exactMatches.sort(rank); nearbyMatches.sort(rank);
+    }
+    return {
+      completionCandidates: listingsMatchingFilters,
       exactMatches, 
       nearbyMatches,
       nearbyDateMatches,
     };
-  }, [allListings, availability, cityParam, startDate, endDate, priceMin, priceMax, selectedTypes, minRooms, maxRooms, selectedAmenities, selectedRoomOptions, dynamicCityCoords]);
+  }, [allListings, availability, cityParam, startDate, endDate, priceMin, priceMax, selectedTypes, minRooms, maxRooms, selectedAmenities, selectedRoomOptions, dynamicCityCoords, isRecurring, recurrenceMatches, sortChoice]);
+
+  const recurrenceCardProps = (listing: Listing) => {
+    if (!isRecurring) return {};
+    const recurrence = recurrenceMatches.get(listing.id)!;
+    return { recurrence, requestedPeriods, flexibleDates, completions: recurrence.periods.filter(period => !period.stay).map(period => {
+      const candidates = completionCandidates.filter(candidate => {
+        const match = matchRecurringStays(candidate, availability, [period.requested], false, selectedRoomOptions);
+        return match.availableCount > 0 && match.average >= priceMin && match.average <= priceMax;
+      });
+      return completionForPeriod(listing, candidates, availability, period.requested, selectedRoomOptions);
+    }) };
+  };
 
   const toggleType = (type: string) => {
     setSelectedTypes(prev => 
@@ -244,7 +293,9 @@ export const SearchPage: React.FC = () => {
 
   const isSearching = isGeocoding || listingsLoading || isAvailabilityLoading;
 
-  if ((startDate || endDate) && availabilityError) return <div className="mx-auto max-w-xl p-12 text-center text-haven-navy" role={availabilityError ? 'alert' : 'status'}>{availabilityError || 'Vérification des chambres disponibles…'}{availabilityError && <p className="mt-3 text-sm text-gray-500">Réessayez dans un instant. La réservation reste bloquée tant que les disponibilités ne peuvent pas être vérifiées.</p>}</div>;
+  if (searchParams.has('periods') && !isRecurring) return <div className="mx-auto max-w-xl p-10 text-center" role="alert">Les dates des séjours sont invalides ou se chevauchent. <a href="/#/" className="underline">Reprendre la recherche</a></div>;
+
+  if ((startDate || endDate || isRecurring) && availabilityError) return <div className="mx-auto max-w-xl p-12 text-center text-haven-navy" role={availabilityError ? 'alert' : 'status'}>{availabilityError || 'Vérification des chambres disponibles…'}{availabilityError && <p className="mt-3 text-sm text-gray-500">Réessayez dans un instant. La réservation reste bloquée tant que les disponibilités ne peuvent pas être vérifiées.</p>}</div>;
 
   return (
     <div className="min-h-screen bg-haven-cream pt-8 pb-20">
@@ -253,20 +304,48 @@ export const SearchPage: React.FC = () => {
         <div className="mb-8">
           <div className="flex items-center gap-4">
             <h1 className="font-heading font-bold text-3xl text-haven-navy">
-              {exactMatches.length > 0 ? `Logements à ${cityParam.split(',')[0]}` : 'Chercher mon logement'}
+              {isRecurring ? `${requestedPeriods.length} séjours demandés · ${cityParam.split(',')[0]}` : exactMatches.length > 0 ? `Logements à ${cityParam.split(',')[0]}` : 'Chercher mon logement'}
             </h1>
             {isGeocoding && <Loader2 className="animate-spin text-haven-stone" size={24} />}
           </div>
           <p className="text-gray-500">
-            {exactMatches.length + nearbyMatches.length} logement(s) disponible(s) aux dates demandées
+            {exactMatches.length + nearbyMatches.length} logement(s) disponible(s) {isRecurring ? 'pour au moins un de tes séjours' : 'aux dates demandées'}
           </p>
         </div>
 
-        <form onSubmit={submitSearch} className="relative z-20 mb-6 grid gap-3 rounded-3xl border border-gray-200 bg-white p-4 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_auto]">
+        {isRecurring && <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-gray-200 bg-white px-4 py-3">
+          <div className="flex min-w-0 items-center gap-3">
+            <MapPin size={18} className="shrink-0 text-haven-red" aria-hidden="true" />
+            <div className="min-w-0">
+              <p className="truncate text-sm font-bold text-haven-navy">{cityParam || 'Tous les logements'}</p>
+              <p className="text-xs text-gray-500">{requestedPeriods.length} séjours · {requestedPeriods.reduce((sum, period) => sum + countNights(period.start, period.end), 0)} nuits au total</p>
+            </div>
+          </div>
+          <button type="button" aria-expanded={recurringSearchOpen} aria-controls="recurring-search-editor"
+            onClick={() => setRecurringSearchOpen(open => !open)}
+            className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-gray-200 px-3 py-2 text-xs font-bold text-haven-navy hover:bg-gray-50">
+            <SlidersHorizontal size={15} aria-hidden="true" />{recurringSearchOpen ? 'Masquer les dates' : 'Modifier ma recherche'}
+          </button>
+        </div>}
+
+        {(!isRecurring || recurringSearchOpen) && <form id="recurring-search-editor" onSubmit={submitSearch} className="relative z-20 mb-6 grid gap-3 rounded-3xl border border-gray-200 bg-white p-4 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_auto]">
           <label className="min-w-0"><span className="mb-2 block text-xs font-bold text-gray-500">Ville</span><div className="min-h-11"><CityAutocomplete value={searchCity} onChange={value => { setSearchCity(value); setSearchCityCode(''); }} onSelect={place => setSearchCityCode(place.cityCode || '')} placeholder="Où cherchez-vous ?" /></div></label>
-          <div className="min-w-0"><p className="mb-2 text-xs font-bold text-gray-500">Dates du séjour</p><div className="min-h-11"><DateRangePicker startDate={searchStart} endDate={searchEnd} onChange={(start, end) => { setSearchStart(start); setSearchEnd(end); }} /></div></div>
+          <div className="min-w-0 space-y-3">{isRecurring ? editedPeriods.map((period, index) => <div key={index}>
+            <p className="mb-2 text-xs font-bold text-gray-500">Dates du séjour {index + 1}</p>
+            <DateRangePicker startDate={period.start} endDate={period.end}
+              otherStays={editedPeriods.flatMap((other, otherIndex) => otherIndex === index ? [] : [{ ...other, label: `Séjour ${otherIndex + 1}` }])}
+              onChange={(start, end) => setEditedPeriods(previous => previous.map((item, itemIndex) => itemIndex === index ? { start, end } : item))} />
+          </div>) : <><p className="mb-2 text-xs font-bold text-gray-500">Dates du séjour</p><div className="min-h-11"><DateRangePicker startDate={searchStart} endDate={searchEnd} onChange={(start, end) => { setSearchStart(start); setSearchEnd(end); }} /></div></>}</div>
           <Button type="submit" className="self-end sm:col-span-2 lg:col-span-1">Rechercher</Button>
-        </form>
+        </form>}
+
+        {searchError && <p role="alert" className="mb-4 text-sm text-haven-red">{searchError}</p>}
+        {isRecurring && <div className="mb-6 flex flex-wrap items-center gap-3" role="group" aria-label="Classement des séjours récurrents">
+          <button type="button" aria-pressed={sortChoice === 'best'} onClick={() => setSortChoice('best')} className={`min-h-11 rounded-xl border px-4 py-2 text-sm font-bold ${sortChoice === 'best' ? 'border-haven-navy bg-haven-navy text-white' : 'border-gray-200 bg-white text-haven-navy'}`}>Meilleur choix</button>
+          <button type="button" aria-pressed={sortChoice === 'coverage'} onClick={() => setSortChoice('coverage')} className={`min-h-11 rounded-xl border px-4 py-2 text-sm font-bold ${sortChoice === 'coverage' ? 'border-haven-navy bg-haven-navy text-white' : 'border-gray-200 bg-white text-haven-navy'}`}>Plus de séjours</button>
+          <label className="flex min-h-11 cursor-pointer items-center gap-2 text-sm text-gray-600"><input type="checkbox" checked={flexibleDates} onChange={event => { const next = new URLSearchParams(searchParams); if (event.target.checked) next.set('flex', '1'); else next.delete('flex'); setSearchParams(next); }} className="h-4 w-4 accent-haven-red" />Dates ±1 jour</label>
+          <p className="w-full text-xs text-gray-500">{sortChoice === 'best' ? 'Un équilibre entre proximité, séjours disponibles et notes.' : 'Les logements couvrant le plus de séjours en premier.'} Les dates décalées sont toujours signalées.</p>
+        </div>}
 
         {/* Banner: Exact dates are unavailable in the requested city */}
         {!isSearching && exactMatches.length === 0 && cityParam && (nearbyDateMatches.length > 0 || nearbyMatches.length > 0) && (
@@ -302,8 +381,8 @@ export const SearchPage: React.FC = () => {
             </div>
 
             <div id="search-filters" className={`${mobileFiltersOpen ? 'block' : 'hidden'} lg:block`}>
-            <FilterSection title="Prix du séjour" isOpen={openFilter === 'PRICE'} onToggle={() => setOpenFilter(openFilter === 'PRICE' ? null : 'PRICE')}>
-              <p className="text-sm text-gray-500">{stayNights} nuit{stayNights > 1 ? 's' : ''}, tous frais compris</p>
+            <FilterSection title={isRecurring ? "Prix moyen par séjour disponible" : "Prix du séjour"} isOpen={openFilter === 'PRICE'} onToggle={() => setOpenFilter(openFilter === 'PRICE' ? null : 'PRICE')}>
+              <p className="text-sm text-gray-500">{isRecurring ? "Moyenne des séjours disponibles, frais compris" : <>{stayNights} nuit{stayNights > 1 ? 's' : ''}, tous frais compris</>}</p>
               <div className="mt-5 flex h-20 items-end gap-0.5 px-1" aria-hidden="true">
                 {histogram.map((height, index) => (
                   <span key={index} className="flex-1 rounded-t-sm bg-haven-red" style={{ height: `${height}%` }} />
@@ -417,7 +496,7 @@ export const SearchPage: React.FC = () => {
                 </div>
                 <div className="grid md:grid-cols-2 gap-8">
                   {exactMatches.map(listing => (
-                    <ListingCard key={listing.id} listing={listing} availability={availability} />
+                    <ListingCard key={listing.id} listing={listing} availability={availability} {...recurrenceCardProps(listing)} />
                   ))}
                 </div>
               </div>
@@ -449,7 +528,7 @@ export const SearchPage: React.FC = () => {
                 <div className="grid md:grid-cols-2 gap-8">
                   {nearbyMatches.map(listing => (
                     <div key={listing.id} className="relative">
-                      <ListingCard listing={listing} availability={availability} />
+                      <ListingCard listing={listing} availability={availability} {...recurrenceCardProps(listing)} />
                       <div className="absolute top-4 left-4 z-10 bg-white/95 backdrop-blur-sm text-haven-navy px-4 py-2 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl flex items-center gap-2 border border-gray-100">
                         <Route size={14} className="text-haven-red" />
                         À {Math.round(listing.distance || 0)} km à vol d’oiseau

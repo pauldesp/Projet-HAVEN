@@ -25,6 +25,8 @@ import { shareOrCopy } from '../services/share';
 import { readSearchDates } from '../services/searchDates';
 import { userFacingErrorMessage } from '../services/errorHandling';
 import { minimumNights } from '../services/minimumStay';
+import { parseRecurringPeriods, matchRecurringStays } from '../services/recurringSearch';
+import { recurringPaymentSchedule } from '../services/recurringPaymentSchedule';
 
 export const ListingDetails: React.FC = () => {
   const { id } = useParams();
@@ -65,6 +67,11 @@ export const ListingDetails: React.FC = () => {
   // États pour les dates sélectionnées (synchronisés entre calendrier et sidebar)
   const [searchParams, setSearchParams] = useSearchParams();
   const { start: startDate, end: endDate } = readSearchDates(searchParams);
+  const recurringPeriods = parseRecurringPeriods(searchParams);
+  const recurringMatch = listing && availabilityReady && recurringPeriods.length > 1
+    ? matchRecurringStays(listing, availability, recurringPeriods, searchParams.get('flex') === '1') : null;
+  const recurringMoney = (amount: number) => new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(amount);
+  const recurringDate = (date: string) => new Date(`${date}T12:00:00Z`).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
 
   useEffect(() => {
     const fetchOwner = async () => {
@@ -276,6 +283,13 @@ export const ListingDetails: React.FC = () => {
 
   const listingPhotos = getListingPhotoUrls(listing);
   const isFavorite = currentUser?.favorites?.includes(listing.id) ?? false;
+  const selectedRecurringIndex = recurringMatch?.periods.findIndex(period => period.stay?.start === startDate && period.stay?.end === endDate) ?? -1;
+  const selectedRecurringPeriod = selectedRecurringIndex >= 0 ? recurringMatch?.periods[selectedRecurringIndex] : undefined;
+  const selectedRecurringPrice = selectedRecurringPeriod && activeRoomIsAvailable
+    ? activeRoom.pricePerDay * nights + (listing.cleaningFee || 0) + Math.round(activeRoom.pricePerDay * nights * .15) : null;
+  const paymentSchedule = recurringMatch ? recurringPaymentSchedule(recurringMatch.periods.flatMap((period, index) =>
+    period.stay && period.total !== null ? [{ index, ...period.stay, amount: index === selectedRecurringIndex && selectedRecurringPrice !== null ? selectedRecurringPrice : period.total }] : []
+  )) : null;
 
   return (
     <>
@@ -686,13 +700,14 @@ export const ListingDetails: React.FC = () => {
             {!isListingOwner && (
               <div className="lg:col-span-1">
                 <div className="sticky top-24 bg-white p-6 rounded-3xl shadow-card border border-gray-100">
-                  <h3 className="font-heading font-bold text-xl mb-4">Réserver <span className="text-haven-red">{activeRoom.name}</span></h3>
+                  <h3 className="font-heading font-bold text-xl mb-4">{recurringPeriods.length > 1 ? 'Préparer tes séjours' : <>Réserver <span className="text-haven-red">{activeRoom.name}</span></>}</h3>
+                  {recurringPeriods.length > 1 && <p className="mb-4 text-sm text-gray-500">{activeRoom.name} · {selectedRecurringIndex >= 0 ? `séjour ${selectedRecurringIndex + 1} sélectionné` : 'dates sélectionnées'}</p>}
 
                   <div
                     className="bg-haven-cream p-4 rounded-xl mb-4 cursor-pointer hover:bg-haven-cream/80 transition-colors border border-transparent hover:border-haven-navy/20"
                     onClick={() => calendarRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
                   >
-                    <p className="text-sm font-medium text-gray-500 mb-2">Dates souhaitées</p>
+                    <p className="text-sm font-medium text-gray-500 mb-2">{recurringPeriods.length > 1 ? 'Dates de ce séjour' : 'Dates souhaitées'}</p>
                     <div className="flex flex-col gap-2">
                       <div className="flex justify-between items-center bg-white p-2 rounded border border-gray-200">
                         <span className="text-xs text-gray-400">Arrivée</span>
@@ -720,16 +735,42 @@ export const ListingDetails: React.FC = () => {
                     </div>
                     <div className="h-px bg-gray-200 my-2"></div>
                     <div className="flex justify-between font-bold text-haven-navy text-lg">
-                      <span>Total</span>
+                      <span>{recurringPeriods.length > 1 ? 'Total de ce séjour' : 'Total'}</span>
                       <span>{(activeRoom.pricePerDay * (nights)) + (listing.cleaningFee || 0) + Math.round(activeRoom.pricePerDay * (nights) * 0.15)}€</span>
                     </div>
                   </div>
 
+                  {paymentSchedule && <section className="mb-5 border-t border-gray-200 pt-5" aria-label="Échéancier prévisionnel des séjours">
+                    <div className="flex flex-wrap items-center justify-between gap-2"><h4 className="text-sm font-bold">Tes séjours et paiements</h4><span className="rounded-full bg-amber-50 px-2 py-1 text-[10px] font-semibold text-amber-800">Prévisionnel</span></div>
+                    <p className="mt-2 text-xs leading-relaxed text-gray-500">Sélectionne un séjour ci-dessous pour choisir sa chambre. Premier séjour à la réservation ; suivants un mois avant l’arrivée. Si l’échéance est déjà passée, le règlement est immédiat.</p>
+                    <ol className="mt-4 max-h-72 space-y-3 overflow-y-auto pr-1">
+                      {paymentSchedule.entries.map(entry => <li key={entry.start}>
+                        <button type="button" aria-pressed={entry.index === selectedRecurringIndex}
+                          onClick={() => { setSelectedRoomId(null); handleDateSelect(entry.start, entry.end); }}
+                          className={`w-full rounded-xl border p-3 text-left text-xs transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-haven-red ${entry.index === selectedRecurringIndex ? 'border-haven-navy bg-haven-navy/5' : 'border-gray-100 hover:border-haven-red'}`}>
+                        <span className="sr-only">Sélectionner le séjour {entry.index + 1}. </span>
+                        <div className="flex items-start justify-between gap-3"><span className="font-semibold">Séjour {entry.index + 1}</span><span className="shrink-0 font-bold">{recurringMoney(entry.amount)}</span></div>
+                        <p className="mt-1 text-gray-500">{recurringDate(entry.start)} → {recurringDate(entry.end)}</p>
+                        <p className={`mt-2 font-medium ${entry.dueNow ? 'text-haven-navy' : 'text-gray-600'}`}>{entry.dueNow ? 'Prévu à la réservation' : `Prévu le ${recurringDate(entry.dueDate)}`}</p>
+                        <p className="mt-1 text-[11px] text-gray-500">{entry.index === selectedRecurringIndex && selectedRecurringPrice !== null ? activeRoom.name : 'Tarif dès · chambre à choisir'}</p>
+                        </button>
+                      </li>)}
+                    </ol>
+                    {recurringMatch && recurringMatch.availableCount < recurringPeriods.length && <p className="mt-3 text-xs text-amber-800">Les périodes indisponibles sont exclues du total et de cet échéancier.</p>}
+                    <dl className="mt-4 space-y-2 rounded-xl bg-haven-cream p-3 text-sm">
+                      <div className="flex justify-between gap-3"><dt>À la réservation, prévu</dt><dd className="font-bold">{recurringMoney(paymentSchedule.dueNow)}</dd></div>
+                      <div className="flex justify-between gap-3 text-gray-500"><dt>À régler plus tard</dt><dd>{recurringMoney(paymentSchedule.later)}</dd></div>
+                      <div className="flex justify-between gap-3 border-t border-gray-200 pt-2 font-bold"><dt>Total estimé</dt><dd>{recurringMoney(paymentSchedule.total)}</dd></div>
+                    </dl>
+                    <p className="mt-3 text-xs leading-relaxed text-gray-500">Frais inclus. Les autres séjours sont estimés au tarif le plus bas disponible. Actuellement, chaque séjour se réserve et se paie séparément ; aucun prélèvement futur n’est encore programmé.</p>
+                    <Link to="/reservation-recurrente" className="mt-2 inline-flex min-h-11 items-center text-xs text-haven-red underline underline-offset-4">Paiement, annulation et modification</Link>
+                  </section>}
+
                   <Button fullWidth size="lg" onClick={handleBookClick} disabled={!activeRoomIsAvailable || !isBookableStay(startDate, endDate)}>
-                    {!availabilityReady ? (availabilityError ? 'Vérification impossible' : 'Vérification…') : !startDate || !endDate ? 'Sélectionnez vos dates' : activeRoomIsAvailable ? 'Réserver' : 'Indisponible'}
+                    {!availabilityReady ? (availabilityError ? 'Vérification impossible' : 'Vérification…') : !startDate || !endDate ? 'Sélectionnez vos dates' : activeRoomIsAvailable ? recurringPeriods.length > 1 ? 'Réserver ce séjour' : 'Réserver' : 'Indisponible'}
                   </Button>
                   {availabilityError && <p role="alert" className="mt-3 text-sm text-red-700">{availabilityError}</p>}
-                  <p className="text-center text-xs text-gray-400 mt-4">Vous ne serez débité qu'après validation</p>
+                  <p className="text-center text-xs text-gray-400 mt-4">{recurringPeriods.length > 1 ? 'Ce bouton concerne uniquement le séjour sélectionné.' : "Vous ne serez débité qu'après validation"}</p>
                 </div>
               </div>
             )}
@@ -739,9 +780,9 @@ export const ListingDetails: React.FC = () => {
 
       {!isListingOwner && <div className="haven-listing-actions fixed inset-x-0 z-30 border-t border-gray-200 bg-white/95 px-4 py-3 backdrop-blur-md md:hidden">
         <div className="mx-auto flex max-w-3xl items-center justify-between gap-3">
-          <div className="min-w-0"><p className="truncate text-xs text-gray-500">{activeRoom.name}</p><p className="text-sm font-bold text-haven-navy">{isBookableStay(startDate, endDate) ? `${activeRoom.pricePerDay * nights + (listing.cleaningFee || 0) + Math.round(activeRoom.pricePerDay * nights * .15)} € au total` : 'Choisissez vos dates'}</p></div>
+          <div className="min-w-0"><p className="truncate text-xs text-gray-500">{activeRoom.name}{recurringPeriods.length > 1 && selectedRecurringIndex >= 0 ? ` · séjour ${selectedRecurringIndex + 1}` : ''}</p><p className="text-sm font-bold text-haven-navy">{isBookableStay(startDate, endDate) ? `${activeRoom.pricePerDay * nights + (listing.cleaningFee || 0) + Math.round(activeRoom.pricePerDay * nights * .15)} € ${recurringPeriods.length > 1 ? 'ce séjour' : 'au total'}` : 'Choisissez vos dates'}</p></div>
           <Button onClick={() => { if (!isBookableStay(startDate, endDate)) calendarRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }); else if (activeRoomIsAvailable) void handleBookClick(); else document.getElementById('listing-rooms')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }}>
-            {!isBookableStay(startDate, endDate) ? 'Voir les dates' : activeRoomIsAvailable ? 'Réserver' : 'Voir les chambres'}
+            {!isBookableStay(startDate, endDate) ? 'Voir les dates' : activeRoomIsAvailable ? recurringPeriods.length > 1 ? 'Réserver ce séjour' : 'Réserver' : 'Voir les chambres'}
           </Button>
         </div>
       </div>}
