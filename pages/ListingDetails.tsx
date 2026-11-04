@@ -10,7 +10,7 @@ import { Button } from '../components/Button';
 import { BookingModal } from '../components/BookingModal';
 import { ListingCalendar } from '../components/ListingCalendar';
 import ReactMarkdown from 'react-markdown';
-import { Star, MapPin, Layout, Users, Check, Share, Heart, Calendar, Lock, Maximize2, ShieldCheck, AlertCircle, Loader2 } from 'lucide-react';
+import { Star, MapPin, Layout, Users, Check, Share, Heart, Calendar, Lock, Maximize2, ShieldCheck, AlertCircle, Loader2, ChevronDown } from 'lucide-react';
 import { useListings } from '../contexts/ListingContext';
 import { apiService } from '../services/api';
 import { BookingAvailability, HousematePreview, Room, User } from '../types';
@@ -37,6 +37,7 @@ export const ListingDetails: React.FC = () => {
 
   const [isBookingOpen, setIsBookingOpen] = useState(false);
   const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
+  const [expandedRecurringStay, setExpandedRecurringStay] = useState<number | null>(null);
   const [blockTarget, setBlockTarget] = useState<string>('LISTING');
   const [isVerificationModalOpen, setIsVerificationModalOpen] = useState(false);
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
@@ -703,7 +704,7 @@ export const ListingDetails: React.FC = () => {
                   <h3 className="font-heading font-bold text-xl mb-4">{recurringPeriods.length > 1 ? 'Préparer tes séjours' : <>Réserver <span className="text-haven-red">{activeRoom.name}</span></>}</h3>
                   {recurringPeriods.length > 1 && <p className="mb-4 text-sm text-gray-500">{activeRoom.name} · {selectedRecurringIndex >= 0 ? `séjour ${selectedRecurringIndex + 1} sélectionné` : 'dates sélectionnées'}</p>}
 
-                  <div
+                  {recurringPeriods.length < 2 && <><div
                     className="bg-haven-cream p-4 rounded-xl mb-4 cursor-pointer hover:bg-haven-cream/80 transition-colors border border-transparent hover:border-haven-navy/20"
                     onClick={() => calendarRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
                   >
@@ -738,22 +739,38 @@ export const ListingDetails: React.FC = () => {
                       <span>{recurringPeriods.length > 1 ? 'Total de ce séjour' : 'Total'}</span>
                       <span>{(activeRoom.pricePerDay * (nights)) + (listing.cleaningFee || 0) + Math.round(activeRoom.pricePerDay * (nights) * 0.15)}€</span>
                     </div>
-                  </div>
+                  </div></>}
 
-                  {paymentSchedule && <section className="mb-5 border-t border-gray-200 pt-5" aria-label="Échéancier prévisionnel des séjours">
+                  {paymentSchedule && <section className="mb-5" aria-label="Échéancier prévisionnel des séjours">
                     <div className="flex flex-wrap items-center justify-between gap-2"><h4 className="text-sm font-bold">Tes séjours et paiements</h4><span className="rounded-full bg-amber-50 px-2 py-1 text-[10px] font-semibold text-amber-800">Prévisionnel</span></div>
-                    <p className="mt-2 text-xs leading-relaxed text-gray-500">Sélectionne un séjour ci-dessous pour choisir sa chambre. Premier séjour à la réservation ; suivants un mois avant l’arrivée. Si l’échéance est déjà passée, le règlement est immédiat.</p>
+                    <p className="mt-2 text-xs leading-relaxed text-gray-500">Clique sur un séjour pour le sélectionner et dérouler son détail. Premier séjour à la réservation ; suivants un mois avant l’arrivée. Si l’échéance est déjà passée, le règlement est immédiat.</p>
                     <ol className="mt-4 max-h-72 space-y-3 overflow-y-auto pr-1">
                       {paymentSchedule.entries.map(entry => <li key={entry.start}>
                         <button type="button" aria-pressed={entry.index === selectedRecurringIndex}
-                          onClick={() => { setSelectedRoomId(null); handleDateSelect(entry.start, entry.end); }}
+                          aria-expanded={entry.index === selectedRecurringIndex && expandedRecurringStay === entry.index}
+                          aria-controls={`recurring-stay-detail-${entry.index}`}
+                          onClick={() => {
+                            setExpandedRecurringStay(entry.index === selectedRecurringIndex && expandedRecurringStay === entry.index ? null : entry.index);
+                            if (entry.index !== selectedRecurringIndex) { setSelectedRoomId(null); handleDateSelect(entry.start, entry.end); }
+                          }}
                           className={`w-full rounded-xl border p-3 text-left text-xs transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-haven-red ${entry.index === selectedRecurringIndex ? 'border-haven-navy bg-haven-navy/5' : 'border-gray-100 hover:border-haven-red'}`}>
                         <span className="sr-only">Sélectionner le séjour {entry.index + 1}. </span>
-                        <div className="flex items-start justify-between gap-3"><span className="font-semibold">Séjour {entry.index + 1}</span><span className="shrink-0 font-bold">{recurringMoney(entry.amount)}</span></div>
+                        <div className="flex items-start justify-between gap-3"><span className="font-semibold">Séjour {entry.index + 1}</span><span className="flex shrink-0 items-center gap-2 font-bold">{recurringMoney(entry.amount)}<ChevronDown size={14} aria-hidden="true" className={`transition-transform ${entry.index === selectedRecurringIndex && expandedRecurringStay === entry.index ? 'rotate-180' : ''}`} /></span></div>
                         <p className="mt-1 text-gray-500">{recurringDate(entry.start)} → {recurringDate(entry.end)}</p>
                         <p className={`mt-2 font-medium ${entry.dueNow ? 'text-haven-navy' : 'text-gray-600'}`}>{entry.dueNow ? 'Prévu à la réservation' : `Prévu le ${recurringDate(entry.dueDate)}`}</p>
                         <p className="mt-1 text-[11px] text-gray-500">{entry.index === selectedRecurringIndex && selectedRecurringPrice !== null ? activeRoom.name : 'Tarif dès · chambre à choisir'}</p>
                         </button>
+                        <div id={`recurring-stay-detail-${entry.index}`} hidden={entry.index !== selectedRecurringIndex || expandedRecurringStay !== entry.index} className="mt-1 space-y-3 rounded-xl border border-gray-100 bg-gray-50 p-3 text-xs" role="region" aria-label={`Détail du séjour ${entry.index + 1}`}>
+                          <div className="flex justify-between gap-3"><span>Arrivée</span><span>{recurringDate(entry.start)}</span></div>
+                          <div className="flex justify-between gap-3"><span>Départ</span><span>{recurringDate(entry.end)}</span></div>
+                          {entry.index === selectedRecurringIndex && <>
+                            <div className="flex justify-between gap-3 border-t border-gray-200 pt-3"><span>{recurringMoney(activeRoom.pricePerDay)} × {nights} nuits</span><span>{recurringMoney(activeRoom.pricePerDay * nights)}</span></div>
+                            <div className="flex justify-between gap-3"><span>Forfait ménage</span><span>{recurringMoney(listing.cleaningFee || 0)}</span></div>
+                            <div className="flex justify-between gap-3"><span>Frais Haven (15 %)</span><span>{recurringMoney(Math.round(activeRoom.pricePerDay * nights * .15))}</span></div>
+                            <div className="flex justify-between gap-3 border-t border-gray-200 pt-3 font-bold"><span>Total de ce séjour</span><span>{recurringMoney(selectedRecurringPrice ?? entry.amount)}</span></div>
+                            {!activeRoomIsAvailable && <p className="text-haven-red">Cette chambre est indisponible : choisis une autre chambre pour confirmer le prix.</p>}
+                          </>}
+                        </div>
                       </li>)}
                     </ol>
                     {recurringMatch && recurringMatch.availableCount < recurringPeriods.length && <p className="mt-3 text-xs text-amber-800">Les périodes indisponibles sont exclues du total et de cet échéancier.</p>}
