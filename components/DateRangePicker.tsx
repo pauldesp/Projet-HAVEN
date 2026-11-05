@@ -204,7 +204,7 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({ startDate, end
         }}
       >
         <CalendarIcon size={20} className="flex-shrink-0 text-haven-navy group-hover/date:text-haven-red transition-colors duration-300" />
-        <div className={`w-full truncate select-none transition-colors duration-300 leading-none ${startDate ? 'text-gray-900 font-bold text-base' : 'text-gray-400 font-bold text-base'}`}>
+        <div className={`w-full truncate select-none transition-colors duration-300 leading-none ${startDate ? 'text-gray-900 font-bold text-base' : 'date-range-placeholder text-gray-400 font-normal text-base'}`}>
           {startDate ? (
             <span className="flex items-center gap-1">
               {new Date(`${startDate}T00:00:00`).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
@@ -212,7 +212,7 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({ startDate, end
               {endDate ? new Date(`${endDate}T00:00:00`).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) : "..."}
             </span>
           ) : (
-            "Dates de séjour"
+            "Sélectionner les dates"
           )}
         </div>
       </button>

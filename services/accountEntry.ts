@@ -1,10 +1,13 @@
 import { isValidPhoneForVerification, normalizePhoneForVerification } from './phoneVerification';
 
+/** Correct keyboard capitalization/diacritics in a typed email, without changing phone formatting. */
+export const normalizeEmailInput = (value: string): string => value.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
+
 export function normalizeAccountIdentifier(value: unknown): { kind: 'email' | 'phone'; value: string } {
   if (typeof value !== 'string' || value.length > 254) throw new Error('Saisissez un e-mail ou un numéro de téléphone valide.');
   const trimmed = value.trim();
   if (trimmed.includes('@')) {
-    const email = trimmed.toLowerCase();
+    const email = normalizeEmailInput(trimmed);
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error('Saisissez une adresse e-mail valide.');
     return { kind: 'email', value: email };
   }

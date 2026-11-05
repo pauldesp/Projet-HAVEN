@@ -77,7 +77,7 @@ export function HomeSearchPreview() {
       <label className="home-search-label" htmlFor={`${id}-location`}>Lieu de la recherche</label>
       <div className="home-search-location">
         <CityAutocomplete inputId={`${id}-location`} ariaLabel="Lieu de la recherche" value={location}
-          placeholder="Rechercher une ville, un quartier ou une adresse"
+          placeholder="Rechercher une ville ou une adresse"
           onChange={value => { setLocation(value); setCityCode(''); }}
           onSelect={place => setCityCode(place.cityCode || '')} />
       </div>

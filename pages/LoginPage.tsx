@@ -10,7 +10,7 @@ import { UserRole, User } from '../types';
 import { userFacingErrorMessage } from '../services/errorHandling';
 import { RecaptchaVerifier, signInWithPhoneNumber, type ConfirmationResult } from 'firebase/auth';
 import { auth } from '../firebase';
-import { normalizeAccountIdentifier } from '../services/accountEntry';
+import { normalizeAccountIdentifier, normalizeEmailInput } from '../services/accountEntry';
 import { clearPhoneRecaptcha, normalizePhoneForVerification, isValidPhoneForVerification, phoneVerificationErrorMessage } from '../services/phoneVerification';
 import { isValidPastBirthDate } from '../services/profileVerification';
 import { registrationPasswordError } from '../services/accountTerms';
@@ -97,7 +97,7 @@ export const LoginPage: React.FC = () => {
     setError('');
     setIsLoading(true);
     try {
-      const success = await login(identifier, password);
+      const success = await login(normalizeEmailInput(identifier).trim(), password);
       if (!success) {
         setError('Mot de passe incorrect.');
       }
@@ -124,7 +124,7 @@ export const LoginPage: React.FC = () => {
 
   const handleProfileSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const email = identifier.includes('@') ? identifier : otherContact.trim().toLowerCase();
+    const email = normalizeEmailInput(identifier.includes('@') ? identifier : otherContact).trim();
     const phone = identifier.includes('@') ? normalizePhone(otherContact) : identifier;
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       setError('Saisissez une adresse e-mail valide.');
@@ -187,7 +187,7 @@ export const LoginPage: React.FC = () => {
         id: '',
         firstName,
         lastName,
-        email: isEmail ? identifier : otherContact.trim().toLowerCase(),
+        email: normalizeEmailInput(isEmail ? identifier : otherContact).trim(),
         phone: isEmail ? normalizePhone(otherContact) : identifier,
         birthDate,
         marketingOptIn,
@@ -213,7 +213,7 @@ export const LoginPage: React.FC = () => {
       const errorMessage = err.message || "";
 
       if (errorCode === 'auth/email-already-in-use' || errorMessage.includes('email-already-in-use')) {
-        setIdentifier(identifier.includes('@') ? identifier : otherContact.trim().toLowerCase());
+        setIdentifier(normalizeEmailInput(identifier.includes('@') ? identifier : otherContact).trim());
         setError("Un compte existe déjà avec cette adresse e-mail. Veuillez vous connecter à l'aide de votre mot de passe.");
         setStep('LOGIN');
       } else if (errorCode === 'auth/weak-password' || errorMessage.includes('weak-password')) {
@@ -251,7 +251,7 @@ export const LoginPage: React.FC = () => {
     setError('');
     setIsLoading(true);
     try {
-      await resetPassword(identifier);
+      await resetPassword(normalizeEmailInput(identifier).trim());
       setStep('FORGOT_PASSWORD_SUCCESS');
     } catch (err: unknown) {
       console.error("Forgot password error", err);
@@ -272,7 +272,8 @@ export const LoginPage: React.FC = () => {
                   type="text" 
                   required 
                   value={identifier} 
-                  onChange={(e) => setIdentifier(e.target.value)}
+                  onChange={(e) => setIdentifier(normalizeEmailInput(e.target.value))}
+                  autoCapitalize="none" autoCorrect="off" spellCheck={false} autoComplete="username"
                   placeholder="Numéro de téléphone ou adresse e-mail"
                   className="w-full px-4 py-4 bg-white rounded-xl border border-gray-300 outline-none focus:ring-2 focus:ring-black/5 focus:border-black transition-all text-base placeholder:text-gray-500"
                 />
@@ -361,7 +362,8 @@ export const LoginPage: React.FC = () => {
                 </div>
                 <input 
                   type={identifier.includes('@') ? 'tel' : 'email'} 
-                  required value={otherContact} onChange={(e) => setOtherContact(e.target.value)}
+                  required value={otherContact} onChange={(e) => setOtherContact(identifier.includes('@') ? e.target.value : normalizeEmailInput(e.target.value))}
+                  autoCapitalize="none" autoCorrect="off" spellCheck={false} autoComplete={identifier.includes('@') ? 'tel' : 'email'}
                   placeholder={identifier.includes('@') ? '+33 6...' : 'email@example.com'}
                   className="w-full pl-12 pr-4 py-3 bg-gray-50 rounded-xl border border-gray-100 outline-none focus:border-haven-navy text-sm"
                 />
@@ -442,7 +444,8 @@ export const LoginPage: React.FC = () => {
                     type="email" 
                     required 
                     value={identifier} 
-                    onChange={(e) => setIdentifier(e.target.value)}
+                    onChange={(e) => setIdentifier(normalizeEmailInput(e.target.value))}
+                    autoCapitalize="none" autoCorrect="off" spellCheck={false} autoComplete="email"
                     placeholder="votre@email.com"
                     className="w-full pl-12 pr-4 py-4 bg-gray-50 rounded-2xl border border-gray-100 outline-none focus:border-haven-navy transition-all"
                   />
@@ -498,20 +501,14 @@ export const LoginPage: React.FC = () => {
 
       {/* Right side: Auth Flow */}
       <div className="order-1 lg:order-2 w-full lg:w-1/2 flex flex-col items-center justify-center px-4 py-8 sm:p-8 bg-haven-cream relative overflow-y-auto">
-        <button 
-          onClick={() => navigate('/')} 
-          className="absolute top-4 left-4 sm:top-8 sm:left-8 flex items-center gap-2 text-haven-stone hover:text-haven-navy font-bold transition-colors"
-        >
-          <ArrowLeft size={20} /> Retour au site
-        </button>
-
-        <div className="w-full max-w-md animate-fade-in-up pt-14 pb-4 sm:pb-8 lg:py-12 lg:-translate-y-48">
+        <div className="w-full max-w-md animate-fade-in-up pb-4 sm:pb-8 lg:py-12 lg:-translate-y-48">
           <div id="registration-recaptcha" aria-hidden="true" />
           <div className="bg-white rounded-3xl shadow-premium border border-gray-100 overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-center relative">
               <button 
+                type="button" aria-label="Retour à l’accueil"
                 onClick={() => navigate('/')} 
-                className="absolute left-6 text-gray-500 hover:text-black transition-colors"
+                className="absolute left-3 flex h-11 w-11 items-center justify-center text-gray-500 hover:text-black transition-colors"
               >
                 <ArrowLeft size={20} />
               </button>

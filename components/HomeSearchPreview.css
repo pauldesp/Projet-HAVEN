@@ -8,7 +8,7 @@
 .home-search-preview button { -webkit-tap-highlight-color: transparent; }
 .home-search-preview :is(button, input, select):focus-visible { outline: 3px solid #a8414560; outline-offset: 3px; }
 .home-search-modes { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 23px; }
-.home-search-info-row { display: flex; justify-content: flex-end; margin: -15px 0 16px; }
+.home-search-info-row { display: flex; justify-content: flex-end; margin: -15px 0 0; }
 .home-search-info-link { display: inline-flex; align-items: center; min-height: 44px; padding: 4px 0; color: #687185; font-size: 11px; line-height: 1.5; text-underline-offset: 3px; }
 .home-search-info-link:hover { color: #a44345; text-decoration: underline; }
 .home-search-info-link:focus-visible { outline: 2px solid #a44345; outline-offset: 3px; border-radius: 4px; }
@@ -92,6 +92,8 @@
   .home-search-mode-description { font-size: 11px; line-height: 1.6; margin-top: 7px; }
   .home-search-location { padding: 0 11px; gap: 8px; }
   .home-search-location input { font-size: 16px; }
+  .home-search-location input::placeholder { font-size: 14px; }
+  .home-search-date-picker .date-range-placeholder { font-size: 14px; }
   .home-search-dates { gap: 10px; }
   .home-search-preview input[type=date] { font-size: 16px; padding: 0 8px; }
   .home-search-planning-actions { gap: 8px; }

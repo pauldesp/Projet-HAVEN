@@ -4,10 +4,10 @@ import { SearchLoading } from '../components/SearchLoading';
 import { cheapestStayPrice } from '../services/stayPrice';
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { ListingCard } from '../components/ListingCard';
 import { BookingAvailability, Listing } from '../types';
-import { MapPin, SlidersHorizontal, Route, Loader2, ChevronDown, RotateCcw } from 'lucide-react';
+import { MapPin, SlidersHorizontal, Route, Loader2, ChevronDown, RotateCcw, ArrowLeft, Search, X } from 'lucide-react';
 import { useListings } from '../contexts/ListingContext';
 import { resolveCityCoordinates, sortByDistance } from '../services/proximity';
 import { Button } from '../components/Button';
@@ -56,6 +56,7 @@ export const SearchPage: React.FC = () => {
   const requestedPeriods = useMemo(() => parseRecurringPeriods(searchParams), [searchParams]);
   const isRecurring = requestedPeriods.length > 1;
   const [recurringSearchOpen, setRecurringSearchOpen] = useState(false);
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const [sortChoice, setSortChoice] = useState<'best' | 'coverage'>('best');
   const flexibleDates = searchParams.get('flex') === '1';
   const cityParam = searchParams.get('city') || '';
@@ -83,7 +84,7 @@ export const SearchPage: React.FC = () => {
       next.set('periods', JSON.stringify(validated));
       next.set('start', validated[0].start); next.set('end', validated[0].end);
     }
-    setSearchError(''); setSearchParams(next); setMobileFiltersOpen(false); setRecurringSearchOpen(false);
+    setSearchError(''); setSearchParams(next); setMobileFiltersOpen(false); setRecurringSearchOpen(false); setMobileSearchOpen(false);
   };
 
   const { start: startDate, end: endDate } = readSearchDates(searchParams);
@@ -297,23 +298,35 @@ export const SearchPage: React.FC = () => {
 
   if ((startDate || endDate || isRecurring) && availabilityError) return <div className="mx-auto max-w-xl p-12 text-center text-haven-navy" role={availabilityError ? 'alert' : 'status'}>{availabilityError || 'Vérification des chambres disponibles…'}{availabilityError && <p className="mt-3 text-sm text-gray-500">Réessayez dans un instant. La réservation reste bloquée tant que les disponibilités ne peuvent pas être vérifiées.</p>}</div>;
 
+  const activeFilterCount = selectedTypes.length + selectedAmenities.length + selectedRoomOptions.length
+    + Number(priceMin > 0 || priceMax < priceCeiling) + Number(minRooms > 1 || maxRooms < maxRoomCount);
+
   return (
-    <div className="min-h-screen bg-haven-cream pt-8 pb-20">
+    <div className="min-h-screen bg-haven-cream pt-3 md:pt-8 pb-20">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="mb-4 md:hidden">
+          <h1 className="sr-only">Résultats de recherche{cityParam ? ` à ${cityParam.split(',')[0]}` : ''}</h1>
+          <div className="flex items-center gap-2">
+            <Link to="/" aria-label="Retour à l’accueil" className="flex h-11 w-9 shrink-0 items-center justify-center rounded-full text-haven-navy"><ArrowLeft size={20} /></Link>
+            <button type="button" aria-expanded={mobileSearchOpen} aria-controls="recurring-search-editor" onClick={() => { setMobileSearchOpen(open => !open); setMobileFiltersOpen(false); }} className="flex min-h-14 min-w-0 flex-1 items-center gap-3 rounded-full border border-gray-200 bg-white px-4 py-2 text-left shadow-sm">
+              <Search size={17} className="shrink-0 text-haven-red" aria-hidden="true" />
+              <span className="min-w-0"><span className="block truncate text-sm font-bold">{cityParam.split(',')[0] || 'Tous les logements'}</span><span className="block truncate text-xs text-gray-500">{isRecurring ? `${requestedPeriods.length} séjours · ${requestedPeriods.reduce((sum, period) => sum + countNights(period.start, period.end), 0)} nuits` : startDate && endDate ? `${new Date(`${startDate}T12:00:00Z`).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', timeZone: 'UTC' })} → ${new Date(`${endDate}T12:00:00Z`).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', timeZone: 'UTC' })}` : 'Choisir mes dates'}</span></span>
+              <span className="sr-only"> · Modifier ma recherche</span>
+            </button>
+            <button type="button" aria-label={mobileFiltersOpen ? 'Fermer les filtres' : 'Filtrer les résultats'} aria-expanded={mobileFiltersOpen} aria-controls="search-filters" onClick={() => { setMobileFiltersOpen(open => !open); setMobileSearchOpen(false); }} className={`relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full border ${mobileFiltersOpen ? 'border-haven-navy bg-haven-navy text-white' : 'border-gray-200 bg-white text-haven-navy'}`}><SlidersHorizontal size={19} />{activeFilterCount > 0 && <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-haven-red px-1 text-[9px] font-bold text-white">{activeFilterCount}<span className="sr-only"> filtre(s) actif(s)</span></span>}</button>
+          </div>
+        </div>
         {/* Top Header */}
-        <div className="mb-8">
+        <div className="mb-8 hidden md:block">
           <div className="flex items-center gap-4">
             <h1 className="font-heading font-bold text-3xl text-haven-navy">
               {isRecurring ? `${requestedPeriods.length} séjours demandés · ${cityParam.split(',')[0]}` : exactMatches.length > 0 ? `Logements à ${cityParam.split(',')[0]}` : 'Chercher mon logement'}
             </h1>
             {isGeocoding && <Loader2 className="animate-spin text-haven-stone" size={24} />}
           </div>
-          <p className="text-gray-500">
-            {exactMatches.length + nearbyMatches.length} logement(s) disponible(s) {isRecurring ? 'pour au moins un de tes séjours' : 'aux dates demandées'}
-          </p>
         </div>
 
-        {isRecurring && <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-gray-200 bg-white px-4 py-3">
+        {isRecurring && <div className="mb-5 hidden flex-wrap items-center justify-between gap-3 rounded-2xl border border-gray-200 bg-white px-4 py-3 md:flex">
           <div className="flex min-w-0 items-center gap-3">
             <MapPin size={18} className="shrink-0 text-haven-red" aria-hidden="true" />
             <div className="min-w-0">
@@ -328,7 +341,8 @@ export const SearchPage: React.FC = () => {
           </button>
         </div>}
 
-        {(!isRecurring || recurringSearchOpen) && <form id="recurring-search-editor" onSubmit={submitSearch} className="relative z-20 mb-6 grid gap-3 rounded-3xl border border-gray-200 bg-white p-4 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_auto]">
+        {(!isRecurring || recurringSearchOpen || mobileSearchOpen) && <form id="recurring-search-editor" onSubmit={submitSearch} className={`relative z-20 mb-4 gap-3 rounded-3xl border border-gray-200 bg-white p-4 md:mb-6 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_auto] ${mobileSearchOpen ? 'grid' : 'hidden md:grid'}`}>
+          <div className="flex items-center justify-between sm:col-span-2 lg:hidden md:hidden"><h2 className="text-sm font-bold">Modifier ma recherche</h2><button type="button" aria-label="Fermer la modification de recherche" onClick={() => setMobileSearchOpen(false)} className="flex h-11 w-11 items-center justify-center"><X size={18} /></button></div>
           <label className="min-w-0"><span className="mb-2 block text-xs font-bold text-gray-500">Ville</span><div className="min-h-11"><CityAutocomplete value={searchCity} onChange={value => { setSearchCity(value); setSearchCityCode(''); }} onSelect={place => setSearchCityCode(place.cityCode || '')} placeholder="Où cherchez-vous ?" /></div></label>
           <div className="min-w-0 space-y-3">{isRecurring ? editedPeriods.map((period, index) => <div key={index}>
             <p className="mb-2 text-xs font-bold text-gray-500">Dates du séjour {index + 1}</p>
@@ -340,31 +354,32 @@ export const SearchPage: React.FC = () => {
         </form>}
 
         {searchError && <p role="alert" className="mb-4 text-sm text-haven-red">{searchError}</p>}
-        {isRecurring && <div className="mb-6 flex flex-wrap items-center gap-3" role="group" aria-label="Classement des séjours récurrents">
+        {isRecurring && <div className="mb-4 flex flex-wrap items-center gap-2 md:mb-6 md:gap-3" role="group" aria-label="Classement des séjours récurrents">
           <button type="button" aria-pressed={sortChoice === 'best'} onClick={() => setSortChoice('best')} className={`min-h-11 rounded-xl border px-4 py-2 text-sm font-bold ${sortChoice === 'best' ? 'border-haven-navy bg-haven-navy text-white' : 'border-gray-200 bg-white text-haven-navy'}`}>Meilleur choix</button>
           <button type="button" aria-pressed={sortChoice === 'coverage'} onClick={() => setSortChoice('coverage')} className={`min-h-11 rounded-xl border px-4 py-2 text-sm font-bold ${sortChoice === 'coverage' ? 'border-haven-navy bg-haven-navy text-white' : 'border-gray-200 bg-white text-haven-navy'}`}>Plus de séjours</button>
           <label className="flex min-h-11 cursor-pointer items-center gap-2 text-sm text-gray-600"><input type="checkbox" checked={flexibleDates} onChange={event => { const next = new URLSearchParams(searchParams); if (event.target.checked) next.set('flex', '1'); else next.delete('flex'); setSearchParams(next); }} className="h-4 w-4 accent-haven-red" />Dates ±1 jour</label>
-          <p className="w-full text-xs text-gray-500">{sortChoice === 'best' ? 'Un équilibre entre proximité, séjours disponibles et notes.' : 'Les logements couvrant le plus de séjours en premier.'} Les dates décalées sont toujours signalées.</p>
+          <p className="hidden w-full text-xs text-gray-500 md:block">{sortChoice === 'best' ? 'Un équilibre entre proximité, séjours disponibles et notes.' : 'Les logements couvrant le plus de séjours en premier.'} Les dates décalées sont toujours signalées.</p>
         </div>}
 
         {/* Banner: Exact dates are unavailable in the requested city */}
         {!isSearching && exactMatches.length === 0 && cityParam && (nearbyDateMatches.length > 0 || nearbyMatches.length > 0) && (
-          <div className="mb-8 bg-orange-50 border border-orange-200 rounded-3xl p-6 flex flex-col md:flex-row items-center gap-6 animate-fade-in-up">
-            <div className="bg-orange-100 p-4 rounded-2xl text-orange-600">
-              <MapPin size={32} />
+          <div className="mb-4 flex items-start gap-3 rounded-2xl border border-orange-200 bg-orange-50 p-3 md:mb-8 md:items-center md:gap-6 md:rounded-3xl md:p-6 animate-fade-in-up">
+            <div className="shrink-0 rounded-xl bg-orange-100 p-2 text-orange-600 md:rounded-2xl md:p-4">
+              <MapPin className="h-5 w-5 md:h-8 md:w-8" />
             </div>
             <div>
-              <h3 className="font-bold text-orange-900 text-lg">Aucun logement libre à "{cityParam.split(',')[0]}" pour ces dates</h3>
-              <p className="text-orange-800/70 text-sm mt-1 max-w-2xl">
+              <h3 className="text-sm font-bold leading-snug text-orange-900 md:text-lg">Aucun logement libre à {cityParam.split(',')[0]} pour ces dates</h3>
+              <p className="mt-1 text-xs leading-relaxed text-orange-800/70 md:hidden">{nearbyDateMatches.length > 0 ? 'D’autres dates et logements à proximité sont proposés ci-dessous.' : 'Découvre les logements à proximité ci-dessous.'}</p>
+              <p className="hidden text-orange-800/70 text-sm mt-1 max-w-2xl md:block">
                 Découvrez d’abord les disponibilités à des dates proches dans cette ville, puis les logements des villes voisines aux dates demandées.
               </p>
             </div>
           </div>
         )}
 
-        <div className="flex flex-col lg:flex-row gap-8">
+        <div className="flex flex-col lg:flex-row gap-4 md:gap-8">
           {/* Sidebar Filters */}
-          <aside className="w-full min-w-0 lg:w-1/4 h-fit bg-white p-4 lg:p-6 rounded-3xl shadow-premium border border-gray-100 lg:sticky lg:top-24">
+          <aside className={`w-full min-w-0 lg:w-1/4 h-fit bg-white p-4 lg:p-6 rounded-3xl shadow-premium border border-gray-100 lg:sticky lg:top-24 ${mobileFiltersOpen ? 'block' : 'hidden'} md:block`}>
             <div className="mb-2 flex items-center justify-between gap-3 text-haven-navy">
               <div className="flex items-center gap-2">
                 <SlidersHorizontal size={20} />
@@ -488,8 +503,8 @@ export const SearchPage: React.FC = () => {
           {/* Results Grid */}
           <div className="w-full min-w-0 lg:w-3/4 space-y-8 lg:space-y-12">
             {!isSearching && exactMatches.length > 0 && (
-              <div className="space-y-6">
-                <div className="flex items-center gap-3">
+              <div className="space-y-0 md:space-y-6">
+                <div className="hidden items-center gap-3 md:flex">
                   <div className="h-px flex-1 bg-gray-100"></div>
                   <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-gray-400">Logements à {cityParam.split(',')[0]}</h2>
                   <div className="h-px flex-1 bg-gray-100"></div>
@@ -529,7 +544,7 @@ export const SearchPage: React.FC = () => {
                   {nearbyMatches.map(listing => (
                     <div key={listing.id} className="relative">
                       <ListingCard listing={listing} availability={availability} {...recurrenceCardProps(listing)} />
-                      <div className="absolute top-4 left-4 z-10 bg-white/95 backdrop-blur-sm text-haven-navy px-4 py-2 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl flex items-center gap-2 border border-gray-100">
+                      <div className="pointer-events-none absolute top-4 left-4 z-10 bg-white/95 backdrop-blur-sm text-haven-navy px-4 py-2 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl flex items-center gap-2 border border-gray-100">
                         <Route size={14} className="text-haven-red" />
                         À {Math.round(listing.distance || 0)} km à vol d’oiseau
                       </div>

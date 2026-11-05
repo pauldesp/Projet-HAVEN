@@ -9,6 +9,8 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { RecurringMatch, SearchPeriod, recurringListingLink, completionForPeriod } from '../services/recurringSearch';
 import { readSearchDates } from '../services/searchDates';
 import { countNights } from '../services/stay';
+import { getListingPhotoUrls } from '../services/media';
+import { ListingPhotoCarousel } from './ListingPhotoCarousel';
 
 interface ListingCardProps {
   listing: Listing;
@@ -35,29 +37,28 @@ export const ListingCard: React.FC<ListingCardProps> = ({ listing, stayOverride,
   if (dates.start) stayParams.set('start', dates.start);
   if (dates.end) stayParams.set('end', dates.end);
   const stayQuery = stayParams.toString();
+  const listingHref = recurrence ? recurringListingLink(listing.id, dates, requestedPeriods, flexibleDates) : `/listing/${listing.id}${stayQuery ? `?${stayQuery}` : ''}`;
+  const photos = getListingPhotoUrls(listing);
 
   return (
     <div className="group flex flex-col rounded-[2rem] bg-white border border-gray-100 transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 focus-within:shadow-2xl">
-    <Link 
-      to={recurrence ? recurringListingLink(listing.id, dates, requestedPeriods, flexibleDates) : `/listing/${listing.id}${stayQuery ? `?${stayQuery}` : ''}`}
-      className="flex flex-col rounded-[2rem] p-3"
-    >
-      <div className="relative aspect-[16/10] overflow-hidden rounded-2xl mb-4">
-        <img 
+      <div className="px-3 pt-3"><div className="relative aspect-[16/10] overflow-hidden rounded-2xl mb-4">
+        <div className="h-full w-full md:hidden"><ListingPhotoCarousel key={listing.id} photos={photos.length ? photos : [listing.mainPhotoUrl]} title={listing.title} href={listingHref} /></div>
+        <Link to={listingHref} className="hidden h-full w-full md:block" aria-label={`Voir ${listing.title}`}><img
           src={listing.mainPhotoUrl} 
           alt={listing.title} 
           className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-        />
-        <div className="absolute top-3 left-3 bg-white/95 backdrop-blur-sm px-3 py-1 rounded-full text-[10px] font-bold text-haven-navy uppercase tracking-wider shadow-sm">
+        /></Link>
+        <div className="pointer-events-none absolute top-3 left-3 bg-white/95 backdrop-blur-sm px-3 py-1 rounded-full text-[10px] font-bold text-haven-navy uppercase tracking-wider shadow-sm">
           {listing.type === 'HOUSE' ? 'Maison' : 'Appartement'}
         </div>
         {stayOverride?.label && (
-          <div className="absolute bottom-3 left-3 bg-haven-navy/95 px-3 py-1.5 rounded-full text-[10px] font-bold text-white shadow-sm">
+          <div className="pointer-events-none absolute top-12 left-3 bg-haven-navy/95 px-3 py-1.5 rounded-full text-[10px] font-bold text-white shadow-sm">
             {stayOverride.label}
           </div>
         )}
-      </div>
-
+      </div></div>
+    <Link to={listingHref} className="flex flex-col rounded-[2rem] px-3 pb-3">
       <div className="flex-1 px-2">
         <div className="flex justify-between items-start mb-1.5">
           <h3 className="font-heading font-bold text-lg text-haven-navy line-clamp-1 group-hover:text-haven-red transition-colors">
