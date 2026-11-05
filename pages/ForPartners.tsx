@@ -40,30 +40,30 @@ export const ForPartners: React.FC = () => {
   };
 
   return (
-    <div className="bg-haven-cream min-h-screen py-16 px-4 sm:px-6 lg:px-8 mt-12 animate-fade-in">
+    <div className="bg-haven-cream min-h-screen py-8 sm:py-16 px-4 sm:px-6 lg:px-8 mt-4 sm:mt-12 animate-fade-in">
       <div className="max-w-5xl mx-auto">
         {/* Hero Banner */}
-        <div className="text-center mb-16">
+        <div className="text-center mb-8 sm:mb-16">
           <span className="px-4 py-1.5 bg-haven-navy/5 text-haven-navy rounded-full text-xs font-black uppercase tracking-widest">
             Partenaires Établissements & RH
           </span>
-          <h1 className="text-4xl sm:text-5xl font-heading font-black text-haven-navy mt-4 mb-6 leading-tight">
-            Simplifiez le logement de vos<br />étudiants et collaborateurs
+          <h1 className="text-[1.75rem] sm:text-5xl font-heading font-black text-haven-navy mt-3 sm:mt-4 mb-3 sm:mb-6 leading-tight">
+            Simplifiez le logement de vos <br className="hidden sm:inline" />étudiants et collaborateurs
           </h1>
-          <p className="text-lg text-gray-500 max-w-2xl mx-auto">
+          <p className="text-sm sm:text-lg text-gray-500 max-w-2xl mx-auto">
             HAVEN s'associe avec les universités, les grandes écoles et les entreprises partenaires pour offrir des solutions de colocation clés en main, flexibles et sécurisées.
           </p>
         </div>
 
         {/* Benefits Grid for School vs Enterprise */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-16">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-8 mb-8 sm:mb-16">
           {/* Schools */}
-          <div className="bg-white rounded-[2.5rem] p-8 sm:p-10 border border-gray-100 shadow-premium flex flex-col justify-between">
+          <div className="bg-white rounded-[1.75rem] sm:rounded-[2.5rem] p-5 sm:p-10 border border-gray-100 shadow-premium flex flex-col justify-between">
             <div>
               <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center mb-6">
                 <GraduationCap size={24} />
               </div>
-              <h2 className="text-2xl font-heading font-black text-haven-navy mb-4">
+              <h2 className="text-xl sm:text-2xl font-heading font-black text-haven-navy mb-4">
                 Écoles & Universités
               </h2>
               <p className="text-gray-550 text-sm leading-relaxed mb-6">
@@ -90,12 +90,12 @@ export const ForPartners: React.FC = () => {
           </div>
 
           {/* Companies */}
-          <div className="bg-white rounded-[2.5rem] p-8 sm:p-10 border border-gray-100 shadow-premium flex flex-col justify-between">
+          <div className="bg-white rounded-[1.75rem] sm:rounded-[2.5rem] p-5 sm:p-10 border border-gray-100 shadow-premium flex flex-col justify-between">
             <div>
               <div className="w-12 h-12 bg-haven-red/5 text-haven-red rounded-2xl flex items-center justify-center mb-6">
                 <Building2 size={24} />
               </div>
-              <h2 className="text-2xl font-heading font-black text-haven-navy mb-4">
+              <h2 className="text-xl sm:text-2xl font-heading font-black text-haven-navy mb-4">
                 Entreprises & Recruteurs
               </h2>
               <p className="text-gray-550 text-sm leading-relaxed mb-6">
@@ -123,23 +123,23 @@ export const ForPartners: React.FC = () => {
         </div>
 
         {/* Feature stats */}
-        <div className="bg-white rounded-[2.5rem] p-10 border border-gray-100 shadow-premium mb-16">
+        <div className="bg-white rounded-[1.75rem] sm:rounded-[2.5rem] p-6 sm:p-10 border border-gray-100 shadow-premium mb-8 sm:mb-16">
           <h3 className="font-heading font-bold text-center text-xl text-haven-navy mb-8">
             Pourquoi HAVEN est la solution de confiance partenaires ?
           </h3>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-8 text-center divide-y sm:divide-y-0 sm:divide-x divide-gray-100">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-8 text-center divide-y sm:divide-y-0 sm:divide-x divide-gray-100">
             <div className="pt-4 sm:pt-0 sm:px-4 space-y-2">
-              <div className="text-3xl font-heading font-black text-haven-navy">98%</div>
+              <div className="text-2xl sm:text-3xl font-heading font-black text-haven-navy">98%</div>
               <p className="text-xs font-black uppercase tracking-widest text-gray-400">Satisfaction Locataires</p>
               <p className="text-xs text-gray-400 leading-relaxed">De jeunes professionnels et étudiants enchantés par leur accueil et l'autonomie</p>
             </div>
             <div className="pt-8 sm:pt-0 sm:px-4 space-y-2">
-              <div className="text-3xl font-heading font-black text-haven-navy">100%</div>
+              <div className="text-2xl sm:text-3xl font-heading font-black text-haven-navy">100%</div>
               <p className="text-xs font-black uppercase tracking-widest text-gray-400">États des lieux validés</p>
               <p className="text-xs text-gray-400 leading-relaxed">Une signature numérique sécurisée qui supprime tout contentieux à l'entrée ou sortie</p>
             </div>
             <div className="pt-8 sm:pt-0 sm:px-4 space-y-2">
-              <div className="text-3xl font-heading font-black text-haven-navy">&lt; 24h</div>
+              <div className="text-2xl sm:text-3xl font-heading font-black text-haven-navy">&lt; 24h</div>
               <p className="text-xs font-black uppercase tracking-widest text-gray-400">Délai moyen d'onboarding</p>
               <p className="text-xs text-gray-400 leading-relaxed">Une contractualisation digitale et une validation de réservation ultra-rapide</p>
             </div>
@@ -147,11 +147,11 @@ export const ForPartners: React.FC = () => {
         </div>
 
         {/* Form panel & contact details */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-8 items-start">
           {/* Details info */}
           <div className="lg:col-span-5 space-y-6">
-            <div className="bg-haven-navy rounded-[2.5rem] p-8 text-white shadow-premium space-y-6">
-              <h3 className="font-heading font-bold text-2xl">Contact Direct</h3>
+            <div className="bg-haven-navy rounded-[1.75rem] sm:rounded-[2.5rem] p-5 sm:p-8 text-white shadow-premium space-y-6">
+              <h3 className="font-heading font-bold text-xl sm:text-2xl">Contact Direct</h3>
               <p className="text-sm text-gray-300 leading-relaxed">
                 Notre bureau des relations partenaires est à votre disposition pour imaginer ensemble la formule la plus adaptée à votre structure : allocations de chambres, baux collectifs ou codes de réduction de fidélité pour vos étudiants/collaborateurs.
               </p>
@@ -173,8 +173,8 @@ export const ForPartners: React.FC = () => {
           </div>
 
           {/* Partner register form */}
-          <div className="lg:col-span-7 bg-white rounded-[2.5rem] p-8 sm:p-10 border border-gray-100 shadow-premium">
-            <h3 className="font-heading font-bold text-2xl text-haven-navy mb-2">Devenir Établissement Partenaire</h3>
+          <div className="lg:col-span-7 bg-white rounded-[1.75rem] sm:rounded-[2.5rem] p-5 sm:p-10 border border-gray-100 shadow-premium">
+            <h3 className="font-heading font-bold text-xl sm:text-2xl text-haven-navy mb-2">Devenir Établissement Partenaire</h3>
             <p className="text-xs text-gray-400 mb-6 font-medium">Exprimez vos besoins de logement de courte durée et nos équipes vous contacteront rapidement.</p>
             
             <form onSubmit={handleSubmit} className="space-y-5">

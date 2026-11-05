@@ -294,9 +294,9 @@ export const SearchPage: React.FC = () => {
 
   const isSearching = isGeocoding || listingsLoading || isAvailabilityLoading;
 
-  if (searchParams.has('periods') && !isRecurring) return <div className="mx-auto max-w-xl p-10 text-center" role="alert">Les dates des séjours sont invalides ou se chevauchent. <a href="/#/" className="underline">Reprendre la recherche</a></div>;
+  if (searchParams.has('periods') && !isRecurring) return <div className="mx-auto max-w-xl p-6 sm:p-10 text-center" role="alert">Les dates des séjours sont invalides ou se chevauchent. <a href="/#/" className="underline">Reprendre la recherche</a></div>;
 
-  if ((startDate || endDate || isRecurring) && availabilityError) return <div className="mx-auto max-w-xl p-12 text-center text-haven-navy" role={availabilityError ? 'alert' : 'status'}>{availabilityError || 'Vérification des chambres disponibles…'}{availabilityError && <p className="mt-3 text-sm text-gray-500">Réessayez dans un instant. La réservation reste bloquée tant que les disponibilités ne peuvent pas être vérifiées.</p>}</div>;
+  if ((startDate || endDate || isRecurring) && availabilityError) return <div className="mx-auto max-w-xl p-6 sm:p-12 text-center text-haven-navy" role={availabilityError ? 'alert' : 'status'}>{availabilityError || 'Vérification des chambres disponibles…'}{availabilityError && <p className="mt-3 text-sm text-gray-500">Réessayez dans un instant. La réservation reste bloquée tant que les disponibilités ne peuvent pas être vérifiées.</p>}</div>;
 
   const activeFilterCount = selectedTypes.length + selectedAmenities.length + selectedRoomOptions.length
     + Number(priceMin > 0 || priceMax < priceCeiling) + Number(minRooms > 1 || maxRooms < maxRoomCount);
@@ -319,7 +319,7 @@ export const SearchPage: React.FC = () => {
         {/* Top Header */}
         <div className="mb-8 hidden md:block">
           <div className="flex items-center gap-4">
-            <h1 className="font-heading font-bold text-3xl text-haven-navy">
+            <h1 className="font-heading font-bold text-2xl sm:text-3xl text-haven-navy">
               {isRecurring ? `${requestedPeriods.length} séjours demandés · ${cityParam.split(',')[0]}` : exactMatches.length > 0 ? `Logements à ${cityParam.split(',')[0]}` : 'Chercher mon logement'}
             </h1>
             {isGeocoding && <Loader2 className="animate-spin text-haven-stone" size={24} />}
@@ -558,7 +558,7 @@ export const SearchPage: React.FC = () => {
             {listingsError && <p role="alert" className="text-haven-red">{listingsError}</p>}
             {geocodingError && <p role="alert" className="text-haven-red">La localisation de cette ville est indisponible. Réessayez la recherche pour afficher les logements à proximité.</p>}
             {!isGeocoding && !listingsLoading && !isAvailabilityLoading && !listingsError && !geocodingError && exactMatches.length === 0 && nearbyDateMatches.length === 0 && nearbyMatches.length === 0 && (
-              <div className="text-center py-24 bg-white rounded-[3rem] border border-gray-100 shadow-premium">
+              <div className="text-center py-10 sm:py-24 bg-white rounded-[3rem] border border-gray-100 shadow-premium">
                 <div className="w-24 h-24 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-6">
                   <MapPin size={40} className="text-gray-200" />
                 </div>

@@ -45,12 +45,12 @@ export const ContactPage: React.FC = () => {
         <motion.div 
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="max-w-md w-full bg-white rounded-3xl shadow-xl p-8 text-center border border-haven-navy/5"
+          className="max-w-md w-full bg-white rounded-3xl shadow-xl p-5 sm:p-8 text-center border border-haven-navy/5"
         >
           <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
             <CheckCircle2 className="w-10 h-10 text-green-600" />
           </div>
-          <h2 className="text-2xl font-heading font-bold text-haven-navy mb-4">Message envoyé !</h2>
+          <h2 className="text-xl sm:text-2xl font-heading font-bold text-haven-navy mb-4">Message envoyé !</h2>
           <p className="text-gray-600 mb-8">
             Votre message a bien été transmis à l’équipe Haven. Nous utiliserons les coordonnées indiquées pour vous répondre si nécessaire.
           </p>
@@ -67,11 +67,11 @@ export const ContactPage: React.FC = () => {
 
   return (
     <div className="max-w-6xl mx-auto px-6 py-12">
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-12">
         {/* Info Section */}
         <div>
-          <h1 className="text-4xl font-heading font-bold text-haven-navy mb-6">Contacter Haven</h1>
-          <p className="text-lg text-gray-600 mb-12">
+          <h1 className="text-[1.75rem] sm:text-4xl font-heading font-bold text-haven-navy mb-6">Contacter Haven</h1>
+          <p className="text-sm sm:text-lg text-gray-600 mb-6 sm:mb-12">
             Un avis sur le site, une suggestion, un dysfonctionnement ou une réclamation sur notre service ? Écrivez à l’équipe Haven.
           </p>
 
@@ -116,7 +116,7 @@ export const ContactPage: React.FC = () => {
         </div>
 
         {/* Form Section */}
-        <div className="bg-white rounded-3xl shadow-xl p-8 border border-haven-navy/5">
+        <div className="bg-white rounded-3xl shadow-xl p-5 sm:p-8 border border-haven-navy/5">
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>

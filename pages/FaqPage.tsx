@@ -79,15 +79,15 @@ export const FaqPage: React.FC = () => {
   };
 
   return (
-    <div className="bg-haven-cream min-h-screen py-16 px-4 sm:px-6 lg:px-8 mt-12 animate-fade-in">
+    <div className="bg-haven-cream min-h-screen py-8 sm:py-16 px-4 sm:px-6 lg:px-8 mt-4 sm:mt-12 animate-fade-in">
       <div className="max-w-4xl mx-auto">
         
         {/* Banner Section */}
-        <div className="text-center mb-12">
+        <div className="text-center mb-6 sm:mb-12">
           <span className="px-4 py-1.5 bg-haven-navy/5 text-haven-navy rounded-full text-xs font-black uppercase tracking-widest">
             Foire aux questions
           </span>
-          <h1 className="text-4xl font-heading font-black text-haven-navy mt-4 mb-4">
+          <h1 className="text-[1.75rem] sm:text-4xl font-heading font-black text-haven-navy mt-4 mb-4">
             Comment pouvons-nous vous aider ?
           </h1>
           <p className="text-gray-500 text-sm max-w-xl mx-auto font-medium">
@@ -96,7 +96,7 @@ export const FaqPage: React.FC = () => {
         </div>
 
         {/* Live Search Inputs */}
-        <div className="bg-white p-4 rounded-3xl border border-gray-100 shadow-card flex items-center gap-3 max-w-xl mx-auto mb-10">
+        <div className="bg-white p-4 rounded-3xl border border-gray-100 shadow-card flex items-center gap-3 max-w-xl mx-auto mb-6 sm:mb-10">
           <Search className="text-gray-400 shrink-0" size={20} />
           <input
             type="text"
@@ -108,7 +108,7 @@ export const FaqPage: React.FC = () => {
         </div>
 
         {/* Quick Filtering tabs */}
-        <div className="flex flex-wrap gap-2 justify-center mb-10">
+        <div className="flex flex-wrap gap-2 justify-center mb-6 sm:mb-10">
           {categories.map(cat => (
             <button
               key={cat.id}
@@ -128,7 +128,7 @@ export const FaqPage: React.FC = () => {
         </div>
 
         {/* Accordions Listing */}
-        <div className="space-y-4 mb-16">
+        <div className="space-y-4 mb-8 sm:mb-16">
           {filteredFaqs.length > 0 ? (
             filteredFaqs.map((faq, idx) => {
               const isExpanded = expandedIndex === idx;

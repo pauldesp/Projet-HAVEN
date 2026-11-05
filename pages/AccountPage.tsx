@@ -31,7 +31,7 @@ export function AccountPage() {
     finally { setSending(false); }
   };
   return <div className="min-h-screen bg-haven-cream px-4 py-10 md:py-14"><div className="mx-auto max-w-4xl space-y-6">
-    <header><p className="text-xs font-bold uppercase tracking-widest text-haven-red">{tr("Espace privé")}</p><h1 className="mt-3 font-heading text-3xl font-bold text-haven-navy">{tr("Mon compte")}</h1><p className="mt-3 text-gray-500">{tr("Vos informations personnelles, votre dossier de vérification et la sécurité de votre accès.")}</p></header>
+    <header><p className="text-xs font-bold uppercase tracking-widest text-haven-red">{tr("Espace privé")}</p><h1 className="mt-3 font-heading text-2xl sm:text-3xl font-bold text-haven-navy">{tr("Mon compte")}</h1><p className="mt-3 text-gray-500">{tr("Vos informations personnelles, votre dossier de vérification et la sécurité de votre accès.")}</p></header>
     <AccountPersonalDetails onManage={() => setVerificationOpen(true)} />
     <AccountResidence />
     <section className="rounded-3xl border border-gray-100 bg-white p-6 shadow-soft md:p-8">

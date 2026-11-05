@@ -211,7 +211,7 @@ export const EntryInventory = () => {
       <div className="min-h-screen bg-haven-cream flex items-center justify-center p-6 text-center">
         <div className="max-w-md w-full p-5 sm:p-10 bg-white rounded-[3rem] shadow-premium">
           <Calendar className="mx-auto text-haven-stone mb-6" size={64} />
-          <h1 className="text-3xl font-heading font-bold text-haven-navy mb-4">Accès non autorisé</h1>
+          <h1 className="text-2xl sm:text-3xl font-heading font-bold text-haven-navy mb-4">Accès non autorisé</h1>
           <p className="text-haven-stone mb-8">
             L’état des lieux d’entrée sera accessible à partir du {formatScheduledMoment(entryTiming.scheduledAt)}.
           </p>
@@ -234,11 +234,11 @@ export const EntryInventory = () => {
               <div className="w-20 h-20 bg-haven-red/10 rounded-full flex items-center justify-center mx-auto text-haven-red">
                 <UserIcon size={40} />
               </div>
-              <h2 className="text-3xl font-heading font-bold text-haven-navy">Vérification de votre identité</h2>
+              <h2 className="text-2xl sm:text-3xl font-heading font-bold text-haven-navy">Vérification de votre identité</h2>
               <p className="text-haven-stone max-w-lg mx-auto">Veuillez confirmer que vos informations personnelles sont exactes avant de procéder à l'état des lieux.</p>
             </div>
 
-            <div className="bg-white rounded-[2.5rem] p-4 sm:p-8 shadow-sm border border-gray-100 space-y-6">
+            <div className="bg-white rounded-[1.75rem] sm:rounded-[2.5rem] p-4 sm:p-8 shadow-sm border border-gray-100 space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Prénom</label>
@@ -285,7 +285,7 @@ export const EntryInventory = () => {
             className="space-y-8"
           >
             <div className="text-center space-y-4">
-              <h2 className="text-3xl font-heading font-bold text-haven-navy">Inventaire du logement</h2>
+              <h2 className="text-2xl sm:text-3xl font-heading font-bold text-haven-navy">Inventaire du logement</h2>
               <p className="text-haven-stone">Vérifiez la présence et le bon fonctionnement de chaque élément.</p>
             </div>
 
@@ -308,7 +308,7 @@ export const EntryInventory = () => {
               {filteredItems.map((item, idx) => {
                 const globalIdx = inventoryData.items?.findIndex(i => i === item) ?? -1;
                 return (
-                  <div key={idx} className="bg-white rounded-[2.5rem] p-4 sm:p-8 shadow-sm border border-gray-100 space-y-6">
+                  <div key={idx} className="bg-white rounded-[1.75rem] sm:rounded-[2.5rem] p-4 sm:p-8 shadow-sm border border-gray-100 space-y-6">
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                       <div className="flex items-center gap-4">
                         <div className="w-12 h-12 bg-haven-navy/5 rounded-2xl flex items-center justify-center text-haven-navy">
@@ -367,7 +367,7 @@ export const EntryInventory = () => {
             className="space-y-8"
           >
             <div className="text-center space-y-4">
-              <h2 className="text-3xl font-heading font-bold text-haven-navy">Évaluations générales</h2>
+              <h2 className="text-2xl sm:text-3xl font-heading font-bold text-haven-navy">Évaluations générales</h2>
               <p className="text-haven-stone">Attribuez une note aux différents aspects de votre logement.</p>
             </div>
 
@@ -377,7 +377,7 @@ export const EntryInventory = () => {
                 { key: 'houseRating' as const, label: 'État général du logement', desc: 'Parties communes, cuisine, salon, équipements.' },
                 { key: 'cleanlinessRating' as const, label: 'Niveau de propreté du locataire précédent', desc: "État de propreté tel que laissé par l'occupant avant votre arrivée." }
               ].map((rater) => (
-                <div key={rater.key} className="bg-white rounded-[2.5rem] p-4 sm:p-8 shadow-sm border border-gray-100 text-center space-y-4">
+                <div key={rater.key} className="bg-white rounded-[1.75rem] sm:rounded-[2.5rem] p-4 sm:p-8 shadow-sm border border-gray-100 text-center space-y-4">
                   <div>
                     <h3 className="font-heading font-bold text-2xl text-haven-navy">{rater.label}</h3>
                     <p className="text-sm text-haven-stone">{rater.desc}</p>
@@ -418,7 +418,7 @@ export const EntryInventory = () => {
             className="space-y-8"
           >
             <div className="text-center space-y-4">
-              <h2 className="text-3xl font-heading font-bold text-haven-navy">Récapitulatif de votre location</h2>
+              <h2 className="text-2xl sm:text-3xl font-heading font-bold text-haven-navy">Récapitulatif de votre location</h2>
             </div>
 
             <div className="bg-white rounded-[3rem] overflow-hidden shadow-premium border border-gray-100">
@@ -430,7 +430,7 @@ export const EntryInventory = () => {
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-haven-navy/80 to-transparent" />
                 <div className="absolute bottom-6 left-8 text-white">
-                  <h3 className="text-3xl font-heading font-bold">{listing?.title}</h3>
+                  <h3 className="text-2xl sm:text-3xl font-heading font-bold">{listing?.title}</h3>
                   <div className="flex items-center gap-2 text-white/80">
                     <MapPin size={18} /> {listing?.city}, {listing?.address}
                   </div>
@@ -483,7 +483,7 @@ export const EntryInventory = () => {
             className="space-y-8"
           >
             <div className="text-center space-y-4">
-              <h2 className="text-3xl font-heading font-bold text-haven-navy">Signature finale</h2>
+              <h2 className="text-2xl sm:text-3xl font-heading font-bold text-haven-navy">Signature finale</h2>
               <p className="text-haven-stone">Signez ci-dessous pour valider officiellement votre état des lieux d'entrée.</p>
             </div>
 
@@ -520,7 +520,7 @@ export const EntryInventory = () => {
               <CheckCircle size={56} />
             </div>
             <div className="space-y-4">
-              <h1 className="text-4xl font-heading font-bold text-haven-navy">Bienvenue chez vous !</h1>
+              <h1 className="text-[1.75rem] sm:text-4xl font-heading font-bold text-haven-navy">Bienvenue chez vous !</h1>
               <p className="text-haven-stone text-lg max-w-md mx-auto leading-relaxed">
                 Votre état des lieux d'entrée est validé. Vous recevrez une copie par email. Nous vous souhaitons un excellent séjour.
               </p>

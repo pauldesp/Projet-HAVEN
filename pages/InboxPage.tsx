@@ -85,7 +85,7 @@ export const InboxPage: React.FC = () => {
     <div className="max-w-5xl mx-auto px-6 py-12">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
         <div>
-          <h1 className="text-3xl font-heading font-black text-haven-navy">Messages</h1>
+          <h1 className="text-2xl sm:text-3xl font-heading font-black text-haven-navy">Messages</h1>
           <p className="text-gray-500 mt-2">Gérez vos conversations avec les propriétaires et locataires.</p>
         </div>
 

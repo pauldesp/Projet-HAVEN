@@ -494,7 +494,7 @@ export const LoginPage: React.FC = () => {
       <aside className="order-2 lg:order-1 flex w-full lg:w-1/2 relative overflow-hidden flex-col justify-end p-6 sm:p-10 xl:p-16 text-white bg-haven-navy min-h-[320px] sm:min-h-[380px] lg:min-h-screen">
         <HavenPhotoBackground imageClassName="object-[35%_center]" />
         <div className="relative z-10 max-w-md lg:pb-8">
-          <h1 className="font-heading font-medium text-3xl lg:text-4xl xl:text-5xl leading-tight tracking-tight">Bienvenue chez Haven.</h1>
+          <h1 className="font-heading font-medium text-2xl sm:text-3xl lg:text-4xl xl:text-5xl leading-tight tracking-tight">Bienvenue chez Haven.</h1>
           <p className="mt-4 text-base xl:text-lg leading-relaxed text-white/85">Réservez votre chambre en toute simplicité.</p>
         </div>
       </aside>

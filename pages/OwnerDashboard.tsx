@@ -185,7 +185,7 @@ export const OwnerDashboard: React.FC = () => {
       <div className="bg-haven-navy pt-12 pb-24 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
           <div>
-            <h1 className="font-heading font-bold text-3xl text-white mb-2 tracking-tight">
+            <h1 className="font-heading font-bold text-2xl sm:text-3xl text-white mb-2 tracking-tight">
               Espace Propriétaire
             </h1>
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
@@ -219,7 +219,7 @@ export const OwnerDashboard: React.FC = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-16">
         {/* Verification Banner */}
         {!canPublish && (
-          <div className="mb-8 bg-orange-50 border border-orange-100 rounded-[2.5rem] p-6 flex flex-col md:flex-row items-center justify-between gap-6 shadow-sm">
+          <div className="mb-8 bg-orange-50 border border-orange-100 rounded-[1.75rem] sm:rounded-[2.5rem] p-6 flex flex-col md:flex-row items-center justify-between gap-6 shadow-sm">
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 bg-orange-100 rounded-2xl flex items-center justify-center text-orange-600">
                 <ShieldCheck size={24} />
@@ -262,7 +262,7 @@ export const OwnerDashboard: React.FC = () => {
 
         <p className={`mb-6 text-xs ${payoutError ? 'text-haven-red' : 'text-gray-500'}`} role={payoutError ? 'alert' : undefined}>{payoutError || 'Revenus et virements : seuls les versements bancaires réels sont comptabilisés. Les simulations sont exclues.'}</p>
 
-        <div className="bg-white rounded-[2.5rem] shadow-premium p-4 sm:p-8 min-h-[500px] border border-gray-50">
+        <div className="bg-white rounded-[1.75rem] sm:rounded-[2.5rem] shadow-premium p-4 sm:p-8 min-h-[500px] border border-gray-50">
           <div className="haven-tabs flex gap-4 md:gap-8 border-b border-gray-100 mb-8 overflow-x-auto">
             {[
               { id: 'OVERVIEW', label: 'Vue d\'ensemble', icon: Home },
@@ -354,7 +354,7 @@ export const OwnerDashboard: React.FC = () => {
                   </div>
                 ))}
                 {ownerListings.length === 0 && (
-                  <div className="col-span-full text-center py-20 bg-gray-50 rounded-[2.5rem] border border-dashed border-gray-200">
+                  <div className="col-span-full text-center py-10 sm:py-20 bg-gray-50 rounded-[1.75rem] sm:rounded-[2.5rem] border border-dashed border-gray-200">
                     <Home size={48} className="mx-auto text-gray-300 mb-4" />
                     <p className="font-bold text-gray-400">Vous n'avez pas encore de logements.</p>
                     <Button variant="primary" className="mt-4" onClick={handlePublishClick}>Publier ma première annonce</Button>
@@ -487,14 +487,14 @@ export const OwnerDashboard: React.FC = () => {
                 <div className="grid md:grid-cols-2 gap-6">
                   <div className="bg-haven-navy rounded-3xl p-4 sm:p-8 text-white min-h-[160px] flex flex-col justify-center">
                     <p className="text-[10px] font-black uppercase tracking-widest opacity-50">Revenus versés</p>
-                    <p className="text-4xl font-bold mt-2">{payoutLoading || payoutError ? '—' : money(stats.totalRevenue)}</p>
+                    <p className="text-[1.75rem] sm:text-4xl font-bold mt-2">{payoutLoading || payoutError ? '—' : money(stats.totalRevenue)}</p>
                     <p className="text-xs text-blue-200 mt-4 leading-relaxed italic opacity-80">
                       Montants nets effectivement versés sur votre compte bancaire, hors frais Haven et simulations.
                     </p>
                   </div>
                   <div className="bg-blue-50 rounded-3xl p-4 sm:p-8 border border-blue-100 flex flex-col justify-center">
                     <p className="text-[10px] font-black uppercase tracking-widest text-blue-400">Virements en attente</p>
-                    <p className="text-3xl font-bold text-haven-navy mt-2">{payoutLoading || payoutError ? '—' : money(stats.pendingRevenue)}</p>
+                    <p className="text-2xl sm:text-3xl font-bold text-haven-navy mt-2">{payoutLoading || payoutError ? '—' : money(stats.pendingRevenue)}</p>
                     <p className="text-xs text-gray-500 mt-4 italic">
                       Virements réels programmés ou en cours, jusqu’à confirmation de leur versement.
                     </p>
@@ -635,7 +635,7 @@ export const OwnerDashboard: React.FC = () => {
                   ))}
 
                   {ownerIncidents.length === 0 && (
-                    <div className="text-center py-20 bg-gray-50 rounded-[2.5rem] border border-dashed border-gray-200">
+                    <div className="text-center py-10 sm:py-20 bg-gray-50 rounded-[1.75rem] sm:rounded-[2.5rem] border border-dashed border-gray-200">
                       <CheckCircle size={48} className="mx-auto text-green-200 mb-4" />
                       <p className="font-bold text-gray-400">Aucun incident signalé sur vos logements.</p>
                     </div>

@@ -251,7 +251,7 @@ export const EditListing: React.FC = () => {
               <ArrowLeft size={24} />
             </button>
             <div>
-              <h1 className="text-3xl font-heading font-bold text-haven-navy">Modifier l'annonce</h1>
+              <h1 className="text-2xl sm:text-3xl font-heading font-bold text-haven-navy">Modifier l'annonce</h1>
               <p className="text-haven-stone text-sm">Gestion rapide de votre bien : {listing.title}</p>
             </div>
           </div>
@@ -286,7 +286,7 @@ export const EditListing: React.FC = () => {
            ))}
         </div>
 
-        <div className="bg-white rounded-[2.5rem] shadow-premium p-4 sm:p-8 md:p-12 border border-gray-100 animate-fade-in">
+        <div className="bg-white rounded-[1.75rem] sm:rounded-[2.5rem] shadow-premium p-4 sm:p-8 md:p-12 border border-gray-100 animate-fade-in">
           
           {activeTab === 'GENERAL' && (
             <div className="space-y-10">

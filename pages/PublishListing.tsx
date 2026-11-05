@@ -46,7 +46,7 @@ const STORAGE_KEY = 'haven_draft_listing';
 import { AccountStatusOverlay } from '../components/AccountStatusOverlay';
 
 import ReactMarkdown from 'react-markdown';
-import { sanitizeHtml } from '../services/sanitizeHtml';
+import { readableLegalHtml } from '../services/legalContent';
 
 export const PublishListing: React.FC = () => {
   const { tr } = useLanguage();
@@ -156,7 +156,7 @@ export const PublishListing: React.FC = () => {
           <div className="w-24 h-24 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-8 shadow-lg shadow-red-100/50">
             <Lock className="text-haven-red" size={48} />
           </div>
-          <h1 className="text-3xl md:text-4xl font-heading font-bold text-haven-navy mb-4">{isSubmittedForReview ? 'Dossier en cours de vérification' : 'Vérification requise'}</h1>
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-heading font-bold text-haven-navy mb-4">{isSubmittedForReview ? 'Dossier en cours de vérification' : 'Vérification requise'}</h1>
           <p className="text-haven-stone text-lg mb-10 leading-relaxed">
             Avant toute mise en ligne, HAVEN doit valider votre identité après vérification de votre dossier.
             Cette étape protège les locataires comme les propriétaires.
@@ -572,10 +572,10 @@ export const PublishListing: React.FC = () => {
   if (showResumePrompt) {
     return (
       <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-haven-navy/40 backdrop-blur-sm animate-fade-in">
-        <div className="bg-white rounded-[2.5rem] shadow-premium max-w-lg w-full p-5 sm:p-10 text-center space-y-8 animate-fade-in-up">
+        <div className="bg-white rounded-[1.75rem] sm:rounded-[2.5rem] shadow-premium max-w-lg w-full p-5 sm:p-10 text-center space-y-8 animate-fade-in-up">
           <div className="w-20 h-20 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto shadow-inner"><RotateCcw size={36} /></div>
           <div className="space-y-3">
-            <h1 className="text-3xl font-heading font-bold text-haven-navy">Reprendre là où vous vous étiez arrêté ?</h1>
+            <h1 className="text-2xl sm:text-3xl font-heading font-bold text-haven-navy">Reprendre là où vous vous étiez arrêté ?</h1>
             <p className="text-haven-stone leading-relaxed">Nous avons retrouvé une annonce en cours de création. Voulez-vous continuer ou recommencer à zéro ?</p>
           </div>
           <div className="flex flex-col gap-3">
@@ -592,7 +592,7 @@ export const PublishListing: React.FC = () => {
       <div className="min-h-screen bg-haven-cream flex items-center justify-center p-6 text-center">
         <div className="max-w-md w-full animate-fade-in-up">
           <div className="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-8 shadow-lg shadow-green-100/50"><CheckCircle className="text-green-600" size={48} /></div>
-          <h1 className="text-3xl md:text-4xl font-heading font-bold text-haven-navy mb-4">Annonce envoyée !</h1>
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-heading font-bold text-haven-navy mb-4">Annonce envoyée !</h1>
           <p className="text-haven-stone text-lg mb-10 leading-relaxed">Votre logement est maintenant en cours de vérification par notre équipe. Il sera visible sur HAVEN d'ici 24h.</p>
           {createdListingId && <section className="mb-6 rounded-3xl border border-gray-100 bg-white p-6 text-left">
             <h2 className="font-heading text-lg font-bold text-haven-navy">{tr('Préparez le séjour de vos locataires')}</h2>
@@ -634,7 +634,7 @@ export const PublishListing: React.FC = () => {
         {currentStep === 'TYPE' && (
           <div className="space-y-8 animate-fade-in-up">
             <div className="space-y-2 text-center md:text-left">
-              <h1 className="text-3xl md:text-4xl font-heading font-bold text-haven-navy">Quel type de logement proposez-vous ?</h1>
+              <h1 className="text-2xl sm:text-3xl md:text-4xl font-heading font-bold text-haven-navy">Quel type de logement proposez-vous ?</h1>
               <p className="text-haven-stone">Sélectionnez la catégorie qui correspond le mieux à votre bien.</p>
             </div>
             <div className="grid md:grid-cols-2 gap-6">
@@ -653,7 +653,7 @@ export const PublishListing: React.FC = () => {
         {currentStep === 'LOCATION' && (
           <div className="space-y-8 animate-fade-in-up">
             <div className="space-y-2">
-              <h1 className="text-3xl md:text-4xl font-heading font-bold text-haven-navy">Où est situé votre logement ?</h1>
+              <h1 className="text-2xl sm:text-3xl md:text-4xl font-heading font-bold text-haven-navy">Où est situé votre logement ?</h1>
               <p className="text-haven-stone">Saisissez l'adresse précise pour garantir une mise en relation efficace.</p>
             </div>
             <div className="space-y-8">
@@ -680,7 +680,7 @@ export const PublishListing: React.FC = () => {
         {currentStep === 'ADDRESS_CONFIRM' && (
           <div className="space-y-8 animate-fade-in-up">
             <div className="space-y-2">
-              <h1 className="text-3xl md:text-4xl font-heading font-bold text-haven-navy">Confirmez votre adresse</h1>
+              <h1 className="text-2xl sm:text-3xl md:text-4xl font-heading font-bold text-haven-navy">Confirmez votre adresse</h1>
             </div>
             <div className="bg-white rounded-2xl border border-gray-300 overflow-hidden shadow-soft">
               <div className="px-4 py-3 border-b border-gray-200 bg-white">
@@ -709,7 +709,7 @@ export const PublishListing: React.FC = () => {
         {currentStep === 'DETAILS' && (
           <div className="space-y-8 animate-fade-in-up">
             <div className="space-y-2">
-              <h1 className="text-3xl md:text-4xl font-heading font-bold text-haven-navy">Les caractéristiques du bien</h1>
+              <h1 className="text-2xl sm:text-3xl md:text-4xl font-heading font-bold text-haven-navy">Les caractéristiques du bien</h1>
             </div>
             <div className="bg-white p-4 sm:p-8 rounded-3xl border border-gray-100 shadow-soft space-y-4">
               <ListingPublicInfoFields value={formData} onChange={updates => setFormData(prev => ({ ...prev, ...updates }))} />
@@ -809,10 +809,10 @@ export const PublishListing: React.FC = () => {
         {currentStep === 'DESCRIPTION' && (
           <div className="space-y-8 animate-fade-in-up">
             <div>
-              <h1 className="text-3xl md:text-4xl font-heading font-bold text-haven-navy">Présentez votre logement</h1>
+              <h1 className="text-2xl sm:text-3xl md:text-4xl font-heading font-bold text-haven-navy">Présentez votre logement</h1>
               <p className="mt-2 text-haven-stone">Décrivez simplement les espaces, l’ambiance et les équipements importants.</p>
             </div>
-            <div className="bg-white p-4 sm:p-8 rounded-[2.5rem] border border-gray-100 shadow-premium">
+            <div className="bg-white p-4 sm:p-8 rounded-[1.75rem] sm:rounded-[2.5rem] border border-gray-100 shadow-premium">
               <textarea 
                 rows={10} 
                 value={formData.description || ''} 
@@ -829,7 +829,7 @@ export const PublishListing: React.FC = () => {
         {currentStep === 'AMENITIES' && (
           <div className="space-y-8 animate-fade-in-up">
             <div className="space-y-2">
-              <h1 className="text-3xl md:text-4xl font-heading font-bold text-haven-navy">Équipements et services</h1>
+              <h1 className="text-2xl sm:text-3xl md:text-4xl font-heading font-bold text-haven-navy">Équipements et services</h1>
               <div className="bg-blue-50 p-4 rounded-2xl flex items-center gap-3 border border-blue-100">
                 <Info size={18} className="text-blue-500" />
                 <p className="text-xs text-blue-800">Cuisine équipée et ménage hebdomadaire organisé par le propriétaire.</p>
@@ -849,7 +849,7 @@ export const PublishListing: React.FC = () => {
         {currentStep === 'ROOMS' && (
           <div className="space-y-8 animate-fade-in-up">
             <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-              <h1 className="text-3xl md:text-4xl font-heading font-bold text-haven-navy">Configurez vos chambres</h1>
+              <h1 className="text-2xl sm:text-3xl md:text-4xl font-heading font-bold text-haven-navy">Configurez vos chambres</h1>
               <Button 
                 variant="ghost" 
                 size="sm" 
@@ -864,7 +864,7 @@ export const PublishListing: React.FC = () => {
             {hasRoomWithoutOption(formData.rooms) && <p className={`text-sm font-semibold ${showRoomOptionComplianceError ? 'text-haven-red' : 'text-haven-stone'}`}>{showRoomOptionComplianceError ? 'Une chambre sans option n’est pas conforme au cahier des charges HAVEN.' : 'Cochez les options de la chambre.'}</p>}
             <div className="space-y-12">
               {formData.rooms.map(room => (
-                <div key={room.id} className="bg-white rounded-[2.5rem] border border-gray-100 shadow-premium overflow-hidden flex flex-col lg:flex-row">
+                <div key={room.id} className="bg-white rounded-[1.75rem] sm:rounded-[2.5rem] border border-gray-100 shadow-premium overflow-hidden flex flex-col lg:flex-row">
                   {/* Form Part */}
                   <div className="flex-1 p-4 sm:p-8 md:p-10 space-y-10 border-r border-gray-50">
                     <div className="flex items-center justify-between border-b border-gray-100 pb-4">
@@ -961,7 +961,7 @@ export const PublishListing: React.FC = () => {
         {currentStep === 'PHOTOS' && (
           <div className="space-y-8 animate-fade-in-up">
             <div className="space-y-2 text-center">
-              <h1 className="text-3xl md:text-4xl font-heading font-bold text-haven-navy">Mise en lumière globale</h1>
+              <h1 className="text-2xl sm:text-3xl md:text-4xl font-heading font-bold text-haven-navy">Mise en lumière globale</h1>
               <p className="text-haven-stone">Ajoutez entre 3 et 5 photos des parties communes (salon, cuisine, terrasse...).</p>
               <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold uppercase tracking-widest ${formData.galleryUrls.length >= 3 ? 'bg-green-50 text-green-600' : 'bg-haven-red/5 text-haven-red'}`}>
                 {formData.galleryUrls.length < 3 ? (
@@ -1031,7 +1031,7 @@ export const PublishListing: React.FC = () => {
         {currentStep === 'REVIEW' && (
           <div className="space-y-10 animate-fade-in-up">
             <div className="space-y-2">
-              <h1 className="text-3xl md:text-4xl font-heading font-bold text-haven-navy">Récapitulatif de votre annonce</h1>
+              <h1 className="text-2xl sm:text-3xl md:text-4xl font-heading font-bold text-haven-navy">Récapitulatif de votre annonce</h1>
               <p className="text-haven-stone">Vérifiez les détails avant de mettre votre bien en ligne.</p>
             </div>
 
@@ -1122,7 +1122,7 @@ export const PublishListing: React.FC = () => {
                 </div>
                 
                 {/* Simulated Listing Card */}
-                <div className="bg-white rounded-[2.5rem] shadow-premium overflow-hidden border border-gray-100 group transition-all p-3 hover:shadow-2xl hover:-translate-y-1">
+                <div className="bg-white rounded-[1.75rem] sm:rounded-[2.5rem] shadow-premium overflow-hidden border border-gray-100 group transition-all p-3 hover:shadow-2xl hover:-translate-y-1">
                   <div className="relative aspect-[16/10] bg-gray-200 overflow-hidden rounded-2xl">
                     <img src={formData.galleryUrls[0] || "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?ixlib=rb-4.0.3&auto=format&fit=crop&w=1600&q=80"} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" alt="" />
                     <div className="absolute top-4 left-4 bg-white/95 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest text-haven-navy shadow-sm">{formData.type === 'HOUSE' ? 'Maison' : 'Appartement'}</div>
@@ -1166,7 +1166,7 @@ export const PublishListing: React.FC = () => {
             <CleaningPolicyNotice audience="owner" />
             <label className="flex items-start gap-3 rounded-2xl border border-gray-200 bg-white p-5 text-sm leading-relaxed"><input type="checkbox" checked={formData.cleaningPolicyVersion === CLEANING_POLICY_VERSION} onChange={event => setFormData(current => ({ ...current, cleaningPolicyVersion: event.target.checked ? CLEANING_POLICY_VERSION : '' }))} className="mt-1" />Je m’engage à faire réaliser un ménage chaque semaine, par moi-même ou par un prestataire.</label>
             <div className="space-y-4">
-              <h1 className="text-3xl md:text-4xl font-heading font-bold text-haven-navy">Validation Légale</h1>
+              <h1 className="text-2xl sm:text-3xl md:text-4xl font-heading font-bold text-haven-navy">Validation Légale</h1>
               <p className="text-haven-stone text-lg max-w-2xl">
                 Pour garantir la sécurité et la qualité de la plateforme, nous vous demandons de prendre connaissance et d'accepter les documents suivants.
               </p>
@@ -1248,7 +1248,7 @@ export const PublishListing: React.FC = () => {
               </div>
             </div>
 
-            <div className="bg-haven-navy/5 p-4 sm:p-8 rounded-[2.5rem] border border-haven-navy/10 flex items-start gap-4">
+            <div className="bg-haven-navy/5 p-4 sm:p-8 rounded-[1.75rem] sm:rounded-[2.5rem] border border-haven-navy/10 flex items-start gap-4">
               <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-haven-navy shadow-sm shrink-0">
                 <Info size={20} />
               </div>
@@ -1268,11 +1268,11 @@ export const PublishListing: React.FC = () => {
             {/* Modal Header */}
             <div className="shrink-0 px-4 py-4 sm:px-8 sm:py-6 border-b border-gray-100 flex items-center justify-between bg-white sticky top-0 z-10">
               <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-haven-red/10 rounded-2xl flex items-center justify-center text-haven-red">
+                <div className="shrink-0 w-10 h-10 sm:w-12 sm:h-12 bg-haven-red/10 rounded-2xl flex items-center justify-center text-haven-red">
                   {activeLegalDoc.id === 'specifications' ? <FileText size={24} /> : <Shield size={24} />}
                 </div>
                 <div>
-                  <h3 className="font-heading font-bold text-xl text-haven-navy leading-none mb-1">{activeLegalDoc.title}</h3>
+                  <h3 className="font-heading font-bold text-lg sm:text-xl text-haven-navy leading-tight mb-1">{activeLegalDoc.title}</h3>
                   <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Document officiel HAVEN</p>
                 </div>
               </div>
@@ -1291,13 +1291,13 @@ export const PublishListing: React.FC = () => {
               className="flex-grow overflow-y-auto p-4 sm:p-8 md:p-16 bg-white scroll-smooth"
             >
               <div className="max-w-3xl mx-auto">
-                <div className="prose prose-slate max-w-none 
+                <div className="prose prose-sm sm:prose-base prose-slate max-w-none 
                   prose-headings:font-heading prose-headings:text-haven-navy prose-headings:font-bold
-                  prose-h1:text-4xl prose-h1:mb-8
-                  prose-h2:text-2xl prose-h2:mt-12 prose-h2:mb-6
-                  prose-h3:text-xl prose-h3:mt-8 prose-h3:mb-4
-                  prose-p:text-haven-stone prose-p:text-lg prose-p:leading-relaxed prose-p:mb-6
-                  prose-li:text-haven-stone prose-li:text-lg prose-li:mb-2
+                  sm:prose-h1:text-4xl sm:prose-h1:mb-8
+                  sm:prose-h2:text-2xl sm:prose-h2:mt-12 sm:prose-h2:mb-6
+                  sm:prose-h3:text-xl sm:prose-h3:mt-8 sm:prose-h3:mb-4
+                  prose-p:text-haven-stone sm:prose-p:text-lg prose-p:leading-relaxed prose-p:mb-3 sm:prose-p:mb-6
+                  prose-li:text-haven-stone sm:prose-li:text-lg prose-li:mb-1 sm:prose-li:mb-2
                   prose-strong:text-haven-navy prose-strong:font-bold
                   prose-ul:my-6
                   prose-ol:my-6
@@ -1307,9 +1307,7 @@ export const PublishListing: React.FC = () => {
                     <div 
                       className="legal-content-html"
                       dangerouslySetInnerHTML={{ 
-                        __html: sanitizeHtml(activeLegalDoc.content
-                          .replace(/&nbsp;/g, ' ')
-                          .replace(/<p><\/p>/g, '')) // Remove empty paragraphs
+                        __html: readableLegalHtml(activeLegalDoc.content)
                       }} 
                     />
                   ) : (

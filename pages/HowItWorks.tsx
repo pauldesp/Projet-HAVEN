@@ -83,23 +83,23 @@ export const HowItWorks: React.FC = () => {
   };
 
   return (
-    <div className="bg-haven-cream min-h-screen py-16 px-4 sm:px-6 lg:px-8 mt-12 animate-fade-in">
+    <div className="bg-haven-cream min-h-screen py-8 sm:py-16 px-4 sm:px-6 lg:px-8 mt-4 sm:mt-12 animate-fade-in">
       <div className="max-w-4xl mx-auto">
         {/* Header */}
-        <div className="text-center mb-16">
+        <div className="text-center mb-8 sm:mb-16">
           <span className="px-4 py-1.5 bg-haven-navy/5 text-haven-navy rounded-full text-xs font-black uppercase tracking-widest">
             Guide d'utilisation
           </span>
-          <h1 className="text-4xl sm:text-5xl font-heading font-black text-haven-navy mt-4 mb-6 leading-tight">
-            Une colocation simple,<br />flexible et professionnelle
+          <h1 className="text-[1.75rem] sm:text-5xl font-heading font-black text-haven-navy mt-3 sm:mt-4 mb-3 sm:mb-6 leading-tight">
+            Une colocation simple, <br className="hidden sm:inline" />flexible et professionnelle
           </h1>
-          <p className="text-lg text-gray-500 max-w-2xl mx-auto">
+          <p className="text-sm sm:text-lg text-gray-500 max-w-2xl mx-auto">
             Découvrez la fluidité de la plateforme HAVEN, de la recherche du bien idéal en colocation jusqu'à la gestion autonome des états des lieux.
           </p>
         </div>
 
         {/* Tab switch */}
-        <div className="flex p-1.5 bg-gray-100 rounded-2xl max-w-md mx-auto mb-16 shadow-inner">
+        <div className="flex p-1.5 bg-gray-100 rounded-2xl max-w-md mx-auto mb-8 sm:mb-16 shadow-inner">
           <button
             onClick={() => setActiveTab('TENANT')}
             className={`flex-1 py-3 px-6 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2 ${
@@ -125,7 +125,7 @@ export const HowItWorks: React.FC = () => {
         </div>
 
         {/* Dynamic Workflow Steps */}
-        <div className="bg-white rounded-[2.5rem] p-8 sm:p-12 border border-gray-100 shadow-premium mb-12">
+        <div className="bg-white rounded-[1.75rem] sm:rounded-[2.5rem] p-5 sm:p-12 border border-gray-100 shadow-premium mb-6 sm:mb-12">
           <div className="space-y-12">
             {(activeTab === 'TENANT' ? tenantSteps : ownerSteps).map((step, index) => {
               const IconComponent = step.icon;
@@ -149,7 +149,7 @@ export const HowItWorks: React.FC = () => {
         </div>
 
         {/* Call to action card */}
-        <div className="bg-gradient-to-tr from-haven-navy to-slate-900 rounded-[2.5rem] p-8 sm:p-12 text-white shadow-premium text-center relative overflow-hidden">
+        <div className="bg-gradient-to-tr from-haven-navy to-slate-900 rounded-[1.75rem] sm:rounded-[2.5rem] p-5 sm:p-12 text-white shadow-premium text-center relative overflow-hidden">
           <div className="absolute top-0 right-0 p-12 opacity-5 translate-x-20">
             <CheckCircle size={300} />
           </div>

@@ -134,7 +134,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
   if (isSuccess) {
     return (
       <div className="fixed inset-0 z-[110] flex items-center justify-center p-6 bg-haven-navy/40 backdrop-blur-sm">
-        <div className="bg-white rounded-[2.5rem] shadow-premium max-w-lg w-full p-5 sm:p-10 text-center animate-fade-in-up">
+        <div className="bg-white rounded-[1.75rem] sm:rounded-[2.5rem] shadow-premium max-w-lg w-full p-5 sm:p-10 text-center animate-fade-in-up">
           <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
             <CheckCircle2 className="w-10 h-10 text-green-600" />
           </div>
@@ -152,7 +152,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-[110] flex items-center justify-center p-2 sm:p-6 bg-haven-navy/40 backdrop-blur-sm overflow-y-auto">
-      <div className="haven-dialog-panel bg-white rounded-[2.5rem] shadow-premium max-w-4xl w-full relative animate-fade-in-up flex flex-col max-h-[95dvh]">
+      <div className="haven-dialog-panel bg-white rounded-[1.75rem] sm:rounded-[2.5rem] shadow-premium max-w-4xl w-full relative animate-fade-in-up flex flex-col max-h-[95dvh]">
 
         {/* Header */}
         <div className="shrink-0 p-4 sm:p-8 border-b border-gray-100 flex items-center justify-between">

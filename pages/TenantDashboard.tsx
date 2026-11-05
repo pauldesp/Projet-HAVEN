@@ -342,7 +342,7 @@ export const TenantDashboard: React.FC = () => {
       <div className="bg-haven-navy pt-12 pb-24 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
           <div>
-            <h1 className="font-heading font-bold text-3xl text-white mb-2 tracking-tight">
+            <h1 className="font-heading font-bold text-2xl sm:text-3xl text-white mb-2 tracking-tight">
               Bonjour, {currentUser?.firstName || 'Locataire'} 👋
             </h1>
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
@@ -368,7 +368,7 @@ export const TenantDashboard: React.FC = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-16">
         {/* Verification Banner */}
         {!canBook && currentUser?.role !== 'ADMIN' && (
-          <div className="mb-8 bg-orange-50 border border-orange-100 rounded-[2.5rem] p-6 flex flex-col md:flex-row items-center justify-between gap-6 shadow-sm">
+          <div className="mb-8 bg-orange-50 border border-orange-100 rounded-[1.75rem] sm:rounded-[2.5rem] p-6 flex flex-col md:flex-row items-center justify-between gap-6 shadow-sm">
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 bg-orange-100 rounded-2xl flex items-center justify-center text-orange-600">
                 <ShieldCheck size={24} />
@@ -389,7 +389,7 @@ export const TenantDashboard: React.FC = () => {
           </div>
         )}
 
-        <div className="bg-white rounded-[2.5rem] shadow-premium p-4 sm:p-8 min-h-[500px] border border-gray-50">
+        <div className="bg-white rounded-[1.75rem] sm:rounded-[2.5rem] shadow-premium p-4 sm:p-8 min-h-[500px] border border-gray-50">
           <div className="haven-tabs flex gap-4 md:gap-8 border-b border-gray-100 mb-8 overflow-x-auto">
             {[
               { id: 'UPCOMING', label: 'Séjours à venir et en cours', count: upcoming.length },
@@ -597,7 +597,7 @@ export const TenantDashboard: React.FC = () => {
                 ))}
 
                 {upcoming.length === 0 && (
-                  <div className="text-center py-20 bg-gray-50/50 rounded-[2.5rem] border-2 border-dashed border-gray-100">
+                  <div className="text-center py-10 sm:py-20 bg-gray-50/50 rounded-[1.75rem] sm:rounded-[2.5rem] border-2 border-dashed border-gray-100">
                     <Calendar size={48} className="mx-auto text-gray-200 mb-4" />
                     <p className="text-gray-400 font-bold">Rien de prévu ?</p>
                     <Link to="/" className="text-haven-red font-black uppercase tracking-widest text-xs hover:underline mt-2 inline-block">Trouver ma prochaine chambre</Link>
@@ -699,7 +699,7 @@ export const TenantDashboard: React.FC = () => {
                   </div>
                 ))}
                 {favorites.length === 0 && (
-                  <div className="col-span-full text-center py-20 bg-gray-50/50 rounded-[2.5rem] border-2 border-dashed border-gray-100">
+                  <div className="col-span-full text-center py-10 sm:py-20 bg-gray-50/50 rounded-[1.75rem] sm:rounded-[2.5rem] border-2 border-dashed border-gray-100">
                     <Heart size={48} className="mx-auto text-gray-200 mb-4" />
                     <p className="text-gray-400 font-bold">Coup de cœur ?</p>
                     <p className="text-sm text-gray-500">Ajoutez des logements à vos favoris pour les retrouver ici.</p>
@@ -791,7 +791,7 @@ export const TenantDashboard: React.FC = () => {
                        <div className="inline-block px-4 py-1.5 bg-haven-navy text-white text-[10px] font-black uppercase tracking-[0.2em] rounded-full mb-4">
                           {viewingDocument.type.replace('_', ' ')}
                        </div>
-                       <h2 className="text-haven-navy font-heading font-bold text-4xl leading-tight">Certificat de Conformité</h2>
+                       <h2 className="text-haven-navy font-heading font-bold text-[1.75rem] sm:text-4xl leading-tight">Certificat de Conformité</h2>
                        <p className="text-haven-stone font-medium">Référence d'archivage : <span className="font-mono text-gray-400">{viewingDocument.id}</span></p>
                        <p className="text-xs text-gray-400 pt-2">Généré numériquement le {new Date(viewingDocument.createdAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
                     </div>
@@ -816,7 +816,7 @@ export const TenantDashboard: React.FC = () => {
                           <div className="h-px flex-1 bg-gray-100"></div>
                        </div>
 
-                       <div className="bg-gray-50/50 p-5 sm:p-10 rounded-[2.5rem] space-y-6 border border-gray-100 shadow-inner">
+                       <div className="bg-gray-50/50 p-5 sm:p-10 rounded-[1.75rem] sm:rounded-[2.5rem] space-y-6 border border-gray-100 shadow-inner">
                           <div className="flex justify-between items-center text-sm">
                              <div className="flex items-center gap-3 text-haven-stone">
                                 <FileText size={16} />
@@ -842,7 +842,7 @@ export const TenantDashboard: React.FC = () => {
                     </div>
 
                     <div className="pt-8">
-                       <div className="bg-haven-navy text-white rounded-[2.5rem] p-5 sm:p-12 text-center relative overflow-hidden group">
+                       <div className="bg-haven-navy text-white rounded-[1.75rem] sm:rounded-[2.5rem] p-5 sm:p-12 text-center relative overflow-hidden group">
                           <Sparkles className="absolute -top-4 -right-4 text-white/5 opacity-0 group-hover:opacity-100 transition-opacity duration-1000" size={120} />
                           <div className="relative z-10 space-y-4">
                              <CheckCircle className="mx-auto text-green-400 mb-6" size={48} />

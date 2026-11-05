@@ -42,7 +42,7 @@ export const PaymentPage: React.FC = () => {
     } catch (error) { setError(error instanceof Error ? error.message : 'Le paiement est indisponible. Vous pouvez réessayer.'); }
     finally { setBusy(false); }
   };
-  if (!details) return <div className="mx-auto max-w-lg px-6 py-24 text-center">{error ? <><h1 className="text-2xl font-bold">Paiement indisponible</h1><p role="alert" className="my-5 text-gray-500">{error}</p><Link to="/dashboard" className="font-bold underline">Retour à mes séjours</Link></> : <Loader2 className="mx-auto animate-spin" aria-label="Chargement du paiement" />}</div>;
+  if (!details) return <div className="mx-auto max-w-lg px-6 py-10 sm:py-24 text-center">{error ? <><h1 className="text-2xl font-bold">Paiement indisponible</h1><p role="alert" className="my-5 text-gray-500">{error}</p><Link to="/dashboard" className="font-bold underline">Retour à mes séjours</Link></> : <Loader2 className="mx-auto animate-spin" aria-label="Chargement du paiement" />}</div>;
   return <><PaymentCheckoutView details={details} busy={busy} error={error} expired={details.expiresAt !== null && now >= details.expiresAt} onPay={() => void pay()} />
     {details.booking.paymentStatus === 'PAID' && <section className="mx-auto max-w-2xl px-6 pb-16"><ReservationInformation bookingId={bookingId} /></section>}
   </>;

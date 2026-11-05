@@ -303,7 +303,7 @@ export const ListingDetails: React.FC = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 
           {/* Swipeable gallery on phones; every photo remains available. */}
-          <div className="mb-6 flex snap-x snap-mandatory overflow-x-auto rounded-3xl md:hidden" role="region" aria-label="Photos du logement, faites défiler pour voir les suivantes" tabIndex={0}>
+          <div className="mb-6 flex snap-x snap-mandatory overflow-x-auto rounded-3xl md:hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" role="region" aria-label="Photos du logement, faites défiler pour voir les suivantes" tabIndex={0}>
             {viewablePhotos.map((photo, index, photos) => <figure key={`${index}-${photo}`} className="relative w-full shrink-0 snap-center"><button type="button" aria-label={`Agrandir la photo ${index + 1} sur ${photos.length}`} className={photoButtonClass} onClick={() => setLightboxIndex(index)}><img src={photo} alt={`Photo ${index + 1} du logement`} className="aspect-[4/3] w-full object-cover" loading={index === 0 ? 'eager' : 'lazy'} /></button><figcaption className="pointer-events-none absolute bottom-3 right-3 rounded-full bg-haven-navy/70 px-3 py-1 text-xs font-bold text-white">{index + 1} / {photos.length}</figcaption></figure>)}
           </div>
           {/* Gallery */}
@@ -334,7 +334,7 @@ export const ListingDetails: React.FC = () => {
             <div className="lg:col-span-2">
               <div className="flex flex-wrap justify-between items-start gap-3 mb-6">
                 <div>
-                  <h1 className="font-heading font-bold text-3xl md:text-4xl text-haven-navy mb-2">{listing.title}</h1>
+                  <h1 className="font-heading font-bold text-2xl sm:text-3xl md:text-4xl text-haven-navy mb-2">{listing.title}</h1>
                   <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-gray-600">
                     <span className="flex items-center gap-1"><MapPin size={16}/> {listing.city}{listing.neighborhood?.trim() ? ` · ${listing.neighborhood.trim()}` : ''}</span>
                     <span className="flex items-center gap-1"><Star size={16} className="text-haven-red fill-haven-red"/> {listing.rating} ({listing.reviewsCount} avis)</span>
@@ -368,7 +368,7 @@ export const ListingDetails: React.FC = () => {
 
               <div className="mb-10">
                 <h2 className="font-heading font-bold text-xl mb-4">À propos du logement</h2>
-                <div className="prose prose-slate max-w-none
+                <div className="prose prose-slate max-w-none prose-h1:text-2xl sm:prose-h1:text-4xl prose-h2:text-xl sm:prose-h2:text-2xl
                   prose-p:text-gray-600 prose-p:leading-relaxed prose-p:mb-4 prose-p:mt-0
                   prose-li:text-gray-600 prose-li:my-0.5
                   prose-ul:list-disc prose-ul:pl-5 prose-ul:mb-4

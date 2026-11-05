@@ -6,7 +6,7 @@ import { LegalDocument } from '../types';
 import { Loader2, ArrowLeft, Clock } from 'lucide-react';
 import { Button } from '../components/Button';
 import 'react-quill-new/dist/quill.snow.css';
-import { sanitizeHtml } from '../services/sanitizeHtml';
+import { readableLegalHtml } from '../services/legalContent';
 
 export const LegalPage: React.FC = () => {
   const { docId } = useParams<{ docId: string }>();
@@ -52,25 +52,25 @@ export const LegalPage: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-haven-cream pt-8 md:pt-20 pb-20 px-4 sm:px-6">
+    <div className="min-h-screen bg-haven-cream pt-4 sm:pt-8 md:pt-20 pb-20 px-4 sm:px-6">
       <div className="max-w-4xl mx-auto">
         <button
           onClick={() => navigate(-1)}
-          className="flex items-center gap-2 text-haven-stone hover:text-haven-navy font-bold mb-8 transition-colors"
+          className="flex items-center gap-2 text-haven-stone hover:text-haven-navy font-bold mb-4 sm:mb-8 transition-colors"
         >
           <ArrowLeft size={20} /> Retour
         </button>
 
-        <div className="bg-white rounded-[2.5rem] shadow-premium p-8 md:p-16 border border-gray-100 animate-fade-in-up">
-          <div className="mb-12 border-b border-gray-100 pb-8">
-            <h1 className="text-4xl md:text-5xl font-heading font-bold text-haven-navy mb-4">{document.title}</h1>
-            <div className="flex items-center gap-2 text-haven-stone text-sm font-medium">
+        <div className="bg-white rounded-[1.75rem] sm:rounded-[2.5rem] shadow-premium p-5 sm:p-8 md:p-16 border border-gray-100 animate-fade-in-up">
+          <div className="mb-6 sm:mb-12 border-b border-gray-100 pb-5 sm:pb-8">
+            <h1 className="text-2xl sm:text-4xl md:text-5xl font-heading font-bold text-haven-navy mb-2 sm:mb-4">{document.title}</h1>
+            <div className="flex items-center gap-2 text-haven-stone text-xs sm:text-sm font-medium">
               <Clock size={16} />
               Dernière mise à jour le {new Date(document.lastUpdated).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
             </div>
           </div>
 
-          <div className="haven-booking-terms prose prose-slate max-w-none
+          <div className="haven-booking-terms prose prose-sm sm:prose-base prose-slate max-w-none
             prose-headings:font-heading prose-headings:text-haven-navy prose-headings:font-bold
             prose-p:text-haven-stone prose-p:leading-relaxed prose-p:mb-4 prose-p:mt-0
             prose-li:text-haven-stone prose-li:marker:text-haven-navy prose-li:my-1
@@ -79,7 +79,7 @@ export const LegalPage: React.FC = () => {
             prose-ol:list-decimal prose-ol:pl-5 prose-ol:mb-6 prose-ol:mt-2
             prose-a:text-haven-red prose-a:font-bold prose-a:no-underline hover:prose-a:underline
             break-words overflow-hidden"
-            dangerouslySetInnerHTML={{ __html: sanitizeHtml(document.content) }}
+            dangerouslySetInnerHTML={{ __html: readableLegalHtml(document.content) }}
           />
         </div>
       </div>

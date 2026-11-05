@@ -48,30 +48,30 @@ export const BecomeOwner: React.FC = () => {
   };
 
   return (
-    <div className="bg-haven-cream min-h-screen py-16 px-4 sm:px-6 lg:px-8 mt-12 animate-fade-in">
+    <div className="bg-haven-cream min-h-screen py-8 sm:py-16 px-4 sm:px-6 lg:px-8 mt-4 sm:mt-12 animate-fade-in">
       <div className="max-w-4xl mx-auto">
         {/* Top Header */}
-        <div className="text-center mb-16">
+        <div className="text-center mb-8 sm:mb-16">
           <span className="px-4 py-1.5 bg-haven-navy/5 text-haven-navy rounded-full text-xs font-black uppercase tracking-widest">
             ESPACE PROPRIÉTAIRE LOGEMENTS
           </span>
-          <h1 className="text-4xl sm:text-5xl font-heading font-black text-haven-navy mt-4 mb-6 leading-tight">
-            Rentabilisez et protégez vos<br />investissements en colocation
+          <h1 className="text-[1.75rem] sm:text-5xl font-heading font-black text-haven-navy mt-3 sm:mt-4 mb-3 sm:mb-6 leading-tight">
+            Rentabilisez et protégez vos <br className="hidden sm:inline" />investissements en colocation
           </h1>
-          <p className="text-lg text-gray-500 max-w-2xl mx-auto">
+          <p className="text-sm sm:text-lg text-gray-500 max-w-2xl mx-auto">
             Rejoignez des centaines de bailleurs particuliers qui louent leurs chambres meublées en courte durée grâce à l'assurance de notre technologie autonome.
           </p>
         </div>
 
         {/* Traditional vs HAVEN Comparison Card */}
-        <div className="bg-white rounded-[2.5rem] border border-gray-100 shadow-premium p-8 sm:p-12 mb-16 overflow-hidden relative">
+        <div className="bg-white rounded-[1.75rem] sm:rounded-[2.5rem] border border-gray-100 shadow-premium p-5 sm:p-12 mb-8 sm:mb-16 overflow-hidden relative">
           <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/5 rounded-full blur-3xl"></div>
           
-          <h3 className="font-heading font-black text-2xl text-haven-navy mb-8 text-center sm:text-left">
+          <h3 className="font-heading font-black text-xl sm:text-2xl text-haven-navy mb-8 text-center sm:text-left">
             La colocation réinventée par HAVEN
           </h3>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-10">
             {/* Traditional */}
             <div className="space-y-4">
               <div className="flex items-center gap-2.5 text-xs font-black uppercase tracking-widest text-[#B24E31]">
@@ -127,15 +127,15 @@ export const BecomeOwner: React.FC = () => {
         </div>
 
         {/* Core Advantages List */}
-        <div className="space-y-8 mb-16">
-          <h3 className="font-heading font-bold text-2xl text-haven-navy text-center mb-10">
+        <div className="space-y-8 mb-8 sm:mb-16">
+          <h3 className="font-heading font-bold text-xl sm:text-2xl text-haven-navy text-center mb-6 sm:mb-10">
             Trois piliers conçus pour votre sérénité
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {advantages.map((adv, idx) => {
               const IconComp = adv.icon;
               return (
-                <div key={idx} className="bg-white p-8 rounded-3xl border border-gray-100 shadow-card flex flex-col justify-start">
+                <div key={idx} className="bg-white p-5 sm:p-8 rounded-3xl border border-gray-100 shadow-card flex flex-col justify-start">
                   <div className={`w-12 h-12 rounded-2xl ${adv.bgColor} ${adv.color} flex items-center justify-center mb-6`}>
                     <IconComp size={22} />
                   </div>
@@ -152,9 +152,9 @@ export const BecomeOwner: React.FC = () => {
         </div>
 
         {/* Specifications & Charter Specifications (Cahier des charges) */}
-        <div className="bg-white rounded-[2.5rem] border border-gray-100 shadow-premium p-8 sm:p-12 mb-16">
+        <div className="bg-white rounded-[1.75rem] sm:rounded-[2.5rem] border border-gray-100 shadow-premium p-5 sm:p-12 mb-8 sm:mb-16">
           <div className="max-w-2xl mx-auto">
-            <h3 className="font-heading font-black text-2xl text-haven-navy mb-4 text-center">
+            <h3 className="font-heading font-black text-xl sm:text-2xl text-haven-navy mb-4 text-center">
               Le Cahier des Charges HAVEN d'Excellence
             </h3>
             <p className="text-sm text-gray-500 text-center mb-8">
@@ -175,7 +175,7 @@ export const BecomeOwner: React.FC = () => {
         </div>
 
         {/* Call To Action Box */}
-        <div className="bg-gray-950 rounded-[2.5rem] p-10 sm:p-12 text-white shadow-premium text-center">
+        <div className="bg-gray-950 rounded-[1.75rem] sm:rounded-[2.5rem] p-6 sm:p-12 text-white shadow-premium text-center">
           <h3 className="font-heading font-bold text-2xl sm:text-3xl mb-4">
             Mettez votre bien en ligne dès aujourd'hui
           </h3>

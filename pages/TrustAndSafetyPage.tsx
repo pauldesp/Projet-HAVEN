@@ -37,27 +37,27 @@ export const TrustAndSafetyPage: React.FC = () => {
   ];
 
   return (
-    <div className="bg-haven-cream min-h-screen py-16 px-4 sm:px-6 lg:px-8 mt-12 animate-fade-in">
+    <div className="bg-haven-cream min-h-screen py-8 sm:py-16 px-4 sm:px-6 lg:px-8 mt-4 sm:mt-12 animate-fade-in">
       <div className="max-w-4xl mx-auto">
         {/* Header */}
-        <div className="text-center mb-16">
+        <div className="text-center mb-8 sm:mb-16">
           <span className="px-4 py-1.5 bg-haven-navy/5 text-haven-navy rounded-full text-xs font-black uppercase tracking-widest">
             Confiance & Sécurité
           </span>
-          <h1 className="text-4xl sm:text-5xl font-heading font-black text-haven-navy mt-4 mb-6 leading-tight">
-            Créer un cadre de vie fiable<br />pour chaque colocataire
+          <h1 className="text-[1.75rem] sm:text-5xl font-heading font-black text-haven-navy mt-3 sm:mt-4 mb-3 sm:mb-6 leading-tight">
+            Créer un cadre de vie fiable <br className="hidden sm:inline" />pour chaque colocataire
           </h1>
-          <p className="text-lg text-gray-500 max-w-2xl mx-auto">
+          <p className="text-sm sm:text-lg text-gray-500 max-w-2xl mx-auto">
             La confiance mutuelle est le moteur de HAVEN. Nous mettons en œuvre les protocoles de vérification les plus stricts pour vous garantir sérénité et confort.
           </p>
         </div>
 
         {/* Pillars Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-16">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-8 mb-8 sm:mb-16">
           {safetyPillars.map((pillar, idx) => {
             const IconComponent = pillar.icon;
             return (
-              <div key={idx} className="bg-white rounded-[2.5rem] p-8 border border-gray-100 shadow-premium flex flex-col items-start gap-4">
+              <div key={idx} className="bg-white rounded-[1.75rem] sm:rounded-[2.5rem] p-5 sm:p-8 border border-gray-100 shadow-premium flex flex-col items-start gap-4">
                 <div className={`w-12 h-12 rounded-2xl ${pillar.bgColor} ${pillar.iconColor} flex items-center justify-center shrink-0`}>
                   <IconComponent size={22} />
                 </div>
@@ -75,12 +75,12 @@ export const TrustAndSafetyPage: React.FC = () => {
         </div>
 
         {/* Moderation Block */}
-        <div className="bg-white rounded-[2.5rem] p-8 sm:p-12 border border-gray-100 shadow-premium mb-16 relative overflow-hidden">
+        <div className="bg-white rounded-[1.75rem] sm:rounded-[2.5rem] p-5 sm:p-12 border border-gray-100 shadow-premium mb-8 sm:mb-16 relative overflow-hidden">
           <div className="absolute top-0 right-0 p-12 opacity-5 translate-x-20">
             <ShieldCheck size={200} />
           </div>
           <div className="max-w-2xl mx-auto text-center space-y-6 relative z-10">
-            <h3 className="font-heading font-black text-2xl text-haven-navy">
+            <h3 className="font-heading font-black text-xl sm:text-2xl text-haven-navy">
               Médiation & Signalements Réactifs
             </h3>
             <p className="text-sm text-gray-500 leading-relaxed">
@@ -98,7 +98,7 @@ export const TrustAndSafetyPage: React.FC = () => {
         </div>
 
         {/* Community promise */}
-        <div className="bg-gradient-to-tr from-haven-navy to-slate-900 rounded-[2.5rem] p-10 text-white shadow-premium">
+        <div className="bg-gradient-to-tr from-haven-navy to-slate-900 rounded-[1.75rem] sm:rounded-[2.5rem] p-6 sm:p-10 text-white shadow-premium">
           <div className="max-w-xl mx-auto text-center space-y-5">
             <Sparkles className="text-haven-red mx-auto" size={32} />
             <h4 className="font-heading font-bold text-xl">Notre promesse d'excellence</h4>

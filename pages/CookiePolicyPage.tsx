@@ -16,14 +16,14 @@ export const CookiePolicyPage: React.FC = () => {
   };
 
   return (
-    <div className="bg-haven-cream min-h-screen py-16 px-4 sm:px-6 lg:px-8 mt-12 animate-fade-in">
+    <div className="bg-haven-cream min-h-screen py-8 sm:py-16 px-4 sm:px-6 lg:px-8 mt-4 sm:mt-12 animate-fade-in">
       <div className="max-w-3xl mx-auto">
         {/* Header */}
-        <div className="text-center mb-16">
+        <div className="text-center mb-8 sm:mb-16">
           <span className="px-4 py-1.5 bg-haven-navy/5 text-haven-navy rounded-full text-xs font-black uppercase tracking-widest">
             Vie Privée
           </span>
-          <h1 className="text-4xl font-heading font-black text-haven-navy mt-4 mb-4">
+          <h1 className="text-[1.75rem] sm:text-4xl font-heading font-black text-haven-navy mt-4 mb-4">
             Politique d'utilisation des Cookies
           </h1>
           <p className="text-sm text-gray-500 max-w-xl mx-auto font-medium">
@@ -32,7 +32,7 @@ export const CookiePolicyPage: React.FC = () => {
         </div>
 
         {/* Content Box */}
-        <div className="bg-white rounded-[2.5rem] p-8 sm:p-12 border border-gray-100 shadow-premium mb-12 space-y-8">
+        <div className="bg-white rounded-[1.75rem] sm:rounded-[2.5rem] p-5 sm:p-12 border border-gray-100 shadow-premium mb-6 sm:mb-12 space-y-8">
           <div className="flex gap-4 items-start pb-6 border-b border-gray-50">
             <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center shrink-0">
               <Cookie size={20} />
@@ -133,7 +133,7 @@ export const CookiePolicyPage: React.FC = () => {
         </div>
 
         {/* Security pledge */}
-        <div className="bg-haven-navy rounded-[2.5rem] p-8 text-white flex flex-col sm:flex-row gap-6 items-center shadow-premium">
+        <div className="bg-haven-navy rounded-[1.75rem] sm:rounded-[2.5rem] p-5 sm:p-8 text-white flex flex-col sm:flex-row gap-6 items-center shadow-premium">
           <div className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center shrink-0">
             <Lock size={22} className="text-haven-red" />
           </div>

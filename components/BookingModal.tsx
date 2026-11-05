@@ -10,7 +10,7 @@ import { X, FileText, Shield, ArrowLeft, ArrowRight, CheckCircle, XCircle } from
 import { useAuth } from '../contexts/AuthContext';
 import { apiService } from '../services/api';
 import { userFacingErrorMessage } from '../services/errorHandling';
-import { sanitizeHtml } from '../services/sanitizeHtml';
+import { readableLegalHtml } from '../services/legalContent';
 import { minimumNights } from '../services/minimumStay';
 
 const bookingErrorMessage = (error: unknown) => {
@@ -337,7 +337,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose, lis
                   <Shield size={24} />
                 </div>
                 <div>
-                  <h3 className="font-heading font-bold text-xl text-haven-navy leading-none mb-1">{legalDoc.title}</h3>
+                  <h3 className="font-heading font-bold text-lg sm:text-xl text-haven-navy leading-tight mb-1">{legalDoc.title}</h3>
                   <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Document officiel HAVEN</p>
                 </div>
               </div>
@@ -348,14 +348,14 @@ export const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose, lis
 
             <div ref={modalScrollRef} onScroll={handleLegalScroll} className="min-h-0 min-w-0 flex-grow overflow-y-auto overflow-x-hidden p-5 sm:p-8 md:p-16 bg-white scroll-smooth leading-relaxed">
               <div className="w-full min-w-0 max-w-3xl mx-auto">
-                <div className="haven-booking-terms prose prose-slate max-w-none
+                <div className="haven-booking-terms prose prose-sm sm:prose-base prose-slate max-w-none
                   prose-headings:font-heading prose-headings:text-haven-navy prose-headings:font-bold
-                  prose-p:text-haven-stone prose-p:text-lg prose-p:leading-relaxed prose-p:mb-6
-                  prose-li:text-haven-stone prose-li:text-lg prose-li:mb-2
+                  prose-p:text-haven-stone sm:prose-p:text-lg prose-p:leading-relaxed prose-p:mb-3 sm:prose-p:mb-6
+                  prose-li:text-haven-stone sm:prose-li:text-lg prose-li:mb-1 sm:prose-li:mb-2
                   prose-strong:text-haven-navy prose-strong:font-bold
                 ">
                   <div
-                    dangerouslySetInnerHTML={{ __html: sanitizeHtml(legalDoc.content) }}
+                    dangerouslySetInnerHTML={{ __html: readableLegalHtml(legalDoc.content) }}
                   />
                 </div>
               </div>
@@ -364,14 +364,14 @@ export const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose, lis
             <div className="haven-dialog-footer shrink-0 px-4 py-3 sm:px-8 sm:py-8 border-t border-gray-100 bg-gray-50/50 backdrop-blur-sm flex flex-col md:flex-row items-center justify-between gap-3 md:gap-6">
               <div className="flex flex-col gap-1">
                 {!legalScrolled ? (
-                  <div className="flex items-center gap-3 text-haven-red font-bold text-sm animate-pulse">
+                  <div className="flex items-center gap-3 text-haven-red font-bold text-xs sm:text-sm animate-pulse">
                     <div className="w-8 h-8 rounded-full bg-haven-red/10 flex items-center justify-center">
                       <ArrowRight size={16} className="rotate-90" />
                     </div>
                     Veuillez faire défiler jusqu'en bas pour activer la validation
                   </div>
                 ) : (
-                  <div className="flex items-center gap-3 text-green-600 font-bold text-sm">
+                  <div className="flex items-center gap-3 text-green-600 font-bold text-xs sm:text-sm">
                     <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center">
                       <CheckCircle size={16} />
                     </div>

@@ -94,15 +94,15 @@ export const HelpCenter: React.FC = () => {
   });
 
   return (
-    <div className="bg-haven-cream min-h-screen py-16 px-4 sm:px-6 lg:px-8 mt-12 animate-fade-in">
+    <div className="bg-haven-cream min-h-screen py-8 sm:py-16 px-4 sm:px-6 lg:px-8 mt-4 sm:mt-12 animate-fade-in">
       <div className="max-w-4xl mx-auto">
         
         {/* Header */}
-        <div className="text-center mb-12">
+        <div className="text-center mb-6 sm:mb-12">
           <span className="px-4 py-1.5 bg-haven-navy/5 text-haven-navy rounded-full text-xs font-black uppercase tracking-widest">
             Centre d'aide & Documentation
           </span>
-          <h1 className="text-4xl font-heading font-black text-haven-navy mt-4 mb-4">
+          <h1 className="text-[1.75rem] sm:text-4xl font-heading font-black text-haven-navy mt-4 mb-4">
             Comment pouvons-nous vous aider ?
           </h1>
           <p className="text-gray-500 text-sm max-w-xl mx-auto font-medium">
@@ -111,7 +111,7 @@ export const HelpCenter: React.FC = () => {
         </div>
 
         {/* Global Search Bar */}
-        <div className="bg-white p-4 rounded-3xl border border-gray-100 shadow-card flex items-center gap-3 max-w-xl mx-auto mb-12">
+        <div className="bg-white p-4 rounded-3xl border border-gray-100 shadow-card flex items-center gap-3 max-w-xl mx-auto mb-6 sm:mb-12">
           <Search className="text-gray-400 shrink-0" size={20} />
           <input
             type="text"
@@ -126,7 +126,7 @@ export const HelpCenter: React.FC = () => {
         </div>
 
         {/* Category Icons Selector */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3 mb-10">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3 mb-6 sm:mb-10">
           {categories.map(cat => {
             const IconComp = cat.icon;
             const isActive = activeCategory === cat.id;
@@ -153,7 +153,7 @@ export const HelpCenter: React.FC = () => {
         {/* Dynamic Display Area */}
         {selectedArticle ? (
           /* Detailed view of an article */
-          <div className="bg-white rounded-[2.5rem] p-8 sm:p-12 border border-gray-100 shadow-premium mb-12 animate-fade-in">
+          <div className="bg-white rounded-[1.75rem] sm:rounded-[2.5rem] p-5 sm:p-12 border border-gray-100 shadow-premium mb-6 sm:mb-12 animate-fade-in">
             <button
               onClick={() => setSelectedArticle(null)}
               className="inline-flex items-center gap-1 text-xs font-black text-gray-400 hover:text-haven-navy uppercase tracking-wider mb-6 cursor-pointer"
@@ -202,7 +202,7 @@ export const HelpCenter: React.FC = () => {
           </div>
         ) : (
           /* List of matching articles */
-          <div className="space-y-4 mb-16">
+          <div className="space-y-4 mb-8 sm:mb-16">
             {filteredArticles.length > 0 ? (
               filteredArticles.map((art) => (
                 <div 
@@ -237,7 +237,7 @@ export const HelpCenter: React.FC = () => {
         {/* Direct messaging / Support box */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
           
-          <div className="bg-white rounded-[2.5rem] p-8 border border-gray-100 shadow-premium flex flex-col justify-between">
+          <div className="bg-white rounded-[1.75rem] sm:rounded-[2.5rem] p-5 sm:p-8 border border-gray-100 shadow-premium flex flex-col justify-between">
             <div className="space-y-3">
               <div className="w-10 h-10 rounded-xl bg-violet-50 text-violet-600 flex items-center justify-center">
                 <MessageSquare size={20} />
@@ -258,7 +258,7 @@ export const HelpCenter: React.FC = () => {
             </div>
           </div>
 
-          <div className="bg-white rounded-[2.5rem] p-8 border border-gray-100 shadow-premium flex flex-col justify-between">
+          <div className="bg-white rounded-[1.75rem] sm:rounded-[2.5rem] p-5 sm:p-8 border border-gray-100 shadow-premium flex flex-col justify-between">
             <div className="space-y-3">
               <div className="w-10 h-10 rounded-xl bg-haven-red/5 text-haven-red flex items-center justify-center">
                 <Mail size={20} />
