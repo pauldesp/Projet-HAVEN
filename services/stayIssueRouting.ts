@@ -11,6 +11,18 @@ export const HAVEN_REPORT_REASONS = [
   { id: 'OTHER', label: 'Autre demande d’intervention', reason: 'OTHER' }
 ] as const;
 
+// Without a booking, a visitor can only judge what the listing shows or what they know about the property.
+export const LISTING_REPORT_REASONS = [
+  { id: 'INACCURATE', label: 'Annonce mensongère ou inexacte', reason: 'INACCURATE' },
+  { id: 'UNSAFE', label: 'Logement dangereux ou insalubre', reason: 'OTHER' },
+  { id: 'FRAUD', label: 'Arnaque ou tentative de fraude', reason: 'FRAUD' },
+  { id: 'OFFENSIVE', label: 'Contenu inapproprié (texte ou photos)', reason: 'OFFENSIVE' },
+  { id: 'SPAM', label: 'Annonce en double ou spam', reason: 'SPAM' },
+  { id: 'OTHER', label: 'Autre problème sur l’annonce', reason: 'OTHER' }
+] as const;
+
+export type ReportReasonOption = { id: string; label: string; reason: ReportReason };
+
 export function stayIssueDestination(category: string, subCategory: string): 'OWNER' | 'HAVEN' {
   return category === 'Voisinage / vie en colocation' || category === 'Nuisibles / hygiène' ||
     subCategory === 'Ménage non fait' || subCategory === 'Logement insalubre' ? 'HAVEN' : 'OWNER';
@@ -41,8 +53,8 @@ export function routeStayIssue(input: {
   } };
 }
 
-export function havenReportReason(choice: string): { reason: ReportReason; supportCategory: string } {
-  const selected = HAVEN_REPORT_REASONS.find(option => option.id === choice);
+export function havenReportReason(choice: string, options: readonly ReportReasonOption[] = HAVEN_REPORT_REASONS): { reason: ReportReason; supportCategory: string } {
+  const selected = options.find(option => option.id === choice);
   if (!selected) throw new Error('Choisissez le motif du signalement.');
   return { reason: selected.reason, supportCategory: selected.label };
 }

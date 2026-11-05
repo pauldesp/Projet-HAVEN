@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { routeStayIssue, havenReportReason, bindStayIssueToBooking } from './stayIssueRouting';
+import { routeStayIssue, havenReportReason, bindStayIssueToBooking, LISTING_REPORT_REASONS } from './stayIssueRouting';
 import { prepareOwnerIncidentUpdate } from './ownerIncident';
 import type { Incident } from '../types';
 const issue = {
@@ -45,6 +45,11 @@ test('aucun incident incomplet ne peut devenir silencieusement un signalement sa
   }
   for (const choice of ['CONFLICT', 'UNSANITARY', 'CLEANING']) assert.equal(havenReportReason(choice).reason, 'OTHER');
   assert.throws(() => havenReportReason('unknown'));
+});
+test('un signalement sans réservation ne propose que des motifs liés à l’annonce ou au logement', () => {
+  for (const stayOnly of ['CONFLICT', 'CLEANING']) assert.throws(() => havenReportReason(stayOnly, LISTING_REPORT_REASONS));
+  assert.deepEqual(havenReportReason('UNSAFE', LISTING_REPORT_REASONS), { reason: 'OTHER', supportCategory: 'Logement dangereux ou insalubre' });
+  assert.equal(havenReportReason('INACCURATE', LISTING_REPORT_REASONS).reason, 'INACCURATE');
 });
 test('seul le propriétaire concerné peut prendre en charge et résoudre un incident', () => {
   const incident = { ownerId: 'owner-1', status: 'NEW' } as Incident;

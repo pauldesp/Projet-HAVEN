@@ -5,7 +5,7 @@ import { Button } from './Button';
 import { apiService } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { toast } from 'sonner';
-import { HAVEN_REPORT_REASONS, havenReportReason, stayIssueDestination, createIssueId } from '../services/stayIssueRouting';
+import { HAVEN_REPORT_REASONS, LISTING_REPORT_REASONS, havenReportReason, stayIssueDestination, createIssueId, type ReportReasonOption } from '../services/stayIssueRouting';
 import { prepareVerificationDocument } from '../services/verificationDocument';
 import { INCIDENT_CATEGORIES } from '../src/constants';
 
@@ -55,6 +55,8 @@ export const ReportModal: React.FC<ReportModalProps> = ({
     setIsSuccess(false); setReason(''); setDescription(''); setPriority('MEDIUM');
     setIncidentReport({ category: '', subCategory: '', description: '', photo: '' });
   }, [isOpen, targetId, targetType, bookingId]);
+  const isListingReport = targetType === 'LISTING' && !bookingId;
+  const reportReasons: readonly ReportReasonOption[] = isListingReport ? LISTING_REPORT_REASONS : HAVEN_REPORT_REASONS;
   const destination = isIncident ? stayIssueDestination(incidentReport.category, incidentReport.subCategory) : 'HAVEN';
   useEffect(() => {
     if (!isOpen) return;
@@ -98,7 +100,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
           reporterId: currentUser.id,
           targetId,
           targetType,
-          ...havenReportReason(reason),
+          ...havenReportReason(reason, reportReasons),
           description: description.trim(),
           status: 'NEW' as const,
           ...(bookingId && listingId && ownerId ? { bookingId, listingId, ownerId } : {}),
@@ -154,20 +156,22 @@ export const ReportModal: React.FC<ReportModalProps> = ({
 
         {/* Header */}
         <div className="shrink-0 p-4 sm:p-8 border-b border-gray-100 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${isIncident ? 'bg-amber-100 text-amber-600' : 'bg-haven-red/10 text-haven-red'}`}>
+          <div className="flex min-w-0 items-center gap-3">
+            <div className={`shrink-0 w-12 h-12 rounded-2xl flex items-center justify-center ${isIncident ? 'bg-amber-100 text-amber-600' : 'bg-haven-red/10 text-haven-red'}`}>
               <AlertTriangle size={24} />
             </div>
             <div>
-              <h2 className="text-2xl font-bold text-haven-navy leading-tight">
-                {isIncident ? "Signaler un incident" : "Demander l’intervention de Haven"}
+              <h2 className="text-xl sm:text-2xl font-bold text-haven-navy leading-tight">
+                {isIncident ? "Signaler un incident" : isListingReport ? "Signaler cette annonce" : "Demander l’intervention de Haven"}
               </h2>
-              <p className="text-xs text-gray-500 font-medium">{destination === 'OWNER' ? 'Le propriétaire prend en charge les problèmes du logement.' : 'Haven examine les situations nécessitant son intervention.'}</p>
+              <p className="text-xs text-gray-500 font-medium">{destination === 'OWNER' ? 'Le propriétaire prend en charge les problèmes du logement.' : isListingReport ? 'Haven vérifiera ce que vous avez constaté sur l’annonce ou le logement.' : 'Haven examine les situations nécessitant son intervention.'}</p>
             </div>
           </div>
           <button
+            type="button"
+            aria-label="Fermer"
             onClick={onClose}
-            className="p-3 text-gray-400 hover:text-haven-navy hover:bg-gray-100 rounded-full transition-all"
+            className="shrink-0 p-3 text-gray-400 hover:text-haven-navy hover:bg-gray-100 rounded-full transition-all"
           >
             <X size={24} />
           </button>
@@ -268,7 +272,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
               <div>
                 <label className="block text-sm font-bold text-haven-navy mb-4">Raison du signalement</label>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {HAVEN_REPORT_REASONS.map(opt => (
+                  {reportReasons.map(opt => (
                     <button
                       key={opt.id}
                       type="button"
@@ -280,6 +284,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
                     </button>
                   ))}
                 </div>
+                {isListingReport && <p className="mt-3 text-xs text-gray-500">Un problème pendant un séjour réservé ? Signalez-le depuis la réservation concernée, dans votre espace.</p>}
               </div>
 
               <div>
@@ -289,7 +294,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
                   rows={6} maxLength={4999}
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Expliquez-nous le problème..."
+                  placeholder={isListingReport ? 'Décrivez ce que vous avez constaté sur l’annonce ou le logement...' : 'Expliquez-nous le problème...'}
                   className="w-full px-5 py-4 bg-gray-50 border border-gray-200 rounded-2xl focus:border-haven-navy transition-all resize-none text-sm outline-none"
                 />
               </div>
@@ -306,7 +311,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
             onClick={() => handleSubmitReport()}
             className="h-14 font-bold rounded-2xl shadow-xl shadow-haven-navy/10"
           >
-            {isSubmitting ? <Loader2 size={24} className="animate-spin" /> : (destination === 'OWNER' ? "Transmettre au propriétaire" : "Envoyer à Haven")}
+            {isSubmitting ? <Loader2 size={24} className="animate-spin" /> : (destination === 'OWNER' ? "Transmettre au propriétaire" : isListingReport ? "Envoyer" : "Envoyer à Haven")}
           </Button>
         </div>
       </div>

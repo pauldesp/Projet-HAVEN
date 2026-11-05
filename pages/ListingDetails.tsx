@@ -19,6 +19,7 @@ import { toast } from 'sonner';
 import { useAuth } from '../contexts/AuthContext';
 import { AccountStatusOverlay } from '../components/AccountStatusOverlay';
 import { ReportModal } from '../components/ReportModal';
+import { PhotoLightbox } from '../components/PhotoLightbox';
 import { isRoomAvailableForStay } from '../services/availability';
 import { getListingPhotoUrls } from '../services/media';
 import { shareOrCopy } from '../services/share';
@@ -41,6 +42,7 @@ export const ListingDetails: React.FC = () => {
   const [blockTarget, setBlockTarget] = useState<string>('LISTING');
   const [isVerificationModalOpen, setIsVerificationModalOpen] = useState(false);
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [owner, setOwner] = useState<User | null>(null);
   const [reviews, setReviews] = useState<any[]>([]);
   const [isReviewsLoading, setIsReviewsLoading] = useState(false);
@@ -75,14 +77,15 @@ export const ListingDetails: React.FC = () => {
   const recurringDate = (date: string) => new Date(`${date}T12:00:00Z`).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
 
   useEffect(() => {
-    const fetchOwner = async () => {
-      if (listing?.ownerId) {
-        const ownerData = await apiService.users.getById(listing.ownerId);
-        if (ownerData) setOwner(ownerData);
-      }
-    };
-    fetchOwner();
-  }, [listing?.ownerId]);
+    setOwner(null);
+    // Member profiles are private: visitors and restricted profiles simply see no owner card.
+    if (!listing?.ownerId || !currentUser) return;
+    let isCurrent = true;
+    apiService.users.getByIds([listing.ownerId])
+      .then(([ownerData]) => { if (isCurrent && ownerData) setOwner(ownerData); })
+      .catch(() => {});
+    return () => { isCurrent = false; };
+  }, [listing?.ownerId, currentUser?.id]);
 
   useEffect(() => {
     const fetchReviews = async () => {
@@ -233,7 +236,7 @@ export const ListingDetails: React.FC = () => {
 
     if (result === 'shared') toast.success('Annonce partagée !');
     if (result === 'copied') toast.success('Lien de l’annonce copié.');
-    if (result === 'unavailable') toast.error('Le partage est indisponible sur ce navigateur.');
+    if (result === 'unavailable') toast.error('Partage impossible : copiez le lien depuis la barre d’adresse.');
   };
 
   const handleFavorite = async () => {
@@ -283,6 +286,8 @@ export const ListingDetails: React.FC = () => {
   const nights = countNights(startDate, endDate);
 
   const listingPhotos = getListingPhotoUrls(listing);
+  const viewablePhotos = listingPhotos.length ? listingPhotos : [listing.mainPhotoUrl];
+  const photoButtonClass = 'relative block h-full w-full cursor-pointer overflow-hidden focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-4 focus-visible:outline-white';
   const isFavorite = currentUser?.favorites?.includes(listing.id) ?? false;
   const selectedRecurringIndex = recurringMatch?.periods.findIndex(period => period.stay?.start === startDate && period.stay?.end === endDate) ?? -1;
   const selectedRecurringPeriod = selectedRecurringIndex >= 0 ? recurringMatch?.periods[selectedRecurringIndex] : undefined;
@@ -299,22 +304,24 @@ export const ListingDetails: React.FC = () => {
 
           {/* Swipeable gallery on phones; every photo remains available. */}
           <div className="mb-6 flex snap-x snap-mandatory overflow-x-auto rounded-3xl md:hidden" role="region" aria-label="Photos du logement, faites défiler pour voir les suivantes" tabIndex={0}>
-            {(listingPhotos.length ? listingPhotos : [listing.mainPhotoUrl]).map((photo, index, photos) => <figure key={`${index}-${photo}`} className="relative w-full shrink-0 snap-center"><img src={photo} alt={`Photo ${index + 1} du logement`} className="aspect-[4/3] w-full object-cover" loading={index === 0 ? 'eager' : 'lazy'} /><figcaption className="absolute bottom-3 right-3 rounded-full bg-haven-navy/70 px-3 py-1 text-xs font-bold text-white">{index + 1} / {photos.length}</figcaption></figure>)}
+            {viewablePhotos.map((photo, index, photos) => <figure key={`${index}-${photo}`} className="relative w-full shrink-0 snap-center"><button type="button" aria-label={`Agrandir la photo ${index + 1} sur ${photos.length}`} className={photoButtonClass} onClick={() => setLightboxIndex(index)}><img src={photo} alt={`Photo ${index + 1} du logement`} className="aspect-[4/3] w-full object-cover" loading={index === 0 ? 'eager' : 'lazy'} /></button><figcaption className="pointer-events-none absolute bottom-3 right-3 rounded-full bg-haven-navy/70 px-3 py-1 text-xs font-bold text-white">{index + 1} / {photos.length}</figcaption></figure>)}
           </div>
           {/* Gallery */}
           <div className="hidden md:grid grid-cols-2 gap-4 h-[500px] rounded-3xl overflow-hidden mb-8">
-            <img src={listingPhotos[0] || listing.mainPhotoUrl} alt="Photo principale du logement" className="w-full h-full object-cover" />
+            <button type="button" aria-label={`Agrandir la photo 1 sur ${viewablePhotos.length}`} className={photoButtonClass} onClick={() => setLightboxIndex(0)}>
+              <img src={viewablePhotos[0]} alt="Photo principale du logement" className="absolute inset-0 w-full h-full object-cover" />
+            </button>
             <div className="grid grid-cols-2 gap-4">
                {listingPhotos.slice(1).length > 0 ? (
                   listingPhotos.slice(1).map((url, i) => (
-                    <div key={url} className="relative overflow-hidden">
-                      <img src={url} alt={`Photo ${i + 2} du logement`} className="w-full h-full object-cover" />
+                    <button key={`${i}-${url}`} type="button" aria-label={`Agrandir la photo ${i + 2} sur ${listingPhotos.length}`} className={photoButtonClass} onClick={() => setLightboxIndex(i + 1)}>
+                      <img src={url} alt={`Photo ${i + 2} du logement`} className="absolute inset-0 w-full h-full object-cover" />
                       {i === listingPhotos.slice(1).length - 1 && (
-                        <div className="absolute inset-0 bg-black/40 flex items-center justify-center text-white font-bold cursor-pointer hover:bg-black/50 transition-colors">
+                        <span className="absolute inset-0 bg-black/40 flex items-center justify-center text-white font-bold hover:bg-black/50 transition-colors">
                           {listingPhotos.length} photo{listingPhotos.length > 1 ? 's' : ''}
-                        </div>
+                        </span>
                       )}
-                    </div>
+                    </button>
                   ))
                ) : (
                   <div className="bg-gray-200 w-full h-full flex items-center justify-center text-gray-500">Plus de photos bientôt</div>
@@ -334,7 +341,7 @@ export const ListingDetails: React.FC = () => {
                   </div>
                 </div>
                 <div className="flex gap-2">
-                  <button className="p-3 rounded-full border border-gray-200 hover:bg-gray-50 text-haven-navy" title="Signaler"><AlertCircle size={20} onClick={() => setIsReportModalOpen(true)} /></button>
+                  <button type="button" className="p-3 rounded-full border border-gray-200 hover:bg-gray-50 text-haven-navy" title="Signaler cette annonce" aria-label="Signaler cette annonce" onClick={() => { if (currentUser) setIsReportModalOpen(true); else window.location.hash = `/login?redirect=${encodeURIComponent(`/listing/${id}?${searchParams.toString()}`)}`; }}><AlertCircle size={20} aria-hidden="true" /></button>
                   <button type="button" onClick={handleShare} aria-label="Partager cette annonce" title="Partager cette annonce" className="p-3 rounded-full border border-gray-200 hover:bg-gray-50 text-haven-navy"><Share size={20}/></button>
                   <button type="button" onClick={handleFavorite} disabled={isFavoriteUpdating} aria-label={isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris'} title={isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris'} className={`p-3 rounded-full border border-gray-200 hover:bg-gray-50 text-haven-navy disabled:cursor-wait ${isFavorite ? 'bg-haven-red/5 text-haven-red border-haven-red/20' : ''}`}>
                     {isFavoriteUpdating ? <Loader2 size={20} className="animate-spin" /> : <Heart size={20} className={isFavorite ? 'fill-current' : ''}/>}
@@ -804,6 +811,8 @@ export const ListingDetails: React.FC = () => {
           </Button>
         </div>
       </div>}
+      {lightboxIndex !== null && <PhotoLightbox photos={viewablePhotos} initialIndex={lightboxIndex} onClose={() => setLightboxIndex(null)} />}
+
       <BookingModal
         isOpen={isBookingOpen}
         onClose={() => setIsBookingOpen(false)}
