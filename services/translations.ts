@@ -43,6 +43,8 @@ export const translations = {
     "stats.stat3.label": "jeunes renoncent à une opportunité professionnelle ou un stage faute de solution de logement flexible.",
     "stats.stat4.val": "1,6 M",
     "stats.stat4.label": "de stagiaires chaque année dont 49 % hors de leur région d’études, sans solution de logement adaptée.",
+    "stats.recurring.pitch": "École à Bordeaux, entreprise à La Rochelle ? Trouvez un logement pour toutes vos semaines en une seule recherche.",
+    "stats.recurring.cta": "Essayer la recherche récurrente",
 
     // Comparison Tenant
     "compare.tenant.title": "Le juste prix de la mobilité",
@@ -130,6 +132,8 @@ export const translations = {
     "stats.stat3.label": "young people turn down a professional opportunity due to lack of flexible housing.",
     "stats.stat4.val": "1.6 M",
     "stats.stat4.label": "interns per year, 49% of whom leave their study region without a suitable housing solution.",
+    "stats.recurring.pitch": "School in Bordeaux, company in La Rochelle? Find housing for all your weeks in a single search.",
+    "stats.recurring.cta": "Try the recurring search",
     "compare.tenant.title": "The fair price of mobility",
     "compare.tenant.subtitle": "Why pay a high price for temporary accommodation? Haven was designed to offer the best comfort/price ratio for mobile profiles.",
     "compare.tenant.benefit1": "Total flexibility: weekly, no rigid commitment",
@@ -209,6 +213,8 @@ export const translations = {
     "stats.stat3.label": "jóvenes renuncian a una oportunidad por falta de vivienda flexible.",
     "stats.stat4.val": "1,6 M",
     "stats.stat4.label": "pasantes al año, de los cuales el 49% fuera de su región sin solución de alquiler adecuada.",
+    "stats.recurring.pitch": "¿Escuela en Burdeos, empresa en La Rochelle? Encuentra alojamiento para todas tus semanas en una sola búsqueda.",
+    "stats.recurring.cta": "Probar la búsqueda recurrente",
     "compare.tenant.title": "El precio justo de la movilidad",
     "compare.tenant.subtitle": "¿Por qué pagar un precio alto por un alojamiento temporal?",
     "compare.tenant.label1": "Hotel (3*)",

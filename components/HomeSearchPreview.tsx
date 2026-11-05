@@ -1,4 +1,4 @@
-import React, { useId, useRef, useState } from 'react';
+import React, { useEffect, useId, useRef, useState } from 'react';
 import { ArrowRight, CalendarDays, Check, Plus, Repeat2, Search, X } from 'lucide-react';
 import { DateRangePicker } from './DateRangePicker';
 import './HomeSearchPreview.css';
@@ -29,12 +29,15 @@ const periodLabel = (index: number) => {
   return `Dates du ${ordinal} séjour`;
 };
 const nightsBetween = (start: string, end: string) => start && end ? Math.round((Date.parse(end) - Date.parse(start)) / 86400000) : 0;
-export function HomeSearchPreview() {
+export function HomeSearchPreview({ recurringRequest = 0 }: { recurringRequest?: number }) {
   const id = useId();
   const navigate = useNavigate();
   const [cityCode, setCityCode] = useState('');
   const nextPeriodId = useRef(3);
   const [mode, setMode] = useState<Mode | null>(null);
+  useEffect(() => {
+    if (recurringRequest > 0) setMode('recurring');
+  }, [recurringRequest]);
   const [location, setLocation] = useState('');
   const [arrival, setArrival] = useState('');
   const [departure, setDeparture] = useState('');

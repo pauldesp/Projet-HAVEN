@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useRef, useState } from 'react';
 import { motion } from 'motion/react';
 import { Calendar as CalendarIcon, ShieldCheck, Sparkles, TrendingUp, BarChart3, AlertCircle, Users, Route, Info } from 'lucide-react';
 import { Button } from '../components/Button';
@@ -14,6 +14,13 @@ import { UserRole } from '../types';
 export const Home: React.FC = () => {
   const navigate = useNavigate();
   const { t } = useLanguage();
+  const searchRef = useRef<HTMLDivElement>(null);
+  const [recurringRequest, setRecurringRequest] = useState(0);
+
+  const handleRecurringClick = () => {
+    setRecurringRequest(count => count + 1);
+    searchRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
   const { currentUser } = useAuth();
   
   const handlePublishClick = (e: React.MouseEvent) => {
@@ -49,8 +56,8 @@ export const Home: React.FC = () => {
             </p>
           </div>
 
-          <div className="pt-3 md:pt-5 w-full">
-            <HomeSearchPreview />
+          <div ref={searchRef} className="pt-3 md:pt-5 w-full scroll-mt-20">
+            <HomeSearchPreview recurringRequest={recurringRequest} />
           </div>
         </div>
       </div>
@@ -150,6 +157,19 @@ export const Home: React.FC = () => {
               </div>
             </div>
           </div>
+
+          <div className="mt-10 md:mt-14 flex flex-col md:flex-row md:items-center md:justify-between gap-6 md:gap-10">
+            <p className="text-haven-navy text-lg md:text-xl font-medium leading-relaxed max-w-3xl">
+              {t('stats.recurring.pitch')}
+            </p>
+            <Button
+              size="lg"
+              className="w-full md:w-auto shrink-0 bg-haven-navy text-white hover:bg-haven-navy/90 px-6 md:px-8 py-4 rounded-2xl font-black uppercase tracking-widest shadow-xl active:scale-95 transition-all text-xs"
+              onClick={handleRecurringClick}
+            >
+              {t('stats.recurring.cta')}
+            </Button>
+          </div>
         </div>
       </section>
 
@@ -165,7 +185,7 @@ export const Home: React.FC = () => {
                 <Info size={14} className="text-haven-navy" />
               </div>
               <p className="text-xs font-medium opacity-80">
-                Séjour d’une semaine à La Rochelle du dimanche 12 juillet au vendredi 17 juillet
+                Séjour de 5 nuits à La Rochelle, du dimanche 12 au vendredi 17 juillet
               </p>
             </div>
           </div>
@@ -196,9 +216,7 @@ export const Home: React.FC = () => {
               transition={{ delay: 0.1 }}
               className="bg-gray-50/50 rounded-[2rem] p-8 border border-gray-100 flex flex-col items-center justify-center space-y-6 h-full"
             >
-              <div className="flex items-center justify-center">
-                <img src="/Logoairbnb.png" alt="Airbnb" className="h-10 w-auto" />
-              </div>
+              <h3 className="text-xl font-black text-haven-navy tracking-tight">Airbnb</h3>
               <div className="w-full space-y-4">
                 <div className="space-y-0.5">
                   <div className="text-3xl font-black text-haven-navy tracking-tighter">280 €</div>
@@ -227,7 +245,7 @@ export const Home: React.FC = () => {
                 <Logo className="h-9" />
                 <div className="space-y-1">
                   <div className="text-6xl font-black text-haven-red tracking-tighter">175 €</div>
-                  <p className="text-[11px] font-black text-haven-navy uppercase tracking-[0.2em]">PAR SEMAINE</p>
+                  <p className="text-[11px] font-black text-haven-navy uppercase tracking-[0.2em]">POUR CE SÉJOUR</p>
                 </div>
               </div>
             </motion.div>
@@ -246,9 +264,14 @@ export const Home: React.FC = () => {
               <div className="w-8 h-8 rounded-full bg-haven-navy/5 flex items-center justify-center">
                 <Info size={14} className="text-haven-navy" />
               </div>
-              <p className="text-xs font-medium opacity-80">
-                Exemple : T4 en ville moyenne peu tendue
-              </p>
+              <div className="text-left">
+                <p className="text-xs font-medium opacity-80">
+                  Exemple : T4 en ville moyenne peu tendue
+                </p>
+                <p className="text-[11px] font-medium opacity-60">
+                  Base : occupation complète
+                </p>
+              </div>
             </div>
           </div>
 
@@ -317,8 +340,12 @@ export const Home: React.FC = () => {
             </motion.div>
           </div>
 
+          <p className="mt-10 md:mt-12 max-w-2xl mx-auto text-haven-stone text-base md:text-lg font-light leading-relaxed">
+            Les locataires récurrents réservent sur plusieurs mois : votre calendrier se remplit plus vite et plus longtemps.
+          </p>
+
           {/* Efficiency Comparison Bar & CTA */}
-          <div className="mt-12 flex flex-col md:flex-row items-center justify-center gap-6">
+          <div className="mt-6 md:mt-8 flex flex-col md:flex-row items-center justify-center gap-6">
             <div className="inline-flex flex-wrap justify-center items-center gap-4 px-5 md:px-8 py-4 bg-white border border-haven-red/20 rounded-2xl shadow-lg animate-fade-in">
               <div className="w-10 h-10 rounded-full bg-haven-red text-white flex items-center justify-center shadow-md shadow-haven-red/10">
                 <TrendingUp size={20} />
