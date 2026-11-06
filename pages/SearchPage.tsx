@@ -11,7 +11,7 @@ import { MapPin, SlidersHorizontal, Route, Loader2, ChevronDown, RotateCcw, Arro
 import { useListings } from '../contexts/ListingContext';
 import { resolveCityCoordinates, sortByDistance } from '../services/proximity';
 import { Button } from '../components/Button';
-import { listingHasAvailableRoom } from '../services/availability';
+import { listingHasBookableRoom } from '../services/gapStay';
 import { apiService } from '../services/api';
 import { readSearchDates } from '../services/searchDates';
 import { findClosestAvailableStay, NearbyStay } from '../services/nearbyStays';
@@ -187,7 +187,8 @@ export const SearchPage: React.FC = () => {
     const listingsMatchingFilters = approvedListings.filter(listing => {
       // Handle case where rooms might be empty
       if (!listing.rooms || listing.rooms.length === 0) return false;
-      if (!isRecurring && startDate && endDate && countNights(startDate, endDate) < minimumNights(listing.minStay)) return false;
+      // Shorter than the minimum only when the dates exactly fill a gap between two stays of a room.
+      if (!isRecurring && startDate && endDate && countNights(startDate, endDate) < minimumNights(listing.minStay) && !listingHasBookableRoom(listing, availability, startDate, endDate)) return false;
       if (selectedTypes.length > 0 && !selectedTypes.includes(listing.type)) return false;
       const roomCount = listing.totalRooms || listing.rooms.length;
       if (roomCount < minRooms || roomCount > maxRooms) return false;
@@ -210,7 +211,7 @@ export const SearchPage: React.FC = () => {
     };
     const isAvailableForRequestedStay = (listing: Listing) => isRecurring
       ? Boolean(recurrenceMatches.get(listing.id)?.availableCount)
-      : listingHasAvailableRoom(listing, availability, startDate, endDate);
+      : listingHasBookableRoom(listing, availability, startDate, endDate);
 
     // 2. Exact city and exact requested stay.
     const exactCityListings = listingsMatchingFilters.filter(isInRequestedCity);

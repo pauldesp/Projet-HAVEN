@@ -2,7 +2,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { UserRole } from '../types';
 import { Button } from './Button';
-import { Globe, LayoutDashboard, ChevronDown, UserRound, Home, LogIn, LogOut, User as UserIcon, Settings, Shield, MessageSquare, UserRoundCog, ArrowRightLeft } from 'lucide-react';
+import { Globe, LayoutDashboard, ChevronDown, LogIn, LogOut, User as UserIcon, Settings, Shield, MessageSquare, UserRoundCog, ArrowRightLeft } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Logo } from './Logo';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -116,9 +116,9 @@ export const Header: React.FC = () => {
                     }`}
                   >
                     {isOwnerMode ? (
-                      <><UserRound size={16}/> {tr("Locataire")}</>
+                      <><ArrowRightLeft size={16} aria-hidden="true"/> {tr("Locataire")}</>
                     ) : (
-                      <><Home size={16}/> {tr("Mode Propriétaire")}</>
+                      <><ArrowRightLeft size={16} aria-hidden="true"/> {tr("Mode Propriétaire")}</>
                     )}
                   </button>
                  )}

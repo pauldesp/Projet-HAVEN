@@ -1,6 +1,7 @@
 import { createStripeConnect, ConnectError } from './services/stripeConnectServer';
 import { createRecurringSeries, SeriesError } from './services/recurringSeriesServer';
 import { isLaterSeriesStay } from './services/recurringInstallments';
+import { CONTENT_SECURITY_POLICY } from './services/contentSecurityPolicy';
 import { CONNECT_POLICY_VERSION, DEPOSIT_POLICY } from './services/stripeConnect';
 import { normalizePlatformFeedback } from './services/platformFeedback';
 import { normalizeRoomGuide, normalizeRoomGuides } from './services/roomGuide';
@@ -26,7 +27,7 @@ import { isStayReviewWindowOpen } from './services/reviewPolicy';
 import { hasCompleteVerificationDetails, hasRequiredPhoneNumber, isVerificationReadyToSubmit } from './services/profileVerification';
 import type { Booking, BookingAvailability, BookingSeries, Listing, Room } from './types';
 import { isRoomAvailableForStay, publicAvailabilityItem } from './services/availability';
-import { minimumNights } from './services/minimumStay';
+import { requiredNightsForStay } from './services/gapStay';
 import { canConfirmEmailOwnership } from './services/emailOwnership';
 import { preparePersonalDetails, preparePhoneForVerification } from './services/accountProfileMutation';
 import { normalizeAccountIdentifier, resolveAccountEntry } from './services/accountEntry';
@@ -550,9 +551,9 @@ async function startServer() {
   const app = express();
   const PORT = 3000;
 
-  // The current UI still uses an inline Tailwind configuration. Keep CSP disabled
-  // until Tailwind is bundled, while enabling Helmet's other security headers.
-  app.use(helmet({ contentSecurityPolicy: false }));
+  // Tailwind is compiled and the page has no inline script: the built site runs under a CSP.
+  // Vite's development server injects an inline preamble, so CSP stays off while developing.
+  app.use(helmet({ contentSecurityPolicy: isProduction ? { useDefaults: false, directives: CONTENT_SECURITY_POLICY } : false }));
 
   for (const [route, secretName] of [['/api/stripe/webhook', 'STRIPE_WEBHOOK_SECRET'], ['/api/stripe/connect-webhook', 'STRIPE_CONNECT_WEBHOOK_SECRET']]) {
     app.post(route, express.raw({ type: 'application/json', limit: '1mb' }), async (req, res) => {
@@ -662,8 +663,9 @@ async function startServer() {
         const room = listing.rooms?.find((item: Room) => item.id === roomId);
         if (!room || !Number.isFinite(room.pricePerDay) || room.pricePerDay <= 0) throw new Error('CHAMBRE_INVALIDE');
         const nights = countNights(startDate, endDate);
-        if (nights < minimumNights(listing.minStay) || nights > 366) throw new Error('DATES_INVALIDES');
         const availability = availabilityQuery.docs.map(item => item.data() as BookingAvailability);
+        // The minimum may be lowered to a gap the stay exactly fills between two occupations of the room.
+        if (nights < requiredNightsForStay(room, listing, availability, startDate, endDate) || nights > 366) throw new Error('DATES_INVALIDES');
         if (!isRoomAvailableForStay(room, listing, availability, startDate, endDate)) throw new Error('DATES_INDISPONIBLES');
         if (existingBooking.exists || existingAvailability.exists) throw new Error('RESERVATION_EXISTANTE');
 
@@ -1048,7 +1050,7 @@ async function startServer() {
           transaction.get(ownerRef), transaction.get(adminDb.collection('verification_exceptions').doc(`USER_${req.user!.uid}`))
         ]);
         if (!profile.exists || !hasTrustedVerificationException(profile.data()!, exception.data(), req.user!.uid)) throw new VerificationExceptionError('Dérogation de test absente ou retirée.', 403);
-        const fields = ['id', 'title', 'description', 'city', 'address', 'postalCode', 'country', 'neighborhood', 'arrivalMethod', 'coordinates', 'type', 'totalRooms', 'availableRooms', 'surface', 'amenities', 'mainPhotoUrl', 'galleryUrls', 'rooms', 'bathrooms', 'minStay', 'cleaningFee', 'cleaningPolicyVersion', 'bookingMode', 'checkInTime', 'checkOutTime', 'blockedDates'];
+        const fields = ['id', 'title', 'description', 'city', 'address', 'postalCode', 'country', 'neighborhood', 'arrivalMethod', 'coordinates', 'type', 'totalRooms', 'availableRooms', 'surface', 'amenities', 'mainPhotoUrl', 'galleryUrls', 'rooms', 'bathrooms', 'minStay', 'allowGapStays', 'cleaningFee', 'cleaningPolicyVersion', 'bookingMode', 'checkInTime', 'checkOutTime', 'blockedDates'];
         const listing = { ...Object.fromEntries(fields.filter(key => input[key] !== undefined).map(key => [key, input[key]])), ownerId: req.user!.uid, bookingMode: 'INSTANT', status: 'PENDING', rating: 0, reviewsCount: 0, verificationException: null } as import('./types').Listing;
         prepareListingReview(listing, profile.data() as import('./types').User, 'APPROVED', true, undefined, req.user!.uid, undefined, true);
         transaction.create(listingRef, listing);
@@ -1310,8 +1312,16 @@ async function startServer() {
       const snapshot = await adminDb.collection('users').doc(id).get();
       const user = snapshot.exists ? { ...snapshot.data(), id } as import('./types').User : undefined;
       if (!user || user.role === 'ADMIN' || user.status === 'BANNED') return sendApiError(res, 404, 'Profil indisponible.');
-      if (user.role === 'TENANT') return res.json(publicTenantProfile(user));
-      return res.json({ id, firstName: user.firstName, avatarUrl: user.avatarUrl, role: user.role, bio: user.bio || '', createdAt: user.createdAt || '', status: user.status || '', rating: user.rating || 0, reviewsCount: user.reviewsCount || 0 });
+      // The full last name is shared only between a tenant and an owner who have a booking together.
+      const viewer = req.user!.uid;
+      const [asTenant, asOwner] = viewer === id ? [{ empty: false }, { empty: true }] : await Promise.all([
+        adminDb.collection('bookings').where('tenantId', '==', viewer).where('ownerId', '==', id).limit(1).get(),
+        adminDb.collection('bookings').where('tenantId', '==', id).where('ownerId', '==', viewer).limit(1).get(),
+      ]);
+      const related = !asTenant.empty || !asOwner.empty;
+      const identity = { avatarUrl: user.avatarUrl || '', lastName: related ? user.lastName || '' : '' };
+      if (user.role === 'TENANT') return res.json({ ...publicTenantProfile(user), ...identity });
+      return res.json({ id, firstName: user.firstName, ...identity, role: user.role, bio: user.bio || '', createdAt: user.createdAt || '', status: user.status || '', rating: user.rating || 0, reviewsCount: user.reviewsCount || 0 });
     } catch { return sendApiError(res, 500, 'Profil indisponible.'); }
   });
 
@@ -1650,7 +1660,7 @@ async function startServer() {
       const actor = booking.tenantId === req.user?.uid ? "TENANT" : booking.ownerId === req.user?.uid ? "OWNER" : null;
       if (!actor || (actor === "OWNER" && !isOwnerBookingVisible(booking as Booking))) return sendApiError(res, 403, "Accès refusé");
 
-      const terms = getCancellationTerms(booking as Pick<Booking, 'status' | 'startDate' | 'totalPrice' | 'paymentStatus'>, actor);
+      const terms = getCancellationTerms(booking as Booking, actor);
       if (!terms.canCancel) return sendApiError(res, 409, terms.detail);
 
       let refundStatus: "NOT_REQUIRED" | "SIMULATED" | "COMPLETED" | "PENDING" | "FAILED" = "NOT_REQUIRED";
@@ -2001,6 +2011,13 @@ async function startServer() {
     });
   }
 }
+
+// A brief network loss (Wi-Fi switch, sleep) makes background Firestore/Stripe calls fail.
+// Every sweep retries on its next run, so log the failure instead of stopping the whole server.
+process.on('unhandledRejection', reason => {
+  const error = reason as { code?: unknown; message?: unknown } | undefined;
+  console.error('Background task failed; it will be retried.', error?.code ?? '', typeof error?.message === 'string' ? error.message.slice(0, 200) : '');
+});
 
 startServer().catch(err => {
   console.error("Failed to start server:", err);

@@ -1,6 +1,6 @@
 import type { Booking } from '../types';
 import { monthBeforeArrival } from './recurringPaymentSchedule';
-import { countNights, isBookableStay } from './stay';
+import { countNights, isBookableStay, localDateKey } from './stay';
 
 /** Days a failed or forgotten installment stays open before that stay alone is released. */
 export const INSTALLMENT_GRACE_DAYS = 5;
@@ -64,7 +64,7 @@ export type InstallmentDecision = 'CHARGE' | 'WAIT' | 'SKIP';
 export function installmentChargeDecision(booking: Booking, now = new Date()): InstallmentDecision {
   if (!isLaterSeriesStay(booking) || !booking.seriesActivatedAt || booking.status !== 'PENDING' || booking.paymentStatus === 'PAID') return 'SKIP';
   if (now.getTime() >= installmentDeadline(booking)) return 'SKIP';
-  if (!booking.installmentDueDate || booking.installmentDueDate > now.toISOString().slice(0, 10)) return 'WAIT';
+  if (!booking.installmentDueDate || booking.installmentDueDate > localDateKey(now)) return 'WAIT';
   // The tenant may be paying by hand right now: never charge on top of an open checkout.
   if (booking.checkoutSessionId?.startsWith('cs_') && booking.checkoutExpiresAt && Date.parse(booking.checkoutExpiresAt) > now.getTime()) return 'WAIT';
   if (booking.installmentLeaseUntil && Date.parse(booking.installmentLeaseUntil) > now.getTime()) return 'WAIT';
@@ -87,7 +87,7 @@ export function installmentState(booking: Booking, now = new Date()): Installmen
   if (!isLaterSeriesStay(booking) || booking.status !== 'PENDING' || booking.paymentStatus === 'PAID') return 'NONE';
   if (!booking.seriesActivatedAt) return 'AWAITING_FIRST';
   if ((booking.installmentAttempts || 0) > 0) return 'FAILED';
-  return booking.installmentDueDate && booking.installmentDueDate > now.toISOString().slice(0, 10) ? 'SCHEDULED' : 'DUE';
+  return booking.installmentDueDate && booking.installmentDueDate > localDateKey(now) ? 'SCHEDULED' : 'DUE';
 }
 
 export const installmentDateLabel = (date: string) => new Date(`${date.slice(0, 10)}T12:00:00Z`).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });

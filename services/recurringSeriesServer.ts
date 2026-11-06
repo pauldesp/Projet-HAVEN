@@ -3,7 +3,7 @@ import type { Firestore, Transaction } from 'firebase-admin/firestore';
 import type { Booking, BookingAvailability, BookingSeries, Listing, Room } from '../types';
 import { isRoomAvailableForStay } from './availability';
 import { CLEANING_POLICY_VERSION } from './cleaningPolicy';
-import { minimumNights } from './minimumStay';
+import { requiredNightsForStay } from './gapStay';
 import { countNights, localDateKey } from './stay';
 import { CONNECT_POLICY_VERSION } from './stripeConnect';
 import { installmentChargeDecision, installmentDueDates, installmentReminderAt, isLaterSeriesStay, nextInstallmentAttempt, validateSeriesStays, type SeriesStayInput } from './recurringInstallments';
@@ -77,7 +77,7 @@ export function createRecurringSeries(deps: RecurringSeriesDependencies) {
         const room = listing.rooms?.find((item: Room) => item.id === stay.roomId);
         if (!room || !Number.isFinite(room.pricePerDay) || room.pricePerDay <= 0) throw new SeriesError('Une chambre de la série n’est plus disponible.', 404);
         const nights = countNights(stay.startDate, stay.endDate);
-        if (nights < minimumNights(listing.minStay)) throw new SeriesError(`Le séjour ${index + 1} ne respecte pas la durée minimale.`, 422);
+        if (nights < requiredNightsForStay(room, listing, availability, stay.startDate, stay.endDate)) throw new SeriesError(`Le séjour ${index + 1} ne respecte pas la durée minimale.`, 422);
         if (!isRoomAvailableForStay(room, listing, availability, stay.startDate, stay.endDate)) throw new SeriesError(`Le séjour ${index + 1} vient d’être réservé. Relancez la recherche.`, 409);
         // Later stays of the same series block their own dates for the next checks.
         availability.push({ id: stay.id, bookingId: stay.id, listingId, roomId: room.id, startDate: stay.startDate, endDate: stay.endDate, status: 'PENDING', updatedAt: createdAt });

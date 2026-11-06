@@ -1,3 +1,4 @@
+import { getCancellationTerms } from '../services/cancellationPolicy';
 import { useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
@@ -77,7 +78,7 @@ export function OwnerBookingActions({ booking, listing, tenant, onCancel }: { bo
         <Link role="menuitem" className={itemClass} to={`/messages/${booking.id}`} onClick={() => setMenu(null)}><MessageCircle size={17} />Contacter le locataire</Link>
         <Link role="menuitem" className={itemClass} to={`/profile/${booking.tenantId}`} onClick={() => setMenu(null)}><UserRound size={17} />Voir le profil du locataire</Link>
         <Link role="menuitem" className={itemClass} to={`/listing/${booking.listingId}`} onClick={() => setMenu(null)}><Home size={17} />Voir le logement</Link>
-        {booking.status === 'CONFIRMED' && <button role="menuitem" type="button" className={`${itemClass} text-haven-red`} onClick={() => { setMenu(null); onCancel(); }}><X size={17} />Annuler le séjour</button>}
+        {(booking.status === 'CONFIRMED' || (booking.status === 'PENDING' && booking.seriesScheduled)) && getCancellationTerms(booking, 'OWNER').canCancel && <button role="menuitem" type="button" className={`${itemClass} text-haven-red`} onClick={() => { setMenu(null); onCancel(); }}><X size={17} />Annuler le séjour</button>}
       </div>
     </>, document.body)}
     {details && createPortal(<div className="fixed inset-0 z-[90] flex items-center justify-center bg-haven-navy/50 p-3 backdrop-blur-sm sm:p-6" onClick={event => { if (event.target === event.currentTarget) setDetails(false); }}>

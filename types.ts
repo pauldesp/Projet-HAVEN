@@ -136,6 +136,8 @@ export interface Listing {
   reviewsCount: number;
   bathrooms: number;
   minStay: number; // Minimum number of nights; default 4, owner-configurable (>= 1).
+  /** Accept shorter stays that exactly fill a gap between two occupations of a room (default: yes). */
+  allowGapStays?: boolean;
   cleaningFee: number; // Fixed contribution per booking, not per week
   cleaningPolicyVersion?: string;
   bookingMode?: 'INSTANT' | 'MANUAL'; // Mode de réservation (Instantannée ou Manuelle)

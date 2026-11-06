@@ -53,9 +53,6 @@ service cloud.firestore {
                .get('documents', {}).get(documentType, '').size() > 0;
     }
 
-    function isTenantVerified() {
-      return isAdmin() || (isApproved() && ((hasAccountChecks() && hasVerificationDocument('idCard')) || hasTestException()));
-    }
 
     function isOwnerVerified() {
       return isAdmin() || (isApproved() && ((hasAccountChecks() && hasVerificationDocument('idCard')) || hasTestException()));
@@ -145,19 +142,7 @@ service cloud.firestore {
              data.createdAt is string;
     }
 
-    function isBookingParticipant(booking) {
-      return isSignedIn() &&
-             (booking.tenantId == request.auth.uid || booking.ownerId == request.auth.uid);
-    }
 
-    function isLinkedInventoryReport(reportId, booking, reportType) {
-      return reportId is string && reportId.size() > 0 &&
-             exists(/databases/$(database)/documents/inventory/$(reportId)) &&
-             get(/databases/$(database)/documents/inventory/$(reportId)).data.bookingId == booking.id &&
-             get(/databases/$(database)/documents/inventory/$(reportId)).data.tenantId == booking.tenantId &&
-             get(/databases/$(database)/documents/inventory/$(reportId)).data.ownerId == booking.ownerId &&
-             get(/databases/$(database)/documents/inventory/$(reportId)).data.type == reportType;
-    }
 
     function isInventoryForActiveBooking(data) {
       return exists(/databases/$(database)/documents/bookings/$(data.bookingId)) &&
@@ -283,11 +268,10 @@ service cloud.firestore {
     // ===============================================================
 
     match /users/{userId} {
-      // Signed-in members may resolve another member's profile for listings,
-      // bookings and conversations. Administrative profiles are internal and
-      // may only be read by an administrator. Anonymous reads and collection
-      // scans stay blocked.
-      allow get: if isAdmin() || (isSignedIn() && resource.data.role != 'ADMIN');
+      // A profile holds private data (e-mail, phone, birth date, identity document).
+      // Only its owner and administrators read it; other members go through
+      // /api/users/:id/public-profile, which returns a limited view.
+      allow get: if isAdmin() || isOwner(userId);
       allow list: if isAdmin();
       allow create: if isOwner(userId) && isValidUser(incoming()) && isSafeSelfProfile(incoming(), userId);
       allow update: if ((isAdmin() && (
@@ -324,79 +308,55 @@ service cloud.firestore {
       allow create: if (isAdmin() && isValidListing(incoming())) ||
                     (isOwnerVerified() && isValidListing(incoming()) && incoming().ownerId == request.auth.uid && incoming().status == 'PENDING');
       allow update: if isAdmin() && isValidListing(incoming());
+      // An owner keeps the status, or sends a modified listing back to review (never approves it).
       allow update: if isSignedIn() && existing().ownerId == request.auth.uid && isValidListing(incoming()) &&
                     incoming().id == existing().id && incoming().ownerId == existing().ownerId &&
-                    incoming().status == existing().status;
-      allow delete: if isAdmin() || (isSignedIn() && existing().ownerId == request.auth.uid);
+                    (incoming().status == existing().status || incoming().status == 'PENDING') &&
+                    incoming().get('rating', 0) == existing().get('rating', 0) &&
+                    incoming().get('reviewsCount', 0) == existing().get('reviewsCount', 0);
+      // Deleting a listing would orphan its bookings, payments and reviews.
+      allow delete: if isAdmin();
     }
 
     match /bookings/{bookingId} {
       allow get, list: if isAdmin() || (isSignedIn() && (resource.data.tenantId == request.auth.uid || resource.data.ownerId == request.auth.uid));
-      allow create: if isTenantVerified() && isValidBooking(incoming()) &&
-                    incoming().tenantId == request.auth.uid && incoming().status == 'PENDING' &&
-                    exists(/databases/$(database)/documents/listings/$(incoming().listingId)) &&
-                    get(/databases/$(database)/documents/listings/$(incoming().listingId)).data.status == 'APPROVED' &&
-                    get(/databases/$(database)/documents/listings/$(incoming().listingId)).data.ownerId == incoming().ownerId &&
-                    incoming().ownerId != incoming().tenantId;
-      allow update: if isAdmin() || (isSignedIn() && isValidBooking(incoming()) &&
-                    isBookingParticipant(existing()) && (
-                    (incoming().diff(existing()).affectedKeys().hasOnly(['status', 'approvedAt']) && (
-                      (existing().ownerId == request.auth.uid && existing().status == 'PENDING' && incoming().status in ['APPROVED', 'CANCELLED']) ||
-                      (existing().tenantId == request.auth.uid && incoming().status == 'CANCELLED' && existing().status in ['PENDING', 'APPROVED']) ||
-                      (existing().tenantId == request.auth.uid && incoming().status == 'COMPLETED' && existing().status == 'CONFIRMED')
-                    )) ||
-                    (incoming().diff(existing()).affectedKeys().hasOnly(['checkInReportId']) &&
-                     existing().get('checkInReportId', '') == '' &&
-                     isLinkedInventoryReport(incoming().checkInReportId, existing(), 'IN')) ||
-                    (incoming().diff(existing()).affectedKeys().hasOnly(['checkOutReportId']) &&
-                     existing().get('checkOutReportId', '') == '' &&
-                     isLinkedInventoryReport(incoming().checkOutReportId, existing(), 'OUT'))
-                    ));
+      // Bookings are created and changed by the server only: it sets the price,
+      // checks availability and confirms payment. A client write could do none of that.
+      allow create, update: if isAdmin() && isValidBooking(incoming());
+      allow delete: if false;
     }
 
     match /booking_availability/{bookingId} {
       allow read: if true;
-      allow create: if isValidAvailability(incoming()) && exists(/databases/$(database)/documents/bookings/$(bookingId)) && (
-        isAdmin() || (isSignedIn() && (
-          get(/databases/$(database)/documents/bookings/$(bookingId)).data.tenantId == request.auth.uid ||
-          get(/databases/$(database)/documents/bookings/$(bookingId)).data.ownerId == request.auth.uid
-        )) &&
-        get(/databases/$(database)/documents/bookings/$(bookingId)).data.id == incoming().bookingId &&
-        get(/databases/$(database)/documents/bookings/$(bookingId)).data.listingId == incoming().listingId &&
-        get(/databases/$(database)/documents/bookings/$(bookingId)).data.roomId == incoming().roomId &&
-        get(/databases/$(database)/documents/bookings/$(bookingId)).data.startDate == incoming().startDate &&
-        get(/databases/$(database)/documents/bookings/$(bookingId)).data.endDate == incoming().endDate &&
-        get(/databases/$(database)/documents/bookings/$(bookingId)).data.status == incoming().status
-      );
-      allow update: if isValidAvailability(incoming()) && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt']) && (
-        isAdmin() || (isSignedIn() && (
-          get(/databases/$(database)/documents/bookings/$(bookingId)).data.tenantId == request.auth.uid ||
-          get(/databases/$(database)/documents/bookings/$(bookingId)).data.ownerId == request.auth.uid
-        ) && get(/databases/$(database)/documents/bookings/$(bookingId)).data.status == incoming().status)
-      );
+      // Written by the server with each booking change; administrators may repair it.
+      allow create, update: if isAdmin() && isValidAvailability(incoming());
       allow delete: if isAdmin();
     }
 
     match /messages/{messageId} {
       allow get: if isAdmin() || (isSignedIn() && isMessageParticipant(resource.data));
       allow list: if isAdmin() || (isSignedIn() && resource.data.get('participants', []).hasAny([request.auth.uid]));
-      allow create: if (isSignedIn() || isAdmin()) && isValidMessage(incoming()) && (incoming().senderId == request.auth.uid || isAdmin());
+      allow create: if isAdmin() || (isSignedIn() && isValidMessage(incoming()) && incoming().senderId == request.auth.uid &&
+                    incoming().senderId != incoming().receiverId &&
+                    exists(/databases/$(database)/documents/bookings/$(incoming().bookingId)) &&
+                    [get(/databases/$(database)/documents/bookings/$(incoming().bookingId)).data.tenantId,
+                     get(/databases/$(database)/documents/bookings/$(incoming().bookingId)).data.ownerId].hasAll([incoming().senderId, incoming().receiverId]));
       allow update: if (isAdmin() || (isSignedIn() && resource.data.get('receiverId', '') == request.auth.uid && incoming().diff(existing()).affectedKeys().hasOnly(['isRead'])));
     }
 
     match /documents/{documentId} {
       allow get: if isAdmin() || (isSignedIn() && existing().userId == request.auth.uid);
       allow list: if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
-      allow create: if (isSignedIn() || isAdmin()) && isValidAppDocument(incoming()) && (incoming().userId == request.auth.uid || isAdmin());
+      // Receipts and inventory documents are issued by the server; a member cannot forge one.
+      allow create: if isAdmin() && isValidAppDocument(incoming());
       allow update, delete: if isAdmin();
     }
 
     match /inventory/{reportId} {
       allow get: if isAdmin() || (isSignedIn() && (existing().tenantId == request.auth.uid || existing().ownerId == request.auth.uid));
       allow list: if isAdmin() || (isSignedIn() && (resource.data.tenantId == request.auth.uid || resource.data.ownerId == request.auth.uid));
-      allow create: if (isSignedIn() || isAdmin()) && isValidInventoryReport(incoming()) &&
-                    isInventoryForActiveBooking(incoming()) &&
-                    (incoming().tenantId == request.auth.uid || incoming().ownerId == request.auth.uid || isAdmin());
+      // Recorded through /api/bookings/:id/inventory, which checks timing, identity and photos.
+      allow create: if isAdmin() && isValidInventoryReport(incoming()) && isInventoryForActiveBooking(incoming());
       allow update, delete: if isAdmin();
     }
 

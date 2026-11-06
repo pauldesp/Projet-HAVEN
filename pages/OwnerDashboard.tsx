@@ -8,7 +8,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { OwnerIncidentDetail, incidentStatusLabel } from '../components/OwnerIncidentDetail';
 import { Button } from '../components/Button';
-import { Plus, Home, CheckCircle, Loader2, AlertTriangle, ArrowRightLeft, ShieldCheck, MessageCircle, Upload } from 'lucide-react';
+import { Plus, Home, CheckCircle, Loader2, AlertTriangle, ShieldCheck, MessageCircle, Upload } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useListings } from '../contexts/ListingContext';
 import { apiService } from '../services/api';
@@ -17,6 +17,7 @@ import { AccountStatusOverlay } from '../components/AccountStatusOverlay';
 import { CancellationModal } from '../components/CancellationModal';
 import { toast } from 'sonner';
 import { formatEuros } from '../services/money';
+import { getCancellationTerms } from '../services/cancellationPolicy';
 import { installmentDateLabel } from '../services/recurringInstallments';
 import { calculateOwnerFinanceStats, ownerEarningsSummary, realOwnerPayouts, ownerPayoutStatusLabel } from '../services/ownerFinances';
 
@@ -27,7 +28,7 @@ interface BookingWithTenant extends Booking {
 export const OwnerDashboard: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { currentUser, updateUserRole } = useAuth();
+  const { currentUser } = useAuth();
   const { listings } = useListings();
   const [activeTab, setActiveTab] = useState<'LISTINGS' | 'BOOKINGS' | 'FINANCES' | 'DOCUMENTS' | 'INCIDENTS'>(searchParams.has('stripe') ? 'FINANCES' : 'LISTINGS');
   const [ownerBookings, setOwnerBookings] = useState<BookingWithTenant[]>([]);
@@ -139,16 +140,6 @@ export const OwnerDashboard: React.FC = () => {
       () => setIncidentError('Impossible de charger les incidents. Actualisez la page pour réessayer.'));
   }, [currentUser?.id]);
 
-  const handleSwitchToTenant = async () => {
-    if (!currentUser) return;
-    try {
-      await updateUserRole(UserRole.TENANT);
-      navigate('/dashboard');
-    } catch (e) {
-      console.error("Error switching to tenant", e);
-    }
-  };
-
   const handlePublishClick = () => {
     if (!currentUser) {
       navigate('/login?redirect=/owner/publish&role=OWNER');
@@ -192,11 +183,8 @@ export const OwnerDashboard: React.FC = () => {
             <Link to={`/profile/${currentUser?.id}`} className="mt-1 inline-block text-sm text-gray-500 underline underline-offset-4 decoration-gray-300 hover:text-haven-navy">Voir mon profil public</Link>
           </div>
           <div className="flex shrink-0 items-center gap-2 sm:gap-3">
-            <button type="button" onClick={handleSwitchToTenant} aria-label="Passer en mode locataire" title="Passer en mode locataire" className="flex h-11 min-w-11 shrink-0 items-center justify-center gap-2 rounded-full bg-gray-100 px-3 text-sm font-bold text-haven-navy hover:bg-gray-200 sm:bg-transparent sm:px-4 sm:hover:bg-gray-100">
-              <ArrowRightLeft size={16} aria-hidden="true" /><span className="hidden sm:inline">Passer en mode locataire</span>
-            </button>
-            <button type="button" onClick={handlePublishClick} aria-label="Ajouter un logement" title="Ajouter un logement" className="flex h-11 w-11 items-center justify-center rounded-full bg-gray-100 text-haven-navy transition-colors hover:bg-gray-200">
-              <Plus size={20} aria-hidden="true" />
+            <button type="button" onClick={handlePublishClick} className="flex h-11 shrink-0 items-center gap-2 rounded-full bg-haven-navy px-4 text-sm font-bold text-white transition-colors hover:bg-haven-navy/90 sm:px-5">
+              <Plus size={18} aria-hidden="true" /> Ajouter un logement
             </button>
           </div>
         </header>
@@ -376,7 +364,7 @@ export const OwnerDashboard: React.FC = () => {
                                 <Link to={`/messages/${booking.id}`}>
                                   <Button size="sm" variant="ghost" className="text-haven-navy"><MessageCircle size={16} /></Button>
                                 </Link>
-                                {booking.status === 'CONFIRMED' && (
+                                {(booking.status === 'CONFIRMED' || (booking.status === 'PENDING' && booking.seriesScheduled)) && (getCancellationTerms(booking, 'OWNER').canCancel ? (
                                   <Button
                                     size="sm"
                                     variant="outline"
@@ -385,7 +373,7 @@ export const OwnerDashboard: React.FC = () => {
                                   >
                                     Annuler le séjour
                                   </Button>
-                                )}
+                                ) : bookingCategory(booking) === 'UPCOMING' && <span className="self-center text-[11px] text-gray-500">Annulation via Haven (moins de 30 j)</span>)}
                                 <OwnerBookingActions booking={booking} listing={listings.find(item => item.id === booking.listingId)} tenant={booking.tenant} onCancel={() => setCancellationBooking(booking)} />
                               </div>
                           </td>

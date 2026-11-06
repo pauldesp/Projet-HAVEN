@@ -1,5 +1,6 @@
 import type { BookingAvailability, Listing, Room } from '../types';
 import { isRoomAvailableForStay } from './availability';
+import { isRoomBookableForStay } from './gapStay';
 import { isBookableStay, countNights, localDateKey } from './stay';
 import { minimumNights } from './minimumStay';
 import { distanceKm, validCoordinates } from './proximity';
@@ -49,19 +50,20 @@ const shift = (date: string, days: number) => {
 export function matchRecurringStays(listing: Listing, availability: BookingAvailability[], requested: SearchPeriod[], flexible = false, roomOptions: string[] = [], now = new Date()): RecurringMatch {
   const periods = requested.map((period, index): PeriodMatch => {
     const requiredNights = minimumNights(listing.minStay);
-    if (countNights(period.start, period.end) < requiredNights) {
-      return { requested: period, stay: null, offset: 0, roomIds: [], total: null, minimumNightsRequired: requiredNights };
-    }
+    let tooShort = false;
     for (const offset of flexible ? [0, -1, 1] : [0]) {
       const stay = { start: shift(period.start, offset), end: shift(period.end, offset) };
-      if (stay.start < localDateKey(now) || countNights(stay.start, stay.end) < minimumNights(listing.minStay)) continue;
+      if (stay.start < localDateKey(now)) continue;
       if (requested.some((other, otherIndex) => otherIndex !== index && stay.start < other.end && other.start < stay.end)) continue;
-      const rooms = listing.rooms.filter(room => roomMatchesOptions(room, roomOptions) && isRoomAvailableForStay(room, listing, availability, stay.start, stay.end));
+      const free = listing.rooms.filter(room => roomMatchesOptions(room, roomOptions) && isRoomAvailableForStay(room, listing, availability, stay.start, stay.end));
+      // Shorter than the minimum only when the stay exactly fills a gap of that room.
+      const rooms = free.filter(room => isRoomBookableForStay(room, listing, availability, stay.start, stay.end, now));
+      if (free.length && !rooms.length) tooShort = true;
       if (!rooms.length) continue;
       const base = Math.min(...rooms.map(room => room.pricePerDay)) * countNights(stay.start, stay.end);
       return { requested: period, stay, offset, roomIds: rooms.map(room => room.id), total: base + (listing.cleaningFee || 0) + Math.round(base * .15) };
     }
-    return { requested: period, stay: null, offset: 0, roomIds: [], total: null };
+    return { requested: period, stay: null, offset: 0, roomIds: [], total: null, ...(tooShort || countNights(period.start, period.end) < requiredNights ? { minimumNightsRequired: requiredNights } : {}) };
   });
   const available = periods.filter(period => period.stay);
   const commonRoomIds = available.length ? available[0].roomIds.filter(id => available.every(period => period.roomIds.includes(id))) : [];

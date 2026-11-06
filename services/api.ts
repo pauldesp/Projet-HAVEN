@@ -10,6 +10,7 @@ import { db, auth } from '../firebase';
 import { collection, getDocs, getDoc, doc, setDoc, updateDoc, query, where, deleteField, onSnapshot } from 'firebase/firestore';
 import { Listing, User, Booking, BookingAvailability, ListingStatus, UserStatus, Message, ContactRequest, Report, Incident, Payment, OwnerPayout, InventoryReport, AppDocument, HousematePreview, AdminAuditEntry } from '../types';
 import { authenticatedFetch } from './serverApi';
+import { needsNewReview } from './listingChanges';
 import { hasMissingRoomPhoto, normalizeListingPhotos } from './media';
 import { normalizeListingDescription } from './listingDescription';
 import { hasIncompleteRoom, hasRoomWithoutOption } from './roomValidation';
@@ -47,6 +48,14 @@ const logFirestoreListenerError = (error: unknown, operation: string, path: stri
   reportError(error, `Écoute Firebase ${operation} ${path}`);
 };
 
+
+/** Limited view of another member, served by the server (no e-mail, phone or documents). */
+async function publicProfile(id: string): Promise<User | undefined> {
+  const response = await authenticatedFetch(`/api/users/${encodeURIComponent(id)}/public-profile`);
+  if (!response.ok) return undefined;
+  const data = await response.json();
+  return { lastName: '', avatarUrl: '', email: '', ...data, id } as User;
+}
 
 export const apiService = {
   admin: {
@@ -116,6 +125,12 @@ export const apiService = {
     },
     async getById(id: string): Promise<User | undefined> {
       try {
+        // Private profiles are readable only by their owner and administrators.
+        if (auth.currentUser?.uid !== id) {
+          const own = await getDoc(doc(db, 'users', id)).catch(() => undefined);
+          if (own?.exists()) return { ...own.data(), id } as User;
+          return await publicProfile(id);
+        }
         const userDoc = await getDoc(doc(db, 'users', id));
         return userDoc.exists() ? (userDoc.data() as User) : undefined;
       } catch (e) {
@@ -125,14 +140,13 @@ export const apiService = {
     async getByIds(ids: string[]): Promise<User[]> {
       if (!ids.length) return [];
       try {
-        // Individual reads are permitted; collection queries on private profiles are not.
-        const results = await Promise.allSettled(ids.map(id => getDoc(doc(db, 'users', id))));
+        const results = await Promise.allSettled(ids.map(id => apiService.users.getById(id)));
         return results.flatMap((result, index) => {
           if (result.status === 'rejected') {
             console.warn('Profil indisponible', ids[index]);
             return [];
           }
-          return result.value.exists() ? [{ ...result.value.data(), id: result.value.id } as User] : [];
+          return result.value ? [result.value] : [];
         });
       } catch (e) {
         return handleFirestoreError(e, 'GET_BY_IDS', `users?ids=${ids.join(',')}`);
@@ -339,7 +353,8 @@ export const apiService = {
           ...listing,
           bookingMode: 'INSTANT',
           ownerId: existingListing.ownerId,
-          status: existingListing.status
+          // Modified texts, photos or address of a published listing go back to Haven's review.
+          status: needsNewReview(existingListing, listing) ? 'PENDING' : existingListing.status
         }));
         await setDoc(doc(db, 'listings', listing.id), normalizedListing);
         return normalizedListing;

@@ -14,16 +14,26 @@ test('self-created profiles cannot request privileged roles or approval', () => 
   assert.match(rules, /incoming\(\)\.status == existing\(\)\.status/);
 });
 
-test('administrative profiles remain private to administrators', () => {
-  assert.match(rules, /allow get: if isAdmin\(\) \|\| \(isSignedIn\(\) && resource\.data\.role != 'ADMIN'\)/);
+test('private profiles are readable only by their owner and administrators', () => {
+  assert.match(rules, /allow get: if isAdmin\(\) \|\| isOwner\(userId\);/);
+  assert.match(server, /public-profile', sensitiveApiLimiter, requireAuth/);
   assert.match(rules, /function isPrimaryAdmin\(\)/);
   assert.match(rules, /match \/admin_audit\/\{entryId\}[\s\S]*allow read, write: if false/);
 });
 
-test('booking creation and transitions are constrained', () => {
-  assert.match(rules, /allow create: if isTenantVerified\(\) && isValidBooking\(incoming\(\)\)/);
-  assert.match(rules, /incoming\(\)\.tenantId == request\.auth\.uid && incoming\(\)\.status == 'PENDING'/);
-  assert.match(rules, /affectedKeys\(\)\.hasOnly\(\['status', 'approvedAt'\]\)/);
+test('bookings, availability, inventories and receipts are written by the server only', () => {
+  // A client-written booking could set its own price or take dates already booked.
+  assert.match(rules, /match \/bookings\/\{bookingId\}[\s\S]*?allow create, update: if isAdmin\(\) && isValidBooking\(incoming\(\)\);/);
+  assert.match(rules, /match \/booking_availability\/\{bookingId\}[\s\S]*?allow create, update: if isAdmin\(\) && isValidAvailability\(incoming\(\)\);/);
+  assert.match(rules, /match \/inventory\/\{reportId\}[\s\S]*?allow create: if isAdmin\(\) && isValidInventoryReport/);
+  assert.match(rules, /match \/documents\/\{documentId\}[\s\S]*?allow create: if isAdmin\(\) && isValidAppDocument/);
+});
+
+test('messages stay between the tenant and owner of a booking, listings keep their ratings and review', () => {
+  assert.match(rules, /\.hasAll\(\[incoming\(\)\.senderId, incoming\(\)\.receiverId\]\)/);
+  assert.match(rules, /incoming\(\)\.get\('rating', 0\) == existing\(\)\.get\('rating', 0\)/);
+  assert.match(rules, /incoming\(\)\.status == existing\(\)\.status \|\| incoming\(\)\.status == 'PENDING'/);
+  assert.match(rules, /match \/listings\/\{listingId\}[\s\S]*?allow delete: if isAdmin\(\);/);
 });
 
 test('stay reviews require a completed booking and cannot be edited or deleted', () => {

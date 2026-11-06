@@ -197,6 +197,7 @@ export const PublishListing: React.FC = () => {
     cleaningFee: 15,
     cleaningPolicyVersion: '',
     minStay: DEFAULT_MINIMUM_NIGHTS,
+    allowGapStays: true,
     checkInTime: '15:00',
     checkOutTime: '11:00',
     amenities: [] as string[],
@@ -526,6 +527,7 @@ export const PublishListing: React.FC = () => {
       availableRooms: formData.rooms.length,
       surface: formData.surface,
       minStay: formData.minStay,
+      allowGapStays: formData.allowGapStays !== false,
       checkInTime: formData.checkInTime,
       checkOutTime: formData.checkOutTime,
       amenities: formData.amenities,
@@ -769,7 +771,11 @@ export const PublishListing: React.FC = () => {
               <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-soft">
                 <label htmlFor="minimum-nights" className="block text-sm font-bold text-haven-navy mb-2">Durée minimale (nuits)</label>
                 <input id="minimum-nights" type="number" min="1" step="1" value={formData.minStay || ''} onChange={event => setFormData(prev => ({ ...prev, minStay: Number(event.target.value) }))} className="w-full rounded-xl border border-gray-200 p-3 mb-2" />
-                <p className="text-sm text-gray-500 mb-6">4 nuits par défaut. Vous pouvez choisir une durée plus courte ou plus longue, et la modifier après publication.</p>
+                <p className="text-sm text-gray-500 mb-4">4 nuits par défaut. Vous pouvez choisir une durée plus courte ou plus longue, et la modifier après publication.</p>
+                <label className="mb-6 flex items-start gap-3 rounded-xl border border-gray-200 p-4 text-sm text-gray-700">
+                  <input type="checkbox" checked={formData.allowGapStays !== false} onChange={event => setFormData(prev => ({ ...prev, allowGapStays: event.target.checked }))} className="mt-1" />
+                  <span><strong className="text-haven-navy">Accepter les séjours courts pour combler les trous</strong><br />Quand il reste moins de nuits libres que la durée minimale entre deux locations d’une chambre, ce créneau peut être réservé en entier (2 nuits au moins), y compris au dernier moment.</span>
+                </label>
                 <div className="grid grid-cols-2 gap-4 mb-6">
                   <div>
                     <label className="block text-[10px] font-black text-haven-stone uppercase tracking-widest mb-2">Heure d’arrivée</label>

@@ -10,11 +10,19 @@ test('applies the tenant refund tiers before a stay', () => {
   assert.equal(getCancellationTerms(booking, 'TENANT', '2026-10-25').refundAmount, 0);
 });
 
-test('always refunds a future confirmed stay cancelled by its owner', () => {
-  const terms = getCancellationTerms(booking, 'OWNER', '2026-10-30');
+test('an owner cancels alone only 30 days or more before arrival, with a full refund', () => {
+  const terms = getCancellationTerms(booking, 'OWNER', '2026-10-01');
   assert.equal(terms.canCancel, true);
   assert.equal(terms.refundPercent, 100);
   assert.equal(terms.refundAmount, 240);
+  assert.equal(getCancellationTerms(booking, 'OWNER', '2026-10-02').canCancel, true, '30 jours pile'); assert.equal(getCancellationTerms(booking, 'OWNER', '2026-10-03').canCancel, false);
+  assert.equal(getCancellationTerms(booking, 'OWNER', '2026-10-30').canCancel, false);
+});
+
+test('the same owner limit protects a reserved later stay of a recurring series', () => {
+  const scheduled = { ...booking, status: 'PENDING' as const, paymentStatus: 'PENDING' as const, seriesScheduled: true };
+  assert.equal(getCancellationTerms(scheduled, 'OWNER', '2026-10-20').canCancel, false);
+  assert.equal(getCancellationTerms(scheduled, 'OWNER', '2026-09-20').canCancel, true);
 });
 
 test('does not allow a confirmed stay to be cancelled on its arrival day', () => {

@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createRecurringSeries } from './recurringSeriesServer';
 import { CLEANING_POLICY_VERSION } from './cleaningPolicy';
+import { localDateKey } from './stay';
 import type { Booking, BookingSeries } from '../types';
 
 /** Minimal in-memory Firestore: enough for transactions, documents and equality queries. */
@@ -46,7 +47,8 @@ function memoryDb() {
 
 const listing = { id: 'l1', ownerId: 'owner', title: 'Coloc Martin', status: 'APPROVED', minStay: 4, cleaningFee: 15, checkInTime: '15:00', checkOutTime: '11:00',
   rooms: [{ id: 'r1', name: 'Horizon', pricePerDay: 30 }], blockedDates: [] };
-const day = (offset: number) => { const value = new Date(); value.setUTCDate(value.getUTCDate() + offset); return value.toISOString().slice(0, 10); };
+// Same local calendar day as the server's due dates (localDateKey), also around midnight.
+const day = (offset: number) => { const value = new Date(); value.setDate(value.getDate() + offset); return localDateKey(value); };
 
 function setup() {
   const { db, data } = memoryDb();

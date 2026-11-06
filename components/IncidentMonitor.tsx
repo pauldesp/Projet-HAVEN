@@ -44,6 +44,55 @@ export function IncidentMonitor({ incidents, listings, users = [], tenant = fals
     } catch (error) { setSendError(error instanceof Error ? error.message : 'Impossible de transmettre la demande.'); }
     finally { setSending(false); }
   };
+  const escalationDialog = escalating && <div className="fixed inset-0 z-[120] flex items-center justify-center bg-haven-navy/60 p-4"><section role="dialog" aria-modal="true" aria-labelledby="escalation-title" className="haven-dialog-panel haven-dialog-scroll w-full max-w-lg space-y-5 rounded-3xl bg-white p-6"><div className="flex items-center justify-between gap-3"><h3 id="escalation-title" className="text-xl font-bold text-haven-navy">Demander l’intervention de Haven</h3><button aria-label="Fermer" disabled={sending} onClick={() => setEscalating(null)}><XCircle/></button></div><p className="text-sm text-gray-600">{escalating.title}. Le problème persiste ? Expliquez à Haven ce qui reste sans solution. Le propriétaire continue de gérer l’incident.</p><textarea aria-label="Motif de la demande" rows={5} maxLength={2000} value={reason} disabled={sending} onChange={event => setReason(event.target.value)} className="w-full rounded-xl border p-3" placeholder="Décrivez la situation et vos échanges avec le propriétaire…"/>{sendError && <p role="alert" className="text-sm text-red-600">{sendError}</p>}<Button fullWidth disabled={sending || !reason.trim()} onClick={() => void submit()}>{sending && <Loader2 className="mr-2 animate-spin" size={16}/>}Envoyer le signalement à Haven</Button></section></div>;
+
+  if (tenant) {
+    // Tenants have few reports: a plain timeline, newest first, each row expandable.
+    const ordered = [...incidents].sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
+    const shortDate = (value: string) => Number.isFinite(Date.parse(value)) ? new Date(value).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
+    const tone = (incident: Incident) => incident.status === 'RESOLVED' ? 'bg-green-500' : incident.status === 'DISMISSED' ? 'bg-gray-400' : incident.status === 'INVESTIGATING' ? 'bg-blue-500' : 'bg-orange-500';
+    return <section className="space-y-4">
+      <p className="text-sm text-gray-500">Suivez la réponse du propriétaire. Si le problème persiste, vous pouvez demander l’intervention de Haven.</p>
+      {error && <p role="alert" className="rounded-xl bg-red-50 p-4 text-red-700">{error}</p>}
+      {!ordered.length && !error && <p className="rounded-2xl border border-dashed border-gray-200 p-8 text-center text-sm text-gray-500">Aucun signalement pour le moment.</p>}
+      <ul className="divide-y divide-gray-100 border-y border-gray-100">
+        {ordered.map(incident => {
+          const open = expanded === incident.id;
+          return <li key={incident.id}>
+            <button type="button" aria-expanded={open} aria-controls={`incident-${incident.id}`} onClick={() => setExpanded(open ? null : incident.id)} className="flex min-h-16 w-full items-center gap-3 py-3 text-left">
+              <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${tone(incident)}`} aria-hidden="true" />
+              <span className="min-w-0 flex-1">
+                <span className="block truncate font-semibold text-haven-navy">{incident.title}</span>
+                <span className="block truncate text-sm text-gray-500">{incidentStatusLabel(incident.status)} · {listingName(incident)} · {shortDate(incident.createdAt)}</span>
+              </span>
+              {open ? <ChevronUp size={18} className="shrink-0 text-gray-400" aria-hidden="true" /> : <ChevronDown size={18} className="shrink-0 text-gray-400" aria-hidden="true" />}
+            </button>
+            {open && <div id={`incident-${incident.id}`} className="space-y-4 pb-5 pl-5 text-sm">
+              <p className="whitespace-pre-wrap text-gray-700">{incident.description}</p>
+              <dl className="grid gap-1 text-xs text-gray-500">
+                <div>Déclaré le {date(incident.createdAt)}</div>
+                {incident.takenInChargeAt && <div>Pris en charge le {date(incident.takenInChargeAt)}</div>}
+                {incident.resolvedAt && <div>Résolu le {date(incident.resolvedAt)}</div>}
+                {incident.escalatedAt && <div className="text-haven-red">Transmis à Haven le {date(incident.escalatedAt)}</div>}
+              </dl>
+              {incident.ownerNotes && <p className="rounded-xl bg-gray-50 p-3 text-gray-600">Réponse du propriétaire : {incident.ownerNotes}</p>}
+              <HavenFollowUpNotice followUp={incident.havenFollowUp}/>
+              {!!incident.photos?.length && <div className="flex flex-wrap gap-2">{incident.photos.map((photo, index) => <img key={index} src={photo} alt={`Incident, photo ${index + 1}`} className="h-24 w-24 rounded-xl object-cover"/>)}</div>}
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                <Link to={`/listing/${incident.listingId}`} className="font-semibold text-haven-navy underline underline-offset-4">Voir le logement</Link>
+                {isOpenIncident(incident) && (incident.escalationReportId || sent.includes(incident.id)
+                  ? <span className="text-gray-500">Demande transmise à Haven</span>
+                  : <button type="button" onClick={() => { setEscalating(incident); setReason(''); setSendError(''); }} className="font-semibold text-haven-red underline underline-offset-4">Demander l’intervention de Haven</button>)}
+              </div>
+              <p className="text-[11px] text-gray-400">Référence : {incident.id}</p>
+            </div>}
+          </li>;
+        })}
+      </ul>
+      {escalationDialog}
+    </section>;
+  }
+
   return <section className="space-y-5">
     <div><h2 className="text-xl font-bold text-haven-navy">{tenant ? 'Mes incidents' : 'Suivi des incidents'}</h2><p className="mt-1 text-sm text-gray-500">{tenant ? 'Suivez les réponses du propriétaire. Vous pouvez demander l’intervention de Haven si le problème persiste.' : 'Les propriétaires gèrent ces incidents. Haven consulte leur avancement et intervient uniquement lorsqu’un signalement lui est transmis.'}</p></div>
     {error && <p role="alert" className="rounded-xl bg-red-50 p-4 text-red-700">{error}</p>}
@@ -74,6 +123,6 @@ export function IncidentMonitor({ incidents, listings, users = [], tenant = fals
       {!visible.length && <p className="p-10 text-center text-sm text-gray-500">Aucun incident ne correspond à ces filtres.</p>}
     </div>
     <div className="flex items-center justify-end gap-3 text-sm"><Button variant="outline" disabled={currentPage === 1} onClick={() => setPage(currentPage - 1)}>Précédent</Button><span>{currentPage} / {pageCount}</span><Button variant="outline" disabled={currentPage === pageCount} onClick={() => setPage(currentPage + 1)}>Suivant</Button></div>
-    {escalating && <div className="fixed inset-0 z-[120] flex items-center justify-center bg-haven-navy/60 p-4"><section role="dialog" aria-modal="true" aria-labelledby="escalation-title" className="haven-dialog-panel haven-dialog-scroll w-full max-w-lg space-y-5 rounded-3xl bg-white p-6"><div className="flex items-center justify-between gap-3"><h3 id="escalation-title" className="text-xl font-bold text-haven-navy">Demander l’intervention de Haven</h3><button aria-label="Fermer" disabled={sending} onClick={() => setEscalating(null)}><XCircle/></button></div><p className="text-sm text-gray-600">{escalating.title}. Le problème persiste ? Expliquez à Haven ce qui reste sans solution. Le propriétaire continue de gérer l’incident.</p><textarea aria-label="Motif de la demande" rows={5} maxLength={2000} value={reason} disabled={sending} onChange={event => setReason(event.target.value)} className="w-full rounded-xl border p-3" placeholder="Décrivez la situation et vos échanges avec le propriétaire…"/>{sendError && <p role="alert" className="text-sm text-red-600">{sendError}</p>}<Button fullWidth disabled={sending || !reason.trim()} onClick={() => void submit()}>{sending && <Loader2 className="mr-2 animate-spin" size={16}/>}Envoyer le signalement à Haven</Button></section></div>}
+    {escalationDialog}
   </section>;
 }

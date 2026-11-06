@@ -8,6 +8,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Save, Loader2, Camera, Plus, Trash2, Maximize2, Bath, Bed, Info, Building, Home as HomeIcon, MapPin, Upload, CheckCircle, Lock } from 'lucide-react';
 import { Button } from '../components/Button';
+import { AvailabilityBlocker } from '../components/AvailabilityBlocker';
 import { useListings } from '../contexts/ListingContext';
 import { useAuth } from '../contexts/AuthContext';
 import { Listing, Room } from '../types';
@@ -19,6 +20,7 @@ import { hasIncompleteRoom, hasRoomWithoutOption, roomHasAtLeastOneOption } from
 import { AMENITIES_LIST } from '../services/amenities';
 import { WardrobeIcon } from '../components/WardrobeIcon';
 import { userFacingErrorMessage } from '../services/errorHandling';
+import { needsNewReview } from '../services/listingChanges';
 
 export const EditListing: React.FC = () => {
   const { tr } = useLanguage();
@@ -29,8 +31,10 @@ export const EditListing: React.FC = () => {
   const { getListingById, updateListing } = useListings();
   
   const [listing, setListing] = useState<Listing | null>(null);
+  /** Last saved version, to know whether a change needs a new review by Haven. */
+  const savedListing = useRef<Listing | null>(null);
   const [isSaving, setIsSaving] = useState(false);
-  const [activeTab, setActiveTab] = useState<'GENERAL' | 'ROOMS' | 'PHOTOS'>('GENERAL');
+  const [activeTab, setActiveTab] = useState<'GENERAL' | 'ROOMS' | 'PHOTOS' | 'AVAILABILITY'>('GENERAL');
   const [showRoomOptionComplianceError, setShowRoomOptionComplianceError] = useState(false);
 
   useEffect(() => {
@@ -81,6 +85,7 @@ export const EditListing: React.FC = () => {
       }));
 
       setListing(normalizeListingPhotos(normalizedListing));
+      savedListing.current = normalizeListingPhotos(normalizedListing);
     } else {
       toast.error("Logement non trouvé.");
       navigate('/owner/dashboard');
@@ -114,12 +119,17 @@ export const EditListing: React.FC = () => {
         : 'Ajoutez une photo pour chaque chambre avant d’enregistrer.');
       return;
     }
+    const saved = savedListing.current;
+    const reviewAgain = Boolean(saved && needsNewReview(saved, listing));
+    if (reviewAgain && !window.confirm('Vous modifiez les textes, les photos ou l’adresse : Haven vérifiera de nouveau l’annonce. Elle sera masquée des recherches jusqu’à validation. Les réservations existantes ne sont pas concernées. Continuer ?')) return;
     setIsSaving(true);
     try {
       const optimizedListing = await optimizeListingImages(normalizeListingPhotos(listing));
-      setListing(optimizedListing);
       await updateListing(optimizedListing);
-      toast.success("Annonce mise à jour avec succès !");
+      const next: Listing = reviewAgain ? { ...optimizedListing, status: 'PENDING' } : optimizedListing;
+      setListing(next);
+      savedListing.current = next;
+      toast.success(reviewAgain ? 'Modifications envoyées : l’annonce sera remise en ligne après vérification par Haven.' : 'Annonce mise à jour avec succès !');
       guideSection.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     } catch (e) {
       console.error(e);
@@ -269,16 +279,17 @@ export const EditListing: React.FC = () => {
         </div>
 
         {/* Tabs */}
-        <div className="flex bg-white/50 backdrop-blur-sm p-1.5 rounded-[2rem] border border-gray-100 mb-8 max-w-lg">
+        <div className="flex overflow-x-auto bg-white/50 backdrop-blur-sm p-1.5 rounded-[2rem] border border-gray-100 mb-8 max-w-2xl">
            {[
              { id: 'GENERAL', label: 'Informations', icon: Info },
              { id: 'ROOMS', label: 'Chambres', icon: Bed },
-             { id: 'PHOTOS', label: 'Photos', icon: Camera }
+             { id: 'PHOTOS', label: 'Photos', icon: Camera },
+             { id: 'AVAILABILITY', label: 'Disponibilités', icon: Lock }
            ].map(tab => (
              <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id as any)}
-                className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-[1.5rem] text-sm font-bold transition-all ${activeTab === tab.id ? 'bg-white text-haven-navy shadow-premium' : 'text-haven-stone hover:text-haven-navy/70'}`}
+                className={`flex-1 shrink-0 whitespace-nowrap px-3 flex items-center justify-center gap-2 py-3 rounded-[1.5rem] text-sm font-bold transition-all ${activeTab === tab.id ? 'bg-white text-haven-navy shadow-premium' : 'text-haven-stone hover:text-haven-navy/70'}`}
              >
                 <tab.icon size={16} />
                 {tab.label}
@@ -288,6 +299,12 @@ export const EditListing: React.FC = () => {
 
         <div className="bg-white rounded-[1.75rem] sm:rounded-[2.5rem] shadow-premium p-4 sm:p-8 md:p-12 border border-gray-100 animate-fade-in">
           
+          {activeTab === 'AVAILABILITY' && (
+            <AvailabilityBlocker listing={listing} onSaved={(target, dates) => setListing(previous => previous && (target === 'LISTING'
+              ? { ...previous, blockedDates: dates }
+              : { ...previous, rooms: previous.rooms.map(room => room.id === target ? { ...room, blockedDates: dates } : room) }))} />
+          )}
+
           {activeTab === 'GENERAL' && (
             <div className="space-y-10">
                <div className="grid md:grid-cols-2 gap-8">
@@ -370,6 +387,10 @@ export const EditListing: React.FC = () => {
                       onChange={(e) => setListing({...listing, minStay: parseInt(e.target.value) || 0})}
                       className="w-full bg-gray-50 border-none rounded-2xl px-5 py-4 text-haven-navy font-bold focus:ring-2 focus:ring-haven-navy/20 outline-none transition-all"
                     />
+                    <label className="flex items-start gap-3 text-sm text-gray-600">
+                      <input type="checkbox" checked={listing.allowGapStays !== false} onChange={event => setListing({ ...listing, allowGapStays: event.target.checked })} className="mt-1" />
+                      <span>Accepter les séjours courts qui comblent exactement un trou entre deux locations (2 nuits au moins, dernier moment inclus).</span>
+                    </label>
                   </div>
                   <div className="space-y-3">
                     <label className="text-[10px] font-black uppercase tracking-widest text-haven-stone">Surface totale (m²)</label>

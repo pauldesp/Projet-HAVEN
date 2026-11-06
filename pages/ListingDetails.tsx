@@ -26,6 +26,7 @@ import { shareOrCopy } from '../services/share';
 import { readSearchDates } from '../services/searchDates';
 import { userFacingErrorMessage } from '../services/errorHandling';
 import { minimumNights } from '../services/minimumStay';
+import { isGapStay, isRoomBookableForStay, requiredNightsForStay } from '../services/gapStay';
 import { parseRecurringPeriods, matchRecurringStays } from '../services/recurringSearch';
 import { recurringPaymentSchedule } from '../services/recurringPaymentSchedule';
 
@@ -110,8 +111,9 @@ export const ListingDetails: React.FC = () => {
     return apiService.availability.listenByListingId(listing.id, items => { setAvailability(items); setAvailabilityReady(true); setAvailabilityError(''); }, error => { setAvailabilityReady(false); setAvailabilityError(error.message); });
   }, [listing?.id]);
 
+  // Free and long enough: the minimum of nights, or exactly a gap between two stays of this room.
   const isRoomAvailable = (room: Room) =>
-    availabilityReady && Boolean(listing) && isRoomAvailableForStay(room, listing, availability, startDate, endDate);
+    availabilityReady && Boolean(listing) && isRoomBookableForStay(room, listing, availability, startDate, endDate);
   const defaultRoom = listing?.rooms.find(isRoomAvailable) || listing?.rooms[0];
   const requestedRoom = selectedRoomId ? listing?.rooms.find(r => r.id === selectedRoomId) : undefined;
   // Keep the room chosen by the visitor even when it is unavailable. This lets
@@ -227,7 +229,7 @@ export const ListingDetails: React.FC = () => {
     }
     if (!passesBookingGate()) return;
 
-    if (nights < minimumNights(listing.minStay)) {
+    if (activeRoom && nights < requiredNightsForStay(activeRoom, listing, availability, startDate, endDate)) {
       toast.error(`Ce logement nécessite un séjour minimum de ${minimumNights(listing.minStay)} nuits. (Erreur 422)`);
       return;
     }
@@ -643,7 +645,7 @@ export const ListingDetails: React.FC = () => {
                 ) : (
                   <p className="text-gray-500 mb-6 text-sm">
                     Sélectionnez vos dates pour <span className="font-bold text-haven-navy">{activeRoom.name}</span>.
-                    Séjour minimum : <span className="font-bold text-haven-navy">{listing.minStay} nuits</span>.
+                    Séjour minimum : <span className="font-bold text-haven-navy">{listing.minStay} nuits</span>{listing.allowGapStays !== false && ', ou moins pour remplir un trou entre deux séjours'}.
                     Les jours réservés sont indiqués sur le calendrier.
                   </p>
                 )}
@@ -750,6 +752,7 @@ export const ListingDetails: React.FC = () => {
                         <span className="font-medium text-sm text-haven-navy">{endDate ? new Date(endDate).toLocaleDateString() : '-'}</span>
                       </div>
                     </div>
+                    {availabilityReady && isBookableStay(startDate, endDate) && isGapStay(activeRoom, listing, availability, startDate, endDate) && <p className="mt-2 rounded-lg bg-green-50 px-3 py-2 text-xs text-green-800">Créneau court entre deux séjours : ces dates remplissent exactement un trou du calendrier, le minimum de {minimumNights(listing.minStay)} nuits ne s’applique pas.</p>}
                   </div>
 
                   <div className="space-y-3 mb-6 text-left">

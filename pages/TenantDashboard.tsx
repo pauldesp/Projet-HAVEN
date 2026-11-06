@@ -16,7 +16,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '../components/Button';
 import { Logo } from '../components/Logo';
-import { Calendar, FileText, MessageCircle, Clock, CheckCircle, ClipboardCheck, Loader2, Sparkles, MapPin, Heart, ShieldCheck, ArrowRightLeft, AlertTriangle, X, ChevronRight } from 'lucide-react';
+import { Calendar, FileText, MessageCircle, Clock, CheckCircle, ClipboardCheck, Loader2, Sparkles, MapPin, Heart, ShieldCheck, AlertTriangle, X, ChevronRight } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useListings } from '../contexts/ListingContext';
 import { apiService } from '../services/api';
@@ -34,7 +34,7 @@ export const TenantDashboard: React.FC = () => {
   const paymentReturnId = useRef(new URLSearchParams(window.location.search).get('booking') === 'pending' ? new URLSearchParams(window.location.search).get('id') : null);
   const navigate = useNavigate();
   const { tr } = useLanguage();
-  const { currentUser, updateUserRole } = useAuth();
+  const { currentUser } = useAuth();
   const { listings: allListings } = useListings();
   const [activeTab, setActiveTab] = useState<'UPCOMING' | 'HISTORY' | 'FAVORITES' | 'INCIDENTS'>('UPCOMING');
   const [clockNow, setClockNow] = useState(() => new Date());
@@ -194,16 +194,6 @@ export const TenantDashboard: React.FC = () => {
     };
   }, [currentUser, allListings]);
 
-  const handleSwitchToOwner = async () => {
-    if (!currentUser) return;
-    try {
-      await updateUserRole(UserRole.OWNER);
-      navigate('/owner/dashboard');
-    } catch (e) {
-      console.error("Error switching to owner", e);
-    }
-  };
-
   const [isPayingBookingId] = useState<string | null>(null);
 
   const handleProceedToPayment = (booking: Booking) => {
@@ -343,9 +333,6 @@ export const TenantDashboard: React.FC = () => {
             <h1 className="font-heading text-2xl font-bold tracking-tight text-haven-navy sm:text-3xl">Bonjour, {currentUser?.firstName || 'Locataire'}</h1>
             <Link to={`/profile/${currentUser?.id}`} className="mt-1 inline-block text-sm text-gray-500 underline underline-offset-4 decoration-gray-300 hover:text-haven-navy">Voir mon profil public</Link>
           </div>
-          <button type="button" onClick={handleSwitchToOwner} aria-label="Passer en mode propriétaire" title="Passer en mode propriétaire" className="flex h-11 min-w-11 shrink-0 items-center justify-center gap-2 rounded-full bg-gray-100 px-3 text-sm font-bold text-haven-navy hover:bg-gray-200 sm:bg-transparent sm:px-4 sm:hover:bg-gray-100">
-              <ArrowRightLeft size={16} aria-hidden="true" /><span className="hidden sm:inline">Passer en mode propriétaire</span>
-            </button>
         </header>
 
         {!canBook && currentUser?.role !== 'ADMIN' && (

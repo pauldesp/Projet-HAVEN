@@ -94,7 +94,7 @@ export function HomeSearchPreview({ recurringRequest = 0 }: { recurringRequest?:
               onChange={(start, end) => { setArrival(start); setDeparture(end); }} />
           </div>
         </div>
-        <p className="home-search-detail">{singleNights > 0 ? <><strong>{singleNights} nuit{singleNights > 1 ? 's' : ''}</strong> · </> : null}Selon les dates choisies, le propriétaire pourra devoir confirmer manuellement ta réservation.</p>
+        {singleNights > 0 && <p className="home-search-detail"><strong>{singleNights} nuit{singleNights > 1 ? 's' : ''}</strong></p>}
       </> : <>
         <div className="home-search-periods">
           {periods.map((period, index) => <section key={period.id} aria-label={periodLabel(index)} className="home-search-period">

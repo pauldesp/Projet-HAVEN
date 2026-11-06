@@ -3,6 +3,7 @@ import { CLEANING_POLICY_VERSION } from '../services/cleaningPolicy';
 import { isRoomAvailableForStay } from '../services/availability';
 import { countNights, isBookableStay, localDateKey } from '../services/stay';
 import { createRandomId } from '../services/randomId';
+import { isRoomBookableForStay } from '../services/gapStay';
 import { installmentDueDates } from '../services/recurringInstallments';
 
 import React, { useState, useRef, useEffect } from 'react';
@@ -13,7 +14,6 @@ import { useAuth } from '../contexts/AuthContext';
 import { apiService } from '../services/api';
 import { userFacingErrorMessage } from '../services/errorHandling';
 import { readableLegalHtml } from '../services/legalContent';
-import { minimumNights } from '../services/minimumStay';
 
 const bookingErrorMessage = (error: unknown) => {
   if (error instanceof Error && /\(Erreur (?:401|403|404|409|422|429|500|503)\)$/.test(error.message)) {
@@ -42,7 +42,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose, lis
   const isSeries = Boolean(series && series.length > 1);
   const stays = isSeries ? [...series!].sort((a, b) => a.startDate.localeCompare(b.startDate)) : [{ room, startDate, endDate }];
   const seriesKey = stays.map(stay => `${stay.room.id}:${stay.startDate}:${stay.endDate}`).join('|');
-  const staysAvailable = (items: Parameters<typeof isRoomAvailableForStay>[2]) => stays.every(stay => isRoomAvailableForStay(stay.room, listing, items, stay.startDate, stay.endDate));
+  const staysAvailable = (items: Parameters<typeof isRoomAvailableForStay>[2]) => stays.every(stay => isRoomBookableForStay(stay.room, listing, items, stay.startDate, stay.endDate));
   const unavailableMessage = isSeries ? 'Un de vos séjours vient d’être réservé. Relancez la recherche pour mettre à jour la série.' : 'Cette chambre est indisponible aux dates sélectionnées. Choisissez une autre chambre ou une autre période.';
   const [roomAvailable, setRoomAvailable] = useState(false);
   const [checkingAvailability, setCheckingAvailability] = useState(true);
@@ -160,7 +160,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose, lis
     if (!await checkAvailability()) return;
     if (isSeries) { setError(null); setStep(s => s + 1); return; }
     if (!isBookableStay(startDate, endDate)) { setError('La date d’arrivée doit être aujourd’hui ou ultérieure.'); return; }
-    if (nights < minimumNights(listing.minStay)) { setError("Choisissez un départ après l’arrivée et respectez le séjour minimum en nuits."); return; }
+    if (!roomAvailable) { setError("Choisissez un départ après l’arrivée et respectez le séjour minimum en nuits."); return; }
     setError(null);
     setStep(s => s + 1);
   };
@@ -188,7 +188,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose, lis
       return;
     }
     if (!isBookableStay(startDate, endDate)) { setError('La date d’arrivée doit être aujourd’hui ou ultérieure.'); return; }
-    if (nights < minimumNights(listing.minStay)) { setError("Dates de séjour invalides."); return; }
+    if (nights < 1) { setError("Dates de séjour invalides."); return; }
 
     setIsProcessing(true);
     setError(null);
@@ -347,7 +347,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose, lis
 
                 <div className="rounded-2xl border border-blue-100 bg-blue-50/60 p-4 text-sm text-gray-600">
                   <p className="font-bold text-haven-navy">Conditions d’annulation</p>
-                  <p className="mt-1 leading-relaxed">Après confirmation, l’annulation est remboursée intégralement au moins 30 jours avant l’arrivée, à 50 % entre 14 et 29 jours, puis sans remboursement. Si le propriétaire annule, le remboursement est intégral.</p>
+                  <p className="mt-1 leading-relaxed">Après confirmation, l’annulation est remboursée intégralement au moins 30 jours avant l’arrivée, à 50 % entre 14 et 29 jours, puis sans remboursement. Le propriétaire ne peut annuler qu’au moins 30 jours avant l’arrivée, avec un remboursement intégral.</p>
                   {isSeries && <p className="mt-2 leading-relaxed">Pour une série, chaque séjour suit ces conditions selon sa propre date d’arrivée. Un séjour pas encore prélevé s’annule sans frais.</p>}
                 </div>
 
