@@ -1,6 +1,6 @@
 import type { Booking } from '../types';
 import type { ReservationMailKind } from './reservationMail';
-import type { TenantMailJob, TenantMailProfile } from './tenantMail';
+import { isSeriesMailKind, type TenantMailJob, type TenantMailProfile } from './tenantMail';
 import { escapeEmailHtml, type ReservationConfirmation } from './reservationFulfillment';
 
 // IDs verified in the Haven Resend account. Content and subject live in Resend.
@@ -61,7 +61,9 @@ export function reservationResendTemplate(kind: ReservationMailKind, data: Reser
   }
   return template(kind, values);
 }
-export function tenantResendTemplate(job: TenantMailJob, profile: TenantMailProfile, booking?: Booking, listingTitle?: string, appOrigin?: string) {
+export function tenantResendTemplate(job: TenantMailJob, profile: TenantMailProfile, booking?: Booking, listingTitle?: string, appOrigin?: string): ResendTemplate | undefined {
+  // Recurring mails have no Resend template yet: they use the Haven layout built in code.
+  if (isSeriesMailKind(job.kind)) return undefined;
   const test = Boolean(job.exceptional || booking?.paymentIsTest || booking?.paymentProvider === 'SIMULATION');
   const values: Record<string, string> = common(profile.firstName || 'à vous', job.kind.startsWith('ACCOUNT_') ? 'Votre compte Haven' : `Réservation · ${booking?.id}`, mailDashboardLink(appOrigin, job.kind === 'ACCOUNT_APPROVED' ? '/search' : '/dashboard'), test);
   if (job.kind === 'ACCOUNT_APPROVED') values.MESSAGE_VALIDATION = job.exceptional
@@ -82,7 +84,7 @@ export function tenantResendTemplate(job: TenantMailJob, profile: TenantMailProf
       values.DATE_LIMITE_AVIS = instant(new Date(Date.parse(booking.completedAt) + 7 * 86400_000).toISOString(), booking.timeZone);
     }
   }
-  return template(job.kind, values);
+  return template(job.kind as HavenMailKind, values);
 }
 export function authResendTemplate(kind: AuthMailKind, name: string, actionLink: string, authDomain: string) {
   const url = new URL(actionLink);

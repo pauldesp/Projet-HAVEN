@@ -85,7 +85,7 @@ export function createStripeConnect(db: Firestore, stripe: () => Stripe, configu
     return (await accountRef(uid).get()).data()!.accountId as string;
   }
 
-  async function registerPayment(booking: Booking, session: Stripe.Checkout.Session) {
+  async function registerPayment(booking: Booking, session: Pick<Stripe.Checkout.Session, 'id' | 'metadata' | 'livemode'> & { payment_intent: Stripe.Checkout.Session['payment_intent'] }) {
     if (session.metadata?.connectPolicy !== CONNECT_POLICY_VERSION) return; // Never transfer historical/legacy receipts.
     const destination = session.metadata?.ownerAccountId;
     if (!destination || await accountOwner(destination) !== booking.ownerId || booking.paymentStatus !== 'PAID' || booking.paymentProvider !== 'STRIPE' || (booking.checkoutSessionId || booking.stripeSessionId) !== session.id || session.livemode === configuration().isTest) throw new ConnectError('Destination ou paiement Stripe incohérent.');

@@ -1,8 +1,10 @@
 import { CleaningPolicyNotice } from './CleaningPolicyNotice';
 import { CLEANING_POLICY_VERSION } from '../services/cleaningPolicy';
 import { isRoomAvailableForStay } from '../services/availability';
-import { countNights, isBookableStay } from '../services/stay';
+import { countNights, isBookableStay, localDateKey } from '../services/stay';
 import { createRandomId } from '../services/randomId';
+import { installmentDueDates } from '../services/recurringInstallments';
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Room, Listing, Booking, LegalDocument } from '../types';
 import { Button } from './Button';
@@ -27,9 +29,21 @@ interface BookingModalProps {
   room: Room;
   startDate: string;
   endDate: string;
+  /** Recurring search: every stay is reserved now, the first one is paid now. */
+  series?: { room: Room; startDate: string; endDate: string }[];
 }
 
-export const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose, listing, room, startDate, endDate }) => {
+const stayPrice = (room: Room, listing: Listing, startDate: string, endDate: string) => {
+  const base = room.pricePerDay * countNights(startDate, endDate);
+  return base + (listing.cleaningFee || 0) + Math.round(base * 0.15);
+};
+
+export const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose, listing, room, startDate, endDate, series }) => {
+  const isSeries = Boolean(series && series.length > 1);
+  const stays = isSeries ? [...series!].sort((a, b) => a.startDate.localeCompare(b.startDate)) : [{ room, startDate, endDate }];
+  const seriesKey = stays.map(stay => `${stay.room.id}:${stay.startDate}:${stay.endDate}`).join('|');
+  const staysAvailable = (items: Parameters<typeof isRoomAvailableForStay>[2]) => stays.every(stay => isRoomAvailableForStay(stay.room, listing, items, stay.startDate, stay.endDate));
+  const unavailableMessage = isSeries ? 'Un de vos séjours vient d’être réservé. Relancez la recherche pour mettre à jour la série.' : 'Cette chambre est indisponible aux dates sélectionnées. Choisissez une autre chambre ou une autre période.';
   const [roomAvailable, setRoomAvailable] = useState(false);
   const [checkingAvailability, setCheckingAvailability] = useState(true);
   const [availabilityError, setAvailabilityError] = useState('');
@@ -37,18 +51,18 @@ export const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose, lis
     if (!isOpen) return;
     setCheckingAvailability(true); setRoomAvailable(false); setAvailabilityError('');
     return apiService.availability.listenByListingId(listing.id, items => {
-      const available = isRoomAvailableForStay(room, listing, items, startDate, endDate);
+      const available = staysAvailable(items);
       setRoomAvailable(available); setCheckingAvailability(false);
-      setAvailabilityError(available ? '' : 'Cette chambre est indisponible aux dates sélectionnées. Choisissez une autre chambre ou une autre période.');
+      setAvailabilityError(available ? '' : unavailableMessage);
     }, error => { setCheckingAvailability(false); setRoomAvailable(false); setAvailabilityError(error.message); });
-  }, [isOpen, listing, room, startDate, endDate]);
+  }, [isOpen, listing, room, startDate, endDate, seriesKey]);
   const checkAvailability = async () => {
     setCheckingAvailability(true);
     try {
       const items = await apiService.availability.getByListingId(listing.id);
-      const available = isRoomAvailableForStay(room, listing, items, startDate, endDate);
+      const available = staysAvailable(items);
       setRoomAvailable(available);
-      setAvailabilityError(available ? '' : 'Cette chambre est indisponible aux dates sélectionnées.');
+      setAvailabilityError(available ? '' : unavailableMessage);
       return available;
     } catch (error) { setRoomAvailable(false); setAvailabilityError(error instanceof Error ? error.message : 'Disponibilité impossible à vérifier.'); return false; }
     finally { setCheckingAvailability(false); }
@@ -133,9 +147,18 @@ export const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose, lis
   const cleaningFee = listing.cleaningFee || 0;
   const platformFee = Math.round(basePrice * 0.15);
   const total = basePrice + cleaningFee + platformFee;
+  const today = localDateKey(new Date());
+  const dueDates = installmentDueDates(stays, today);
+  const seriesEntries = stays.map((stay, index) => ({ ...stay, index, amount: stayPrice(stay.room, listing, stay.startDate, stay.endDate), dueDate: dueDates[index] }));
+  const seriesTotal = seriesEntries.reduce((sum, entry) => sum + entry.amount, 0);
+  const firstAmount = seriesEntries[0].amount;
+  const dueSoon = seriesEntries.filter(entry => entry.index > 0 && entry.dueDate === today).reduce((sum, entry) => sum + entry.amount, 0);
+  const money = (value: number) => new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(value);
+  const shortDate = (value: string) => new Date(`${value}T12:00:00Z`).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
 
   const handleNext = async () => {
     if (!await checkAvailability()) return;
+    if (isSeries) { setError(null); setStep(s => s + 1); return; }
     if (!isBookableStay(startDate, endDate)) { setError('La date d’arrivée doit être aujourd’hui ou ultérieure.'); return; }
     if (nights < minimumNights(listing.minStay)) { setError("Choisissez un départ après l’arrivée et respectez le séjour minimum en nuits."); return; }
     setError(null);
@@ -145,12 +168,27 @@ export const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose, lis
   const handlePayment = async () => {
     if (!cleaningAccepted) { setError('Confirmez les engagements de ménage avant de continuer.'); return; }
     if (!await checkAvailability()) return;
-    if (!isBookableStay(startDate, endDate)) { setError('La date d’arrivée doit être aujourd’hui ou ultérieure.'); return; }
-    if (nights < minimumNights(listing.minStay)) { setError("Dates de séjour invalides."); return; }
     if (!currentUser) {
       setError("Vous devez être connecté pour réserver.");
       return;
     }
+    if (isSeries) {
+      setIsProcessing(true); setError(null);
+      try {
+        const result = await apiService.bookings.createSeries({
+          seriesId: `s-${createRandomId()}`, listingId: listing.id, cleaningPolicyVersion: CLEANING_POLICY_VERSION,
+          stays: stays.map(stay => ({ id: `b-${createRandomId()}`, roomId: stay.room.id, startDate: stay.startDate, endDate: stay.endDate })),
+        });
+        const first = [...result.bookings].sort((a, b) => a.startDate.localeCompare(b.startDate))[0];
+        window.location.hash = `#/payment/${encodeURIComponent(first.id)}`;
+        onClose();
+      } catch (e: unknown) {
+        setError(bookingErrorMessage(e));
+      } finally { setIsProcessing(false); }
+      return;
+    }
+    if (!isBookableStay(startDate, endDate)) { setError('La date d’arrivée doit être aujourd’hui ou ultérieure.'); return; }
+    if (nights < minimumNights(listing.minStay)) { setError("Dates de séjour invalides."); return; }
 
     setIsProcessing(true);
     setError(null);
@@ -240,7 +278,38 @@ export const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose, lis
           <div className="p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] md:p-8">
             {availabilityError && <p role="alert" className="mb-5 rounded-xl border border-red-100 bg-red-50 p-4 text-sm text-red-700">{availabilityError}</p>}
             {/* STEP 1: RECAP */}
-            {step === 1 && (
+            {step === 1 && isSeries && (
+              <div className="space-y-5">
+                <div className="flex gap-4 rounded-xl border border-gray-100 bg-haven-cream p-4">
+                  <img src={room.photoUrl} alt="" className="h-16 w-16 rounded-lg object-cover" />
+                  <div>
+                    <h3 className="font-bold text-haven-navy">{listing.title}</h3>
+                    <p className="text-sm text-gray-600">{stays.length} séjours réservés en une fois</p>
+                    <p className="mt-1 text-xs text-gray-500">Arrivée à partir de {listing.checkInTime || '15:00'} · départ avant {listing.checkOutTime || '11:00'}</p>
+                  </div>
+                </div>
+                <ol className="divide-y divide-gray-100 rounded-xl border border-gray-100 text-sm">
+                  {seriesEntries.map(entry => (
+                    <li key={entry.startDate} className="flex items-start justify-between gap-3 p-3">
+                      <div className="min-w-0">
+                        <p className="font-semibold text-haven-navy">Séjour {entry.index + 1} · {entry.room.name}</p>
+                        <p className="text-xs text-gray-500">{shortDate(entry.startDate)} → {shortDate(entry.endDate)} · {countNights(entry.startDate, entry.endDate)} nuits</p>
+                        <p className="mt-1 text-xs text-gray-600">{entry.index === 0 ? 'Payé maintenant' : entry.dueDate === today ? 'Prélevé juste après votre paiement' : `Prélevé automatiquement le ${shortDate(entry.dueDate)}`}</p>
+                      </div>
+                      <span className="shrink-0 font-semibold text-haven-navy">{money(entry.amount)}</span>
+                    </li>
+                  ))}
+                </ol>
+                <dl className="space-y-2 rounded-xl bg-gray-50 p-4 text-sm">
+                  <div className="flex justify-between gap-3 font-bold text-haven-navy"><dt>À payer maintenant</dt><dd>{money(firstAmount)}</dd></div>
+                  {dueSoon > 0 && <div className="flex justify-between gap-3 text-gray-600"><dt>Prélevé juste après (arrivées à moins d’un mois)</dt><dd>{money(dueSoon)}</dd></div>}
+                  <div className="flex justify-between gap-3 text-gray-600"><dt>Total de la série, prix fixés aujourd’hui</dt><dd>{money(seriesTotal)}</dd></div>
+                </dl>
+                <p className="text-xs leading-relaxed text-gray-500">Votre carte est enregistrée de façon sécurisée par Stripe au premier paiement. Chaque séjour suivant est prélevé un mois avant son arrivée, avec un rappel par e-mail 3 jours avant. En cas d’échec, vous avez 5 jours pour payer ; sans paiement, seul ce séjour est annulé.</p>
+                <Button fullWidth disabled={checkingAvailability || !roomAvailable} onClick={handleNext}>{checkingAvailability ? 'Vérification…' : roomAvailable ? 'Valider et continuer' : 'Séjour indisponible'}</Button>
+              </div>
+            )}
+            {step === 1 && !isSeries && (
               <div className="space-y-6">
                   <div className="flex gap-4 p-4 bg-haven-cream rounded-xl border border-gray-100">
                     <img src={room.photoUrl} alt="" className="w-20 h-20 object-cover rounded-lg" />
@@ -279,6 +348,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose, lis
                 <div className="rounded-2xl border border-blue-100 bg-blue-50/60 p-4 text-sm text-gray-600">
                   <p className="font-bold text-haven-navy">Conditions d’annulation</p>
                   <p className="mt-1 leading-relaxed">Après confirmation, l’annulation est remboursée intégralement au moins 30 jours avant l’arrivée, à 50 % entre 14 et 29 jours, puis sans remboursement. Si le propriétaire annule, le remboursement est intégral.</p>
+                  {isSeries && <p className="mt-2 leading-relaxed">Pour une série, chaque séjour suit ces conditions selon sa propre date d’arrivée. Un séjour pas encore prélevé s’annule sans frais.</p>}
                 </div>
 
                 <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4 text-sm text-gray-700">
@@ -317,9 +387,9 @@ export const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose, lis
                 <CleaningPolicyNotice />
                 <label className="flex items-start gap-3 rounded-xl border border-gray-200 p-4 text-sm leading-relaxed text-gray-700"><input type="checkbox" checked={cleaningAccepted} onChange={event => setCleaningAccepted(event.target.checked)} className="mt-1" />Je comprends que le forfait finance le ménage hebdomadaire organisé par le propriétaire et que je dois nettoyer et ranger avant mon départ.</label>
                 <Button fullWidth size="lg" disabled={!cleaningAccepted || !isSigned || isProcessing || checkingAvailability || !roomAvailable} onClick={handlePayment} className="py-4 shadow-xl shadow-haven-red/10">
-                  {isProcessing ? 'Ouverture du paiement…' : `Continuer vers le paiement · ${total} €`}
+                  {isProcessing ? 'Ouverture du paiement…' : isSeries ? `Réserver mes ${stays.length} séjours · ${money(firstAmount)} maintenant` : `Continuer vers le paiement · ${total} €`}
                 </Button>
-                <p className="text-xs text-center text-gray-500">Votre réservation sera confirmée après le paiement.</p>
+                <p className="text-xs text-center text-gray-500">{isSeries ? 'Vos séjours seront confirmés après le paiement du premier. Sans paiement, toutes les dates sont libérées.' : 'Votre réservation sera confirmée après le paiement.'}</p>
               </div>
             )}
           </div>

@@ -1,6 +1,7 @@
 import { assertDetailedCheckout, CLEANING_POLICY_VERSION } from './cleaningPolicy';
 import { compactCheckinComments } from './inventoryPayload';
 import type { Booking, InventoryReport, Listing } from '../types';
+import { seriesStayDeadline } from './recurringInstallments';
 import { getInventoryTiming, formatScheduledMoment, stayLocalDate } from './inventoryTiming';
 
 export class BookingLifecycleError extends Error {
@@ -8,6 +9,8 @@ export class BookingLifecycleError extends Error {
 }
 export function bookingDeadline(booking: Booking): number | null {
   if (booking.paymentStatus === 'PAID') return null;
+  const seriesDeadline = seriesStayDeadline(booking);
+  if (seriesDeadline !== undefined) return seriesDeadline;
   if (booking.status === 'PENDING' && booking.checkoutExpiresAt && Number.isFinite(Date.parse(booking.checkoutExpiresAt))) return Date.parse(booking.checkoutExpiresAt);
   const start = booking.status === 'PENDING' ? booking.createdAt
     : booking.status === 'APPROVED' ? booking.approvedAt : undefined;

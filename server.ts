@@ -1,4 +1,6 @@
 import { createStripeConnect, ConnectError } from './services/stripeConnectServer';
+import { createRecurringSeries, SeriesError } from './services/recurringSeriesServer';
+import { isLaterSeriesStay } from './services/recurringInstallments';
 import { CONNECT_POLICY_VERSION, DEPOSIT_POLICY } from './services/stripeConnect';
 import { normalizePlatformFeedback } from './services/platformFeedback';
 import { normalizeRoomGuide, normalizeRoomGuides } from './services/roomGuide';
@@ -8,7 +10,7 @@ import { normalizeResidence, hasRequiredResidence, validResidenceDocument } from
 import { publicTenantProfile, validateCommunityProfile } from './services/publicProfile';
 import { nextAuthMailLimit, sendAuthActionMail, type AuthMailLimit } from './services/authMail';
 import { resendTemplatesEnabled, reservationResendTemplate, tenantResendTemplate, selectMailContent, type ResendTemplate, type AuthMailKind } from './services/resendTemplates';
-import { accountDecisionMail, cancellationMail, reviewInvitationMail, isTenantMailKind, tenantMailDisposition, tenantNotificationEmail, type TenantMailJob } from './services/tenantMail';
+import { accountDecisionMail, cancellationMail, reviewInvitationMail, isTenantMailKind, isSeriesMailKind, tenantMailDisposition, tenantNotificationEmail, type TenantMailJob, type SeriesMailContext } from './services/tenantMail';
 import { canSendReservationRecipient, initialReservationMailJobs, reservationMailJob, reservationMailDisposition, reservationLifecycleEmail, reservationEmailConfiguration, type ReservationMailJob } from './services/reservationMail';
 import { stayLocalDate } from './services/inventoryTiming';
 import { createReservationConfirmation, canReleaseArrivalInstructions, type ReservationConfirmation } from './services/reservationFulfillment';
@@ -22,7 +24,7 @@ import { countNights, isBookableStay } from './services/stay';
 import { getCancellationTerms } from './services/cancellationPolicy';
 import { isStayReviewWindowOpen } from './services/reviewPolicy';
 import { hasCompleteVerificationDetails, hasRequiredPhoneNumber, isVerificationReadyToSubmit } from './services/profileVerification';
-import type { Booking, BookingAvailability, Listing, Room } from './types';
+import type { Booking, BookingAvailability, BookingSeries, Listing, Room } from './types';
 import { isRoomAvailableForStay, publicAvailabilityItem } from './services/availability';
 import { minimumNights } from './services/minimumStay';
 import { canConfirmEmailOwnership } from './services/emailOwnership';
@@ -219,6 +221,40 @@ const connectConfiguration = () => getConnectConfiguration();
 
 const ownerConnect = createStripeConnect(adminDb, getStripe, connectConfiguration);
 
+/** Same verification gate as a single booking. Reads only: call it before any transaction write. */
+async function assertTenantCanBook(transaction: FirebaseFirestore.Transaction, uid: string) {
+  const userSnap = await transaction.get(adminDb.collection('users').doc(uid));
+  if (!userSnap.exists) throw new Error('COMPTE_INTRouvable');
+  const user = userSnap.data()!;
+  if (user.role === 'ADMIN') return;
+  const identityDocument = typeof user.documents?.idCard === 'string' && user.documents.idCard.length > 0;
+  const exceptionRecord = hasVerificationException(user) ? await transaction.get(adminDb.collection('verification_exceptions').doc(`USER_${uid}`)) : undefined;
+  if (hasTrustedVerificationException(user, exceptionRecord?.data(), uid)) return;
+  if (user.status !== 'APPROVED' || user.emailVerified !== true || !hasRequiredPhoneNumber(user) || user.identityVerified !== true || !identityDocument) throw new Error('VERIFICATION_REQUISE');
+}
+
+/** With real payments, a listing goes online only once its owner can receive payouts. */
+async function assertOwnerPayoutsReady(ownerId: string) {
+  if (getPaymentMode() !== 'STRIPE') return; // Simulation: no real payout to receive.
+  try { await ownerConnect.readyAccount(ownerId); }
+  catch (error) {
+    if (error instanceof ConnectError) throw new ListingReviewError('Publication impossible : le propriétaire doit d’abord configurer ses versements Stripe (identité et compte bancaire vérifiés).', 409);
+    throw error;
+  }
+}
+
+const recurringSeries = createRecurringSeries({
+  db: adminDb,
+  paymentMode: () => getPaymentMode(),
+  stripe: getStripe,
+  isTestMode: () => connectConfiguration().isTest,
+  readyOwnerAccount: ownerId => ownerConnect.readyAccount(ownerId),
+  settle: (receipt, actorId) => settleBookingPayment(receipt, actorId),
+  registerPayment: (booking, payment) => ownerConnect.registerPayment(booking, payment),
+  assertTenantCanBook,
+  notifyMail: () => void deliverReservationMail(),
+});
+
 async function synchronizeCheckout(session: Stripe.Checkout.Session) {
   if (session.livemode === connectConfiguration().isTest) throw new Error('Stripe mode mismatch.');
   const bookingId = session.metadata?.bookingId;
@@ -228,7 +264,10 @@ async function synchronizeCheckout(session: Stripe.Checkout.Session) {
     const intent = typeof session.payment_intent === 'string' ? session.payment_intent : session.payment_intent?.id;
     if (!intent) throw new Error('Payment intent missing.');
     await getStripe().refunds.create({ payment_intent: intent }, { idempotencyKey: `stale-checkout-${session.id}` });
-  } else await ownerConnect.registerPayment(result.booking as Booking, session);
+  } else {
+    await ownerConnect.registerPayment(result.booking as Booking, session);
+    await recurringSeries.savePaymentMethod(result.booking as Booking, session);
+  }
 }
 
 async function synchronizeRefund(refundId: string) {
@@ -259,7 +298,10 @@ async function reconcileStripe() {
       if (!sessionId || data.paymentIsTest === !connectConfiguration().isTest) continue;
       if (data.cancellation?.refundId?.startsWith('re_')) try { await synchronizeRefund(data.cancellation.refundId); } catch { console.error('Stripe refund reconciliation requires a retry.'); }
       if (data.paymentStatus === 'PAID' && (await adminDb.collection('owner_settlements').doc(doc.id).get()).exists) continue;
-      try { await synchronizeCheckout(await getStripe().checkout.sessions.retrieve(sessionId)); }
+      try {
+        if (String(sessionId).startsWith('pi_')) await recurringSeries.synchronizeIntent(await getStripe().paymentIntents.retrieve(sessionId));
+        else await synchronizeCheckout(await getStripe().checkout.sessions.retrieve(sessionId));
+      }
       catch { console.error('Stripe checkout reconciliation requires a retry.'); }
     }
     await ownerConnect.reconcileAll();
@@ -305,7 +347,10 @@ async function settleBookingPayment(receipt: PaymentReceipt, actorId?: string) {
     transaction.create(adminDb.collection('messages').doc(prepared.message.id), prepared.message);
     return { disposition: 'CONFIRM' as const, booking: { ...booking, ...prepared.bookingUpdate } };
   });
-  if (result.disposition === 'CONFIRM') void deliverReservationMail();
+  if (result.disposition === 'CONFIRM') {
+    void deliverReservationMail();
+    if (result.booking.seriesId && result.booking.seriesIndex === 0) void recurringSeries.activate(result.booking.seriesId).catch(() => console.error('Series activation requires a retry.'));
+  }
   return result;
 }
 
@@ -343,7 +388,12 @@ async function resolveTenantMail(job: TenantMailJob, startAt: string) {
   if (disposition !== 'SEND') return { disposition };
   if (!profile?.email) throw new Error('Adresse e-mail du locataire manquante.');
   const listing = booking && !booking.listingTitle ? await adminDb.collection('listings').doc(booking.listingId).get() : undefined;
-  return { disposition, to: String(profile.email), mail: tenantNotificationEmail(job, profile, booking, listing?.data()?.title, process.env.APP_ORIGIN),
+  let context: SeriesMailContext | undefined;
+  if (isSeriesMailKind(job.kind) && booking?.seriesId) {
+    const series = (await adminDb.collection('booking_series').doc(booking.seriesId).get()).data() as BookingSeries | undefined;
+    if (series) context = { series, stays: (await Promise.all(series.bookingIds.map(id => adminDb.collection('bookings').doc(id).get()))).filter(item => item.exists).map(item => ({ ...item.data(), id: item.id }) as Booking) };
+  }
+  return { disposition, to: String(profile.email), mail: tenantNotificationEmail(job, profile, booking, listing?.data()?.title, process.env.APP_ORIGIN, context),
     selectedTemplate: resendTemplatesEnabled(process.env) ? tenantResendTemplate(job, profile, booking, listing?.data()?.title, process.env.APP_ORIGIN) : undefined };
 }
 
@@ -447,18 +497,24 @@ async function deliverReservationMail() {
 
 async function expireBooking(bookingId: string) {
   const ref = adminDb.collection('bookings').doc(bookingId);
-  return adminDb.runTransaction(async transaction => {
+  const pending = (await ref.get()).data() as Booking | undefined;
+  // A first payment may have landed just before the activation sweep: activate before releasing later stays.
+  if (pending?.seriesId && isLaterSeriesStay(pending) && !pending.seriesActivatedAt) await recurringSeries.activate(pending.seriesId).catch(() => undefined);
+  const expired = await adminDb.runTransaction(async transaction => {
     const snapshot = await transaction.get(ref);
-    if (!snapshot.exists || !isBookingExpired(snapshot.data() as Booking)) return;
-    const booking = snapshot.data() as Booking;
+    if (!snapshot.exists || !isBookingExpired(snapshot.data() as Booking)) return null;
+    const booking = { ...snapshot.data(), id: snapshot.id } as Booking;
     const now = new Date().toISOString();
     transaction.update(ref, { status: 'CANCELLED', expiredAt: now });
+    recurringSeries.unpaidCancellationWrites(transaction, booking, now);
     transaction.set(adminDb.collection('booking_availability').doc(bookingId), {
       id: bookingId, bookingId, listingId: booking.listingId, roomId: booking.roomId,
       startDate: booking.startDate, endDate: booking.endDate, status: 'CANCELLED', updatedAt: now
     });
-
+    return booking;
   });
+  if (expired?.seriesId && expired.seriesIndex === 0) await recurringSeries.releaseInactive(expired.seriesId);
+  if (expired?.unpaidCancelledAt || (expired && isLaterSeriesStay(expired) && expired.seriesActivatedAt)) void deliverReservationMail();
 }
 async function expireBookings() {
   try {
@@ -512,6 +568,7 @@ async function startServer() {
       try {
         if (!event.account && (event.type === 'checkout.session.completed' || event.type === 'checkout.session.async_payment_succeeded')) await synchronizeCheckout(event.data.object as Stripe.Checkout.Session);
         if (!event.account && ['refund.created', 'refund.updated', 'refund.failed'].includes(event.type)) await synchronizeRefund((event.data.object as Stripe.Refund).id);
+        if (!event.account && event.type === 'payment_intent.succeeded') await recurringSeries.synchronizeIntent(event.data.object as Stripe.PaymentIntent);
         await ownerConnect.handleEvent(event);
         return res.json({ received: true });
       } catch {
@@ -639,6 +696,20 @@ async function startServer() {
       if (reason === 'DATES_INDISPONIBLES' || reason === 'RESERVATION_EXISTANTE') return sendApiError(res, 409, 'Ces dates viennent d’être réservées. Choisissez une autre période');
       console.error('Booking request creation failed', error);
       return sendApiError(res, 500, 'La demande de réservation n’a pas pu être enregistrée. Réessayez dans quelques instants');
+    }
+  });
+
+  app.post('/api/booking-series', sensitiveApiLimiter, requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      try { assertCleaningPolicyAccepted(req.body?.cleaningPolicyVersion); } catch (error) { return sendApiError(res, 422, (error as Error).message); }
+      const created = await recurringSeries.create(req.user!.uid, req.body || {});
+      return res.status(201).json(created);
+    } catch (error) {
+      if (error instanceof SeriesError) return sendApiError(res, error.status, error.message);
+      if (error instanceof PaymentConfigurationError) return sendApiError(res, error.status, error.message);
+      if (error instanceof Error && error.message === 'VERIFICATION_REQUISE') return sendApiError(res, 403, 'La validation manuelle de votre compte et de votre pièce d’identité est requise pour réserver');
+      console.error('Recurring series creation failed', error);
+      return sendApiError(res, 500, 'Votre série de séjours n’a pas pu être enregistrée. Réessayez dans quelques instants');
     }
   });
 
@@ -1035,6 +1106,10 @@ async function startServer() {
       if (!/^[a-zA-Z0-9_-]{1,128}$/.test(listingId)) return sendApiError(res, 422, 'Annonce invalide.');
       const listingRef = adminDb.collection('listings').doc(listingId);
       const auditRef = adminDb.collection('admin_audit').doc();
+      if (req.body?.status === 'APPROVED') {
+        const ownerId = (await listingRef.get()).data()?.ownerId;
+        if (typeof ownerId === 'string' && ownerId) await assertOwnerPayoutsReady(ownerId);
+      }
       const result = await adminDb.runTransaction(async transaction => {
         const snapshot = await transaction.get(listingRef);
         if (!snapshot.exists) throw new ListingReviewError('Annonce introuvable.', 404);
@@ -1592,8 +1667,8 @@ async function startServer() {
         } else if (!booking.stripeSessionId) {
           return sendApiError(res, 503, "Le paiement d’origine est introuvable. Contactez HAVEN avec la référence de réservation.");
         } else {
-          const session = await getStripe().checkout.sessions.retrieve(booking.stripeSessionId);
-          const paymentIntent = typeof session.payment_intent === "string" ? session.payment_intent : session.payment_intent?.id;
+          const session = booking.stripeSessionId.startsWith("pi_") ? null : await getStripe().checkout.sessions.retrieve(booking.stripeSessionId);
+          const paymentIntent = !session ? booking.stripeSessionId : typeof session.payment_intent === "string" ? session.payment_intent : session.payment_intent?.id;
           if (!paymentIntent) return sendApiError(res, 503, "Le paiement d’origine est introuvable. Contactez HAVEN avec la référence de réservation.");
           const refund = await getStripe().refunds.create({
             payment_intent: paymentIntent,
@@ -1667,6 +1742,8 @@ async function startServer() {
         });
       });
 
+      // Cancelling the unpaid first stay of a series releases the dates held for the other stays.
+      if (booking.seriesId && booking.seriesIndex === 0 && booking.paymentStatus !== "PAID") await recurringSeries.releaseInactive(booking.seriesId);
       void deliverReservationMail();
       return res.json({ success: true, cancellation, status: "CANCELLED" });
     } catch (error) {
@@ -1827,15 +1904,24 @@ async function startServer() {
       if (booking.paymentProvider === 'SIMULATION') throw new BookingLifecycleError('Cette réservation appartient au mode simulation. Créez une nouvelle réservation pour utiliser Stripe.');
       const stripe = getStripe();
       const ownerAccountId = await ownerConnect.readyAccount(booking.ownerId);
-      if (booking.checkoutSessionId || booking.stripeSessionId) {
-        const existing = await stripe.checkout.sessions.retrieve(booking.checkoutSessionId || booking.stripeSessionId!);
+      const laterStay = isLaterSeriesStay(booking);
+      const series = booking.seriesId ? (await adminDb.collection('booking_series').doc(booking.seriesId).get()).data() as BookingSeries | undefined : undefined;
+      if (laterStay && series?.status !== 'ACTIVE') return sendApiError(res, 409, 'Payez d’abord le premier séjour de votre série.');
+      const previousSession = booking.checkoutSessionId || booking.stripeSessionId;
+      let checkoutAttempt = 0;
+      if (previousSession && laterStay && !previousSession.startsWith('cs_')) checkoutAttempt = 1;
+      else if (previousSession) {
+        const existing = await stripe.checkout.sessions.retrieve(previousSession);
         if (existing.status === 'open' && existing.url) {
           if (existing.metadata?.connectPolicy !== CONNECT_POLICY_VERSION || existing.metadata.ownerAccountId !== ownerAccountId) return sendApiError(res, 409, 'Recommencez votre réservation pour utiliser les versements sécurisés.');
           return res.json({ mode, id: existing.id, url: existing.url });
         }
         if (existing.payment_status === 'paid') return sendApiError(res, 409, 'Le paiement a déjà été effectué. Sa confirmation est en cours.');
-        return sendApiError(res, 409, 'Cette session de paiement est terminée. Recommencez votre réservation.');
+        // An installment stays payable by hand until its deadline: open a fresh session.
+        if (!laterStay) return sendApiError(res, 409, 'Cette session de paiement est terminée. Recommencez votre réservation.');
+        checkoutAttempt = Math.floor((Date.now() - Date.parse(booking.createdAt)) / 60_000);
       }
+      if (laterStay && series?.paymentProvider !== 'STRIPE') return sendApiError(res, 409, 'Cette série appartient au mode simulation.');
       const listingSnap = await adminDb.collection('listings').doc(booking.listingId).get();
       const listing = listingSnap.data();
       if (!listingSnap.exists) return sendApiError(res, 404, 'Logement introuvable.');
@@ -1844,12 +1930,14 @@ async function startServer() {
       const session = await stripe.checkout.sessions.create({
         mode: 'payment', payment_method_types: ['card'], locale: 'fr', client_reference_id: bookingId,
         // Stable across retries with the same idempotency key. The checkout starts within the initial 30-minute hold.
-        expires_at: Math.floor(Date.parse(booking.createdAt) / 1000) + 60 * 60,
+        expires_at: laterStay ? Math.floor(Date.now() / 1000) + 60 * 60 : Math.floor(Date.parse(booking.createdAt) / 1000) + 60 * 60,
+        // The first stay of a series saves the card so the next installments are charged automatically.
+        ...(booking.seriesId ? laterStay && series?.stripeCustomerId ? { customer: series.stripeCustomerId } : { customer_creation: 'always' as const } : {}),
         line_items: [{ quantity: 1, price_data: { currency: 'eur', unit_amount: Math.round(booking.totalPrice * 100), product_data: { name: String(booking.listingTitle || listing?.title || 'Séjour HAVEN').slice(0, 200), description: `${booking.roomName || 'Chambre'} · ${booking.startDate} → ${booking.endDate}` } } }],
         success_url: successUrl, cancel_url: cancelUrl,
-        payment_intent_data: { transfer_group: `haven_${bookingId}`, metadata: { bookingId, connectPolicy: CONNECT_POLICY_VERSION, ownerAccountId } },
+        payment_intent_data: { transfer_group: `haven_${bookingId}`, ...(booking.seriesId ? { setup_future_usage: 'off_session' as const } : {}), metadata: { bookingId, connectPolicy: CONNECT_POLICY_VERSION, ownerAccountId } },
         metadata: { bookingId, listingId: booking.listingId, tenantId: booking.tenantId, connectPolicy: CONNECT_POLICY_VERSION, ownerAccountId }
-      }, { idempotencyKey: `checkout-${bookingId}` });
+      }, { idempotencyKey: checkoutAttempt ? `checkout-${bookingId}-${checkoutAttempt}` : `checkout-${bookingId}` });
       await adminDb.runTransaction(async transaction => {
         const fresh = await transaction.get(bookingRef);
         if (!fresh.exists) throw new BookingLifecycleError('Réservation introuvable.', 404);
@@ -1878,6 +1966,9 @@ async function startServer() {
   void deliverReservationMail();
   const reservationMailSweep = setInterval(() => void deliverReservationMail(), 30_000);
   reservationMailSweep.unref();
+  void recurringSeries.sweep();
+  const installmentSweep = setInterval(() => void recurringSeries.sweep(), 60_000);
+  installmentSweep.unref();
   void expireBookings();
   const bookingSweep = setInterval(() => void expireBookings(), 60_000);
   bookingSweep.unref();

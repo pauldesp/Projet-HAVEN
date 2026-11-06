@@ -203,6 +203,38 @@ export interface Booking {
   approvedAt?: string;
   completedAt?: string;
   cancellation?: BookingCancellation;
+  /** Recurring series: every stay is a booking priced and held at creation. */
+  seriesId?: string;
+  seriesIndex?: number;
+  seriesCount?: number;
+  /** Day the stay is charged (YYYY-MM-DD): at booking for the first stay, then one month before arrival. */
+  installmentDueDate?: string;
+  /** Set once the first stay is paid; later stays are then held until their installment deadline. */
+  seriesActivatedAt?: string;
+  /** Lets the owner see reserved stays that will be charged later. */
+  seriesScheduled?: boolean;
+  installmentAttempts?: number;
+  nextInstallmentAttemptAt?: string;
+  installmentLastError?: string;
+  installmentLeaseUntil?: string;
+  unpaidCancelledAt?: string;
+}
+
+export interface BookingSeries {
+  id: string;
+  tenantId: string;
+  ownerId: string;
+  listingId: string;
+  listingTitle: string;
+  bookingIds: string[];
+  status: 'PENDING' | 'ACTIVE' | 'CANCELLED';
+  paymentProvider: 'SIMULATION' | 'STRIPE';
+  createdAt: string;
+  activatedAt?: string;
+  stripeCustomerId?: string;
+  paymentMethodId?: string;
+  cardBrand?: string;
+  cardLast4?: string;
 }
 
 // Public calendar record. It intentionally contains no user or payment data.

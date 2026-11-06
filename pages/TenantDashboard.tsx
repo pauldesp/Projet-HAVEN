@@ -1,3 +1,5 @@
+import { formatEuros } from '../services/money';
+import { installmentDateLabel, installmentDeadlineLabel, installmentState } from '../services/recurringInstallments';
 import { useLanguage } from '../contexts/LanguageContext';
 import { compactCheckinComments } from '../services/inventoryPayload';
 import { bookingCategory } from '../services/bookingLifecycle';
@@ -23,7 +25,6 @@ import { InventoryModal } from '../components/InventoryModal';
 import { ReviewModal } from '../components/ReviewModal';
 import { ReportModal } from '../components/ReportModal';
 import { AccountStatusOverlay } from '../components/AccountStatusOverlay';
-import { ConversationsList } from '../components/ConversationsList';
 import { CancellationModal } from '../components/CancellationModal';
 import { toast } from 'sonner';
 import { stayReviewDeadline } from '../services/reviewPolicy';
@@ -35,7 +36,7 @@ export const TenantDashboard: React.FC = () => {
   const { tr } = useLanguage();
   const { currentUser, updateUserRole } = useAuth();
   const { listings: allListings } = useListings();
-  const [activeTab, setActiveTab] = useState<'UPCOMING' | 'HISTORY' | 'FAVORITES' | 'MESSAGES' | 'INCIDENTS'>('UPCOMING');
+  const [activeTab, setActiveTab] = useState<'UPCOMING' | 'HISTORY' | 'FAVORITES' | 'INCIDENTS'>('UPCOMING');
   const [clockNow, setClockNow] = useState(() => new Date());
   useEffect(() => {
     const refresh = () => setClockNow(new Date());
@@ -47,7 +48,6 @@ export const TenantDashboard: React.FC = () => {
   const [bookings, setBookings] = useState<(Booking & { listing?: Listing })[]>([]);
   const [favorites, setFavorites] = useState<Listing[]>([]);
   const [documents, setDocuments] = useState<AppDocument[]>([]);
-  const [unreadCount, setUnreadCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [reviewedBookingIds, setReviewedBookingIds] = useState<Set<string>>(() => new Set());
   const [isVerificationModalOpen, setIsVerificationModalOpen] = useState(false);
@@ -139,12 +139,6 @@ export const TenantDashboard: React.FC = () => {
       setDocuments(userDocs);
     });
 
-    // 1.1 Listen to Messages (Real-time)
-    const unsubscribeMessages = apiService.messages.listenToConversations(currentUser.id, (convs) => {
-      const total = convs.reduce((acc, curr) => acc + curr.unreadCount, 0);
-      setUnreadCount(total);
-    });
-
     // 2. Fetch other data once
     let loadVersion = 0;
     const fetchOtherData = async (myBookings: Booking[]) => {
@@ -197,7 +191,6 @@ export const TenantDashboard: React.FC = () => {
       loadVersion++;
       unsubscribeBookings();
       unsubscribeDocs();
-      unsubscribeMessages();
     };
   }, [currentUser, allListings]);
 
@@ -219,7 +212,7 @@ export const TenantDashboard: React.FC = () => {
 
   const handleBookingCancelled = (bookingId: string, cancellation: NonNullable<Booking['cancellation']>) => {
     setBookings(previous => previous.map(booking => booking.id === bookingId ? { ...booking, status: 'CANCELLED', cancellation } : booking));
-    toast.success(cancellation.refundAmount > 0 ? `Séjour annulé. ${cancellation.refundAmount} € seront remboursés.` : 'Séjour annulé. Les dates ont été libérées.');
+    toast.success(cancellation.refundAmount > 0 ? `Séjour annulé. ${formatEuros(cancellation.refundAmount)} seront remboursés.` : 'Séjour annulé. Les dates ont été libérées.');
   };
 
   const handleInventoryComplete = async (data: any) => {
@@ -282,6 +275,12 @@ export const TenantDashboard: React.FC = () => {
 
   const upcoming = bookings.filter(booking => bookingCategory(booking, clockNow) !== 'PAST');
   const history = bookings.filter(booking => bookingCategory(booking, clockNow) === 'PAST');
+  const nextStay = [...upcoming].filter(booking => booking.status !== 'CANCELLED').sort((a, b) => a.startDate.localeCompare(b.startDate))[0];
+  // Scheduled installments are charged automatically: only what needs an action is "to pay".
+  const toPay = upcoming.filter(booking => ['PENDING', 'APPROVED'].includes(booking.status) && booking.paymentStatus !== 'PAID' && ['NONE', 'FAILED'].includes(installmentState(booking, clockNow)));
+  const nextInstallment = upcoming.filter(booking => installmentState(booking, clockNow) === 'SCHEDULED').sort((a, b) => (a.installmentDueDate || '').localeCompare(b.installmentDueDate || ''))[0];
+  const openIncidents = tenantIncidents.filter(incident => incident.status === 'NEW' || incident.status === 'INVESTIGATING').length;
+  const shortDate = (value: string) => new Date(`${value.slice(0, 10)}T12:00:00Z`).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', timeZone: 'UTC' });
 
   const handleDownload = async (doc: AppDocument) => {
     if (doc.receiptId) {
@@ -337,82 +336,69 @@ export const TenantDashboard: React.FC = () => {
   if (isLoading) return <div className="p-20 text-center flex flex-col items-center gap-4"><Loader2 className="animate-spin text-haven-navy" size={40}/><p className="text-sm font-bold text-gray-400 uppercase tracking-widest">Chargement de votre univers...</p></div>;
 
   return (
-    <div className="min-h-screen bg-haven-cream pb-20 font-body">
-      {/* ... (Previous header remains similar) ... */}
-      <div className="bg-haven-navy pt-12 pb-24 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-          <div>
-            <h1 className="font-heading font-bold text-2xl sm:text-3xl text-white mb-2 tracking-tight">
-              Bonjour, {currentUser?.firstName || 'Locataire'} 👋
-            </h1>
-            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
-              <p className="text-blue-200 font-medium">Gérez vos séjours, vos échanges et vos favoris.</p>
-              <Link to={`/profile/${currentUser?.id}`} className="text-white/70 hover:text-white text-xs font-bold underline underline-offset-4 decoration-white/30">
-                Voir mon profil public
-              </Link>
-            </div>
+    <div className="min-h-screen bg-white pb-20 font-body">
+      <div className="mx-auto max-w-6xl px-4 pt-6 sm:px-6 sm:pt-10 lg:px-8">
+        <header className="flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <h1 className="font-heading text-2xl font-bold tracking-tight text-haven-navy sm:text-3xl">Bonjour, {currentUser?.firstName || 'Locataire'}</h1>
+            <Link to={`/profile/${currentUser?.id}`} className="mt-1 inline-block text-sm text-gray-500 underline underline-offset-4 decoration-gray-300 hover:text-haven-navy">Voir mon profil public</Link>
           </div>
-          <div className="flex flex-col md:flex-row gap-4 items-center">
-            <Button
-              variant="outline"
-              size="sm"
-              className="bg-white/10 border-white/20 text-white hover:bg-white/20 flex items-center gap-2"
-              onClick={handleSwitchToOwner}
-            >
-              <ArrowRightLeft size={16} /> Passer en mode propriétaire
-            </Button>
-          </div>
-        </div>
-      </div>
+          <button type="button" onClick={handleSwitchToOwner} aria-label="Passer en mode propriétaire" title="Passer en mode propriétaire" className="flex h-11 min-w-11 shrink-0 items-center justify-center gap-2 rounded-full bg-gray-100 px-3 text-sm font-bold text-haven-navy hover:bg-gray-200 sm:bg-transparent sm:px-4 sm:hover:bg-gray-100">
+              <ArrowRightLeft size={16} aria-hidden="true" /><span className="hidden sm:inline">Passer en mode propriétaire</span>
+            </button>
+        </header>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-16">
-        {/* Verification Banner */}
         {!canBook && currentUser?.role !== 'ADMIN' && (
-          <div className="mb-8 bg-orange-50 border border-orange-100 rounded-[1.75rem] sm:rounded-[2.5rem] p-6 flex flex-col md:flex-row items-center justify-between gap-6 shadow-sm">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-orange-100 rounded-2xl flex items-center justify-center text-orange-600">
-                <ShieldCheck size={24} />
-              </div>
+          <div className="mt-6 flex flex-col gap-4 rounded-2xl border border-orange-100 bg-orange-50 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
+            <div className="flex items-start gap-3">
+              <ShieldCheck size={22} className="mt-0.5 shrink-0 text-orange-600" aria-hidden="true" />
               <div>
-                <h4 className="font-bold text-haven-navy">{isSubmittedForReview ? 'Dossier en cours de vérification' : 'Dossier de vérification requis'}</h4>
-                <p className="text-sm text-gray-500">{isSubmittedForReview ? 'Votre dossier a été transmis à Haven. Un administrateur vérifie votre identité avant d’activer les réservations.' : 'Votre pièce d’identité doit être validée avant toute réservation.'}</p>
+                <h2 className="font-bold text-haven-navy">{isSubmittedForReview ? 'Dossier en cours de vérification' : 'Dossier de vérification requis'}</h2>
+                <p className="text-sm text-gray-600">{isSubmittedForReview ? 'Votre dossier a été transmis à Haven. Un administrateur vérifie votre identité avant d’activer les réservations.' : 'Votre pièce d’identité doit être validée avant toute réservation.'}</p>
               </div>
             </div>
-            <Button
-              variant="primary"
-              size="sm"
-              className="bg-orange-500 hover:bg-orange-600 border-none px-8 h-12 rounded-xl"
-              onClick={() => setIsVerificationModalOpen(true)}
-            >
+            <Button variant="primary" size="sm" className="shrink-0 border-none bg-orange-500 px-6 hover:bg-orange-600" onClick={() => setIsVerificationModalOpen(true)}>
               {isSubmittedForReview ? 'Dossier en cours de validation' : 'Compléter mon dossier'}
             </Button>
           </div>
         )}
 
-        <div className="bg-white rounded-[1.75rem] sm:rounded-[2.5rem] shadow-premium p-4 sm:p-8 min-h-[500px] border border-gray-50">
-          <div className="haven-tabs flex gap-4 md:gap-8 border-b border-gray-100 mb-8 overflow-x-auto">
+        <section aria-label="Vos séjours" className="mt-6 grid grid-cols-2 gap-3 sm:mt-8 sm:gap-4">
+          <button type="button" onClick={() => setActiveTab('UPCOMING')} className="min-w-0 rounded-2xl border border-gray-200 p-4 text-left transition-shadow hover:shadow-md sm:p-6">
+            <p className="font-bold text-haven-navy">{nextStay && bookingCategory(nextStay, clockNow) === 'CURRENT' ? 'Séjour en cours' : 'Prochain séjour'}</p>
+            <p className="truncate text-sm text-gray-500">{nextStay ? nextStay.listing?.title || nextStay.listingTitle || 'Logement' : 'Aucun séjour prévu'}</p>
+            <p className="mt-4 text-xl font-bold text-haven-navy sm:mt-6 sm:text-3xl">{nextStay ? shortDate(nextStay.startDate) : '—'}</p>
+            {nextStay && <p className="mt-1 text-xs text-gray-500">au {shortDate(nextStay.endDate)}</p>}
+          </button>
+          <button type="button" onClick={() => setActiveTab('UPCOMING')} className="min-w-0 rounded-2xl border border-gray-200 p-4 text-left transition-shadow hover:shadow-md sm:p-6">
+            <p className="font-bold text-haven-navy">À régler</p>
+            <p className="text-sm text-gray-500">{toPay.length ? `${toPay.length} réservation${toPay.length > 1 ? 's' : ''} en attente de paiement` : 'Tout est réglé'}</p>
+            {nextInstallment && <p className="mt-1 text-xs text-gray-500">Prochain prélèvement : {formatEuros(nextInstallment.totalPrice)} le {installmentDateLabel(nextInstallment.installmentDueDate!)}</p>}
+            <p className="mt-4 text-xl font-bold text-haven-navy sm:mt-6 sm:text-3xl">{formatEuros(toPay.reduce((sum, booking) => sum + booking.totalPrice, 0))}</p>
+          </button>
+        </section>
+
+        <div className="mt-8">
+          <nav aria-label="Sections de l’espace locataire" className="haven-tabs -mx-4 mb-6 flex gap-6 overflow-x-auto border-b border-gray-200 px-4 sm:mx-0 sm:mb-8 sm:gap-8 sm:px-0">
             {[
-              { id: 'UPCOMING', label: 'Séjours à venir et en cours', count: upcoming.length },
-              { id: 'HISTORY', label: 'Historique', count: history.length },
-              { id: 'INCIDENTS', label: 'Mes incidents', count: tenantIncidents.length },
-              { id: 'MESSAGES', label: 'Messages', count: unreadCount },
-              { id: 'FAVORITES', label: 'Mes Favoris', count: favorites.length }
+              { id: 'UPCOMING', label: 'Séjours', count: upcoming.length },
+              { id: 'HISTORY', label: 'Historique', count: 0 },
+              { id: 'FAVORITES', label: 'Favoris', count: 0 },
+              { id: 'INCIDENTS', label: 'Signalements', count: openIncidents },
             ].map(tab => (
               <button
                 key={tab.id}
-                className={`min-h-12 pb-4 font-bold text-sm transition-all relative whitespace-nowrap flex items-center gap-2 ${activeTab === tab.id ? 'text-haven-navy' : 'text-gray-300 hover:text-gray-500'}`}
-                onClick={() => setActiveTab(tab.id as any)}
+                type="button"
+                aria-current={activeTab === tab.id ? 'page' : undefined}
+                className={`relative flex min-h-12 shrink-0 items-center gap-1.5 whitespace-nowrap pb-3 text-sm font-semibold transition-colors ${activeTab === tab.id ? 'text-haven-navy' : 'text-gray-500 hover:text-haven-navy'}`}
+                onClick={() => setActiveTab(tab.id as typeof activeTab)}
               >
-                {tab.label} {tab.id !== 'MESSAGES' && tab.count !== null && `(${tab.count})`}
-                {tab.id === 'MESSAGES' && tab.count > 0 && (
-                  <span className="bg-haven-red text-white text-[9px] px-1.5 py-0.5 rounded-full animate-bounce">
-                    {tab.count}
-                  </span>
-                )}
-                {activeTab === tab.id && <motion.div layoutId="activeTabUnderline" className="absolute bottom-0 left-0 right-0 h-1 bg-haven-navy rounded-full" />}
+                {tab.label}
+                {tab.count > 0 && <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold leading-none ${tab.id === 'INCIDENTS' ? 'bg-haven-red text-white' : 'bg-gray-100 text-gray-600'}`}>{tab.count}</span>}
+                {activeTab === tab.id && <span className="absolute inset-x-0 bottom-0 h-0.5 rounded-full bg-haven-navy" />}
               </button>
             ))}
-          </div>
+          </nav>
 
           <div className="space-y-6">
             {activeTab === 'INCIDENTS' && <IncidentMonitor tenant incidents={tenantIncidents} listings={allListings} error={incidentError} />}
@@ -428,7 +414,7 @@ export const TenantDashboard: React.FC = () => {
                         booking.status === 'APPROVED' ? 'bg-amber-500/90 text-white animate-pulse' :
                         'bg-blue-500/90 text-white'
                       }`}>
-                        {booking.status === 'CONFIRMED' ? bookingCategory(booking, clockNow) === 'CURRENT' ? 'En cours' : 'À venir' : booking.status === 'APPROVED' ? 'À régler' : 'Paiement à finaliser'}
+                        {booking.status === 'CONFIRMED' ? bookingCategory(booking, clockNow) === 'CURRENT' ? 'En cours' : 'À venir' : booking.status === 'APPROVED' ? 'À régler' : installmentState(booking, clockNow) === 'SCHEDULED' || installmentState(booking, clockNow) === 'DUE' ? 'Réservé · prélèvement prévu' : 'Paiement à finaliser'}
                       </div>
                       {booking.roomName && <div className="absolute bottom-5 left-5 rounded-full bg-white/90 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-haven-navy backdrop-blur-sm">{booking.roomName}</div>}
                     </div>
@@ -447,7 +433,7 @@ export const TenantDashboard: React.FC = () => {
                         </div>
                         <div className="rounded-2xl border border-haven-navy/10 bg-haven-navy/[0.03] p-4">
                           <div className="mb-2 text-[10px] font-black uppercase tracking-widest text-gray-400">Montant du séjour</div>
-                          <span className="text-lg font-black text-haven-navy">{booking.totalPrice}€ <span className="text-xs font-bold text-gray-400">TTC</span></span>
+                          <span className="text-lg font-black text-haven-navy">{formatEuros(booking.totalPrice)} <span className="text-xs font-bold text-gray-400">TTC</span></span>
                         </div>
                       </div>
                       <div className="mt-4"><BookingCountdown booking={booking} /></div>
@@ -541,11 +527,18 @@ export const TenantDashboard: React.FC = () => {
                         </>
                       )}
 
-                      {booking.status === 'PENDING' && (
+                      {booking.status === 'PENDING' && (() => {
+                        const installment = installmentState(booking, clockNow);
+                        return (
                         <div className="flex flex-col gap-3 py-2 text-center lg:text-left">
-                          <Button disabled={isPayingBookingId === booking.id} onClick={() => handleProceedToPayment(booking)}>{isPayingBookingId === booking.id ? 'Redirection…' : `Payer ${booking.totalPrice} €`}</Button>
+                          {booking.seriesId && <p className="text-[11px] font-bold uppercase tracking-widest text-gray-400">Séjour {(booking.seriesIndex ?? 0) + 1} sur {booking.seriesCount}</p>}
+                          {installment !== 'AWAITING_FIRST' && <Button variant={installment === 'SCHEDULED' || installment === 'DUE' ? 'outline' : 'primary'} disabled={isPayingBookingId === booking.id} onClick={() => handleProceedToPayment(booking)}>{isPayingBookingId === booking.id ? 'Redirection…' : installment === 'SCHEDULED' ? `Payer dès maintenant · ${formatEuros(booking.totalPrice)}` : `Payer ${formatEuros(booking.totalPrice)}`}</Button>}
                           <p className="text-xs text-haven-stone leading-relaxed">
-                            Finalisez votre paiement pour confirmer la réservation.
+                            {installment === 'SCHEDULED' ? `Réservé. ${formatEuros(booking.totalPrice)} seront prélevés automatiquement le ${installmentDateLabel(booking.installmentDueDate!)} sur la carte de votre premier séjour. Rappel par e-mail 3 jours avant.`
+                              : installment === 'DUE' ? 'Le prélèvement automatique de ce séjour est en cours.'
+                              : installment === 'FAILED' ? `Le prélèvement n’a pas abouti${booking.installmentLastError ? ` (${booking.installmentLastError})` : ''}. Payez avant le ${installmentDeadlineLabel(booking)}, sinon ce séjour sera annulé. Vos autres séjours ne sont pas concernés.`
+                              : installment === 'AWAITING_FIRST' ? 'Ce séjour sera confirmé avec votre série dès le paiement du premier séjour.'
+                              : 'Finalisez votre paiement pour confirmer la réservation.'}
                           </p>
                           <Button
                             variant="outline"
@@ -553,10 +546,11 @@ export const TenantDashboard: React.FC = () => {
                             onClick={() => setCancellationBooking(booking)}
                             className="text-haven-stone border-gray-200 hover:text-haven-red hover:bg-red-50 hover:border-red-100 text-[10px] font-black uppercase tracking-widest h-10 rounded-xl"
                           >
-                            Annuler cette réservation
+                            {installment === 'SCHEDULED' || installment === 'DUE' || installment === 'FAILED' ? 'Annuler ce séjour sans frais' : 'Annuler cette réservation'}
                           </Button>
                         </div>
-                      )}
+                        );
+                      })()}
 
                       {booking.status === 'APPROVED' && (
                         <div className="flex flex-col gap-3 py-2 text-center lg:text-left">
@@ -580,7 +574,7 @@ export const TenantDashboard: React.FC = () => {
                             onClick={() => handleProceedToPayment(booking)}
                             className="bg-haven-red hover:bg-haven-red/90 text-white font-black text-[11px] uppercase tracking-widest h-12 rounded-2xl shadow-lg shadow-haven-red/10 animate-bounce"
                           >
-                            {isPayingBookingId === booking.id ? 'Redirection...' : `Payer ${booking.totalPrice}€`}
+                            {isPayingBookingId === booking.id ? 'Redirection...' : `Payer ${formatEuros(booking.totalPrice)}`}
                           </Button>
                           <Button
                             variant="ghost"
@@ -634,7 +628,7 @@ export const TenantDashboard: React.FC = () => {
                       </div>
                       <div className="rounded-xl bg-haven-navy/[0.03] px-3 py-2.5">
                         <p className="text-[9px] font-black uppercase tracking-widest text-gray-400">Montant</p>
-                        <p className="mt-1 text-lg font-black text-haven-navy">{booking.totalPrice}€ <span className="text-[10px] text-gray-400">TTC</span></p>
+                        <p className="mt-1 text-lg font-black text-haven-navy">{formatEuros(booking.totalPrice)} <span className="text-[10px] text-gray-400">TTC</span></p>
                         <p className="text-xs text-gray-500">{booking.roomName || 'Chambre réservée'}</p>
                       </div>
                     </div>
@@ -643,7 +637,7 @@ export const TenantDashboard: React.FC = () => {
 
                     {booking.status === 'CANCELLED' && booking.cancellation && (
                       <div className="mt-3 rounded-xl border border-red-100 bg-red-50 px-3 py-2 text-xs text-red-800">
-                        Remboursement : <strong>{booking.cancellation.refundAmount} €</strong> ({booking.cancellation.refundPercent} %)
+                        Remboursement : <strong>{formatEuros(booking.cancellation.refundAmount)}</strong> ({booking.cancellation.refundPercent} %)
                       </div>
                     )}
 
@@ -660,21 +654,6 @@ export const TenantDashboard: React.FC = () => {
                     </div>
                   </div>
                 ))}
-              </div>
-            )}
-
-            {activeTab === 'MESSAGES' && (
-              <div className="space-y-6">
-                <div className="flex justify-between items-center bg-gray-50 p-6 rounded-3xl border border-gray-100">
-                  <div>
-                    <h3 className="font-heading font-bold text-xl text-haven-navy">Conversations</h3>
-                    <p className="text-sm text-gray-500">Communiquez avec les propriétaires facilement.</p>
-                  </div>
-                  <Button variant="outline" size="sm" onClick={() => navigate('/inbox')}>Plein écran</Button>
-                </div>
-                <div className="max-w-4xl mx-auto">
-                  <ConversationsList />
-                </div>
               </div>
             )}
 

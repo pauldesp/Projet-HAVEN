@@ -390,6 +390,14 @@ export const apiService = {
         throw e;
       }
     },
+    /** Reserves every stay of a recurring search at once; only the first stay is paid now. */
+    async createSeries(input: { seriesId: string; listingId: string; stays: { id: string; roomId: string; startDate: string; endDate: string }[]; cleaningPolicyVersion: string }) {
+      if (!auth.currentUser) throw new Error('Vous devez être connecté pour réserver. (Erreur 401)');
+      const response = await authenticatedFetch('/api/booking-series', { method: 'POST', body: JSON.stringify(input) });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(`${payload.error || 'Impossible de réserver ces séjours'} (Erreur ${response.status})`);
+      return payload as { bookings: Booking[] };
+    },
     async getByUserId(userId: string) {
       try {
         // Expired review windows are finalized idempotently on the server, even
@@ -438,10 +446,16 @@ export const apiService = {
       return status === 'COMPLETED' ? payload.completedAt : payload;
     },
     listenByParticipant(userId: string, role: 'OWNER' | 'TENANT', callback: (bookings: Booking[]) => void, onError: () => void) {
-      const q = query(collection(db, 'bookings'), where(role === 'OWNER' ? 'ownerId' : 'tenantId', '==', userId), ...(role === 'OWNER' ? [where('paymentStatus', '==', 'PAID')] : []));
-      return onSnapshot(q, snapshot => callback(snapshot.docs.map(item => ({ ...item.data(), id: item.id } as Booking)).filter(booking => role !== 'OWNER' || isOwnerBookingVisible(booking))), error => {
-        logFirestoreListenerError(error, 'BOOKINGS', userId); onError();
-      });
+      const fail = (error: Error) => { logFirestoreListenerError(error, 'BOOKINGS', userId); onError(); };
+      if (role === 'TENANT') return onSnapshot(query(collection(db, 'bookings'), where('tenantId', '==', userId)), snapshot => callback(snapshot.docs.map(item => ({ ...item.data(), id: item.id } as Booking))), fail);
+      // Owners see paid stays and the reserved later stays of recurring series, charged before arrival.
+      const groups: Record<'paid' | 'scheduled', Booking[]> = { paid: [], scheduled: [] };
+      const emit = () => callback([...new Map([...groups.paid, ...groups.scheduled].map(booking => [booking.id, booking])).values()].filter(isOwnerBookingVisible));
+      const listen = (key: keyof typeof groups, field: 'paymentStatus' | 'seriesScheduled', value: string | boolean) => onSnapshot(
+        query(collection(db, 'bookings'), where('ownerId', '==', userId), where(field, '==', value)),
+        snapshot => { groups[key] = snapshot.docs.map(item => ({ ...item.data(), id: item.id } as Booking)); emit(); }, fail);
+      const stops = [listen('paid', 'paymentStatus', 'PAID'), listen('scheduled', 'seriesScheduled', true)];
+      return () => stops.forEach(stop => stop());
     },
     async cancel(bookingId: string, reason: string) {
       const response = await authenticatedFetch(`/api/bookings/${encodeURIComponent(bookingId)}/cancel`, {

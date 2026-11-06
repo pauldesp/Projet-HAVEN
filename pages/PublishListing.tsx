@@ -593,7 +593,7 @@ export const PublishListing: React.FC = () => {
         <div className="max-w-md w-full animate-fade-in-up">
           <div className="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-8 shadow-lg shadow-green-100/50"><CheckCircle className="text-green-600" size={48} /></div>
           <h1 className="text-2xl sm:text-3xl md:text-4xl font-heading font-bold text-haven-navy mb-4">Annonce envoyée !</h1>
-          <p className="text-haven-stone text-lg mb-10 leading-relaxed">Votre logement est maintenant en cours de vérification par notre équipe. Il sera visible sur HAVEN d'ici 24h.</p>
+          <p className="text-haven-stone text-lg mb-10 leading-relaxed">Votre logement est maintenant en cours de vérification par notre équipe. Il sera mis en ligne après cette vérification, une fois vos versements Stripe configurés depuis l’onglet Finances de votre espace.</p>
           {createdListingId && <section className="mb-6 rounded-3xl border border-gray-100 bg-white p-6 text-left">
             <h2 className="font-heading text-lg font-bold text-haven-navy">{tr('Préparez le séjour de vos locataires')}</h2>
             <p className="mt-2 mb-5 text-sm leading-relaxed text-haven-stone">{tr('Complétez les accès, le Wi-Fi, le stationnement et les informations pratiques dans le guide privé du séjour.')}</p>
@@ -1153,7 +1153,7 @@ export const PublishListing: React.FC = () => {
 
                 <div className="bg-haven-red/5 p-6 rounded-[2rem] border border-haven-red/10">
                    <p className="text-xs text-haven-red font-medium leading-relaxed">
-                     <strong>Note</strong> : Votre annonce sera soumise à une vérification manuelle par nos équipes avant d'être publiée officiellement sur la plateforme.
+                     <strong>Note</strong> : Votre annonce sera soumise à une vérification manuelle par nos équipes avant d'être publiée officiellement sur la plateforme. La publication nécessite aussi que vos versements Stripe soient configurés (onglet Finances de votre espace).
                    </p>
                 </div>
               </div>

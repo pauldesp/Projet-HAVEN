@@ -37,6 +37,7 @@ export const ListingDetails: React.FC = () => {
   const calendarRef = useRef<HTMLDivElement>(null);
 
   const [isBookingOpen, setIsBookingOpen] = useState(false);
+  const [bookAsSeries, setBookAsSeries] = useState(false);
   const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
   const [expandedRecurringStay, setExpandedRecurringStay] = useState<number | null>(null);
   const [blockTarget, setBlockTarget] = useState<string>('LISTING');
@@ -168,7 +169,48 @@ export const ListingDetails: React.FC = () => {
     b => b.status === 'CONFIRMED'
   );
 
+  const passesBookingGate = () => {
+    if (!currentUser) {
+      // Redirect to login or show login modal
+      window.location.hash = `/login?redirect=${encodeURIComponent(`/listing/${id}?${searchParams.toString()}`)}`;
+      return false;
+    }
+
+    if (isListingOwner) {
+      toast.error('Vous ne pouvez pas réserver votre propre logement. (Erreur 403)');
+      return false;
+    }
+
+    if (isHost && !isListingOwner) {
+      toast.error('Basculez en mode locataire pour réserver ce logement. (Erreur 403)');
+      return false;
+    }
+
+    if (!canBook) {
+      if (isVerificationPending(currentUser)) {
+        toast.info('Dossier en cours de validation', {
+          id: 'booking-account-pending',
+          description: 'Votre dossier a bien été transmis à Haven. Vous pourrez réserver dès qu’un administrateur aura validé votre compte.',
+          duration: 8000
+        });
+        return false;
+      }
+      setIsVerificationModalOpen(true);
+      return false;
+    }
+
+    return true;
+  };
+
+  const handleSeriesClick = () => {
+    if (!availabilityReady || availabilityError) { toast.error('La disponibilité doit être vérifiée avant de réserver.'); return; }
+    if (!seriesStays || seriesStays.length < 2 || !passesBookingGate()) return;
+    setBookAsSeries(true);
+    setIsBookingOpen(true);
+  };
+
   const handleBookClick = async () => {
+    setBookAsSeries(false);
     if (!availabilityReady || availabilityError) { toast.error('La disponibilité doit être vérifiée avant de réserver.'); return; }
     try {
       const fresh = await apiService.availability.getByListingId(listing!.id);
@@ -183,34 +225,7 @@ export const ListingDetails: React.FC = () => {
       toast.error('Cette chambre n’est pas disponible pour les dates sélectionnées.');
       return;
     }
-    if (!currentUser) {
-      // Redirect to login or show login modal
-      window.location.hash = `/login?redirect=${encodeURIComponent(`/listing/${id}?${searchParams.toString()}`)}`;
-      return;
-    }
-
-    if (isListingOwner) {
-      toast.error('Vous ne pouvez pas réserver votre propre logement. (Erreur 403)');
-      return;
-    }
-
-    if (isHost && !isListingOwner) {
-      toast.error('Basculez en mode locataire pour réserver ce logement. (Erreur 403)');
-      return;
-    }
-
-    if (!canBook) {
-      if (isVerificationPending(currentUser)) {
-        toast.info('Dossier en cours de validation', {
-          id: 'booking-account-pending',
-          description: 'Votre dossier a bien été transmis à Haven. Vous pourrez réserver dès qu’un administrateur aura validé votre compte.',
-          duration: 8000
-        });
-        return;
-      }
-      setIsVerificationModalOpen(true);
-      return;
-    }
+    if (!passesBookingGate()) return;
 
     if (nights < minimumNights(listing.minStay)) {
       toast.error(`Ce logement nécessite un séjour minimum de ${minimumNights(listing.minStay)} nuits. (Erreur 422)`);
@@ -293,6 +308,14 @@ export const ListingDetails: React.FC = () => {
   const selectedRecurringPeriod = selectedRecurringIndex >= 0 ? recurringMatch?.periods[selectedRecurringIndex] : undefined;
   const selectedRecurringPrice = selectedRecurringPeriod && activeRoomIsAvailable
     ? activeRoom.pricePerDay * nights + (listing.cleaningFee || 0) + Math.round(activeRoom.pricePerDay * nights * .15) : null;
+  // Each available period keeps the room being viewed when it is free, otherwise its cheapest free room.
+  const seriesStays = recurringMatch?.periods.flatMap(period => {
+    if (!period.stay) return [];
+    const rooms = listing.rooms.filter(item => period.roomIds.includes(item.id));
+    const chosen = rooms.find(item => item.id === activeRoom?.id) || [...rooms].sort((a, b) => a.pricePerDay - b.pricePerDay)[0];
+    return chosen ? [{ room: chosen, startDate: period.stay.start, endDate: period.stay.end }] : [];
+  }) ?? [];
+  const canBookSeries = seriesStays.length > 1 && availabilityReady && !availabilityError;
   const paymentSchedule = recurringMatch ? recurringPaymentSchedule(recurringMatch.periods.flatMap((period, index) =>
     period.stay && period.total !== null ? [{ index, ...period.stay, amount: index === selectedRecurringIndex && selectedRecurringPrice !== null ? selectedRecurringPrice : period.total }] : []
   )) : null;
@@ -783,19 +806,22 @@ export const ListingDetails: React.FC = () => {
                     </ol>
                     {recurringMatch && recurringMatch.availableCount < recurringPeriods.length && <p className="mt-3 text-xs text-amber-800">Les périodes indisponibles sont exclues du total et de cet échéancier.</p>}
                     <dl className="mt-4 space-y-2 rounded-xl bg-haven-cream p-3 text-sm">
-                      <div className="flex justify-between gap-3"><dt>À la réservation, prévu</dt><dd className="font-bold">{recurringMoney(paymentSchedule.dueNow)}</dd></div>
-                      <div className="flex justify-between gap-3 text-gray-500"><dt>À régler plus tard</dt><dd>{recurringMoney(paymentSchedule.later)}</dd></div>
+                      <div className="flex justify-between gap-3"><dt>Payé à la réservation</dt><dd className="font-bold">{recurringMoney(paymentSchedule.dueNow)}</dd></div>
+                      <div className="flex justify-between gap-3 text-gray-500"><dt>Prélevé ensuite, avant chaque arrivée</dt><dd>{recurringMoney(paymentSchedule.later)}</dd></div>
                       <div className="flex justify-between gap-3 border-t border-gray-200 pt-2 font-bold"><dt>Total estimé</dt><dd>{recurringMoney(paymentSchedule.total)}</dd></div>
                     </dl>
-                    <p className="mt-3 text-xs leading-relaxed text-gray-500">Frais inclus. Les autres séjours sont estimés au tarif le plus bas disponible. Actuellement, chaque séjour se réserve et se paie séparément ; aucun prélèvement futur n’est encore programmé.</p>
+                    <p className="mt-3 text-xs leading-relaxed text-gray-500">Frais inclus. Les autres séjours sont estimés au tarif le plus bas disponible ; le récapitulatif donne le prix exact. Toutes vos dates sont bloquées dès le premier paiement. Les séjours suivants sont prélevés automatiquement un mois avant leur arrivée.</p>
                     <Link to="/reservation-recurrente" className="mt-2 inline-flex min-h-11 items-center text-xs text-haven-red underline underline-offset-4">Paiement, annulation et modification</Link>
                   </section>}
 
-                  <Button fullWidth size="lg" onClick={handleBookClick} disabled={!activeRoomIsAvailable || !isBookableStay(startDate, endDate)}>
-                    {!availabilityReady ? (availabilityError ? 'Vérification impossible' : 'Vérification…') : !startDate || !endDate ? 'Sélectionnez vos dates' : activeRoomIsAvailable ? recurringPeriods.length > 1 ? 'Réserver ce séjour' : 'Réserver' : 'Indisponible'}
+                  {recurringPeriods.length > 1 && <Button fullWidth size="lg" className="mb-3" onClick={handleSeriesClick} disabled={!canBookSeries}>
+                    {!availabilityReady ? (availabilityError ? 'Vérification impossible' : 'Vérification…') : canBookSeries ? `Réserver mes ${seriesStays.length} séjours` : 'Moins de deux séjours disponibles'}
+                  </Button>}
+                  <Button fullWidth size="lg" variant={recurringPeriods.length > 1 ? 'outline' : 'primary'} onClick={handleBookClick} disabled={!activeRoomIsAvailable || !isBookableStay(startDate, endDate)}>
+                    {!availabilityReady ? (availabilityError ? 'Vérification impossible' : 'Vérification…') : !startDate || !endDate ? 'Sélectionnez vos dates' : activeRoomIsAvailable ? recurringPeriods.length > 1 ? 'Réserver seulement ce séjour' : 'Réserver' : 'Indisponible'}
                   </Button>
                   {availabilityError && <p role="alert" className="mt-3 text-sm text-red-700">{availabilityError}</p>}
-                  <p className="text-center text-xs text-gray-400 mt-4">{recurringPeriods.length > 1 ? 'Ce bouton concerne uniquement le séjour sélectionné.' : "Vous ne serez débité qu'après validation"}</p>
+                  <p className="text-center text-xs text-gray-400 mt-4">{recurringPeriods.length > 1 ? 'Seul le premier séjour est payé à la réservation.' : "Vous ne serez débité qu'après validation"}</p>
                 </div>
               </div>
             )}
@@ -805,10 +831,10 @@ export const ListingDetails: React.FC = () => {
 
       {!isListingOwner && <div className="haven-listing-actions fixed inset-x-0 z-30 border-t border-gray-200 bg-white/95 px-4 py-3 backdrop-blur-md md:hidden">
         <div className="mx-auto flex max-w-3xl items-center justify-between gap-3">
-          <div className="min-w-0"><p className="truncate text-xs text-gray-500">{activeRoom.name}{recurringPeriods.length > 1 && selectedRecurringIndex >= 0 ? ` · séjour ${selectedRecurringIndex + 1}` : ''}</p><p className="text-sm font-bold text-haven-navy">{isBookableStay(startDate, endDate) ? `${activeRoom.pricePerDay * nights + (listing.cleaningFee || 0) + Math.round(activeRoom.pricePerDay * nights * .15)} € ${recurringPeriods.length > 1 ? 'ce séjour' : 'au total'}` : 'Choisissez vos dates'}</p></div>
-          <Button onClick={() => { if (!isBookableStay(startDate, endDate)) calendarRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }); else if (activeRoomIsAvailable) void handleBookClick(); else document.getElementById('listing-rooms')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }}>
+          <div className="min-w-0"><p className="truncate text-xs text-gray-500">{activeRoom.name}{recurringPeriods.length > 1 && selectedRecurringIndex >= 0 ? ` · séjour ${selectedRecurringIndex + 1}` : ''}</p><p className="text-sm font-bold text-haven-navy">{canBookSeries && paymentSchedule ? `${recurringMoney(paymentSchedule.dueNow)} à la réservation` : isBookableStay(startDate, endDate) ? `${activeRoom.pricePerDay * nights + (listing.cleaningFee || 0) + Math.round(activeRoom.pricePerDay * nights * .15)} € ${recurringPeriods.length > 1 ? 'ce séjour' : 'au total'}` : 'Choisissez vos dates'}</p></div>
+          {canBookSeries ? <Button onClick={handleSeriesClick}>Réserver mes {seriesStays.length} séjours</Button> : <Button onClick={() => { if (!isBookableStay(startDate, endDate)) calendarRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }); else if (activeRoomIsAvailable) void handleBookClick(); else document.getElementById('listing-rooms')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }}>
             {!isBookableStay(startDate, endDate) ? 'Voir les dates' : activeRoomIsAvailable ? recurringPeriods.length > 1 ? 'Réserver ce séjour' : 'Réserver' : 'Voir les chambres'}
-          </Button>
+          </Button>}
         </div>
       </div>}
       {lightboxIndex !== null && <PhotoLightbox photos={viewablePhotos} initialIndex={lightboxIndex} onClose={() => setLightboxIndex(null)} />}
@@ -820,6 +846,7 @@ export const ListingDetails: React.FC = () => {
         room={activeRoom}
         startDate={startDate}
         endDate={endDate}
+        series={bookAsSeries ? seriesStays : undefined}
       />
 
       <AccountStatusOverlay
