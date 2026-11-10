@@ -6,7 +6,7 @@ import { CLEANING_POLICY_VERSION } from './cleaningPolicy';
 import { requiredNightsForStay } from './gapStay';
 import { countNights, localDateKey } from './stay';
 import { CONNECT_POLICY_VERSION } from './stripeConnect';
-import { installmentChargeDecision, installmentDueDates, installmentReminderAt, isLaterSeriesStay, nextInstallmentAttempt, validateSeriesStays, type SeriesStayInput } from './recurringInstallments';
+import { AUTO_CHARGE_CONSENT_TEXT, AUTO_CHARGE_CONSENT_VERSION, installmentChargeDecision, installmentDueDates, installmentReminderAt, isLaterSeriesStay, nextInstallmentAttempt, validateSeriesStays, type SeriesStayInput } from './recurringInstallments';
 import type { SeriesMailKind } from './tenantMail';
 import { simulationSessionId } from './paymentCheckout';
 import { ownerMailId, ownerMailJob } from './ownerMail';
@@ -43,8 +43,9 @@ export function createRecurringSeries(deps: RecurringSeriesDependencies) {
   const outbox = db.collection('reservation_mail_outbox');
 
   /** Every stay is priced, held and created at once; only the first is paid now. */
-  async function create(tenantId: string, body: { seriesId?: unknown; listingId?: unknown; stays?: unknown }) {
+  async function create(tenantId: string, body: { seriesId?: unknown; listingId?: unknown; stays?: unknown; autoChargeConsentVersion?: unknown }) {
     const { seriesId, listingId } = body;
+    if (body.autoChargeConsentVersion !== AUTO_CHARGE_CONSENT_VERSION) throw new SeriesError('Autorisez le prélèvement automatique des séjours suivants pour réserver une série.', 422);
     const stays = body.stays as SeriesStayInput[];
     if (typeof seriesId !== 'string' || !ID.test(seriesId) || typeof listingId !== 'string' || !ID.test(listingId)) throw new SeriesError('Série récurrente invalide.', 422);
     const invalid = validateSeriesStays(stays);
@@ -92,7 +93,8 @@ export function createRecurringSeries(deps: RecurringSeriesDependencies) {
           seriesId, seriesIndex: index, seriesCount: sorted.length, installmentDueDate: dueDates[index], installmentAttempts: 0,
         };
       });
-      const series: BookingSeries = { id: seriesId, tenantId, ownerId: listing.ownerId, listingId, listingTitle: listing.title, bookingIds: created.map(item => item.id), status: 'PENDING', paymentProvider: provider, createdAt };
+      const series: BookingSeries = { id: seriesId, tenantId, ownerId: listing.ownerId, listingId, listingTitle: listing.title, bookingIds: created.map(item => item.id), status: 'PENDING', paymentProvider: provider, createdAt,
+        autoChargeConsent: { version: AUTO_CHARGE_CONSENT_VERSION, text: AUTO_CHARGE_CONSENT_TEXT, acceptedAt: createdAt } };
       transaction.create(seriesRef, series);
       for (const roomId of roomIds) transaction.set(db.collection('room_booking_locks').doc(`${listingId}_${roomId}`), { updatedAt: createdAt });
       for (const booking of created) {
@@ -237,7 +239,7 @@ export function createRecurringSeries(deps: RecurringSeriesDependencies) {
         if (installmentChargeDecision(booking) !== 'CHARGE') continue;
         await chargeOne(booking).catch(() => console.error('Installment charge requires a retry.', item.id));
       }
-    } catch { console.error('Recurring installments unavailable; retry scheduled.'); }
+    } catch (error) { console.error('Recurring installments unavailable; retry scheduled.'); throw error; }
     finally { sweeping = false; }
   }
 

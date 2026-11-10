@@ -974,5 +974,99 @@
         "type": "string"
       }
     ]
+  },
+  {
+    "kind": "HAVEN_REPORT",
+    "name": "21 · Équipe Haven · Signalement à traiter",
+    "alias": "haven-equipe-signalement",
+    "subject": "À traiter : {{{TYPE_SIGNALEMENT}}} — {{{LOGEMENT}}}",
+    "preview": "Un nouveau signalement est transmis à l’équipe Haven.",
+    "trigger": "Nouveau signalement d’annonce, problème de séjour transmis à Haven ou demande d’intervention sur un incident.",
+    "file": "haven-equipe-signalement.html",
+    "variables": [
+      {
+        "key": "MENTION_TEST",
+        "type": "string"
+      },
+      {
+        "key": "PRENOM_DESTINATAIRE",
+        "type": "string"
+      },
+      {
+        "key": "DATE_ACTION",
+        "type": "string"
+      },
+      {
+        "key": "TYPE_SIGNALEMENT",
+        "type": "string"
+      },
+      {
+        "key": "LOGEMENT",
+        "type": "string"
+      },
+      {
+        "key": "AUTEUR",
+        "type": "string"
+      },
+      {
+        "key": "MOTIF_SIGNALEMENT",
+        "type": "string"
+      },
+      {
+        "key": "DESCRIPTION_SIGNALEMENT",
+        "type": "string"
+      },
+      {
+        "key": "LIEN_ACTION",
+        "type": "string"
+      },
+      {
+        "key": "REFERENCE_DOSSIER",
+        "type": "string"
+      }
+    ]
+  },
+  {
+    "kind": "HAVEN_ALERT",
+    "name": "22 · Équipe Haven · Alerte technique",
+    "alias": "haven-equipe-alerte",
+    "subject": "Alerte : {{{TACHE}}}",
+    "preview": "Une tâche automatique a échoué plusieurs fois de suite.",
+    "trigger": "Trois échecs consécutifs d’une tâche automatique du serveur.",
+    "file": "haven-equipe-alerte.html",
+    "variables": [
+      {
+        "key": "MENTION_TEST",
+        "type": "string"
+      },
+      {
+        "key": "PRENOM_DESTINATAIRE",
+        "type": "string"
+      },
+      {
+        "key": "TACHE",
+        "type": "string"
+      },
+      {
+        "key": "NOMBRE_ECHECS",
+        "type": "string"
+      },
+      {
+        "key": "DATE_ACTION",
+        "type": "string"
+      },
+      {
+        "key": "MESSAGE_ERREUR",
+        "type": "string"
+      },
+      {
+        "key": "LIEN_ACTION",
+        "type": "string"
+      },
+      {
+        "key": "REFERENCE_DOSSIER",
+        "type": "string"
+      }
+    ]
   }
 ]

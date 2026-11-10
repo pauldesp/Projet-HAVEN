@@ -1,6 +1,6 @@
 # Ce qu'il reste à faire pour un Haven opérationnel et professionnel
 
-Liste établie le 6 novembre 2026, mise à jour le 10 novembre, à partir d'une revue du code, de la configuration et de [la checklist de mise en ligne](AVANT-MISE-EN-LIGNE.md), qu'elle reprend et complète. Cocher au fur et à mesure.
+Liste établie le 6 novembre 2026, mise à jour le 11 novembre, à partir d'une revue du code, de la configuration et de [la checklist de mise en ligne](AVANT-MISE-EN-LIGNE.md), qu'elle reprend et complète. Cocher au fur et à mesure.
 
 Légende : **[Paul]** à faire par toi (comptes, contrats, décisions), **[Code]** développement, **[Test]** vérification à la main.
 
@@ -47,7 +47,7 @@ Légende : **[Paul]** à faire par toi (comptes, contrats, décisions), **[Code]
 ### Juridique
 
 - [ ] **[Paul] Mettre à jour les conditions générales de réservation** : réservation récurrente, enregistrement de la carte, prélèvements automatiques un mois avant chaque arrivée, délai de 5 jours en cas d'échec, annulation séjour par séjour, séjours courts entre deux locations.
-- [ ] **[Code] Faire accepter explicitement le prélèvement automatique** au moment de réserver une série (case dédiée).
+- [x] **[Code] Faire accepter explicitement le prélèvement automatique** au moment de réserver une série (case obligatoire ; texte, version et date conservés avec la série, 11 novembre).
 - [ ] **[Paul] Faire relire par un juriste** : conditions générales (locataires et propriétaires), accord tripartite, mentions légales, politique de confidentialité.
 - [ ] **[Paul] RGPD** : registre des traitements, durée de conservation des pièces d'identité, photos et états des lieux, sous-traitants (Firebase, Stripe, Resend, hébergeur).
 - [ ] **[Code] Bandeau cookies conforme** (refus aussi simple que l'acceptation) si des cookies non essentiels sont ajoutés.
@@ -97,27 +97,32 @@ Légende : **[Paul]** à faire par toi (comptes, contrats, décisions), **[Code]
 
 - [ ] **[Code] Connexion avec Google** (une documentation existe dans `docs/GOOGLE-SIGN-IN.md`).
 - [ ] **[Code] Double authentification pour les administrateurs.**
-- [ ] **[Code] Suppression du compte et export des données** par l'utilisateur (RGPD).
+- [x] **[Code] Export et effacement des données d'un membre** depuis le back office (fiche du membre : export JSON, anonymisation avec conservation des données comptables, refusée s'il reste un séjour à venir ou une annonce en ligne, 11 novembre).
+- [ ] **[Code] Demande d'export ou de suppression par le membre lui-même** depuis son compte.
 
 ### Signalements et incidents
 
 - [ ] **[Test] Envoyer un vrai signalement** d'annonce et d'incident de séjour, puis suivre son traitement jusqu'au back office.
 - [x] **[Code] Prévenir le propriétaire par mail** à chaque nouveau signalement.
-- [ ] **[Code] Prévenir l'équipe Haven par mail** des signalements qui lui sont transmis et des demandes d'intervention.
+- [x] **[Code] Prévenir l'équipe Haven par mail** de chaque nouveau signalement d'annonce, problème de séjour transmis et demande d'intervention (modèle Resend 21, 11 novembre).
+- [ ] **[Paul] Choisir l'adresse de l'équipe Haven** (`HAVEN_TEAM_EMAIL`) ; en attendant, les alertes partent vers l'adresse de réponse ou ton adresse de test Resend.
 - [ ] **[Paul] Définir les délais de réponse** attendus du propriétaire et de Haven, et les afficher.
 
 ### Back office
 
-- [ ] **[Code] Annuler une réservation à la place du propriétaire** depuis le back office (sous 30 jours, le propriétaire ne peut plus le faire seul).
-- [ ] **[Code] Alertes pour l'équipe Haven** : mails bloqués, prélèvements échoués, versements en attente, signalements transmis.
-- [ ] **[Code] Tableau des séries récurrentes et des échéances**, avec remboursement ou nouvelle tentative de prélèvement à la main.
-- [ ] **[Code] Suivi des mails envoyés** (statut, rebonds, renvoi).
+- [x] **[Code] Annuler une réservation à la place du propriétaire** depuis le back office (onglet Réservations : jusqu'au jour d'arrivée, remboursement intégral, motif obligatoire, mails et journal d'administration, 11 novembre).
+- [x] **[Code] Alertes pour l'équipe Haven** : mail après 3 échecs de suite d'une tâche automatique (modèle Resend 22) ; signalements transmis (modèle 21).
+- [x] **[Code] Onglet Finances** : résumé du mois et export CSV pour la comptabilité, remboursement sans annulation (pris d'abord sur la commission Haven), blocage et déblocage d'un versement, transfert relancé après vérification, échéances des séries prélevées tout de suite ou reportées (11 novembre).
+- [x] **[Code] Tableau des séries récurrentes et des échéances**, avec remboursement ou nouvelle tentative de prélèvement à la main (onglet Finances).
+- [x] **[Code] Suivi des mails envoyés** (onglet Surveillance : statut, destinataire, erreur, renvoi). Les rebonds signalés par Resend restent à intégrer.
 - [ ] **[Paul] Rédiger les procédures internes** : litige, dégradation, annulation par le propriétaire, fraude.
+- [x] **[Code] Fiche 360° d'un membre** (chiffres, chronologie complète, notes internes de l'équipe) et **modération** (suspendre ou corriger une annonce, masquer un avis avec recalcul de la note, déplacer un séjour à nombre de nuits égal), **indicateurs clés** dans Stats (11 novembre).
+- [ ] **[Code] Back office, suite** : réglages modifiables sans code (commission, seuils d'annulation, minimum de nuits, délai de la récurrence), consultation encadrée d'une conversation en cas de litige, signaux de fraude, codes promo et avoirs, création d'une réservation à la main, mail au propriétaire quand son annonce est suspendue, rebonds des mails signalés par Resend.
 
 ### Automatisations
 
 - [ ] **[Test] Vérifier que chaque tâche automatique tourne en production** : prélèvements, expirations, mails, transferts après arrivée, rapprochement Stripe, clôture des avis.
-- [ ] **[Code] Tableau de santé** de ces tâches (dernière exécution, erreurs).
+- [x] **[Code] Tableau de santé** de ces tâches (onglet Surveillance : dernière réussite, échecs, retard).
 
 ## 3. Finitions
 

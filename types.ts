@@ -138,6 +138,8 @@ export interface Listing {
   minStay: number; // Minimum number of nights; default 4, owner-configurable (>= 1).
   /** Accept shorter stays that exactly fill a gap between two occupations of a room (default: yes). */
   allowGapStays?: boolean;
+  /** Taken offline by Haven (status REJECTED until restored). */
+  suspendedByHaven?: boolean;
   cleaningFee: number; // Fixed contribution per booking, not per week
   cleaningPolicyVersion?: string;
   bookingMode?: 'INSTANT' | 'MANUAL'; // Mode de réservation (Instantannée ou Manuelle)
@@ -156,7 +158,8 @@ export interface Listing {
 
 export interface BookingCancellation {
   cancelledAt: string;
-  cancelledBy: 'TENANT' | 'OWNER';
+  /** HAVEN: cancelled by the Haven team (exceptional case, always fully refunded). */
+  cancelledBy: 'TENANT' | 'OWNER' | 'HAVEN';
   reason: string;
   refundPercent: number;
   refundAmount: number;
@@ -220,7 +223,11 @@ export interface Booking {
   installmentLastError?: string;
   installmentLeaseUntil?: string;
   unpaidCancelledAt?: string;
+  /** Refunds decided by Haven without cancelling the stay (goodwill gestures, settled disputes). */
+  havenRefunds?: HavenRefund[];
 }
+
+export interface HavenRefund { id: string; amountCents: number; reason: string; at: string; adminId: string; adminName: string; status: 'COMPLETED' | 'PENDING' | 'SIMULATED' }
 
 export interface BookingSeries {
   id: string;
@@ -237,6 +244,8 @@ export interface BookingSeries {
   paymentMethodId?: string;
   cardBrand?: string;
   cardLast4?: string;
+  /** Proof of the tenant's explicit authorization of the automatic charges. */
+  autoChargeConsent?: { version: string; text: string; acceptedAt: string };
 }
 
 // Public calendar record. It intentionally contains no user or payment data.
@@ -411,6 +420,9 @@ export interface Review {
   authorName?: string;
   authorAvatarUrl?: string;
   isAutomatic?: boolean;
+  /** Hidden by Haven moderation (kept for the record, excluded from ratings). */
+  hiddenByHaven?: boolean;
+  hiddenReason?: string;
 }
 
 // Type Document Légal (CGR, Privacy, etc.)

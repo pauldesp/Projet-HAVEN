@@ -28,3 +28,10 @@ test('the same owner limit protects a reserved later stay of a recurring series'
 test('does not allow a confirmed stay to be cancelled on its arrival day', () => {
   assert.equal(getCancellationTerms(booking, 'TENANT', '2026-11-01').canCancel, false);
 });
+
+test('Haven can cancel until the arrival day and always refunds a paid stay in full', () => {
+  assert.equal(getCancellationTerms(booking, 'HAVEN', '2026-10-30').refundAmount, 240);
+  assert.equal(getCancellationTerms(booking, 'HAVEN', '2026-11-01').canCancel, true);
+  assert.equal(getCancellationTerms(booking, 'HAVEN', '2026-11-02').canCancel, false);
+  assert.equal(getCancellationTerms({ ...booking, status: 'PENDING', paymentStatus: 'PENDING' }, 'HAVEN', '2026-10-30').refundAmount, 0);
+});

@@ -260,7 +260,7 @@ export const OwnerDashboard: React.FC = () => {
                 </div>}
                 <ul className="divide-y divide-gray-100">
                   {ownerListings.map(listing => {
-                    const status = listingStatus[listing.status] || listingStatus.DRAFT;
+                    const status = listing.suspendedByHaven ? { label: 'Suspendue par Haven', dot: 'bg-haven-red' } : listingStatus[listing.status] || listingStatus.DRAFT;
                     return (
                       <li key={listing.id}>
                         <Link to={`/owner/edit/${listing.id}`} className="grid grid-cols-[4rem_minmax(0,1fr)] items-center gap-4 rounded-xl py-3 transition-colors hover:bg-gray-50 md:grid-cols-[4rem_minmax(0,1fr)_10rem_8rem_8rem] md:-mx-2 md:px-2">

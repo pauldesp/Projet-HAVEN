@@ -120,7 +120,8 @@ export const EditListing: React.FC = () => {
       return;
     }
     const saved = savedListing.current;
-    const reviewAgain = Boolean(saved && needsNewReview(saved, listing));
+    // Only an owner's own changes go back to review; an administrator's correction does not.
+    const reviewAgain = Boolean(saved && needsNewReview(saved, listing)) && listing.ownerId === currentUser?.id;
     if (reviewAgain && !window.confirm('Vous modifiez les textes, les photos ou l’adresse : Haven vérifiera de nouveau l’annonce. Elle sera masquée des recherches jusqu’à validation. Les réservations existantes ne sont pas concernées. Continuer ?')) return;
     setIsSaving(true);
     try {

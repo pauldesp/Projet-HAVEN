@@ -74,7 +74,7 @@ export function ownerMailValues(job: OwnerMailJob, data: OwnerMailData): Record<
     const cancellation = booking.cancellation;
     Object.assign(values, {
       DATE_ACTION: instant(cancellation?.cancelledAt || booking.unpaidCancelledAt || job.occurredAt, booking.timeZone),
-      INITIATIVE_ANNULATION: unpaid ? 'faute de paiement du locataire' : cancellation?.cancelledBy === 'OWNER' ? 'à votre initiative' : 'à l’initiative du locataire',
+      INITIATIVE_ANNULATION: unpaid ? 'faute de paiement du locataire' : cancellation?.cancelledBy === 'HAVEN' ? 'par l’équipe Haven' : cancellation?.cancelledBy === 'OWNER' ? 'à votre initiative' : 'à l’initiative du locataire',
       MOTIF_ANNULATION: unpaid ? 'Le paiement de ce séjour n’a pas été reçu dans le délai prévu.' : cancellation?.reason || 'Non précisé.',
       INFORMATION_VERSEMENT: unpaid || booking.paymentStatus !== 'PAID'
         ? 'Ce séjour n’avait pas encore été payé : aucun montant n’a été encaissé et aucun versement n’aura lieu.'

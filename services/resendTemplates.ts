@@ -2,6 +2,7 @@ import type { Booking } from '../types';
 import type { ReservationMailKind } from './reservationMail';
 import { isSeriesMailKind, seriesMailValues, type SeriesMailContext, type TenantMailJob, type TenantMailProfile } from './tenantMail';
 import { ownerMailValues, type OwnerMailData, type OwnerMailJob } from './ownerMail';
+import { teamMailValues, type TeamMailData, type TeamMailJob } from './teamMail';
 import { escapeEmailHtml, type ReservationConfirmation } from './reservationFulfillment';
 
 // IDs verified in the Haven Resend account. Content and subject live in Resend.
@@ -26,6 +27,8 @@ export const RESEND_TEMPLATE_IDS = {
   OWNER_CANCELLED: '8bb64cd4-8af1-4413-b740-bc5d00ce361a',
   OWNER_INCIDENT: 'b32e92b1-c4f7-4199-b2ad-84505132245f',
   OWNER_PAYOUT: 'e6792cb8-61ca-4c25-934a-baf87573952b',
+  HAVEN_REPORT: '1af81e2c-0b6c-4054-8c21-3419d6e67f52',
+  HAVEN_ALERT: '4e466da3-8f40-47fa-bfb9-7d36c7481284',
 } as const;
 export type HavenMailKind = keyof typeof RESEND_TEMPLATE_IDS;
 export type AuthMailKind = 'EMAIL_VERIFICATION' | 'PASSWORD_RESET';
@@ -52,6 +55,8 @@ const TEMPLATE_KEYS: Partial<Record<HavenMailKind, string[]>> = {
   OWNER_SERIES: ["ECHEANCIER", "LIEN_ACTION", "LOCATAIRE", "LOGEMENT", "MENTION_TEST", "MONTANT_PROPRIETAIRE", "NOMBRE_SEJOURS", "PRENOM_PROPRIETAIRE", "REFERENCE_DOSSIER"],
   OWNER_CANCELLED: ["CHAMBRE", "DATE_ACTION", "DATE_ARRIVEE", "DATE_DEPART", "INFORMATION_VERSEMENT", "INITIATIVE_ANNULATION", "LIEN_ACTION", "LOCATAIRE", "LOGEMENT", "MENTION_TEST", "MOTIF_ANNULATION", "PRENOM_PROPRIETAIRE", "REFERENCE_DOSSIER"],
   OWNER_INCIDENT: ["CHAMBRE", "DATE_ACTION", "DATE_ARRIVEE", "DATE_DEPART", "DESCRIPTION_SIGNALEMENT", "LIEN_ACTION", "LOCATAIRE", "LOGEMENT", "MENTION_TEST", "PRENOM_PROPRIETAIRE", "PRIORITE", "REFERENCE_DOSSIER", "TITRE_SIGNALEMENT"],
+  HAVEN_ALERT: ["DATE_ACTION", "LIEN_ACTION", "MENTION_TEST", "MESSAGE_ERREUR", "NOMBRE_ECHECS", "PRENOM_DESTINATAIRE", "REFERENCE_DOSSIER", "TACHE"],
+  HAVEN_REPORT: ["AUTEUR", "DATE_ACTION", "DESCRIPTION_SIGNALEMENT", "LIEN_ACTION", "LOGEMENT", "MENTION_TEST", "MOTIF_SIGNALEMENT", "PRENOM_DESTINATAIRE", "REFERENCE_DOSSIER", "TYPE_SIGNALEMENT"],
   OWNER_PAYOUT: ["DATE_ACTION", "LIEN_ACTION", "MENTION_TEST", "MONTANT_VIREMENT", "PRENOM_PROPRIETAIRE", "REFERENCE_DOSSIER", "REFERENCE_VIREMENT"],
 };
 function template(kind: HavenMailKind, values: Record<string, string>): ResendTemplate {
@@ -106,7 +111,7 @@ export function tenantResendTemplate(job: TenantMailJob, profile: TenantMailProf
     if (job.kind === 'CANCELLED') {
       const cancellation = booking.cancellation;
       if (!cancellation) throw new Error('Annulation manquante pour l’e-mail.');
-      Object.assign(values, { DATE_ACTION: instant(cancellation.cancelledAt, booking.timeZone), INITIATIVE_ANNULATION: cancellation.cancelledBy === 'OWNER' ? 'à l’initiative du propriétaire' : 'à votre demande', MOTIF_ANNULATION: cancellation.reason,
+      Object.assign(values, { DATE_ACTION: instant(cancellation.cancelledAt, booking.timeZone), INITIATIVE_ANNULATION: cancellation.cancelledBy === 'HAVEN' ? 'par l’équipe Haven' : cancellation.cancelledBy === 'OWNER' ? 'à l’initiative du propriétaire' : 'à votre demande', MOTIF_ANNULATION: cancellation.reason,
         // A reserved later stay of a series may be cancelled before it was charged: nothing to refund.
         INFORMATION_REMBOURSEMENT: booking.paymentStatus !== 'PAID' && booking.seriesScheduled ? 'Ce séjour n’avait pas encore été prélevé : aucun montant ne vous a été débité.'
           : cancellation.refundStatus === 'SIMULATED' ? `Remboursement simulé : ${money(cancellation.refundAmount)}. Aucun remboursement bancaire réel n’a été effectué.`
@@ -120,6 +125,9 @@ export function tenantResendTemplate(job: TenantMailJob, profile: TenantMailProf
 }
 export function ownerResendTemplate(job: OwnerMailJob, data: OwnerMailData, appOrigin?: string): ResendTemplate {
   return template(job.kind, { ...ownerMailValues(job, data), LIEN_ACTION: mailDashboardLink(appOrigin, '/owner/dashboard') });
+}
+export function teamResendTemplate(job: TeamMailJob, data: TeamMailData, appOrigin?: string): ResendTemplate {
+  return template(job.kind, { ...teamMailValues(job, data), LIEN_ACTION: mailDashboardLink(appOrigin, '/admin/dashboard') });
 }
 export function authResendTemplate(kind: AuthMailKind, name: string, actionLink: string, authDomain: string) {
   const url = new URL(actionLink);

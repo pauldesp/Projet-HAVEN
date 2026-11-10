@@ -329,11 +329,14 @@ export const apiService = {
     async update(listing: Listing) {
       try {
         if (listing.cleaningPolicyVersion !== undefined) assertCleaningPolicyAccepted(listing.cleaningPolicyVersion);
-        if (!auth.currentUser || listing.ownerId !== auth.currentUser.uid) throw new Error('Vous n’êtes pas autorisé à modifier ce logement. (Erreur 403)');
+        if (!auth.currentUser) throw new Error('Vous n’êtes pas autorisé à modifier ce logement. (Erreur 403)');
+        // An administrator may correct a listing (remove a photo, fix a text) without sending it back to review.
+        const isAdminEditor = listing.ownerId !== auth.currentUser.uid && (await getDoc(doc(db, 'users', auth.currentUser.uid))).data()?.role === 'ADMIN';
+        if (listing.ownerId !== auth.currentUser.uid && !isAdminEditor) throw new Error('Vous n’êtes pas autorisé à modifier ce logement. (Erreur 403)');
         const existingSnapshot = await getDoc(doc(db, 'listings', listing.id));
         if (!existingSnapshot.exists()) throw new Error('Ce logement n’existe plus. (Erreur 404)');
         const existingListing = existingSnapshot.data() as Listing;
-        if (existingListing.ownerId !== auth.currentUser.uid) throw new Error('Vous n’êtes pas autorisé à modifier ce logement. (Erreur 403)');
+        if (existingListing.ownerId !== auth.currentUser.uid && !isAdminEditor) throw new Error('Vous n’êtes pas autorisé à modifier ce logement. (Erreur 403)');
         if (hasIncompleteRoom(listing.rooms)) throw new Error('Chaque chambre doit avoir un nom, un prix par nuit et une surface.');
         if (hasRoomWithoutOption(listing.rooms)) throw new Error('Chaque chambre doit disposer d’au moins une option du cahier des charges HAVEN.');
         if (listing.galleryUrls.length < 3 || hasMissingRoomPhoto(listing.rooms)) throw new Error('Ajoutez au moins trois photos des parties communes et une photo par chambre.');
@@ -354,7 +357,7 @@ export const apiService = {
           bookingMode: 'INSTANT',
           ownerId: existingListing.ownerId,
           // Modified texts, photos or address of a published listing go back to Haven's review.
-          status: needsNewReview(existingListing, listing) ? 'PENDING' : existingListing.status
+          status: !isAdminEditor && needsNewReview(existingListing, listing) ? 'PENDING' : existingListing.status
         }));
         await setDoc(doc(db, 'listings', listing.id), normalizedListing);
         return normalizedListing;
@@ -406,7 +409,7 @@ export const apiService = {
       }
     },
     /** Reserves every stay of a recurring search at once; only the first stay is paid now. */
-    async createSeries(input: { seriesId: string; listingId: string; stays: { id: string; roomId: string; startDate: string; endDate: string }[]; cleaningPolicyVersion: string }) {
+    async createSeries(input: { seriesId: string; listingId: string; stays: { id: string; roomId: string; startDate: string; endDate: string }[]; cleaningPolicyVersion: string; autoChargeConsentVersion: string }) {
       if (!auth.currentUser) throw new Error('Vous devez être connecté pour réserver. (Erreur 401)');
       const response = await authenticatedFetch('/api/booking-series', { method: 'POST', body: JSON.stringify(input) });
       const payload = await response.json().catch(() => ({}));
@@ -532,7 +535,8 @@ export const apiService = {
       try {
         const q = query(collection(db, 'reviews'), where('targetId', '==', targetId));
         const snapshot = await getDocs(q);
-        return snapshot.docs.map(doc => doc.data());
+        // Reviews hidden by Haven moderation are not shown publicly.
+        return snapshot.docs.map(doc => doc.data()).filter(review => !review.hiddenByHaven);
       } catch (e) {
         return handleFirestoreError(e, 'GET_REVIEWS_BY_TARGET', `reviews?targetId=${targetId}`);
       }

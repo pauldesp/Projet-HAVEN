@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { createRecurringSeries } from './recurringSeriesServer';
 import { CLEANING_POLICY_VERSION } from './cleaningPolicy';
 import { localDateKey } from './stay';
+import { AUTO_CHARGE_CONSENT_VERSION } from './recurringInstallments';
 import type { Booking, BookingSeries } from '../types';
 
 /** Minimal in-memory Firestore: enough for transactions, documents and equality queries. */
@@ -75,7 +76,7 @@ const stays = () => [
 
 test('une série réserve et chiffre tous les séjours, puis s’active au paiement du premier', async () => {
   const { data, series } = setup();
-  const created = await series.create('tenant', { seriesId: 's1', listingId: 'l1', stays: stays() });
+  const created = await series.create('tenant', { seriesId: 's1', listingId: 'l1', stays: stays(), autoChargeConsentVersion: AUTO_CHARGE_CONSENT_VERSION });
   assert.equal(created.bookings.length, 3);
   assert.deepEqual(created.bookings.map(item => item.totalPrice), [30 * 5 + 15 + 23, 188, 188]);
   assert.equal(created.bookings[0].installmentDueDate, day(0));
@@ -97,7 +98,7 @@ test('une série réserve et chiffre tous les séjours, puis s’active au paiem
 
 test('le passage automatique prélève les échéances dues, et seulement elles', async () => {
   const { data, series, settled } = setup();
-  await series.create('tenant', { seriesId: 's1', listingId: 'l1', stays: stays() });
+  await series.create('tenant', { seriesId: 's1', listingId: 'l1', stays: stays(), autoChargeConsentVersion: AUTO_CHARGE_CONSENT_VERSION });
   data.set('bookings/b1', { ...data.get('bookings/b1'), status: 'CONFIRMED', paymentStatus: 'PAID' });
   await series.sweep();
   assert.deepEqual(settled, ['b2']);
@@ -107,16 +108,24 @@ test('le passage automatique prélève les échéances dues, et seulement elles'
 test('une date déjà prise refuse toute la série', async () => {
   const { data, series } = setup();
   data.set('booking_availability/x', { id: 'x', bookingId: 'x', listingId: 'l1', roomId: 'r1', startDate: day(21), endDate: day(23), status: 'CONFIRMED', updatedAt: '' });
-  await assert.rejects(series.create('tenant', { seriesId: 's1', listingId: 'l1', stays: stays() }), /séjour 2 vient d’être réservé/);
+  await assert.rejects(series.create('tenant', { seriesId: 's1', listingId: 'l1', stays: stays(), autoChargeConsentVersion: AUTO_CHARGE_CONSENT_VERSION }), /séjour 2 vient d’être réservé/);
   assert.equal(data.get('bookings/b1'), undefined, 'aucun séjour créé');
 });
 
 test('sans paiement du premier séjour, toute la série est libérée', async () => {
   const { data, series } = setup();
-  await series.create('tenant', { seriesId: 's1', listingId: 'l1', stays: stays() });
+  await series.create('tenant', { seriesId: 's1', listingId: 'l1', stays: stays(), autoChargeConsentVersion: AUTO_CHARGE_CONSENT_VERSION });
   data.set('bookings/b1', { ...data.get('bookings/b1'), status: 'CANCELLED' });
   await series.releaseInactive('s1');
   assert.equal(data.get('bookings/b3')!.status, 'CANCELLED');
   assert.equal(data.get('booking_availability/b3')!.status, 'CANCELLED');
   assert.equal((data.get('booking_series/s1') as BookingSeries).status, 'CANCELLED');
+});
+
+test('sans autorisation explicite du prélèvement automatique, la série est refusée', async () => {
+  const { data, series } = setup();
+  await assert.rejects(series.create('tenant', { seriesId: 's1', listingId: 'l1', stays: stays() }), /Autorisez le prélèvement automatique/);
+  assert.equal(data.get('booking_series/s1'), undefined);
+  await series.create('tenant', { seriesId: 's2', listingId: 'l1', stays: stays(), autoChargeConsentVersion: AUTO_CHARGE_CONSENT_VERSION });
+  assert.equal((data.get('booking_series/s2') as BookingSeries).autoChargeConsent?.version, AUTO_CHARGE_CONSENT_VERSION);
 });

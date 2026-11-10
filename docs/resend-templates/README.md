@@ -22,7 +22,7 @@ Ouvrir [01 · Réservation confirmée](https://resend.com/templates/b2c2500a-84a
 - `MENTION_TEST` sera vide pour un vrai séjour ; les simulations et les validations exceptionnelles doivent rester clairement identifiées comme tests.
 - Éviter des valeurs de secours fictives pour une adresse, un montant, une date ou des consignes : une donnée manquante doit être traitée par Haven avant l'envoi.
 
-## Les vingt modèles
+## Les vingt-deux modèles
 
 Les modèles 12 à 20 (récurrence et propriétaires) ont été créés et publiés par l’API le 10 novembre 2026, avec la même mise en page générée par `scripts/prepare-resend-templates.mjs`. Les propriétaires reçoivent le prénom et l’initiale du locataire, jamais son nom complet ni ses coordonnées.
 
@@ -48,6 +48,8 @@ Les modèles 12 à 20 (récurrence et propriétaires) ont été créés et publi
 | [18 · Propriétaire · Réservation annulée](https://resend.com/templates/8bb64cd4-8af1-4413-b740-bc5d00ce361a/editor) | Propriétaire · annulation par le locataire ou faute de paiement : motif, effet sur les versements |
 | [19 · Propriétaire · Nouveau signalement](https://resend.com/templates/b32e92b1-c4f7-4199-b2ad-84505132245f/editor) | Propriétaire · incident de séjour signalé par le locataire : titre, priorité, description |
 | [20 · Propriétaire · Virement effectué](https://resend.com/templates/e6792cb8-61ca-4c25-934a-baf87573952b/editor) | Propriétaire · virement Stripe confirmé comme versé : montant, date, référence |
+| [21 · Équipe Haven · Signalement à traiter](https://resend.com/templates/1af81e2c-0b6c-4054-8c21-3419d6e67f52/editor) | Équipe Haven · nouveau signalement d’annonce, problème de séjour transmis à Haven ou demande d’intervention ; adresse `HAVEN_TEAM_EMAIL` (sinon `EMAIL_REPLY_TO`, puis l’adresse de test Resend) |
+| [22 · Équipe Haven · Alerte technique](https://resend.com/templates/4e466da3-8f40-47fa-bfb9-7d36c7481284/editor) | Équipe Haven · une tâche automatique (prélèvements, mails, transferts, rapprochement Stripe…) a échoué 3 fois de suite |
 
 ## Raccordement actif
 

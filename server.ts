@@ -1,8 +1,13 @@
 import { createStripeConnect, ConnectError } from './services/stripeConnectServer';
 import { createRecurringSeries, SeriesError } from './services/recurringSeriesServer';
 import { isLaterSeriesStay } from './services/recurringInstallments';
+import { isTeamMailKind, teamAlertMailJob, teamMailDisposition, teamMailRecipient, teamNotificationEmail, teamReportMailJob, teamReportToAnnounce, type TeamMailData, type TeamMailJob } from './services/teamMail';
 import { isOwnerMailKind, ownerMailDisposition, ownerMailId, ownerMailJob, ownerNotificationEmail, type OwnerMailData, type OwnerMailJob } from './services/ownerMail';
 import { CONTENT_SECURITY_POLICY } from './services/contentSecurityPolicy';
+import { createSystemHealth } from './services/systemHealth';
+import { buildMemberFile } from './services/memberFile';
+import { AdminFinanceError, createAdminFinances } from './services/adminFinancesServer';
+import { createAdminModeration } from './services/adminModerationServer';
 import { CONNECT_POLICY_VERSION, DEPOSIT_POLICY } from './services/stripeConnect';
 import { normalizePlatformFeedback } from './services/platformFeedback';
 import { normalizeRoomGuide, normalizeRoomGuides } from './services/roomGuide';
@@ -11,7 +16,7 @@ import { normalizePracticalInfo, releasedStayGuide, formatStayGuide } from './se
 import { normalizeResidence, hasRequiredResidence, validResidenceDocument } from './services/residence';
 import { publicTenantProfile, validateCommunityProfile } from './services/publicProfile';
 import { nextAuthMailLimit, sendAuthActionMail, type AuthMailLimit } from './services/authMail';
-import { resendTemplatesEnabled, reservationResendTemplate, tenantResendTemplate, ownerResendTemplate, selectMailContent, type ResendTemplate, type AuthMailKind } from './services/resendTemplates';
+import { resendTemplatesEnabled, reservationResendTemplate, tenantResendTemplate, ownerResendTemplate, teamResendTemplate, selectMailContent, type ResendTemplate, type AuthMailKind } from './services/resendTemplates';
 import { accountDecisionMail, cancellationMail, reviewInvitationMail, isTenantMailKind, isSeriesMailKind, tenantMailDisposition, tenantNotificationEmail, type TenantMailJob, type SeriesMailContext } from './services/tenantMail';
 import { canSendReservationRecipient, initialReservationMailJobs, reservationMailJob, reservationMailDisposition, reservationLifecycleEmail, reservationEmailConfiguration, type ReservationMailJob } from './services/reservationMail';
 import { stayLocalDate } from './services/inventoryTiming';
@@ -26,7 +31,7 @@ import { countNights, isBookableStay } from './services/stay';
 import { getCancellationTerms } from './services/cancellationPolicy';
 import { isStayReviewWindowOpen } from './services/reviewPolicy';
 import { hasCompleteVerificationDetails, hasRequiredPhoneNumber, isVerificationReadyToSubmit } from './services/profileVerification';
-import type { Booking, BookingAvailability, BookingSeries, Incident, Listing, OwnerPayout, Room } from './types';
+import type { Booking, BookingAvailability, BookingSeries, Incident, Listing, OwnerPayout, Report, Room } from './types';
 import { isRoomAvailableForStay, publicAvailabilityItem } from './services/availability';
 import { requiredNightsForStay } from './services/gapStay';
 import { canConfirmEmailOwnership } from './services/emailOwnership';
@@ -190,14 +195,17 @@ async function createAutomaticReviewIfExpired(bookingRef: DocumentReference, now
 }
 
 async function finalizeExpiredStayReviews() {
-  const completed = await adminDb.collection('bookings').where('status', '==', 'COMPLETED').get();
-  for (const booking of completed.docs) {
-    try {
-      await createAutomaticReviewIfExpired(booking.ref);
-    } catch (error) {
-      console.error(`Could not finalize stay review ${booking.id}`, error);
+  try {
+    const completed = await adminDb.collection('bookings').where('status', '==', 'COMPLETED').get();
+    for (const booking of completed.docs) {
+      try {
+        await createAutomaticReviewIfExpired(booking.ref);
+      } catch (error) {
+        console.error(`Could not finalize stay review ${booking.id}`, error);
+      }
     }
-  }
+    await systemHealth.success('REVIEW_CLOSING');
+  } catch (error) { await systemHealth.failure('REVIEW_CLOSING', error); throw error; }
 }
 
 function safeReturnUrl(req: Request, pathValue: unknown) {
@@ -222,6 +230,12 @@ function getStripe(): Stripe {
 const connectConfiguration = () => getConnectConfiguration();
 
 const ownerConnect = createStripeConnect(adminDb, getStripe, connectConfiguration);
+
+/** Health of the background tasks, shown in the back office; 3 failures in a row alert the Haven team. */
+const systemHealth = createSystemHealth(adminDb, async health => {
+  const job = teamAlertMailJob(health);
+  await adminDb.collection('reservation_mail_outbox').doc(`${health.task}-${job.occurredAt.replace(/[^0-9]/g, '')}-HAVEN_ALERT`).set(job);
+});
 
 /** Same verification gate as a single booking. Reads only: call it before any transaction write. */
 async function assertTenantCanBook(transaction: FirebaseFirestore.Transaction, uid: string) {
@@ -256,6 +270,9 @@ const recurringSeries = createRecurringSeries({
   assertTenantCanBook,
   notifyMail: () => void deliverReservationMail(),
 });
+
+const adminModeration = createAdminModeration({ db: adminDb, notifyMail: () => void deliverReservationMail() });
+const adminFinances = createAdminFinances({ db: adminDb, stripe: getStripe, sweepInstallments: () => recurringSeries.sweep() });
 
 async function synchronizeCheckout(session: Stripe.Checkout.Session) {
   if (session.livemode === connectConfiguration().isTest) throw new Error('Stripe mode mismatch.');
@@ -307,7 +324,8 @@ async function reconcileStripe() {
       catch { console.error('Stripe checkout reconciliation requires a retry.'); }
     }
     await ownerConnect.reconcileAll();
-  } catch { console.error('Stripe reconciliation unavailable; retry scheduled.'); }
+    await systemHealth.success('STRIPE_RECONCILIATION');
+  } catch (error) { console.error('Stripe reconciliation unavailable; retry scheduled.'); await systemHealth.failure('STRIPE_RECONCILIATION', error); }
   finally { checkoutReconciliationRunning = false; }
 }
 
@@ -429,6 +447,42 @@ async function resolveOwnerMail(job: OwnerMailJob, startAt: string) {
     selectedTemplate: resendTemplatesEnabled(process.env) ? ownerResendTemplate(job, data, process.env.APP_ORIGIN) : undefined };
 }
 
+async function resolveTeamMail(job: TeamMailJob) {
+  const report = job.reportId ? (await adminDb.collection('reports').doc(job.reportId).get()).data() as Report | undefined : undefined;
+  const listingId = report?.listingId || (report?.targetType === 'LISTING' ? report.targetId : undefined);
+  const [reporter, listing] = await Promise.all([
+    report?.reporterId ? adminDb.collection('users').doc(report.reporterId).get() : undefined,
+    listingId ? adminDb.collection('listings').doc(listingId).get() : undefined,
+  ]);
+  const data: TeamMailData = { report, reporter: reporter?.data() as TeamMailData['reporter'], listingTitle: listing?.data()?.title };
+  const to = teamMailRecipient(process.env);
+  const disposition = teamMailDisposition(job, data, to);
+  if (disposition !== 'SEND') return { disposition };
+  return { disposition, to, mail: teamNotificationEmail(job, data, process.env.APP_ORIGIN),
+    selectedTemplate: resendTemplatesEnabled(process.env) ? teamResendTemplate(job, data, process.env.APP_ORIGIN) : undefined };
+}
+
+/** Queues one mail to the Haven team for each new report (listing, stay issue or escalation). */
+let teamAlertsRunning = false;
+async function queueTeamReportMails() {
+  if (teamAlertsRunning || !reservationEmailConfiguration(process.env).enabled) return;
+  teamAlertsRunning = true;
+  try {
+    const fresh = await adminDb.collection('reports').where('status', '==', 'NEW').get();
+    for (const item of fresh.docs.filter(doc => teamReportToAnnounce(doc.data() as Report))) {
+      await adminDb.runTransaction(async transaction => {
+        const current = (await transaction.get(item.ref)).data() as (Report & { teamMailQueuedAt?: string }) | undefined;
+        if (!current || !teamReportToAnnounce(current)) return;
+        const at = new Date().toISOString();
+        transaction.update(item.ref, { teamMailQueuedAt: at });
+        transaction.set(adminDb.collection('reservation_mail_outbox').doc(`${item.id}-HAVEN_REPORT`), teamReportMailJob({ ...current, id: item.id }, at));
+      });
+    }
+    await systemHealth.success('TEAM_ALERTS');
+  } catch (error) { console.error('Team report alerts unavailable; retry scheduled.'); await systemHealth.failure('TEAM_ALERTS', error); }
+  finally { teamAlertsRunning = false; }
+}
+
 // A durable outbox survives restarts. A transaction lease prevents concurrent workers
 // from dispatching the same message; the provider also receives a stable idempotency key.
 let mailSweepRunning = false;
@@ -437,7 +491,7 @@ async function deliverReservationMail() {
   const configuration = reservationEmailConfiguration(process.env);
   if (!configuration.enabled) return;
   const provider = getEmailProvider();
-  if ('error' in provider) return; // Keep messages queued until the sender is configured.
+  if ('error' in provider) { await systemHealth.failure('MAIL_DELIVERY', 'Fournisseur d’e-mails non configuré : les messages restent en attente.'); return; }
   mailSweepRunning = true;
   try {
     const due = await adminDb.collection('reservation_mail_outbox').where('nextAttemptAt', '<=', new Date().toISOString()).limit(25).get();
@@ -458,7 +512,13 @@ async function deliverReservationMail() {
         let recipient: string;
         let selectedTemplate: ResendTemplate | undefined;
         let receiptAttachment: ReservationConfirmation | undefined;
-        if (isOwnerMailKind(job.kind)) {
+        if (isTeamMailKind(job.kind)) {
+          const resolved = await resolveTeamMail(job as TeamMailJob);
+          if (resolved.disposition !== 'SEND') {
+            await item.ref.update({ status: resolved.disposition, nextAttemptAt: FieldValue.delete() }); continue;
+          }
+          mail = resolved.mail!; recipient = resolved.to!; selectedTemplate = resolved.selectedTemplate;
+        } else if (isOwnerMailKind(job.kind)) {
           const resolved = await resolveOwnerMail(job as OwnerMailJob, configuration.startAt);
           if (resolved.disposition !== 'SEND') {
             await item.ref.update({ status: resolved.disposition, nextAttemptAt: FieldValue.delete() }); continue;
@@ -529,7 +589,8 @@ async function deliverReservationMail() {
         await item.ref.update({ status: 'RETRY', attempts, lastError: error instanceof Error ? error.message : 'Envoi indisponible.', nextAttemptAt: new Date(Date.now() + Math.min(3600_000, 60_000 * 2 ** Math.min(attempts, 6))).toISOString() });
       }
     }
-  } catch (error) { console.error('Reservation mail outbox unavailable', error); }
+    await systemHealth.success('MAIL_DELIVERY');
+  } catch (error) { console.error('Reservation mail outbox unavailable', error); await systemHealth.failure('MAIL_DELIVERY', error); }
   finally { mailSweepRunning = false; }
 }
 
@@ -558,7 +619,8 @@ async function expireBookings() {
   try {
     const pending = await adminDb.collection('bookings').where('status', 'in', ['PENDING', 'APPROVED']).get();
     await Promise.all(pending.docs.filter(item => isBookingExpired(item.data() as Booking)).map(item => expireBooking(item.id)));
-  } catch (error) { console.error('Booking expiration unavailable', error); }
+    await systemHealth.success('BOOKING_EXPIRY');
+  } catch (error) { console.error('Booking expiration unavailable', error); await systemHealth.failure('BOOKING_EXPIRY', error); }
 }
 
 async function getHousematesForStay(listingId: string, stay: { viewerId: string; roomId: string; startDate: string; endDate: string }) {
@@ -601,6 +663,7 @@ async function startServer() {
       let event: Stripe.Event;
       try { event = getStripe().webhooks.constructEvent(req.body, req.headers['stripe-signature'] as string, secret); }
       catch { return sendApiError(res, 400, 'Signature Stripe invalide.'); }
+      void systemHealth.success('STRIPE_WEBHOOK');
       // A Connect endpoint can receive both test/live events. Never mix ledgers.
       if (event.livemode === connectConfiguration().isTest) return res.json({ received: true, ignored: true });
       try {
@@ -1142,6 +1205,124 @@ async function startServer() {
       return sendApiError(res, 500, 'Impossible d’enregistrer le suivi du signalement.');
     }
   });
+
+  // Money tools of the back office: overview, refunds, payout holds, transfers to review, installments.
+  const financeRoute = (handler: (admin: AdminActor, req: AuthenticatedRequest) => Promise<unknown>) => async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const admin = await requireAdmin(req, res);
+      if (!admin) return;
+      res.setHeader('Cache-Control', 'no-store');
+      return res.json(await handler(admin, req) ?? { success: true });
+    } catch (error) {
+      if (error instanceof AdminFinanceError) return sendApiError(res, error.status, error.message);
+      console.error('Admin finance action failed', error);
+      return sendApiError(res, 503, 'L’action n’a pas pu aboutir. Réessayez dans quelques instants.');
+    }
+  };
+  app.get('/api/admin/finances', sensitiveApiLimiter, requireAuth, financeRoute(() => adminFinances.overview()));
+  app.post('/api/admin/bookings/:bookingId/refund', sensitiveApiLimiter, requireAuth, financeRoute((admin, req) => adminFinances.refund(admin, String(req.params.bookingId), req.body?.amountCents, req.body?.reason)));
+  app.post('/api/admin/settlements/:bookingId/hold', sensitiveApiLimiter, requireAuth, financeRoute((admin, req) => adminFinances.hold(admin, String(req.params.bookingId), req.body?.hold, req.body?.reason)));
+  app.post('/api/admin/settlements/:bookingId/retry', sensitiveApiLimiter, requireAuth, financeRoute((admin, req) => adminFinances.retryTransfer(admin, String(req.params.bookingId))));
+  app.post('/api/admin/installments/:bookingId', sensitiveApiLimiter, requireAuth, financeRoute((admin, req) => adminFinances.installment(admin, String(req.params.bookingId), req.body?.action, req.body?.dueDate)));
+
+  // Monitoring: background tasks, mail queue (with recipients) and manual re-sending.
+  app.get('/api/admin/system', sensitiveApiLimiter, requireAuth, financeRoute(async () => {
+    const [health, outbox] = await Promise.all([adminDb.collection('system_health').get(), adminDb.collection('reservation_mail_outbox').get()]);
+    const jobs = outbox.docs.map(doc => ({ id: doc.id, ...doc.data() } as Record<string, any>))
+      .sort((a, b) => String(b.sentAt || b.nextAttemptAt || b.occurredAt || '').localeCompare(String(a.sentAt || a.nextAttemptAt || a.occurredAt || ''))).slice(0, 200);
+    const payloads = jobs.length ? await adminDb.getAll(...jobs.map(job => adminDb.collection('reservation_mail_payloads').doc(job.id))) : [];
+    const counts: Record<string, number> = {};
+    for (const doc of outbox.docs) counts[doc.data().status || 'INCONNU'] = (counts[doc.data().status || 'INCONNU'] || 0) + 1;
+    return {
+      tasks: health.docs.map(doc => doc.data()),
+      counts,
+      mails: jobs.map((job, index) => ({ id: job.id, kind: job.kind, status: job.status, attempts: job.attempts || 0, lastError: job.lastError || '', occurredAt: job.occurredAt || '',
+        nextAttemptAt: job.nextAttemptAt || '', sentAt: job.sentAt || '', to: payloads[index]?.data()?.to ? String(payloads[index].data()!.to) : '' })),
+      mailConfigured: !('error' in getEmailProvider()), emailFrom, teamRecipient: Boolean(teamMailRecipient(process.env)),
+    };
+  }));
+  app.post('/api/admin/mail-outbox/:jobId/retry', sensitiveApiLimiter, requireAuth, financeRoute(async (admin, req) => {
+    const id = String(req.params.jobId);
+    if (!/^[a-zA-Z0-9_.:-]{1,200}$/.test(id)) throw new AdminFinanceError('Message invalide.', 422);
+    const ref = adminDb.collection('reservation_mail_outbox').doc(id);
+    await adminDb.runTransaction(async transaction => {
+      const current = await transaction.get(ref);
+      if (!current.exists) throw new AdminFinanceError('Message introuvable.', 404);
+      if (current.data()?.status === 'SENT') throw new AdminFinanceError('Ce message est déjà envoyé.');
+      transaction.update(ref, { status: 'PENDING', attempts: 0, nextAttemptAt: new Date().toISOString(), firstSendAttemptAt: FieldValue.delete(), lastError: FieldValue.delete() });
+      const auditRef = adminDb.collection('admin_audit').doc();
+      transaction.create(auditRef, { id: auditRef.id, actorId: admin.uid, actorName: admin.name, action: 'MAIL_RETRIED', category: 'ADMINISTRATION', targetType: 'MAIL', targetId: id, summary: `Nouvel essai d’envoi du message ${current.data()?.kind}.`, createdAt: new Date().toISOString() });
+    });
+    void deliverReservationMail();
+  }));
+
+  // Member file: everything about one member in a single timeline, and internal notes of the team.
+  app.get('/api/admin/users/:userId/file', sensitiveApiLimiter, requireAuth, financeRoute(async (_admin, req) => {
+    const id = String(req.params.userId);
+    if (!/^[a-zA-Z0-9_-]{1,128}$/.test(id)) throw new AdminFinanceError('Membre invalide.', 422);
+    const by = (collection: string, field: string) => adminDb.collection(collection).where(field, '==', id).get().then(snap => snap.docs.map(doc => ({ ...doc.data(), id: doc.id }) as any));
+    const unique = <T extends { id: string }>(...lists: T[][]) => [...new Map(lists.flat().map(item => [item.id, item])).values()];
+    const [tb, ob, tp, op, payouts, rr, rt, ro, ir, io, ra, rtg, mails, audit, notes] = await Promise.all([
+      by('bookings', 'tenantId'), by('bookings', 'ownerId'), by('payments', 'tenantId'), by('payments', 'ownerId'), by('owner_payouts', 'ownerId'),
+      by('reports', 'reporterId'), by('reports', 'targetId'), by('reports', 'ownerId'), by('incidents', 'reporterId'), by('incidents', 'ownerId'),
+      by('reviews', 'authorId'), by('reviews', 'targetId'), by('reservation_mail_outbox', 'userId'), by('admin_audit', 'targetId'), by('admin_notes', 'userId'),
+    ]);
+    return buildMemberFile({ userId: id, bookings: unique(tb, ob), payments: unique(tp, op), payouts, reports: unique(rr, rt, ro), incidents: unique(ir, io), reviews: unique(ra, rtg), mails, audit, notes });
+  }));
+  app.post('/api/admin/users/:userId/notes', sensitiveApiLimiter, requireAuth, financeRoute(async (admin, req) => {
+    const id = String(req.params.userId);
+    const text = typeof req.body?.text === 'string' ? req.body.text.trim() : '';
+    if (!/^[a-zA-Z0-9_-]{1,128}$/.test(id)) throw new AdminFinanceError('Membre invalide.', 422);
+    if (text.length < 2 || text.length > 2000) throw new AdminFinanceError('La note doit faire entre 2 et 2000 caractères.', 422);
+    const ref = adminDb.collection('admin_notes').doc();
+    const note = { id: ref.id, userId: id, text, authorId: admin.uid, authorName: admin.name, createdAt: new Date().toISOString() };
+    await ref.create(note);
+    return note;
+  }));
+
+  // Moderation: suspend a listing, hide a review, move a stay.
+  app.post('/api/admin/listings/:listingId/suspend', sensitiveApiLimiter, requireAuth, financeRoute((admin, req) => adminModeration.suspendListing(admin, String(req.params.listingId), req.body?.suspend, req.body?.reason)));
+  app.post('/api/admin/reviews/:reviewId/hide', sensitiveApiLimiter, requireAuth, financeRoute((admin, req) => adminModeration.hideReview(admin, String(req.params.reviewId), req.body?.hide, req.body?.reason)));
+  app.post('/api/admin/bookings/:bookingId/move', sensitiveApiLimiter, requireAuth, financeRoute((admin, req) => adminModeration.moveBooking(admin, String(req.params.bookingId), req.body || {})));
+
+  // GDPR: export everything about a member, or erase and anonymise the account (accounting records are kept).
+  app.get('/api/admin/users/:userId/export', sensitiveApiLimiter, requireAuth, financeRoute(async (admin, req) => {
+    const id = String(req.params.userId);
+    if (!/^[a-zA-Z0-9_-]{1,128}$/.test(id)) throw new AdminFinanceError('Membre invalide.', 422);
+    const by = (collection: string, field: string, op: FirebaseFirestore.WhereFilterOp = '==') => adminDb.collection(collection).where(field, op, id).get().then(snap => snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    const [profile, tb, ob, tp, op, payouts, reports, incidents, reviews, messages, documents, inventoryT, inventoryO] = await Promise.all([
+      adminDb.collection('users').doc(id).get().then(doc => doc.data() || null),
+      by('bookings', 'tenantId'), by('bookings', 'ownerId'), by('payments', 'tenantId'), by('payments', 'ownerId'), by('owner_payouts', 'ownerId'),
+      by('reports', 'reporterId'), by('incidents', 'reporterId'), by('reviews', 'authorId'), by('messages', 'participants', 'array-contains'),
+      by('documents', 'userId'), by('inventory', 'tenantId'), by('inventory', 'ownerId'),
+    ]);
+    const auditRef = adminDb.collection('admin_audit').doc();
+    await auditRef.create({ id: auditRef.id, actorId: admin.uid, actorName: admin.name, action: 'MEMBER_DATA_EXPORTED', category: 'ACCOUNT', targetType: 'USER', targetId: id, summary: 'Export des données personnelles (RGPD).', createdAt: new Date().toISOString() });
+    return { exportedAt: new Date().toISOString(), profile, bookings: { asTenant: tb, asOwner: ob }, payments: [...tp, ...op], payouts, reports, incidents, reviews, messages, documents, inventory: [...inventoryT, ...inventoryO] };
+  }));
+  app.post('/api/admin/users/:userId/erase', sensitiveApiLimiter, requireAuth, financeRoute(async (admin, req) => {
+    const id = String(req.params.userId);
+    if (!/^[a-zA-Z0-9_-]{1,128}$/.test(id)) throw new AdminFinanceError('Membre invalide.', 422);
+    if (req.body?.confirm !== 'EFFACER') throw new AdminFinanceError('Tapez EFFACER pour confirmer.', 422);
+    if (id === admin.uid) throw new AdminFinanceError('Vous ne pouvez pas effacer votre propre compte.');
+    const userRef = adminDb.collection('users').doc(id);
+    const user = (await userRef.get()).data();
+    if (!user) throw new AdminFinanceError('Membre introuvable.', 404);
+    if (user.role === 'ADMIN') throw new AdminFinanceError('Retirez d’abord ce compte de l’équipe d’administration.');
+    const today = new Date().toISOString().slice(0, 10);
+    const active = (await Promise.all(['tenantId', 'ownerId'].map(field => adminDb.collection('bookings').where(field, '==', id).get())))
+      .flatMap(snap => snap.docs.map(doc => doc.data() as Booking))
+      .filter(booking => booking.endDate >= today && (booking.status === 'CONFIRMED' || (booking.status === 'PENDING' && booking.seriesScheduled)));
+    if (active.length) throw new AdminFinanceError(`Ce membre a ${active.length} séjour(s) à venir ou en cours : annulez-les ou attendez leur fin avant l’effacement.`);
+    const online = await adminDb.collection('listings').where('ownerId', '==', id).where('status', '==', 'APPROVED').get();
+    if (!online.empty) throw new AdminFinanceError('Ce membre a des annonces en ligne : suspendez-les avant l’effacement.');
+    const at = new Date().toISOString();
+    // Bookings, payments and invoices stay for accounting obligations; the person behind them is anonymised.
+    await userRef.set({ id, role: user.role, status: 'BANNED', firstName: 'Membre', lastName: 'supprimé', email: `supprime-${id}@haven.invalid`, avatarUrl: '', erasedAt: at, createdAt: user.createdAt || at });
+    await adminAuth.deleteUser(id).catch(error => { if ((error as { code?: string }).code !== 'auth/user-not-found') throw error; });
+    const auditRef = adminDb.collection('admin_audit').doc();
+    await auditRef.create({ id: auditRef.id, actorId: admin.uid, actorName: admin.name, action: 'MEMBER_ERASED', category: 'ACCOUNT', targetType: 'USER', targetId: id, summary: 'Compte effacé et anonymisé (RGPD) ; données comptables conservées.', createdAt: at });
+  }));
 
   app.post('/api/admin/listings/:listingId/review', sensitiveApiLimiter, requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
@@ -1700,7 +1881,10 @@ async function startServer() {
       const bookingSnap = await bookingRef.get();
       if (!bookingSnap.exists) return sendApiError(res, 404, "Réservation introuvable");
       const booking = bookingSnap.data()!;
-      const actor = booking.tenantId === req.user?.uid ? "TENANT" : booking.ownerId === req.user?.uid ? "OWNER" : null;
+      const participant = booking.tenantId === req.user?.uid ? "TENANT" : booking.ownerId === req.user?.uid ? "OWNER" : null;
+      // An administrator who is not part of the stay cancels on behalf of Haven (exceptional cases, full refund).
+      const admin = participant ? null : await getAdminActor(req);
+      const actor = participant || (admin ? "HAVEN" : null);
       if (!actor || (actor === "OWNER" && !isOwnerBookingVisible(booking as Booking))) return sendApiError(res, 403, "Accès refusé");
 
       const terms = getCancellationTerms(booking as Booking, actor);
@@ -1753,7 +1937,7 @@ async function startServer() {
         const job = cancellationMail({ ...booking, id: bookingId, status: 'CANCELLED', cancellation } as Booking);
         if (job) transaction.create(adminDb.collection('reservation_mail_outbox').doc(`${bookingId}-CANCELLED`), job);
         // The owner is told when the tenant cancels a stay that was reserved for him (paid, or scheduled in a series).
-        if (actor === 'TENANT' && (booking.paymentStatus === 'PAID' || booking.seriesScheduled === true)) {
+        if (actor !== 'OWNER' && (booking.paymentStatus === 'PAID' || booking.seriesScheduled === true)) {
           const ownerJob = ownerMailJob('OWNER_CANCELLED', booking.ownerId, cancelledAt, { bookingId });
           transaction.set(adminDb.collection('reservation_mail_outbox').doc(ownerMailId(ownerJob)), ownerJob);
         }
@@ -1788,7 +1972,12 @@ async function startServer() {
         const refundText = terms.refundAmount > 0
           ? ` Le remboursement prévu est de ${terms.refundAmount} € (${terms.refundPercent} %).`
           : " Aucun remboursement n’est prévu selon les conditions d’annulation.";
-        if (booking.paymentStatus === "PAID") transaction.set(adminDb.collection("messages").doc(messageId), {
+        if (admin) {
+          const auditRef = adminDb.collection('admin_audit').doc();
+          transaction.create(auditRef, { id: auditRef.id, actorId: admin.uid, actorName: admin.name, action: 'BOOKING_CANCELLED_BY_HAVEN', category: 'BOOKING', targetType: 'BOOKING', targetId: bookingId,
+            beforeStatus: booking.status, afterStatus: 'CANCELLED', summary: `Réservation annulée par Haven : ${reason}. Remboursement : ${terms.refundAmount} €.`, createdAt: cancelledAt });
+        }
+        if (booking.paymentStatus === "PAID" && actor !== "HAVEN") transaction.set(adminDb.collection("messages").doc(messageId), {
           id: messageId,
           senderId: req.user!.uid,
           receiverId,
@@ -2019,19 +2208,19 @@ async function startServer() {
   void reconcileStripe();
   const connectSweep = setInterval(() => void reconcileStripe(), 5 * 60_000);
   connectSweep.unref();
-  const arrivalSweep = setInterval(() => void ownerConnect.releaseArrivedBookings().catch(() => console.error('Arrival transfer retry unavailable.')), 30_000);
+  const arrivalSweep = setInterval(() => void systemHealth.track('OWNER_TRANSFERS', () => ownerConnect.releaseArrivedBookings()), 30_000);
   arrivalSweep.unref();
-  void deliverReservationMail();
-  const reservationMailSweep = setInterval(() => void deliverReservationMail(), 30_000);
+  void queueTeamReportMails().then(() => deliverReservationMail());
+  const reservationMailSweep = setInterval(() => void queueTeamReportMails().then(() => deliverReservationMail()), 30_000);
   reservationMailSweep.unref();
-  void recurringSeries.sweep();
-  const installmentSweep = setInterval(() => void recurringSeries.sweep(), 60_000);
+  void systemHealth.track('INSTALLMENTS', () => recurringSeries.sweep());
+  const installmentSweep = setInterval(() => void systemHealth.track('INSTALLMENTS', () => recurringSeries.sweep()), 60_000);
   installmentSweep.unref();
   void expireBookings();
   const bookingSweep = setInterval(() => void expireBookings(), 60_000);
   bookingSweep.unref();
-  void finalizeExpiredStayReviews();
-  const reviewSweep = setInterval(() => void finalizeExpiredStayReviews(), 60 * 60 * 1000);
+  void finalizeExpiredStayReviews().catch(() => undefined);
+  const reviewSweep = setInterval(() => void finalizeExpiredStayReviews().catch(() => undefined), 60 * 60 * 1000);
   reviewSweep.unref();
 
   // Vite middleware for development

@@ -119,6 +119,8 @@ export function createStripeConnect(db: Firestore, stripe: () => Stripe, configu
       for (const job of jobs.docs) {
         const saved = job.data();
         if (!['WAITING_ARRIVAL', 'WAITING_ACCOUNT', 'RETRY', 'CREATING'].includes(saved.state) || (saved.retryAt && Date.parse(saved.retryAt) > Date.now())) continue;
+        // Haven may hold a payout during a dispute; nothing is transferred until it is released.
+        if (saved.adminHold === true) continue;
         const bookingSnapshot = await db.collection('bookings').doc(job.id).get();
         if (!bookingSnapshot.exists) continue;
         const booking = { ...bookingSnapshot.data(), id: job.id } as Booking;
@@ -144,7 +146,9 @@ export function createStripeConnect(db: Firestore, stripe: () => Stripe, configu
           const ready = await syncAccount(booking.ownerId);
           if (ready.status !== 'READY' || !ready.bank) throw new ConnectError('Compte de versement à compléter.');
           const charge = await stripe().charges.retrieve(saved.chargeId);
-          if (!charge.paid || charge.refunded || charge.amount_refunded > 0 || charge.disputed || charge.livemode === configuration().isTest) {
+          // A goodwill refund decided by Haven is taken from Haven's commission: the owner's share stays due.
+          const havenRefunded = Number(saved.havenRefundedCents) || 0;
+          if (!charge.paid || charge.refunded || charge.amount_refunded > havenRefunded || charge.amount - charge.amount_refunded < saved.amountCents || charge.disputed || charge.livemode === configuration().isTest) {
             await finish({ state: 'REVIEW_REQUIRED', error: 'Paiement remboursé ou contesté.', leaseUntil: FieldValue.delete(), updatedAt: new Date().toISOString() }); continue;
           }
           const group = `haven_${job.id}`;

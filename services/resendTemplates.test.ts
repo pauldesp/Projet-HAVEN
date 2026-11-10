@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import type { Booking, BookingSeries, Incident } from '../types';
 import type { OwnerMailData, OwnerMailJob } from './ownerMail';
 import { createReservationConfirmation } from './reservationFulfillment';
-import { RESEND_TEMPLATE_IDS, authResendTemplate, ownerResendTemplate, mailDashboardLink, reservationResendTemplate, resendTemplatesEnabled, selectMailContent, tenantResendTemplate } from './resendTemplates';
+import { RESEND_TEMPLATE_IDS, authResendTemplate, ownerResendTemplate, teamResendTemplate, mailDashboardLink, reservationResendTemplate, resendTemplatesEnabled, selectMailContent, tenantResendTemplate } from './resendTemplates';
 import { nextAuthMailLimit, sendAuthActionMail } from './authMail';
 import type { TenantMailJob } from './tenantMail';
 
@@ -16,8 +16,8 @@ const receipt = createReservationConfirmation(booking, { address: 'Adresse ficti
 const profile = { firstName: '<Camille>', rejectionReason: '<script>correction</script>' };
 const manifest = JSON.parse(readFileSync(new URL('../docs/resend-templates/manifest.json', import.meta.url), 'utf8')) as { kind: keyof typeof RESEND_TEMPLATE_IDS; variables: {key: string}[] }[];
 
-test('all twenty providers receive exactly the variables defined in the editable templates', () => {
-  assert.equal(manifest.length, 20);
+test('all twenty-two providers receive exactly the variables defined in the editable templates', () => {
+  assert.equal(manifest.length, 22);
   const later = { ...booking, id: 'b2', seriesId: 's1', seriesIndex: 1, seriesCount: 2, status: 'PENDING', paymentStatus: 'PENDING', installmentDueDate: '2026-12-10', seriesActivatedAt: at, seriesScheduled: true, installmentAttempts: 1, installmentLastError: 'Carte refusée', cancellation: undefined, unpaidCancelledAt: at } as Booking;
   const series = { id: 's1', status: 'ACTIVE', paymentProvider: 'STRIPE', cardBrand: 'visa', cardLast4: '4242', bookingIds: ['demo', 'b2'] } as BookingSeries;
   const ownerData: OwnerMailData = { owner: { firstName: 'Paul', email: 'owner@example.test' }, tenant: { firstName: 'Camille', lastName: 'Dupont' }, booking: { ...booking, seriesId: 's1', seriesIndex: 0, paymentStatus: 'PAID', status: 'CONFIRMED' } as Booking, stays: [{ ...booking, seriesIndex: 0, paymentStatus: 'PAID' } as Booking, later],
@@ -25,7 +25,10 @@ test('all twenty providers receive exactly the variables defined in the editable
     payout: { id: 'p1', ownerId: 'owner', amountCents: 32000, currency: 'EUR', provider: 'STRIPE', isTest: true, status: 'PAID', createdAt: at, paidAt: at, providerPayoutId: 'po_1' } };
   for (const model of manifest) {
     let content;
-    if (model.kind.startsWith('OWNER_')) content = ownerResendTemplate({ kind: model.kind, userId: 'owner', occurredAt: at, seriesId: 's1' } as OwnerMailJob, ownerData, origin);
+    if (model.kind === 'HAVEN_ALERT') content = teamResendTemplate({ kind: 'HAVEN_ALERT', task: 'MAIL_DELIVERY', message: 'Resend indisponible', failures: 3, occurredAt: at, status: 'PENDING', attempts: 0, nextAttemptAt: at }, {}, origin);
+    else if (model.kind === 'HAVEN_REPORT') content = teamResendTemplate({ kind: 'HAVEN_REPORT', reportId: 'r1', occurredAt: at, status: 'PENDING', attempts: 0, nextAttemptAt: at },
+      { report: { id: 'r1', reporterId: 'tenant', targetId: 'listing', targetType: 'LISTING', reason: 'FRAUD', description: 'Photos volées', status: 'NEW', timestamp: at }, reporter: { firstName: 'Camille', lastName: 'Dupont' }, listingTitle: 'Coloc Martin' }, origin);
+    else if (model.kind.startsWith('OWNER_')) content = ownerResendTemplate({ kind: model.kind, userId: 'owner', occurredAt: at, seriesId: 's1' } as OwnerMailJob, ownerData, origin);
     else if (['SERIES_CONFIRMED', 'INSTALLMENT_UPCOMING', 'INSTALLMENT_FAILED', 'INSTALLMENT_UNPAID'].includes(model.kind)) content = tenantResendTemplate({ kind: model.kind, userId: 'tenant', occurredAt: at } as TenantMailJob, profile, later, undefined, origin, { series, stays: [booking, later] })!;
     else if (['EMAIL_VERIFICATION', 'PASSWORD_RESET'].includes(model.kind)) content = authResendTemplate(model.kind as 'EMAIL_VERIFICATION' | 'PASSWORD_RESET', '<Camille>', `https://${authDomain}/__/auth/action?mode=${model.kind === 'EMAIL_VERIFICATION' ? 'verifyEmail' : 'resetPassword'}&oobCode=FICTIF`, authDomain);
     else if (['ACCOUNT_APPROVED', 'ACCOUNT_CORRECTION', 'CANCELLED', 'REVIEW_INVITE'].includes(model.kind)) content = tenantResendTemplate({kind:model.kind, userId:'tenant', occurredAt:at} as TenantMailJob, profile, booking, undefined, origin)!;
@@ -34,7 +37,7 @@ test('all twenty providers receive exactly the variables defined in the editable
     assert.deepEqual(Object.keys(content.template.variables).sort(), model.variables.map(v => v.key).sort(), model.kind);
     assert.doesNotMatch(JSON.stringify(content), /<script>|<Camille>|<Maison>/);
     // Every value of the new models is filled, except the optional test mention and retry notice.
-    if (model.kind.startsWith('OWNER_') || model.kind.startsWith('INSTALLMENT_') || model.kind === 'SERIES_CONFIRMED') {
+    if (model.kind.startsWith('HAVEN_') || model.kind.startsWith('OWNER_') || model.kind.startsWith('INSTALLMENT_') || model.kind === 'SERIES_CONFIRMED') {
       const empty = Object.entries(content.template.variables).filter(([key, value]) => !value && !['MENTION_TEST', 'INFORMATION_RELANCE'].includes(key)).map(([key]) => key);
       assert.deepEqual(empty, [], model.kind);
     }

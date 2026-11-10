@@ -9,6 +9,12 @@ import { isVerificationPending, isVerificationReadyForAdminReview } from '../ser
 import { AdminAuditJournal } from '../components/AdminAuditJournal';
 import { ReportOwnerWaitDialog } from '../components/ReportOwnerWaitDialog';
 import { IncidentMonitor } from '../components/IncidentMonitor';
+import { AdminBookings } from '../components/AdminBookings';
+import { AdminFinances } from '../components/AdminFinances';
+import { AdminMonitoring } from '../components/AdminMonitoring';
+import { AdminMemberFile } from '../components/AdminMemberFile';
+import { AdminModeration } from '../components/AdminModeration';
+import { AdminKpis } from '../components/AdminKpis';
 import { AdminListingReview } from '../components/AdminListingReview';
 import { Logo } from '../components/Logo';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
@@ -26,7 +32,7 @@ export const AdminDashboard: React.FC = () => {
   const { currentUser, isLoading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [activeTab, setActiveTab] = useState<'LISTINGS' | 'USERS' | 'OVERVIEW' | 'STAFF' | 'CONTACTS' | 'REPORTS' | 'LEGAL' | 'INCIDENTS' | 'AUDIT' | 'PLATFORM_FEEDBACK'>('LISTINGS');
+  const [activeTab, setActiveTab] = useState<'LISTINGS' | 'USERS' | 'BOOKINGS' | 'FINANCES' | 'MONITORING' | 'MODERATION' | 'OVERVIEW' | 'STAFF' | 'CONTACTS' | 'REPORTS' | 'LEGAL' | 'INCIDENTS' | 'AUDIT' | 'PLATFORM_FEEDBACK'>('LISTINGS');
   const { listings, refreshListings, isLoading: listingsLoading } = useListings();
   const [exceptionTarget, setExceptionTarget] = useState<{ type: 'USER' | 'LISTING'; id: string; label: string; revoke: boolean } | null>(null);
   const [listingReview, setListingReview] = useState<Listing | null>(null);
@@ -657,6 +663,10 @@ export const AdminDashboard: React.FC = () => {
            {[
              { id: 'LISTINGS', label: 'Annonces', icon: CheckCircle, count: pendingListings.length },
              { id: 'USERS', label: 'Utilisateurs', icon: Users, count: pendingUsers.length },
+             { id: 'BOOKINGS', label: 'Réservations', icon: Calendar },
+             { id: 'FINANCES', label: 'Finances', icon: TrendingUp },
+             { id: 'MONITORING', label: 'Surveillance', icon: AlertCircle },
+             { id: 'MODERATION', label: 'Modération', icon: Shield },
              { id: 'INCIDENTS', label: 'Incidents', icon: AlertTriangle },
              { id: 'REPORTS', label: 'Signalements', icon: Flag, count: reports.filter(r => r.status === 'NEW').length },
              { id: 'CONTACTS', label: 'Contacts', icon: Mail, count: pendingContacts.length },
@@ -1282,6 +1292,30 @@ export const AdminDashboard: React.FC = () => {
             </div>
           )}
 
+          {activeTab === 'BOOKINGS' && (
+            <div className="rounded-3xl border border-gray-100 bg-white p-6 shadow-card sm:p-8">
+              <AdminBookings bookings={bookings} listings={listings} users={users} />
+            </div>
+          )}
+
+          {activeTab === 'FINANCES' && (
+            <div className="rounded-3xl border border-gray-100 bg-white p-6 shadow-card sm:p-8">
+              <AdminFinances bookings={bookings} listings={listings} users={users} />
+            </div>
+          )}
+
+          {activeTab === 'MONITORING' && (
+            <div className="rounded-3xl border border-gray-100 bg-white p-6 shadow-card sm:p-8">
+              <AdminMonitoring />
+            </div>
+          )}
+
+          {activeTab === 'MODERATION' && (
+            <div className="rounded-3xl border border-gray-100 bg-white p-6 shadow-card sm:p-8">
+              <AdminModeration listings={listings} users={users} />
+            </div>
+          )}
+
           {activeTab === 'INCIDENTS' && (
             <div className="rounded-3xl border border-gray-100 bg-white p-6 shadow-card sm:p-8">
               <IncidentMonitor incidents={incidents} listings={listings} users={users} />
@@ -1515,6 +1549,7 @@ export const AdminDashboard: React.FC = () => {
             </div>
           )}
 
+          {activeTab === 'OVERVIEW' && <AdminKpis bookings={bookings} listings={listings} />}
           {activeTab === 'OVERVIEW' && (() => {
             // Stats Calculations
             const nonCancelledBookings = bookings.filter(b => b.status !== 'CANCELLED');
@@ -2160,6 +2195,7 @@ export const AdminDashboard: React.FC = () => {
                       )}
                     </div>
                   )}
+                  <AdminMemberFile userId={userDetailModal.user.id} />
                 </div>
               ) : (
                 <div className="text-center py-20 text-gray-400 italic">

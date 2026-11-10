@@ -4,7 +4,7 @@ import { isRoomAvailableForStay } from '../services/availability';
 import { countNights, isBookableStay, localDateKey } from '../services/stay';
 import { createRandomId } from '../services/randomId';
 import { isRoomBookableForStay } from '../services/gapStay';
-import { installmentDueDates } from '../services/recurringInstallments';
+import { AUTO_CHARGE_CONSENT_TEXT, AUTO_CHARGE_CONSENT_VERSION, installmentDueDates } from '../services/recurringInstallments';
 
 import React, { useState, useRef, useEffect } from 'react';
 import { Room, Listing, Booking, LegalDocument } from '../types';
@@ -69,6 +69,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose, lis
   };
   const [step, setStep] = useState(1);
   const [cleaningAccepted, setCleaningAccepted] = useState(false);
+  const [autoChargeAccepted, setAutoChargeAccepted] = useState(false);
   const [isSigned, setIsSigned] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -86,6 +87,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose, lis
     if (!isOpen) return;
     setStep(1);
     setCleaningAccepted(false);
+    setAutoChargeAccepted(false);
     setIsSigned(false);
     setError(null);
     document.body.style.overflow = 'hidden';
@@ -173,10 +175,11 @@ export const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose, lis
       return;
     }
     if (isSeries) {
+      if (!autoChargeAccepted) { setError('Autorisez le prélèvement automatique des séjours suivants avant de continuer.'); return; }
       setIsProcessing(true); setError(null);
       try {
         const result = await apiService.bookings.createSeries({
-          seriesId: `s-${createRandomId()}`, listingId: listing.id, cleaningPolicyVersion: CLEANING_POLICY_VERSION,
+          seriesId: `s-${createRandomId()}`, listingId: listing.id, cleaningPolicyVersion: CLEANING_POLICY_VERSION, autoChargeConsentVersion: AUTO_CHARGE_CONSENT_VERSION,
           stays: stays.map(stay => ({ id: `b-${createRandomId()}`, roomId: stay.room.id, startDate: stay.startDate, endDate: stay.endDate })),
         });
         const first = [...result.bookings].sort((a, b) => a.startDate.localeCompare(b.startDate))[0];
@@ -386,7 +389,8 @@ export const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose, lis
 
                 <CleaningPolicyNotice />
                 <label className="flex items-start gap-3 rounded-xl border border-gray-200 p-4 text-sm leading-relaxed text-gray-700"><input type="checkbox" checked={cleaningAccepted} onChange={event => setCleaningAccepted(event.target.checked)} className="mt-1" />Je comprends que le forfait finance le ménage hebdomadaire organisé par le propriétaire et que je dois nettoyer et ranger avant mon départ.</label>
-                <Button fullWidth size="lg" disabled={!cleaningAccepted || !isSigned || isProcessing || checkingAvailability || !roomAvailable} onClick={handlePayment} className="py-4 shadow-xl shadow-haven-red/10">
+                {isSeries && <label className="flex items-start gap-3 rounded-xl border border-gray-200 p-4 text-sm leading-relaxed text-gray-700"><input type="checkbox" checked={autoChargeAccepted} onChange={event => setAutoChargeAccepted(event.target.checked)} className="mt-1" />{AUTO_CHARGE_CONSENT_TEXT}</label>}
+                <Button fullWidth size="lg" disabled={!cleaningAccepted || (isSeries && !autoChargeAccepted) || !isSigned || isProcessing || checkingAvailability || !roomAvailable} onClick={handlePayment} className="py-4 shadow-xl shadow-haven-red/10">
                   {isProcessing ? 'Ouverture du paiement…' : isSeries ? `Réserver mes ${stays.length} séjours · ${money(firstAmount)} maintenant` : `Continuer vers le paiement · ${total} €`}
                 </Button>
                 <p className="text-xs text-center text-gray-500">{isSeries ? 'Vos séjours seront confirmés après le paiement du premier. Sans paiement, toutes les dates sont libérées.' : 'Votre réservation sera confirmée après le paiement.'}</p>
