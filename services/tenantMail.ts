@@ -78,7 +78,8 @@ export function tenantNotificationEmail(job: TenantMailJob, profile: TenantMailP
     const cancellation = booking.cancellation;
     subject = `Réservation annulée — ${title}`;
     const amount = cancellation.refundAmount.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' });
-    const refund = cancellation.refundStatus === 'SIMULATED' ? `Remboursement simulé : ${amount}. Aucun remboursement bancaire réel n’a été effectué.`
+    const refund = booking.paymentStatus !== 'PAID' && booking.seriesScheduled ? 'Ce séjour n’avait pas encore été prélevé : aucun montant ne vous a été débité.'
+      : cancellation.refundStatus === 'SIMULATED' ? `Remboursement simulé : ${amount}. Aucun remboursement bancaire réel n’a été effectué.`
       : cancellation.refundAmount > 0 ? `Remboursement enregistré : ${amount}. Le délai d’apparition sur votre compte dépend du prestataire de paiement et de votre banque.`
       : 'Aucun remboursement n’est enregistré pour cette annulation.';
     body = `Votre réservation a été annulée${cancellation.cancelledBy === 'OWNER' ? ' par le propriétaire' : ' à votre demande'}.\n\n${title}${booking.roomName ? ` — ${booking.roomName}` : ''}\nDu ${date(booking.startDate)} au ${date(booking.endDate)}.\nMotif : ${cancellation.reason}\n\n${refund}\n\nRetrouvez le récapitulatif dans votre espace personnel.\nRéférence : ${booking.id}`;
@@ -117,4 +118,32 @@ export function seriesMailContent(job: TenantMailJob, booking: Booking, title: s
     return { subject: `Action requise : le paiement de votre séjour n’a pas abouti — ${title}`, body: `Le prélèvement de ${euros(booking.totalPrice)} pour votre ${position} n’a pas abouti.${booking.installmentLastError ? `\nMotif : ${booking.installmentLastError}` : ''}\n\n${stayLine}\n\nPayez ce séjour avant le ${deadlineText(deadline)} depuis votre espace locataire. ${retry < deadline ? `Une nouvelle tentative automatique aura lieu le ${deadlineText(retry)}. ` : ''}Sans paiement à cette date, ce séjour sera annulé et ses dates libérées. Vos autres séjours ne sont pas concernés.\nRéférence : ${booking.id}` };
   }
   return { subject: `Séjour annulé faute de paiement — ${title}`, body: `Le paiement de votre ${position} n’a pas pu être réalisé dans le délai prévu. Ce séjour est annulé et ses dates ont été libérées. Aucun montant n’a été prélevé pour ce séjour.\n\n${stayLine}\n\nVos autres séjours de la série sont maintenus. Pour réserver à nouveau ces dates, lancez une nouvelle recherche.\nRéférence : ${booking.id}` };
+}
+
+/** Variables of the recurring models in Resend (12 to 15), aligned with seriesMailContent. */
+export function seriesMailValues(job: TenantMailJob, booking: Booking, title: string, context?: SeriesMailContext): Record<string, string> {
+  const position = `séjour ${(booking.seriesIndex ?? 0) + 1}${booking.seriesCount ? ` sur ${booking.seriesCount}` : ''}`;
+  const card = context?.series.cardLast4 ? `votre carte ${context.series.cardBrand ? `${context.series.cardBrand.toUpperCase()} ` : ''}se terminant par ${context.series.cardLast4}` : 'la carte utilisée pour votre premier séjour';
+  const simulated = context?.series.paymentProvider === 'SIMULATION' || booking.paymentProvider === 'SIMULATION';
+  const due = longDate(booking.installmentDueDate || booking.startDate);
+  const values: Record<string, string> = { LOGEMENT: title, CHAMBRE: booking.roomName || 'Votre logement', DATE_ARRIVEE: longDate(booking.startDate), DATE_DEPART: longDate(booking.endDate), MONTANT_TOTAL: euros(booking.totalPrice), POSITION_SEJOUR: position };
+  if (job.kind === 'SERIES_CONFIRMED') {
+    const stays = [...(context?.stays || [booking])].filter(stay => stay.status !== 'CANCELLED').sort((a, b) => a.startDate.localeCompare(b.startDate));
+    Object.assign(values, {
+      NOMBRE_SEJOURS: String(stays.length),
+      ECHEANCIER: stays.map(stay => `• Séjour ${(stay.seriesIndex ?? 0) + 1} · du ${longDate(stay.startDate)} au ${longDate(stay.endDate)} · ${euros(stay.totalPrice)} · ${stay.paymentStatus === 'PAID' ? 'payé' : `prélevé le ${longDate(stay.installmentDueDate || stay.startDate)}`}`).join('\n'),
+      MONTANT_TOTAL: euros(stays.reduce((sum, stay) => sum + stay.totalPrice, 0)),
+      INFORMATION_PRELEVEMENT: simulated ? 'Mode test : les séjours suivants seront simulés automatiquement, sans débit réel.' : `Les séjours suivants seront prélevés automatiquement sur ${card}, un mois avant chaque arrivée.`,
+    });
+  }
+  if (job.kind === 'INSTALLMENT_UPCOMING') Object.assign(values, {
+    DATE_PRELEVEMENT: due,
+    INFORMATION_PRELEVEMENT: simulated ? `Le ${due}, un paiement simulé de ${euros(booking.totalPrice)} sera enregistré pour votre ${position}.` : `Le ${due}, nous prélèverons ${euros(booking.totalPrice)} sur ${card} pour votre ${position}.`,
+  });
+  if (job.kind === 'INSTALLMENT_FAILED') {
+    const deadline = installmentDeadline(booking);
+    const retry = Date.parse(nextInstallmentAttempt(new Date(job.occurredAt)));
+    Object.assign(values, { MOTIF_ECHEC: booking.installmentLastError || 'Le prélèvement n’a pas abouti.', DATE_LIMITE: deadlineText(deadline), INFORMATION_RELANCE: retry < deadline ? `Une nouvelle tentative automatique aura lieu le ${deadlineText(retry)}.` : '' });
+  }
+  return values;
 }

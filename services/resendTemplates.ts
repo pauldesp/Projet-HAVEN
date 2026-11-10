@@ -1,6 +1,7 @@
 import type { Booking } from '../types';
 import type { ReservationMailKind } from './reservationMail';
-import { isSeriesMailKind, type TenantMailJob, type TenantMailProfile } from './tenantMail';
+import { isSeriesMailKind, seriesMailValues, type SeriesMailContext, type TenantMailJob, type TenantMailProfile } from './tenantMail';
+import { ownerMailValues, type OwnerMailData, type OwnerMailJob } from './ownerMail';
 import { escapeEmailHtml, type ReservationConfirmation } from './reservationFulfillment';
 
 // IDs verified in the Haven Resend account. Content and subject live in Resend.
@@ -16,6 +17,15 @@ export const RESEND_TEMPLATE_IDS = {
   REVIEW_INVITE: '6cdab46e-ebc3-437d-abec-596924d199f9',
   EMAIL_VERIFICATION: 'e0d3f410-4d3f-4d2d-8201-7a91dd1ee2e6',
   PASSWORD_RESET: 'e06fedbf-75ee-4eff-a6e8-013d244d01ac',
+  SERIES_CONFIRMED: '4589d0b5-3de4-488c-b3f4-b639fc19bc35',
+  INSTALLMENT_UPCOMING: '100847d3-464e-49d8-90f4-c6b93e8f30da',
+  INSTALLMENT_FAILED: '5c5329d4-b4c6-482c-8e34-0dd68f9a6a17',
+  INSTALLMENT_UNPAID: 'b0a0616b-4a7d-4cd1-90ff-3240423eb0b1',
+  OWNER_BOOKING: '8eb6c1d2-a63d-4f58-9734-c426221ba28c',
+  OWNER_SERIES: '3fc81475-7766-4ff1-bda6-1ba83196e382',
+  OWNER_CANCELLED: '8bb64cd4-8af1-4413-b740-bc5d00ce361a',
+  OWNER_INCIDENT: 'b32e92b1-c4f7-4199-b2ad-84505132245f',
+  OWNER_PAYOUT: 'e6792cb8-61ca-4c25-934a-baf87573952b',
 } as const;
 export type HavenMailKind = keyof typeof RESEND_TEMPLATE_IDS;
 export type AuthMailKind = 'EMAIL_VERIFICATION' | 'PASSWORD_RESET';
@@ -32,7 +42,21 @@ export function mailDashboardLink(origin?: string, route = '/dashboard') {
   if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password) throw new Error('URL Haven invalide pour les e-mails.');
   return `${url.origin}/#${route}`;
 }
+/** Variables declared by the models created on 10 November 2026; anything else is not sent. */
+const TEMPLATE_KEYS: Partial<Record<HavenMailKind, string[]>> = {
+  SERIES_CONFIRMED: ["ECHEANCIER", "INFORMATION_PRELEVEMENT", "LIEN_ACTION", "LOGEMENT", "MENTION_TEST", "MONTANT_TOTAL", "NOMBRE_SEJOURS", "PRENOM_LOCATAIRE", "REFERENCE_DOSSIER"],
+  INSTALLMENT_UPCOMING: ["CHAMBRE", "DATE_ARRIVEE", "DATE_DEPART", "DATE_PRELEVEMENT", "INFORMATION_PRELEVEMENT", "LIEN_ACTION", "LOGEMENT", "MENTION_TEST", "MONTANT_TOTAL", "PRENOM_LOCATAIRE", "REFERENCE_DOSSIER"],
+  INSTALLMENT_FAILED: ["CHAMBRE", "DATE_ARRIVEE", "DATE_DEPART", "DATE_LIMITE", "INFORMATION_RELANCE", "LIEN_ACTION", "LOGEMENT", "MENTION_TEST", "MONTANT_TOTAL", "MOTIF_ECHEC", "POSITION_SEJOUR", "PRENOM_LOCATAIRE", "REFERENCE_DOSSIER"],
+  INSTALLMENT_UNPAID: ["CHAMBRE", "DATE_ARRIVEE", "DATE_DEPART", "LIEN_ACTION", "LOGEMENT", "MENTION_TEST", "POSITION_SEJOUR", "PRENOM_LOCATAIRE", "REFERENCE_DOSSIER"],
+  OWNER_BOOKING: ["CHAMBRE", "DATE_ARRIVEE", "DATE_DEPART", "HEURE_ARRIVEE", "HEURE_DEPART", "LIEN_ACTION", "LOCATAIRE", "LOGEMENT", "MENTION_TEST", "MONTANT_PROPRIETAIRE", "PRENOM_PROPRIETAIRE", "REFERENCE_DOSSIER"],
+  OWNER_SERIES: ["ECHEANCIER", "LIEN_ACTION", "LOCATAIRE", "LOGEMENT", "MENTION_TEST", "MONTANT_PROPRIETAIRE", "NOMBRE_SEJOURS", "PRENOM_PROPRIETAIRE", "REFERENCE_DOSSIER"],
+  OWNER_CANCELLED: ["CHAMBRE", "DATE_ACTION", "DATE_ARRIVEE", "DATE_DEPART", "INFORMATION_VERSEMENT", "INITIATIVE_ANNULATION", "LIEN_ACTION", "LOCATAIRE", "LOGEMENT", "MENTION_TEST", "MOTIF_ANNULATION", "PRENOM_PROPRIETAIRE", "REFERENCE_DOSSIER"],
+  OWNER_INCIDENT: ["CHAMBRE", "DATE_ACTION", "DATE_ARRIVEE", "DATE_DEPART", "DESCRIPTION_SIGNALEMENT", "LIEN_ACTION", "LOCATAIRE", "LOGEMENT", "MENTION_TEST", "PRENOM_PROPRIETAIRE", "PRIORITE", "REFERENCE_DOSSIER", "TITRE_SIGNALEMENT"],
+  OWNER_PAYOUT: ["DATE_ACTION", "LIEN_ACTION", "MENTION_TEST", "MONTANT_VIREMENT", "PRENOM_PROPRIETAIRE", "REFERENCE_DOSSIER", "REFERENCE_VIREMENT"],
+};
 function template(kind: HavenMailKind, values: Record<string, string>): ResendTemplate {
+  const keys = TEMPLATE_KEYS[kind];
+  if (keys) values = Object.fromEntries(keys.map(key => [key, values[key] ?? '']));
   // All dynamic values are text, never raw HTML. Escape even with triple-brace templates.
   return { template: { id: RESEND_TEMPLATE_IDS[kind], variables: Object.fromEntries(Object.entries(values).map(([key, value]) => [key, escapeEmailHtml(value)])) } };
 }
@@ -61,9 +85,15 @@ export function reservationResendTemplate(kind: ReservationMailKind, data: Reser
   }
   return template(kind, values);
 }
-export function tenantResendTemplate(job: TenantMailJob, profile: TenantMailProfile, booking?: Booking, listingTitle?: string, appOrigin?: string): ResendTemplate | undefined {
-  // Recurring mails have no Resend template yet: they use the Haven layout built in code.
-  if (isSeriesMailKind(job.kind)) return undefined;
+export function tenantResendTemplate(job: TenantMailJob, profile: TenantMailProfile, booking?: Booking, listingTitle?: string, appOrigin?: string, context?: SeriesMailContext): ResendTemplate | undefined {
+  if (isSeriesMailKind(job.kind)) {
+    if (!booking) throw new Error('Réservation manquante pour l’e-mail.');
+    const test = Boolean(booking.paymentIsTest || booking.paymentProvider === 'SIMULATION' || context?.series.paymentProvider === 'SIMULATION');
+    const route = job.kind === 'INSTALLMENT_FAILED' ? `/payment/${encodeURIComponent(booking.id)}` : '/dashboard';
+    const reference = job.kind === 'SERIES_CONFIRMED' ? `Série · ${booking.seriesId}` : `Réservation · ${booking.id}`;
+    return template(job.kind, { ...common(profile.firstName || 'à vous', reference, mailDashboardLink(appOrigin, route), test),
+      ...seriesMailValues(job, booking, booking.listingTitle || listingTitle || 'Votre séjour Haven', context) });
+  }
   const test = Boolean(job.exceptional || booking?.paymentIsTest || booking?.paymentProvider === 'SIMULATION');
   const values: Record<string, string> = common(profile.firstName || 'à vous', job.kind.startsWith('ACCOUNT_') ? 'Votre compte Haven' : `Réservation · ${booking?.id}`, mailDashboardLink(appOrigin, job.kind === 'ACCOUNT_APPROVED' ? '/search' : '/dashboard'), test);
   if (job.kind === 'ACCOUNT_APPROVED') values.MESSAGE_VALIDATION = job.exceptional
@@ -77,7 +107,9 @@ export function tenantResendTemplate(job: TenantMailJob, profile: TenantMailProf
       const cancellation = booking.cancellation;
       if (!cancellation) throw new Error('Annulation manquante pour l’e-mail.');
       Object.assign(values, { DATE_ACTION: instant(cancellation.cancelledAt, booking.timeZone), INITIATIVE_ANNULATION: cancellation.cancelledBy === 'OWNER' ? 'à l’initiative du propriétaire' : 'à votre demande', MOTIF_ANNULATION: cancellation.reason,
-        INFORMATION_REMBOURSEMENT: cancellation.refundStatus === 'SIMULATED' ? `Remboursement simulé : ${money(cancellation.refundAmount)}. Aucun remboursement bancaire réel n’a été effectué.`
+        // A reserved later stay of a series may be cancelled before it was charged: nothing to refund.
+        INFORMATION_REMBOURSEMENT: booking.paymentStatus !== 'PAID' && booking.seriesScheduled ? 'Ce séjour n’avait pas encore été prélevé : aucun montant ne vous a été débité.'
+          : cancellation.refundStatus === 'SIMULATED' ? `Remboursement simulé : ${money(cancellation.refundAmount)}. Aucun remboursement bancaire réel n’a été effectué.`
           : cancellation.refundAmount > 0 ? `Remboursement enregistré : ${money(cancellation.refundAmount)}. Le délai d’apparition sur votre compte dépend du prestataire de paiement et de votre banque.` : 'Aucun remboursement n’est enregistré pour cette annulation.' });
     } else {
       if (!booking.completedAt) throw new Error('Date de départ effectif manquante.');
@@ -85,6 +117,9 @@ export function tenantResendTemplate(job: TenantMailJob, profile: TenantMailProf
     }
   }
   return template(job.kind as HavenMailKind, values);
+}
+export function ownerResendTemplate(job: OwnerMailJob, data: OwnerMailData, appOrigin?: string): ResendTemplate {
+  return template(job.kind, { ...ownerMailValues(job, data), LIEN_ACTION: mailDashboardLink(appOrigin, '/owner/dashboard') });
 }
 export function authResendTemplate(kind: AuthMailKind, name: string, actionLink: string, authDomain: string) {
   const url = new URL(actionLink);

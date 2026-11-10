@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { cancellationMail, tenantMailDisposition, tenantNotificationEmail, type TenantMailJob } from './tenantMail';
+import { tenantResendTemplate } from './resendTemplates';
 import type { Booking, BookingSeries } from '../types';
 
 const at = '2026-12-07T09:00:00.000Z';
@@ -44,4 +45,10 @@ test('un séjour annulé faute de paiement est annoncé, et l’annulation d’u
   const cancelled = stay({ status: 'CANCELLED', cancellation: { cancelledAt: at, cancelledBy: 'OWNER', reason: 'Travaux', refundPercent: 0, refundAmount: 0, refundStatus: 'NOT_REQUIRED' } });
   assert.ok(cancellationMail(cancelled));
   assert.equal(tenantMailDisposition(job('CANCELLED'), profile, cancelled, false, start, now), 'SEND');
+});
+
+test('l’annulation d’un séjour réservé mais pas encore prélevé n’annonce pas de remboursement', () => {
+  const cancelled = stay({ status: 'CANCELLED', cancellation: { cancelledAt: at, cancelledBy: 'OWNER', reason: 'Travaux', refundPercent: 0, refundAmount: 0, refundStatus: 'NOT_REQUIRED' } });
+  assert.match(tenantNotificationEmail(job('CANCELLED'), profile, cancelled).text, /pas encore été prélevé : aucun montant ne vous a été débité/);
+  assert.equal(tenantResendTemplate(job('CANCELLED'), profile, cancelled, undefined, 'https://haven.test')!.template.variables.INFORMATION_REMBOURSEMENT, 'Ce séjour n’avait pas encore été prélevé : aucun montant ne vous a été débité.');
 });

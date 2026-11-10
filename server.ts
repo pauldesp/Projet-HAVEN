@@ -1,6 +1,7 @@
 import { createStripeConnect, ConnectError } from './services/stripeConnectServer';
 import { createRecurringSeries, SeriesError } from './services/recurringSeriesServer';
 import { isLaterSeriesStay } from './services/recurringInstallments';
+import { isOwnerMailKind, ownerMailDisposition, ownerMailId, ownerMailJob, ownerNotificationEmail, type OwnerMailData, type OwnerMailJob } from './services/ownerMail';
 import { CONTENT_SECURITY_POLICY } from './services/contentSecurityPolicy';
 import { CONNECT_POLICY_VERSION, DEPOSIT_POLICY } from './services/stripeConnect';
 import { normalizePlatformFeedback } from './services/platformFeedback';
@@ -10,7 +11,7 @@ import { normalizePracticalInfo, releasedStayGuide, formatStayGuide } from './se
 import { normalizeResidence, hasRequiredResidence, validResidenceDocument } from './services/residence';
 import { publicTenantProfile, validateCommunityProfile } from './services/publicProfile';
 import { nextAuthMailLimit, sendAuthActionMail, type AuthMailLimit } from './services/authMail';
-import { resendTemplatesEnabled, reservationResendTemplate, tenantResendTemplate, selectMailContent, type ResendTemplate, type AuthMailKind } from './services/resendTemplates';
+import { resendTemplatesEnabled, reservationResendTemplate, tenantResendTemplate, ownerResendTemplate, selectMailContent, type ResendTemplate, type AuthMailKind } from './services/resendTemplates';
 import { accountDecisionMail, cancellationMail, reviewInvitationMail, isTenantMailKind, isSeriesMailKind, tenantMailDisposition, tenantNotificationEmail, type TenantMailJob, type SeriesMailContext } from './services/tenantMail';
 import { canSendReservationRecipient, initialReservationMailJobs, reservationMailJob, reservationMailDisposition, reservationLifecycleEmail, reservationEmailConfiguration, type ReservationMailJob } from './services/reservationMail';
 import { stayLocalDate } from './services/inventoryTiming';
@@ -25,7 +26,7 @@ import { countNights, isBookableStay } from './services/stay';
 import { getCancellationTerms } from './services/cancellationPolicy';
 import { isStayReviewWindowOpen } from './services/reviewPolicy';
 import { hasCompleteVerificationDetails, hasRequiredPhoneNumber, isVerificationReadyToSubmit } from './services/profileVerification';
-import type { Booking, BookingAvailability, BookingSeries, Listing, Room } from './types';
+import type { Booking, BookingAvailability, BookingSeries, Incident, Listing, OwnerPayout, Room } from './types';
 import { isRoomAvailableForStay, publicAvailabilityItem } from './services/availability';
 import { requiredNightsForStay } from './services/gapStay';
 import { canConfirmEmailOwnership } from './services/emailOwnership';
@@ -342,6 +343,11 @@ async function settleBookingPayment(receipt: PaymentReceipt, actorId?: string) {
     for (const job of initialReservationMailJobs(confirmation)) {
       transaction.create(adminDb.collection('reservation_mail_outbox').doc(`${booking.id}-${job.kind}`), job);
     }
+    // The owner hears about a single stay now; a recurring series is announced once, at its activation.
+    if (!booking.seriesId) {
+      const ownerJob = ownerMailJob('OWNER_BOOKING', booking.ownerId, confirmation.paidAt, { bookingId: booking.id });
+      transaction.create(adminDb.collection('reservation_mail_outbox').doc(ownerMailId(ownerJob)), ownerJob);
+    }
     transaction.update(ref, prepared.bookingUpdate);
     transaction.create(adminDb.collection('payments').doc(prepared.payment.id), prepared.payment);
     transaction.set(adminDb.collection('booking_availability').doc(booking.id), prepared.availability);
@@ -395,7 +401,32 @@ async function resolveTenantMail(job: TenantMailJob, startAt: string) {
     if (series) context = { series, stays: (await Promise.all(series.bookingIds.map(id => adminDb.collection('bookings').doc(id).get()))).filter(item => item.exists).map(item => ({ ...item.data(), id: item.id }) as Booking) };
   }
   return { disposition, to: String(profile.email), mail: tenantNotificationEmail(job, profile, booking, listing?.data()?.title, process.env.APP_ORIGIN, context),
-    selectedTemplate: resendTemplatesEnabled(process.env) ? tenantResendTemplate(job, profile, booking, listing?.data()?.title, process.env.APP_ORIGIN) : undefined };
+    selectedTemplate: resendTemplatesEnabled(process.env) ? tenantResendTemplate(job, profile, booking, listing?.data()?.title, process.env.APP_ORIGIN, context) : undefined };
+}
+
+/** Reads what an owner notification needs just before sending: owner, booking or series, incident or payout. */
+async function resolveOwnerMail(job: OwnerMailJob, startAt: string) {
+  const read = async <T,>(collection: string, id?: string) => {
+    if (!id) return undefined;
+    const snapshot = await adminDb.collection(collection).doc(id).get();
+    return snapshot.exists ? { ...snapshot.data(), id: snapshot.id } as T : undefined;
+  };
+  const incident = await read<Incident>('incidents', job.incidentId);
+  const payout = await read<OwnerPayout>('owner_payouts', job.payoutId);
+  const series = await read<BookingSeries>('booking_series', job.seriesId);
+  const booking = await read<Booking>('bookings', job.bookingId || incident?.bookingId || series?.bookingIds.find(Boolean));
+  const stays = series ? (await Promise.all(series.bookingIds.map(id => read<Booking>('bookings', id)))).filter((item): item is Booking => Boolean(item)) : undefined;
+  const firstStay = stays?.find(stay => stay.seriesIndex === 0) || booking;
+  const [owner, tenant, listing] = await Promise.all([
+    read<{ firstName?: string; email?: string }>('users', job.userId),
+    read<{ firstName?: string; lastName?: string }>('users', firstStay?.tenantId || incident?.reporterId),
+    read<Listing>('listings', firstStay?.listingId || incident?.listingId),
+  ]);
+  const data: OwnerMailData = { owner, tenant, booking: firstStay, stays, incident, payout, listingTitle: firstStay?.listingTitle || listing?.title };
+  const disposition = ownerMailDisposition(job, data, startAt);
+  if (disposition !== 'SEND') return { disposition };
+  return { disposition, to: String(owner!.email), mail: ownerNotificationEmail(job, data, process.env.APP_ORIGIN),
+    selectedTemplate: resendTemplatesEnabled(process.env) ? ownerResendTemplate(job, data, process.env.APP_ORIGIN) : undefined };
 }
 
 // A durable outbox survives restarts. A transaction lease prevents concurrent workers
@@ -427,7 +458,13 @@ async function deliverReservationMail() {
         let recipient: string;
         let selectedTemplate: ResendTemplate | undefined;
         let receiptAttachment: ReservationConfirmation | undefined;
-        if (isTenantMailKind(job.kind)) {
+        if (isOwnerMailKind(job.kind)) {
+          const resolved = await resolveOwnerMail(job as OwnerMailJob, configuration.startAt);
+          if (resolved.disposition !== 'SEND') {
+            await item.ref.update({ status: resolved.disposition, nextAttemptAt: FieldValue.delete() }); continue;
+          }
+          mail = resolved.mail!; recipient = resolved.to!; selectedTemplate = resolved.selectedTemplate;
+        } else if (isTenantMailKind(job.kind)) {
           const resolved = await resolveTenantMail(job as TenantMailJob, configuration.startAt);
           if (resolved.disposition !== 'SEND') {
             await item.ref.update({ status: resolved.disposition === 'WAIT' ? 'PENDING' : resolved.disposition, nextAttemptAt: resolved.disposition === 'WAIT' ? new Date(Date.now() + 60_000).toISOString() : FieldValue.delete() }); continue;
@@ -944,7 +981,13 @@ async function startServer() {
         const existing = await transaction.get(ref);
         if (existing.exists) {
           if (existing.data()?.reporterId !== req.user!.uid || existing.data()?.bookingId !== input.bookingId) throw new Error('Identifiant déjà utilisé.');
-        } else transaction.create(ref, record);
+        } else {
+          transaction.create(ref, record);
+          if (routed.destination === 'OWNER') {
+            const ownerJob = ownerMailJob('OWNER_INCIDENT', routed.incident.ownerId, routed.incident.createdAt, { incidentId: routed.incident.id });
+            transaction.set(adminDb.collection('reservation_mail_outbox').doc(ownerMailId(ownerJob)), ownerJob);
+          }
+        }
         return routed.destination;
       });
       return res.json({ destination });
@@ -1709,6 +1752,11 @@ async function startServer() {
         transaction.update(bookingRef, { status: "CANCELLED", cancellation });
         const job = cancellationMail({ ...booking, id: bookingId, status: 'CANCELLED', cancellation } as Booking);
         if (job) transaction.create(adminDb.collection('reservation_mail_outbox').doc(`${bookingId}-CANCELLED`), job);
+        // The owner is told when the tenant cancels a stay that was reserved for him (paid, or scheduled in a series).
+        if (actor === 'TENANT' && (booking.paymentStatus === 'PAID' || booking.seriesScheduled === true)) {
+          const ownerJob = ownerMailJob('OWNER_CANCELLED', booking.ownerId, cancelledAt, { bookingId });
+          transaction.set(adminDb.collection('reservation_mail_outbox').doc(ownerMailId(ownerJob)), ownerJob);
+        }
         transaction.set(adminDb.collection("booking_availability").doc(bookingId), {
           id: bookingId,
           bookingId,

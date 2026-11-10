@@ -1,6 +1,7 @@
 import Stripe from 'stripe';
 import { randomUUID } from 'node:crypto';
 import { FieldValue, type Firestore } from 'firebase-admin/firestore';
+import { ownerMailId, ownerMailJob } from './ownerMail';
 import type { Booking, InventoryReport } from '../types';
 import { CONNECT_POLICY_VERSION, connectStatus, hasRecordedArrival, ownerShareCents, payoutStatus, type OwnerConnectView } from './stripeConnect';
 
@@ -187,6 +188,11 @@ export function createStripeConnect(db: Firestore, stripe: () => Stripe, configu
         // This is when Stripe confirmed the paid status, never an invented arrival date.
         ...(payout.status === 'paid' ? { paidAt: previous.data()?.paidAt || checkedAt } : {}),
         failureCode: payout.failure_code || null, checkedAt });
+      // Tell the owner once, when Stripe first reports the payout as paid.
+      if (payout.status === 'paid' && previous.data()?.status !== 'PAID') {
+        const job = ownerMailJob('OWNER_PAYOUT', uid, checkedAt, { payoutId: ref.id });
+        transaction.set(db.collection('reservation_mail_outbox').doc(ownerMailId(job)), job);
+      }
     });
   }
 

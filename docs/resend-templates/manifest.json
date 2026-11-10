@@ -491,5 +491,488 @@
         "type": "string"
       }
     ]
+  },
+  {
+    "kind": "SERIES_CONFIRMED",
+    "name": "12 · Réservation récurrente confirmée",
+    "alias": "haven-serie-reservee",
+    "subject": "Vos {{{NOMBRE_SEJOURS}}} séjours sont réservés — {{{LOGEMENT}}}",
+    "preview": "Vos dates, leurs montants et votre échéancier de paiement.",
+    "trigger": "Paiement du premier séjour d’une série récurrente confirmé.",
+    "file": "haven-serie-reservee.html",
+    "variables": [
+      {
+        "key": "MENTION_TEST",
+        "type": "string"
+      },
+      {
+        "key": "PRENOM_LOCATAIRE",
+        "type": "string"
+      },
+      {
+        "key": "LOGEMENT",
+        "type": "string"
+      },
+      {
+        "key": "NOMBRE_SEJOURS",
+        "type": "string"
+      },
+      {
+        "key": "ECHEANCIER",
+        "type": "string"
+      },
+      {
+        "key": "MONTANT_TOTAL",
+        "type": "string"
+      },
+      {
+        "key": "INFORMATION_PRELEVEMENT",
+        "type": "string"
+      },
+      {
+        "key": "LIEN_ACTION",
+        "type": "string"
+      },
+      {
+        "key": "REFERENCE_DOSSIER",
+        "type": "string"
+      }
+    ]
+  },
+  {
+    "kind": "INSTALLMENT_UPCOMING",
+    "name": "13 · Prochain prélèvement",
+    "alias": "haven-prochain-prelevement",
+    "subject": "Prochain prélèvement le {{{DATE_PRELEVEMENT}}} — {{{LOGEMENT}}}",
+    "preview": "Le montant et la date du prélèvement de votre prochain séjour.",
+    "trigger": "3 jours avant le prélèvement automatique d’un séjour de la série.",
+    "file": "haven-prochain-prelevement.html",
+    "variables": [
+      {
+        "key": "MENTION_TEST",
+        "type": "string"
+      },
+      {
+        "key": "PRENOM_LOCATAIRE",
+        "type": "string"
+      },
+      {
+        "key": "INFORMATION_PRELEVEMENT",
+        "type": "string"
+      },
+      {
+        "key": "LOGEMENT",
+        "type": "string"
+      },
+      {
+        "key": "CHAMBRE",
+        "type": "string"
+      },
+      {
+        "key": "DATE_ARRIVEE",
+        "type": "string"
+      },
+      {
+        "key": "DATE_DEPART",
+        "type": "string"
+      },
+      {
+        "key": "MONTANT_TOTAL",
+        "type": "string"
+      },
+      {
+        "key": "DATE_PRELEVEMENT",
+        "type": "string"
+      },
+      {
+        "key": "LIEN_ACTION",
+        "type": "string"
+      },
+      {
+        "key": "REFERENCE_DOSSIER",
+        "type": "string"
+      }
+    ]
+  },
+  {
+    "kind": "INSTALLMENT_FAILED",
+    "name": "14 · Prélèvement échoué",
+    "alias": "haven-prelevement-echoue",
+    "subject": "Action requise : le paiement de votre séjour n’a pas abouti — {{{LOGEMENT}}}",
+    "preview": "Payez ce séjour avant la date limite pour le conserver.",
+    "trigger": "Échec d’un prélèvement automatique ; lien vers le paiement du séjour.",
+    "file": "haven-prelevement-echoue.html",
+    "variables": [
+      {
+        "key": "MENTION_TEST",
+        "type": "string"
+      },
+      {
+        "key": "PRENOM_LOCATAIRE",
+        "type": "string"
+      },
+      {
+        "key": "MONTANT_TOTAL",
+        "type": "string"
+      },
+      {
+        "key": "POSITION_SEJOUR",
+        "type": "string"
+      },
+      {
+        "key": "MOTIF_ECHEC",
+        "type": "string"
+      },
+      {
+        "key": "LOGEMENT",
+        "type": "string"
+      },
+      {
+        "key": "CHAMBRE",
+        "type": "string"
+      },
+      {
+        "key": "DATE_ARRIVEE",
+        "type": "string"
+      },
+      {
+        "key": "DATE_DEPART",
+        "type": "string"
+      },
+      {
+        "key": "DATE_LIMITE",
+        "type": "string"
+      },
+      {
+        "key": "INFORMATION_RELANCE",
+        "type": "string"
+      },
+      {
+        "key": "LIEN_ACTION",
+        "type": "string"
+      },
+      {
+        "key": "REFERENCE_DOSSIER",
+        "type": "string"
+      }
+    ]
+  },
+  {
+    "kind": "INSTALLMENT_UNPAID",
+    "name": "15 · Séjour annulé faute de paiement",
+    "alias": "haven-sejour-annule-impaye",
+    "subject": "Séjour annulé faute de paiement — {{{LOGEMENT}}}",
+    "preview": "Ce séjour est annulé ; vos autres séjours sont maintenus.",
+    "trigger": "Fin du délai de 5 jours sans paiement d’un séjour de la série.",
+    "file": "haven-sejour-annule-impaye.html",
+    "variables": [
+      {
+        "key": "MENTION_TEST",
+        "type": "string"
+      },
+      {
+        "key": "PRENOM_LOCATAIRE",
+        "type": "string"
+      },
+      {
+        "key": "POSITION_SEJOUR",
+        "type": "string"
+      },
+      {
+        "key": "LOGEMENT",
+        "type": "string"
+      },
+      {
+        "key": "CHAMBRE",
+        "type": "string"
+      },
+      {
+        "key": "DATE_ARRIVEE",
+        "type": "string"
+      },
+      {
+        "key": "DATE_DEPART",
+        "type": "string"
+      },
+      {
+        "key": "LIEN_ACTION",
+        "type": "string"
+      },
+      {
+        "key": "REFERENCE_DOSSIER",
+        "type": "string"
+      }
+    ]
+  },
+  {
+    "kind": "OWNER_BOOKING",
+    "name": "16 · Propriétaire · Nouvelle réservation",
+    "alias": "haven-proprietaire-nouvelle-reservation",
+    "subject": "Nouvelle réservation — {{{LOGEMENT}}}",
+    "preview": "Les dates du séjour, le locataire et votre part.",
+    "trigger": "Paiement d’une réservation confirmé (hors séries récurrentes).",
+    "file": "haven-proprietaire-nouvelle-reservation.html",
+    "variables": [
+      {
+        "key": "MENTION_TEST",
+        "type": "string"
+      },
+      {
+        "key": "PRENOM_PROPRIETAIRE",
+        "type": "string"
+      },
+      {
+        "key": "LOCATAIRE",
+        "type": "string"
+      },
+      {
+        "key": "LOGEMENT",
+        "type": "string"
+      },
+      {
+        "key": "CHAMBRE",
+        "type": "string"
+      },
+      {
+        "key": "DATE_ARRIVEE",
+        "type": "string"
+      },
+      {
+        "key": "DATE_DEPART",
+        "type": "string"
+      },
+      {
+        "key": "MONTANT_PROPRIETAIRE",
+        "type": "string"
+      },
+      {
+        "key": "HEURE_ARRIVEE",
+        "type": "string"
+      },
+      {
+        "key": "HEURE_DEPART",
+        "type": "string"
+      },
+      {
+        "key": "LIEN_ACTION",
+        "type": "string"
+      },
+      {
+        "key": "REFERENCE_DOSSIER",
+        "type": "string"
+      }
+    ]
+  },
+  {
+    "kind": "OWNER_SERIES",
+    "name": "17 · Propriétaire · Réservation récurrente",
+    "alias": "haven-proprietaire-serie",
+    "subject": "Réservation récurrente : {{{NOMBRE_SEJOURS}}} séjours — {{{LOGEMENT}}}",
+    "preview": "Les séjours réservés, leurs dates et votre part.",
+    "trigger": "Paiement du premier séjour d’une série récurrente confirmé.",
+    "file": "haven-proprietaire-serie.html",
+    "variables": [
+      {
+        "key": "MENTION_TEST",
+        "type": "string"
+      },
+      {
+        "key": "PRENOM_PROPRIETAIRE",
+        "type": "string"
+      },
+      {
+        "key": "LOCATAIRE",
+        "type": "string"
+      },
+      {
+        "key": "NOMBRE_SEJOURS",
+        "type": "string"
+      },
+      {
+        "key": "LOGEMENT",
+        "type": "string"
+      },
+      {
+        "key": "ECHEANCIER",
+        "type": "string"
+      },
+      {
+        "key": "MONTANT_PROPRIETAIRE",
+        "type": "string"
+      },
+      {
+        "key": "LIEN_ACTION",
+        "type": "string"
+      },
+      {
+        "key": "REFERENCE_DOSSIER",
+        "type": "string"
+      }
+    ]
+  },
+  {
+    "kind": "OWNER_CANCELLED",
+    "name": "18 · Propriétaire · Réservation annulée",
+    "alias": "haven-proprietaire-annulation",
+    "subject": "Réservation annulée — {{{LOGEMENT}}}",
+    "preview": "Le séjour annulé, son motif et l’effet sur vos revenus.",
+    "trigger": "Annulation par le locataire ou faute de paiement d’un séjour réservé.",
+    "file": "haven-proprietaire-annulation.html",
+    "variables": [
+      {
+        "key": "MENTION_TEST",
+        "type": "string"
+      },
+      {
+        "key": "PRENOM_PROPRIETAIRE",
+        "type": "string"
+      },
+      {
+        "key": "LOCATAIRE",
+        "type": "string"
+      },
+      {
+        "key": "DATE_ACTION",
+        "type": "string"
+      },
+      {
+        "key": "INITIATIVE_ANNULATION",
+        "type": "string"
+      },
+      {
+        "key": "LOGEMENT",
+        "type": "string"
+      },
+      {
+        "key": "CHAMBRE",
+        "type": "string"
+      },
+      {
+        "key": "DATE_ARRIVEE",
+        "type": "string"
+      },
+      {
+        "key": "DATE_DEPART",
+        "type": "string"
+      },
+      {
+        "key": "MOTIF_ANNULATION",
+        "type": "string"
+      },
+      {
+        "key": "INFORMATION_VERSEMENT",
+        "type": "string"
+      },
+      {
+        "key": "LIEN_ACTION",
+        "type": "string"
+      },
+      {
+        "key": "REFERENCE_DOSSIER",
+        "type": "string"
+      }
+    ]
+  },
+  {
+    "kind": "OWNER_INCIDENT",
+    "name": "19 · Propriétaire · Nouveau signalement",
+    "alias": "haven-proprietaire-signalement",
+    "subject": "Signalement : {{{TITRE_SIGNALEMENT}}} — {{{LOGEMENT}}}",
+    "preview": "Le problème signalé et la marche à suivre.",
+    "trigger": "Incident de séjour transmis au propriétaire par le locataire.",
+    "file": "haven-proprietaire-signalement.html",
+    "variables": [
+      {
+        "key": "MENTION_TEST",
+        "type": "string"
+      },
+      {
+        "key": "PRENOM_PROPRIETAIRE",
+        "type": "string"
+      },
+      {
+        "key": "LOCATAIRE",
+        "type": "string"
+      },
+      {
+        "key": "DATE_ACTION",
+        "type": "string"
+      },
+      {
+        "key": "LOGEMENT",
+        "type": "string"
+      },
+      {
+        "key": "CHAMBRE",
+        "type": "string"
+      },
+      {
+        "key": "DATE_ARRIVEE",
+        "type": "string"
+      },
+      {
+        "key": "DATE_DEPART",
+        "type": "string"
+      },
+      {
+        "key": "TITRE_SIGNALEMENT",
+        "type": "string"
+      },
+      {
+        "key": "PRIORITE",
+        "type": "string"
+      },
+      {
+        "key": "DESCRIPTION_SIGNALEMENT",
+        "type": "string"
+      },
+      {
+        "key": "LIEN_ACTION",
+        "type": "string"
+      },
+      {
+        "key": "REFERENCE_DOSSIER",
+        "type": "string"
+      }
+    ]
+  },
+  {
+    "kind": "OWNER_PAYOUT",
+    "name": "20 · Propriétaire · Virement effectué",
+    "alias": "haven-proprietaire-virement",
+    "subject": "Virement effectué : {{{MONTANT_VIREMENT}}}",
+    "preview": "Le montant versé sur votre compte bancaire.",
+    "trigger": "Virement Stripe confirmé comme versé sur le compte bancaire du propriétaire.",
+    "file": "haven-proprietaire-virement.html",
+    "variables": [
+      {
+        "key": "MENTION_TEST",
+        "type": "string"
+      },
+      {
+        "key": "PRENOM_PROPRIETAIRE",
+        "type": "string"
+      },
+      {
+        "key": "MONTANT_VIREMENT",
+        "type": "string"
+      },
+      {
+        "key": "DATE_ACTION",
+        "type": "string"
+      },
+      {
+        "key": "REFERENCE_VIREMENT",
+        "type": "string"
+      },
+      {
+        "key": "LIEN_ACTION",
+        "type": "string"
+      },
+      {
+        "key": "REFERENCE_DOSSIER",
+        "type": "string"
+      }
+    ]
   }
 ]

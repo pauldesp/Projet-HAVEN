@@ -1,6 +1,6 @@
 # Ce qu'il reste à faire pour un Haven opérationnel et professionnel
 
-Liste établie le 6 novembre 2026 à partir d'une revue du code, de la configuration et de [la checklist de mise en ligne](AVANT-MISE-EN-LIGNE.md), qu'elle reprend et complète. Cocher au fur et à mesure.
+Liste établie le 6 novembre 2026, mise à jour le 10 novembre, à partir d'une revue du code, de la configuration et de [la checklist de mise en ligne](AVANT-MISE-EN-LIGNE.md), qu'elle reprend et complète. Cocher au fur et à mesure.
 
 Légende : **[Paul]** à faire par toi (comptes, contrats, décisions), **[Code]** développement, **[Test]** vérification à la main.
 
@@ -10,7 +10,8 @@ Légende : **[Paul]** à faire par toi (comptes, contrats, décisions), **[Code]
 
 - [x] **[Code] Interdire la création de réservation depuis le navigateur** dans `firestore.rules` (règle `bookings` → `allow create`). Aujourd'hui, un locataire vérifié peut écrire une réservation au prix de son choix (1 € par exemple), la payer, et réserver des dates déjà prises. Le site passe déjà par le serveur : rien ne casse.
 - [x] **[Code] Resserrer les autres règles Firestore** (7 novembre) : profils privés lisibles seulement par leur titulaire et les administrateurs (les autres membres passent par une vue limitée du serveur) ; disponibilités, états des lieux et justificatifs écrits par le serveur seulement ; messages limités au locataire et au propriétaire d'une réservation ; note et nombre d'avis non modifiables par le propriétaire ; suppression d'annonce réservée aux administrateurs.
-- [ ] **[Paul] Publier les règles Firestore** (`firestore.rules`) sur le projet Firebase, puis vérifier qu'elles sont actives. **Tant que ce n'est pas fait, les protections ci-dessus ne s'appliquent pas.**
+- [x] **[Code] Publier les règles Firestore** sur la base du projet (7 novembre, 00 h 13). Compilation validée par Firebase ; pages publiques vérifiées après publication. Les règles précédentes (29 septembre) restent disponibles pour un retour arrière.
+- [ ] **[Test] Vérifier les pages connectées avec les nouvelles règles** : tableaux de bord, messagerie (nom et photo de l'autre personne), carte du propriétaire sur une fiche, modification d'annonce, blocage de dates.
 - [x] **[Code] Faire revalider une annonce modifiée** : un propriétaire peut aujourd'hui changer photos, textes et prix d'une annonce validée sans nouveau contrôle.
 - [ ] **[Paul] Activer la double authentification** sur les comptes Google/Firebase, Stripe, Resend, GitHub et l'hébergeur.
 - [ ] **[Paul] Vérifier qui a accès** à Firebase, Stripe et Resend ; retirer les accès inutiles.
@@ -37,7 +38,7 @@ Légende : **[Paul]** à faire par toi (comptes, contrats, décisions), **[Code]
 
 - [ ] **[Paul] Ajouter un domaine Haven dans Resend** et valider les enregistrements DNS (SPF, DKIM, DMARC).
 - [ ] **[Paul] Choisir les adresses** d'expédition (`EMAIL_FROM`) et de réponse (`EMAIL_REPLY_TO`). L'expéditeur actuel `onboarding@resend.dev` ne délivre qu'à ton adresse.
-- [ ] **[Code] Créer les modèles Resend des quatre mails de récurrence** (série confirmée, rappel de prélèvement, prélèvement échoué, séjour annulé faute de paiement). Ils utilisent pour l'instant la mise en page Haven du code.
+- [x] **[Code] Créer les modèles Resend des quatre mails de récurrence** (série confirmée, rappel de prélèvement, prélèvement échoué, séjour annulé faute de paiement). Ils utilisent pour l'instant la mise en page Haven du code.
 - [ ] **[Test] Tester la confirmation d'adresse e-mail** avec un compte non confirmé, et une vraie réinitialisation de mot de passe sur un compte de test.
 - [ ] **[Test] Vérifier un séjour de bout en bout** : confirmation et justificatif PDF, consignes à 72 h (ou dès confirmation si tardive), entrée enregistrée, rappel de départ, départ enregistré, invitation à laisser un avis.
 - [ ] **[Test] Vérifier les décisions sur le dossier** (validé, à corriger) et l'annulation avec son remboursement.
@@ -84,8 +85,10 @@ Légende : **[Paul]** à faire par toi (comptes, contrats, décisions), **[Code]
 
 ### Parcours propriétaire
 
-- [ ] **[Code] Mails au propriétaire** : nouvelle réservation, série récurrente, annulation, signalement, virement effectué. Aujourd'hui, seul le locataire reçoit des mails.
-- [ ] **[Code] Calendrier d'occupation par chambre** pour voir les trous et bloquer des dates facilement.
+- [x] **[Code] Mails au propriétaire** : nouvelle réservation, série récurrente, annulation, signalement, virement effectué (modèles Resend 16 à 20, 10 novembre ; exemple de test envoyé).
+- [x] **[Code] Bloquer des dates en quelques clics** pour tout le logement ou une chambre (onglet Disponibilités de la modification d'annonce, 7 novembre).
+- [x] **[Code] Limiter l'annulation par le propriétaire** à 30 jours avant l'arrivée minimum, locataire remboursé à 100 % (7 novembre).
+- [ ] **[Code] Calendrier d'occupation par chambre** pour voir d'un coup d'œil les séjours et les trous.
 - [ ] **[Code] Relevés mensuels et factures** téléchargeables pour sa comptabilité.
 - [ ] **[Code] Gérer la perte des versements Stripe en cours de série** : si le compte du propriétaire n'est plus prêt, ne pas annuler le séjour du locataire à tort.
 - [ ] **[Paul] Décider d'une remise** pour la récurrence ou les séjours courts entre deux locations.
@@ -99,11 +102,13 @@ Légende : **[Paul]** à faire par toi (comptes, contrats, décisions), **[Code]
 ### Signalements et incidents
 
 - [ ] **[Test] Envoyer un vrai signalement** d'annonce et d'incident de séjour, puis suivre son traitement jusqu'au back office.
-- [ ] **[Code] Prévenir le propriétaire et Haven par mail** à chaque nouveau signalement ou demande d'intervention.
+- [x] **[Code] Prévenir le propriétaire par mail** à chaque nouveau signalement.
+- [ ] **[Code] Prévenir l'équipe Haven par mail** des signalements qui lui sont transmis et des demandes d'intervention.
 - [ ] **[Paul] Définir les délais de réponse** attendus du propriétaire et de Haven, et les afficher.
 
 ### Back office
 
+- [ ] **[Code] Annuler une réservation à la place du propriétaire** depuis le back office (sous 30 jours, le propriétaire ne peut plus le faire seul).
 - [ ] **[Code] Alertes pour l'équipe Haven** : mails bloqués, prélèvements échoués, versements en attente, signalements transmis.
 - [ ] **[Code] Tableau des séries récurrentes et des échéances**, avec remboursement ou nouvelle tentative de prélèvement à la main.
 - [ ] **[Code] Suivi des mails envoyés** (statut, rebonds, renvoi).
@@ -140,7 +145,7 @@ Légende : **[Paul]** à faire par toi (comptes, contrats, décisions), **[Code]
 - [ ] **[Test] Fenêtre des conditions générales** dans le parcours de réservation.
 - [ ] **[Test] Partage d'une annonce** sur téléphone en HTTPS (partage natif).
 - [ ] **[Test] Fiche propriétaire** visible par un visiteur connecté.
-- [ ] **[Test] Séjours courts entre deux locations** : recherche, fiche, réservation.
+- [ ] **[Test] Séjours courts entre deux locations** : recherche, fiche, réservation (règle en place et testée par le code depuis le 6 novembre).
 - [ ] **[Test] Nouveaux tableaux de bord** propriétaire et locataire, et onglet Signalements.
 - [ ] **[Test] Navigateurs** : Safari iPhone, Chrome Android, Chrome, Safari et Firefox sur ordinateur.
 

@@ -66,6 +66,60 @@
       "id": "e06fedbf-75ee-4eff-a6e8-013d244d01ac",
       "url": "https://resend.com/templates/e06fedbf-75ee-4eff-a6e8-013d244d01ac/editor",
       "status": "published"
+    },
+    {
+      "kind": "SERIES_CONFIRMED",
+      "id": "4589d0b5-3de4-488c-b3f4-b639fc19bc35",
+      "url": "https://resend.com/templates/4589d0b5-3de4-488c-b3f4-b639fc19bc35/editor",
+      "status": "published"
+    },
+    {
+      "kind": "INSTALLMENT_UPCOMING",
+      "id": "100847d3-464e-49d8-90f4-c6b93e8f30da",
+      "url": "https://resend.com/templates/100847d3-464e-49d8-90f4-c6b93e8f30da/editor",
+      "status": "published"
+    },
+    {
+      "kind": "INSTALLMENT_FAILED",
+      "id": "5c5329d4-b4c6-482c-8e34-0dd68f9a6a17",
+      "url": "https://resend.com/templates/5c5329d4-b4c6-482c-8e34-0dd68f9a6a17/editor",
+      "status": "published"
+    },
+    {
+      "kind": "INSTALLMENT_UNPAID",
+      "id": "b0a0616b-4a7d-4cd1-90ff-3240423eb0b1",
+      "url": "https://resend.com/templates/b0a0616b-4a7d-4cd1-90ff-3240423eb0b1/editor",
+      "status": "published"
+    },
+    {
+      "kind": "OWNER_BOOKING",
+      "id": "8eb6c1d2-a63d-4f58-9734-c426221ba28c",
+      "url": "https://resend.com/templates/8eb6c1d2-a63d-4f58-9734-c426221ba28c/editor",
+      "status": "published"
+    },
+    {
+      "kind": "OWNER_SERIES",
+      "id": "3fc81475-7766-4ff1-bda6-1ba83196e382",
+      "url": "https://resend.com/templates/3fc81475-7766-4ff1-bda6-1ba83196e382/editor",
+      "status": "published"
+    },
+    {
+      "kind": "OWNER_CANCELLED",
+      "id": "8bb64cd4-8af1-4413-b740-bc5d00ce361a",
+      "url": "https://resend.com/templates/8bb64cd4-8af1-4413-b740-bc5d00ce361a/editor",
+      "status": "published"
+    },
+    {
+      "kind": "OWNER_INCIDENT",
+      "id": "b32e92b1-c4f7-4199-b2ad-84505132245f",
+      "url": "https://resend.com/templates/b32e92b1-c4f7-4199-b2ad-84505132245f/editor",
+      "status": "published"
+    },
+    {
+      "kind": "OWNER_PAYOUT",
+      "id": "e6792cb8-61ca-4c25-934a-baf87573952b",
+      "url": "https://resend.com/templates/e6792cb8-61ca-4c25-934a-baf87573952b/editor",
+      "status": "published"
     }
   ]
 }

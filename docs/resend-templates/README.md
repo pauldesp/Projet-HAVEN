@@ -22,7 +22,9 @@ Ouvrir [01 · Réservation confirmée](https://resend.com/templates/b2c2500a-84a
 - `MENTION_TEST` sera vide pour un vrai séjour ; les simulations et les validations exceptionnelles doivent rester clairement identifiées comme tests.
 - Éviter des valeurs de secours fictives pour une adresse, un montant, une date ou des consignes : une donnée manquante doit être traitée par Haven avant l'envoi.
 
-## Les onze modèles
+## Les vingt modèles
+
+Les modèles 12 à 20 (récurrence et propriétaires) ont été créés et publiés par l’API le 10 novembre 2026, avec la même mise en page générée par `scripts/prepare-resend-templates.mjs`. Les propriétaires reçoivent le prénom et l’initiale du locataire, jamais son nom complet ni ses coordonnées.
 
 | Modèle | Contenu et moment |
 | --- | --- |
@@ -37,6 +39,15 @@ Ouvrir [01 · Réservation confirmée](https://resend.com/templates/b2c2500a-84a
 | [09 · Invitation à laisser un avis](https://resend.com/templates/6cdab46e-ebc3-437d-abec-596924d199f9/editor) | 24 h après le départ effectif, sans avis existant, échéance exacte à 7 jours |
 | [10 · Confirmer mon adresse e-mail](https://resend.com/templates/e0d3f410-4d3f-4d2d-8201-7a91dd1ee2e6/editor) | À la demande du membre connecté, lien Firebase sécurisé |
 | [11 · Réinitialiser mon mot de passe](https://resend.com/templates/e06fedbf-75ee-4eff-a6e8-013d244d01ac/editor) | À la demande depuis la connexion, lien Firebase sécurisé, réponse sans divulgation du compte |
+| [12 · Réservation récurrente confirmée](https://resend.com/templates/4589d0b5-3de4-488c-b3f4-b639fc19bc35/editor) | Locataire · paiement du premier séjour d’une série : échéancier, total, carte utilisée, conditions d’annulation |
+| [13 · Prochain prélèvement](https://resend.com/templates/100847d3-464e-49d8-90f4-c6b93e8f30da/editor) | Locataire · 3 jours avant un prélèvement automatique : date, montant, carte |
+| [14 · Prélèvement échoué](https://resend.com/templates/5c5329d4-b4c6-482c-8e34-0dd68f9a6a17/editor) | Locataire · prélèvement refusé : motif, date limite, nouvelle tentative, bouton de paiement du séjour |
+| [15 · Séjour annulé faute de paiement](https://resend.com/templates/b0a0616b-4a7d-4cd1-90ff-3240423eb0b1/editor) | Locataire · séjour annulé après 5 jours sans paiement, autres séjours maintenus |
+| [16 · Propriétaire · Nouvelle réservation](https://resend.com/templates/8eb6c1d2-a63d-4f58-9734-c426221ba28c/editor) | Propriétaire · réservation payée (hors série) : dates, horaires, part du propriétaire |
+| [17 · Propriétaire · Réservation récurrente](https://resend.com/templates/3fc81475-7766-4ff1-bda6-1ba83196e382/editor) | Propriétaire · série récurrente activée : séjours, part par séjour, calendrier des paiements |
+| [18 · Propriétaire · Réservation annulée](https://resend.com/templates/8bb64cd4-8af1-4413-b740-bc5d00ce361a/editor) | Propriétaire · annulation par le locataire ou faute de paiement : motif, effet sur les versements |
+| [19 · Propriétaire · Nouveau signalement](https://resend.com/templates/b32e92b1-c4f7-4199-b2ad-84505132245f/editor) | Propriétaire · incident de séjour signalé par le locataire : titre, priorité, description |
+| [20 · Propriétaire · Virement effectué](https://resend.com/templates/e6792cb8-61ca-4c25-934a-baf87573952b/editor) | Propriétaire · virement Stripe confirmé comme versé : montant, date, référence |
 
 ## Raccordement actif
 

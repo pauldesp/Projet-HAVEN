@@ -9,6 +9,7 @@ import { CONNECT_POLICY_VERSION } from './stripeConnect';
 import { installmentChargeDecision, installmentDueDates, installmentReminderAt, isLaterSeriesStay, nextInstallmentAttempt, validateSeriesStays, type SeriesStayInput } from './recurringInstallments';
 import type { SeriesMailKind } from './tenantMail';
 import { simulationSessionId } from './paymentCheckout';
+import { ownerMailId, ownerMailJob } from './ownerMail';
 
 export class SeriesError extends Error {
   constructor(message: string, public status = 409) { super(message); }
@@ -116,6 +117,8 @@ export function createRecurringSeries(deps: RecurringSeriesDependencies) {
       const at = new Date().toISOString();
       transaction.update(seriesRef, { status: 'ACTIVE', activatedAt: at });
       transaction.create(outbox.doc(`${first.id}-SERIES_CONFIRMED`), mailJob('SERIES_CONFIRMED', first, at, { seriesId }));
+      const ownerJob = ownerMailJob('OWNER_SERIES', series.ownerId, at, { seriesId });
+      transaction.set(outbox.doc(ownerMailId(ownerJob)), ownerJob);
       for (const stay of stays) {
         if (!isLaterSeriesStay(stay) || stay.status !== 'PENDING' || stay.paymentStatus === 'PAID') continue;
         transaction.update(bookings.doc(stay.id), { seriesActivatedAt: at, seriesScheduled: true });
@@ -243,6 +246,8 @@ export function createRecurringSeries(deps: RecurringSeriesDependencies) {
     if (!isLaterSeriesStay(booking) || !booking.seriesActivatedAt) return;
     transaction.update(bookings.doc(booking.id), { unpaidCancelledAt: at });
     transaction.set(outbox.doc(`${booking.id}-INSTALLMENT_UNPAID`), mailJob('INSTALLMENT_UNPAID', booking, at));
+    const ownerJob = ownerMailJob('OWNER_CANCELLED', booking.ownerId, at, { bookingId: booking.id });
+    transaction.set(outbox.doc(ownerMailId(ownerJob)), ownerJob);
   }
 
   /** The first stay was cancelled or expired before payment: the whole series is released. */
