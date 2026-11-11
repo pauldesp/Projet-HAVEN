@@ -1,4 +1,5 @@
 import { AdminPlatformFeedback } from '../components/AdminPlatformFeedback';
+import { ScrollableRow } from '../components/ScrollableRow';
 import { authenticatedFetch } from '../services/serverApi';
 import { VerificationExceptionDialog } from '../components/VerificationExceptionDialog';
 
@@ -659,7 +660,7 @@ export const AdminDashboard: React.FC = () => {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-20">
         
-        <div className="haven-tabs flex space-x-1 bg-white shadow-xl shadow-black/5 p-1 rounded-xl mb-8 w-fit border border-gray-100 overflow-x-auto max-w-full">
+        <ScrollableRow label="onglets" fadeFrom="from-white" outerClassName="mb-8 w-fit max-w-full overflow-hidden rounded-xl border border-gray-100 bg-white shadow-xl shadow-black/5" className="haven-tabs flex space-x-1 p-1">
            {[
              { id: 'LISTINGS', label: 'Annonces', icon: CheckCircle, count: pendingListings.length },
              { id: 'USERS', label: 'Utilisateurs', icon: Users, count: pendingUsers.length },
@@ -676,10 +677,9 @@ export const AdminDashboard: React.FC = () => {
            ].map((tab) => (
              <button
                key={tab.id}
-                onClick={() => {
-                  console.log(`Switching to tab: ${tab.id}`);
-                  setActiveTab(tab.id as any);
-                }}
+               type="button"
+               aria-current={activeTab === tab.id ? 'page' : undefined}
+                onClick={() => setActiveTab(tab.id as any)}
                className={`px-6 py-3 rounded-lg text-sm font-bold transition-all flex items-center gap-2 whitespace-nowrap ${
                  activeTab === tab.id 
                  ? 'bg-gray-900 text-white shadow-md' 
@@ -693,7 +693,7 @@ export const AdminDashboard: React.FC = () => {
                )}
              </button>
            ))}
-        </div>
+        </ScrollableRow>
 
         <div className="space-y-8 animate-fade-in-up">
           

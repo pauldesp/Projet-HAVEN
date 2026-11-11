@@ -17,8 +17,8 @@ body { margin: 0; }
 .haven-mobile-nav { padding-bottom: max(.5rem, env(safe-area-inset-bottom)); }
 .haven-mobile-nav-spacer { height: calc(5rem + env(safe-area-inset-bottom)); }
 .haven-bottom-actions { padding-bottom: max(1rem, env(safe-area-inset-bottom)); }
-.haven-tabs { scrollbar-width: thin; scroll-snap-type: x proximity; }
-.haven-tabs > button { flex-shrink: 0; scroll-snap-align: start; }
+/* No scroll snapping: it hid the first tab's padding; ScrollableRow shows what is hidden instead. */
+.haven-tabs > button { flex-shrink: 0; }
 .haven-touch-action { min-height: 44px; min-width: 44px; }
 .haven-listing-actions { bottom: 0; padding-bottom: max(.75rem, env(safe-area-inset-bottom)); }
 @media (max-width: 767px) {

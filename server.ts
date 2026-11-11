@@ -1324,6 +1324,35 @@ async function startServer() {
     await auditRef.create({ id: auditRef.id, actorId: admin.uid, actorName: admin.name, action: 'MEMBER_ERASED', category: 'ACCOUNT', targetType: 'USER', targetId: id, summary: 'Compte effacé et anonymisé (RGPD) ; données comptables conservées.', createdAt: at });
   }));
 
+  // Blocking dates changes only the dates: it must work even if the listing is not complete enough to be re-published.
+  app.post('/api/listings/:listingId/blocked-dates', sensitiveApiLimiter, requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      const listingId = String(req.params.listingId);
+      const target = String(req.body?.target || '');
+      const dates = req.body?.dates;
+      if (!/^[a-zA-Z0-9_-]{1,128}$/.test(listingId) || !/^[a-zA-Z0-9_-]{1,160}$/.test(target)) return sendApiError(res, 422, 'Demande invalide.');
+      if (!Array.isArray(dates) || dates.length > 800 || dates.some(date => typeof date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(date))) return sendApiError(res, 422, 'Dates invalides.');
+      const clean = [...new Set(dates as string[])].sort();
+      const ref = adminDb.collection('listings').doc(listingId);
+      const admin = await getAdminActor(req);
+      await adminDb.runTransaction(async transaction => {
+        const listing = (await transaction.get(ref)).data() as Listing | undefined;
+        if (!listing) throw new AdminFinanceError('Logement introuvable.', 404);
+        if (listing.ownerId !== req.user!.uid && !admin) throw new AdminFinanceError('Accès refusé.', 403);
+        if (target === 'LISTING') transaction.update(ref, { blockedDates: clean });
+        else {
+          if (!listing.rooms?.some(room => room.id === target)) throw new AdminFinanceError('Chambre introuvable.', 404);
+          transaction.update(ref, { rooms: listing.rooms.map(room => room.id === target ? { ...room, blockedDates: clean } : room) });
+        }
+      });
+      return res.json({ target, dates: clean });
+    } catch (error) {
+      if (error instanceof AdminFinanceError) return sendApiError(res, error.status, error.message);
+      console.error('Blocked dates update failed', error);
+      return sendApiError(res, 503, 'Les dates n’ont pas pu être enregistrées. Réessayez.');
+    }
+  });
+
   app.post('/api/admin/listings/:listingId/review', sensitiveApiLimiter, requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
       const actor = await requireAdmin(req, res);
@@ -1589,6 +1618,17 @@ async function startServer() {
       console.error("Housemate preview failed", error);
       return sendApiError(res, 500, "Impossible de charger les futurs colocataires");
     }
+  });
+
+  // The signed-in member's own profile over plain HTTPS: fallback when Firestore's live channel
+  // is slow to open (seen in Safari after returning from Stripe).
+  app.get('/api/me/profile', requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      const snapshot = await adminDb.collection('users').doc(req.user!.uid).get();
+      res.setHeader('Cache-Control', 'no-store');
+      if (!snapshot.exists) return sendApiError(res, 404, 'Profil introuvable.');
+      return res.json(snapshot.data());
+    } catch { return sendApiError(res, 503, 'Profil momentanément indisponible.'); }
   });
 
   app.get('/api/users/:userId/residence', sensitiveApiLimiter, requireAuth, async (req: AuthenticatedRequest, res) => {
@@ -2172,6 +2212,9 @@ async function startServer() {
       const listingSnap = await adminDb.collection('listings').doc(booking.listingId).get();
       const listing = listingSnap.data();
       if (!listingSnap.exists) return sendApiError(res, 404, 'Logement introuvable.');
+      // The tenant is signed in: prefill Stripe's e-mail field with the account address (profile address for phone sign-ins).
+      const accountEmail = req.user!.email || (await adminDb.collection('users').doc(req.user!.uid).get()).data()?.email;
+      const tenantEmail = typeof accountEmail === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(accountEmail) ? accountEmail.trim().toLowerCase() : undefined;
       const successUrl = safeReturnUrl(req, `/?booking=pending&id=${encodeURIComponent(bookingId)}#/dashboard`);
       const cancelUrl = safeReturnUrl(req, `/#/payment/${encodeURIComponent(bookingId)}?cancelled=1`);
       const session = await stripe.checkout.sessions.create({
@@ -2180,6 +2223,8 @@ async function startServer() {
         expires_at: laterStay ? Math.floor(Date.now() / 1000) + 60 * 60 : Math.floor(Date.parse(booking.createdAt) / 1000) + 60 * 60,
         // The first stay of a series saves the card so the next installments are charged automatically.
         ...(booking.seriesId ? laterStay && series?.stripeCustomerId ? { customer: series.stripeCustomerId } : { customer_creation: 'always' as const } : {}),
+        // A saved Stripe customer already carries its e-mail; Stripe refuses both at once.
+        ...(tenantEmail && !(laterStay && series?.stripeCustomerId) ? { customer_email: tenantEmail } : {}),
         line_items: [{ quantity: 1, price_data: { currency: 'eur', unit_amount: Math.round(booking.totalPrice * 100), product_data: { name: String(booking.listingTitle || listing?.title || 'Séjour HAVEN').slice(0, 200), description: `${booking.roomName || 'Chambre'} · ${booking.startDate} → ${booking.endDate}` } } }],
         success_url: successUrl, cancel_url: cancelUrl,
         payment_intent_data: { transfer_group: `haven_${bookingId}`, ...(booking.seriesId ? { setup_future_usage: 'off_session' as const } : {}), metadata: { bookingId, connectPolicy: CONNECT_POLICY_VERSION, ownerAccountId } },

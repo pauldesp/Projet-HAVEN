@@ -12,6 +12,8 @@ interface ListingContextType {
   updateListing: (listing: Listing) => Promise<void>;
   updateListingStatus: (id: string, status: ListingStatus, rejectionReason?: string) => Promise<void>;
   getListingById: (id: string) => Listing | undefined;
+  /** Blocks dates for the listing ('LISTING') or one room, and updates the local copy. */
+  saveBlockedDates: (listingId: string, target: string, dates: string[]) => Promise<void>;
   refreshListings: () => Promise<void>;
 }
 
@@ -76,6 +78,13 @@ export const ListingProvider: React.FC<{ children: ReactNode }> = ({ children })
     return listings.find(l => l.id === id);
   };
 
+  const saveBlockedDates = async (listingId: string, target: string, dates: string[]) => {
+    const saved = await apiService.listings.saveBlockedDates(listingId, target, dates);
+    setListings(prev => prev.map(listing => listing.id !== listingId ? listing : saved.target === 'LISTING'
+      ? { ...listing, blockedDates: saved.dates }
+      : { ...listing, rooms: listing.rooms.map(room => room.id === saved.target ? { ...room, blockedDates: saved.dates } : room) }));
+  };
+
   return (
     <ListingContext.Provider value={{ 
       listings, 
@@ -85,6 +94,7 @@ export const ListingProvider: React.FC<{ children: ReactNode }> = ({ children })
       updateListing,
       updateListingStatus, 
       getListingById,
+      saveBlockedDates,
       refreshListings: fetchListings
     }}>
       {children}

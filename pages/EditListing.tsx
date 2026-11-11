@@ -282,7 +282,8 @@ export const EditListing: React.FC = () => {
         </div>
 
         {/* Tabs */}
-        <div className="flex overflow-x-auto bg-white/50 backdrop-blur-sm p-1.5 rounded-[2rem] border border-gray-100 mb-8 max-w-2xl">
+        {/* Two by two on phones so every tab, including Disponibilités, is visible without scrolling. */}
+        <div role="tablist" aria-label="Sections de l’annonce" className="mb-8 grid max-w-2xl grid-cols-2 gap-1 rounded-[1.5rem] border border-gray-100 bg-white/50 p-1.5 backdrop-blur-sm sm:flex sm:rounded-[2rem]">
            {[
              { id: 'GENERAL', label: 'Informations', icon: Info },
              { id: 'ROOMS', label: 'Chambres', icon: Bed },
@@ -291,8 +292,11 @@ export const EditListing: React.FC = () => {
            ].map(tab => (
              <button
                 key={tab.id}
+                type="button"
+                role="tab"
+                aria-selected={activeTab === tab.id}
                 onClick={() => setActiveTab(tab.id as any)}
-                className={`flex-1 shrink-0 whitespace-nowrap px-3 flex items-center justify-center gap-2 py-3 rounded-[1.5rem] text-sm font-bold transition-all ${activeTab === tab.id ? 'bg-white text-haven-navy shadow-premium' : 'text-haven-stone hover:text-haven-navy/70'}`}
+                className={`flex-1 shrink-0 whitespace-nowrap px-3 flex items-center justify-center gap-2 py-3 rounded-[1.25rem] sm:rounded-[1.5rem] text-sm font-bold transition-all ${activeTab === tab.id ? 'bg-white text-haven-navy shadow-premium' : 'text-haven-stone hover:text-haven-navy/70'}`}
              >
                 <tab.icon size={16} />
                 {tab.label}

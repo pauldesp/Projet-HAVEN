@@ -1,4 +1,5 @@
 import { formatEuros } from '../services/money';
+import { ScrollableRow } from '../components/ScrollableRow';
 import { installmentDateLabel, installmentDeadlineLabel, installmentState } from '../services/recurringInstallments';
 import { useLanguage } from '../contexts/LanguageContext';
 import { compactCheckinComments } from '../services/inventoryPayload';
@@ -366,7 +367,7 @@ export const TenantDashboard: React.FC = () => {
         </section>
 
         <div className="mt-8">
-          <nav aria-label="Sections de l’espace locataire" className="haven-tabs -mx-4 mb-6 flex gap-6 overflow-x-auto border-b border-gray-200 px-4 sm:mx-0 sm:mb-8 sm:gap-8 sm:px-0">
+          <ScrollableRow as="nav" ariaLabel="Sections de l’espace locataire" label="onglets" fadeFrom="from-white" outerClassName="-mx-4 mb-6 sm:mx-0 sm:mb-8" className="haven-tabs flex gap-6 border-b border-gray-200 px-4 sm:gap-8 sm:px-0">
             {[
               { id: 'UPCOMING', label: 'Séjours', count: upcoming.length },
               { id: 'HISTORY', label: 'Historique', count: 0 },
@@ -385,7 +386,7 @@ export const TenantDashboard: React.FC = () => {
                 {activeTab === tab.id && <span className="absolute inset-x-0 bottom-0 h-0.5 rounded-full bg-haven-navy" />}
               </button>
             ))}
-          </nav>
+          </ScrollableRow>
 
           <div className="space-y-6">
             {activeTab === 'INCIDENTS' && <IncidentMonitor tenant incidents={tenantIncidents} listings={allListings} error={incidentError} />}

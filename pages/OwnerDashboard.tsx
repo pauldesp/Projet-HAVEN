@@ -1,4 +1,5 @@
 import { OwnerPayoutSettings } from '../components/OwnerPayoutSettings';
+import { ScrollableRow } from '../components/ScrollableRow';
 import { OwnerBookingActions } from '../components/OwnerBookingActions';
 import { BookingCountdown } from '../components/BookingCountdown';
 import { bookingCategory } from '../services/bookingLifecycle';
@@ -224,13 +225,13 @@ export const OwnerDashboard: React.FC = () => {
             <p className="font-bold text-haven-navy">À venir</p>
             <p className="text-sm text-gray-500">Versé à l’arrivée des locataires</p>
             <p className="mt-4 text-2xl font-bold text-haven-navy sm:mt-6 sm:text-4xl">{payoutLoading || payoutError ? '—' : formatEuros(earnings.upcoming)}</p>
-            {earnings.upcomingSimulated > 0 && <p className="mt-1 text-xs text-amber-700">dont {formatEuros(earnings.upcomingSimulated)} en simulation</p>}
+            {earnings.upcomingSimulated > 0 && <p className="mt-1 text-xs text-amber-700">dont {formatEuros(earnings.upcomingSimulated)} issus de paiements de test (aucun argent réel)</p>}
           </button>
         </section>
         {payoutError && <p role="alert" className="mt-3 text-xs text-haven-red">{payoutError}</p>}
 
         <div className="mt-8">
-          <nav aria-label="Sections de l’espace propriétaire" className="haven-tabs -mx-4 mb-6 flex gap-6 overflow-x-auto border-b border-gray-200 px-4 sm:mx-0 sm:mb-8 sm:gap-8 sm:px-0">
+          <ScrollableRow as="nav" ariaLabel="Sections de l’espace propriétaire" label="onglets" fadeFrom="from-white" outerClassName="-mx-4 mb-6 sm:mx-0 sm:mb-8" className="haven-tabs flex gap-6 border-b border-gray-200 px-4 sm:gap-8 sm:px-0">
             {[
               { id: 'LISTINGS', label: 'Logements', badge: 0 },
               { id: 'BOOKINGS', label: 'Réservations', badge: 0 },
@@ -250,7 +251,7 @@ export const OwnerDashboard: React.FC = () => {
                 {activeTab === tab.id && <span className="absolute inset-x-0 bottom-0 h-0.5 rounded-full bg-haven-navy" />}
               </button>
             ))}
-          </nav>
+          </ScrollableRow>
 
           <div className="space-y-6">
             {activeTab === 'LISTINGS' && (

@@ -326,6 +326,13 @@ export const apiService = {
         return handleFirestoreError(e, 'CREATE', `listings/${listing.id}`);
       }
     },
+    /** Blocks or unblocks dates for the whole listing or one room, without re-validating the listing. */
+    async saveBlockedDates(listingId: string, target: string, dates: string[]) {
+      const response = await authenticatedFetch(`/api/listings/${encodeURIComponent(listingId)}/blocked-dates`, { method: 'POST', body: JSON.stringify({ target, dates }) });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(`${payload.error || 'Les dates n’ont pas pu être enregistrées.'} (Erreur ${response.status})`);
+      return payload as { target: string; dates: string[] };
+    },
     async update(listing: Listing) {
       try {
         if (listing.cleaningPolicyVersion !== undefined) assertCleaningPolicyAccepted(listing.cleaningPolicyVersion);
@@ -337,9 +344,9 @@ export const apiService = {
         if (!existingSnapshot.exists()) throw new Error('Ce logement n’existe plus. (Erreur 404)');
         const existingListing = existingSnapshot.data() as Listing;
         if (existingListing.ownerId !== auth.currentUser.uid && !isAdminEditor) throw new Error('Vous n’êtes pas autorisé à modifier ce logement. (Erreur 403)');
-        if (hasIncompleteRoom(listing.rooms)) throw new Error('Chaque chambre doit avoir un nom, un prix par nuit et une surface.');
-        if (hasRoomWithoutOption(listing.rooms)) throw new Error('Chaque chambre doit disposer d’au moins une option du cahier des charges HAVEN.');
-        if (listing.galleryUrls.length < 3 || hasMissingRoomPhoto(listing.rooms)) throw new Error('Ajoutez au moins trois photos des parties communes et une photo par chambre.');
+        if (hasIncompleteRoom(listing.rooms)) throw new Error('Chaque chambre doit avoir un nom, un prix par nuit et une surface. (Erreur 422)');
+        if (hasRoomWithoutOption(listing.rooms)) throw new Error('Chaque chambre doit disposer d’au moins une option du cahier des charges HAVEN. (Erreur 422)');
+        if (listing.galleryUrls.length < 3 || hasMissingRoomPhoto(listing.rooms)) throw new Error('Ajoutez au moins trois photos des parties communes et une photo par chambre. (Erreur 422)');
         const removedRoomIds = new Set((existingListing.rooms || [])
           .filter(existingRoom => !listing.rooms.some(room => room.id === existingRoom.id))
           .map(room => room.id));

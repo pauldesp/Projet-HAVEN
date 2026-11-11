@@ -7,6 +7,7 @@ import { doc, getDoc, setDoc, onSnapshot, runTransaction } from 'firebase/firest
 import { createPendingMemberProfile } from '../services/memberProfile';
 import { registrationPasswordError } from '../services/accountTerms';
 import { createGooglePopupSignIn } from '../services/googleSignIn';
+import { authenticatedFetch } from '../services/serverApi';
 
 let legacyRedirectResult: ReturnType<typeof getRedirectResult> | undefined;
 
@@ -67,16 +68,30 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   useEffect(() => {
     let unsubscribeSnapshot: (() => void) | null = null;
 
+    let fallbackTimer: ReturnType<typeof setTimeout> | undefined;
     const unsubscribeAuth = onAuthStateChanged(auth, (firebaseUser) => {
+      if (fallbackTimer) clearTimeout(fallbackTimer);
       if (firebaseUser) {
-        // Attempt seeding after login in background
-        seedFirestore().catch(console.error);
-        
         try {
           // Listen for real-time updates to the user document
           if (unsubscribeSnapshot) unsubscribeSnapshot();
-          
+          let received = false;
+          // If the live channel has not answered within 4 s, read the profile through Haven's server
+          // so the page never waits on it; the live listener takes over as soon as it connects.
+          fallbackTimer = setTimeout(() => {
+            if (received) return;
+            authenticatedFetch('/api/me/profile')
+              .then(response => response.ok ? response.json() as Promise<User> : null)
+              .then(profile => {
+                if (received || auth.currentUser?.uid !== firebaseUser.uid) return;
+                if (profile) setCurrentUser(profile);
+                setIsLoading(false);
+              })
+              .catch(() => undefined);
+          }, 4000);
+
           unsubscribeSnapshot = onSnapshot(doc(db, 'users', firebaseUser.uid), (docSnapshot) => {
+            received = true;
             if (docSnapshot.exists()) {
               let userData = docSnapshot.data() as User;
               
@@ -106,6 +121,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     return () => {
       unsubscribeAuth();
+      if (fallbackTimer) clearTimeout(fallbackTimer);
       if (unsubscribeSnapshot) unsubscribeSnapshot();
     };
   }, []);

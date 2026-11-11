@@ -33,7 +33,7 @@ import { recurringPaymentSchedule } from '../services/recurringPaymentSchedule';
 export const ListingDetails: React.FC = () => {
   const { id } = useParams();
   const { currentUser, refreshUser } = useAuth();
-  const { getListingById, updateListing } = useListings();
+  const { getListingById, saveBlockedDates } = useListings();
   const listing = getListingById(id || '');
   const calendarRef = useRef<HTMLDivElement>(null);
 
@@ -280,17 +280,9 @@ export const ListingDetails: React.FC = () => {
   const handleSaveBlockedDates = async (dates: string[]) => {
     if (!listing) return;
 
-    const updatedListing = isBlockingWholeListing
-      ? { ...listing, blockedDates: dates }
-      : {
-          ...listing,
-          rooms: listing.rooms.map(room =>
-            room.id === blockedRoom.id ? { ...room, blockedDates: dates } : room
-          )
-        };
-
     try {
-      await updateListing(updatedListing);
+      // Only the dates change: no full re-validation of the listing.
+      await saveBlockedDates(listing.id, isBlockingWholeListing ? 'LISTING' : blockedRoom.id, dates);
       toast.success(isBlockingWholeListing
         ? 'Les indisponibilités du logement ont été mises à jour.'
         : `Les indisponibilités de ${blockedRoom.name} ont été mises à jour.`);
@@ -466,24 +458,11 @@ export const ListingDetails: React.FC = () => {
               <div className="mb-10">
                 <h2 className="font-heading font-bold text-xl mb-4">Équipements du logement</h2>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                  {/* Équipements standards HAVEN */}
-                  <div className="flex items-center gap-3 text-gray-700 font-bold">
-                    <div className="shrink-0 w-8 h-8 rounded-lg bg-blue-50 text-blue-700 flex items-center justify-center">
-                      <Check size={16} />
-                    </div>
-                    Cuisine équipée
-                  </div>
-                  <div className="flex items-center gap-3 text-gray-700 font-bold">
-                    <div className="shrink-0 w-8 h-8 rounded-lg bg-blue-50 text-blue-700 flex items-center justify-center">
-                      <Check size={16} />
-                    </div>
-                    Ménage hebdomadaire
-                  </div>
-                  {/* Équipements sélectionnés par le proprio */}
-                  {listing.amenities.map(item => (
+                  {/* Haven standards first, then the owner's choices: one single style, no unexplained difference. */}
+                  {[...new Set(['Cuisine équipée', 'Ménage hebdomadaire', ...listing.amenities])].map(item => (
                     <div key={item} className="flex items-center gap-3 text-gray-700">
                       <div className="shrink-0 w-8 h-8 rounded-lg bg-green-50 text-green-700 flex items-center justify-center">
-                        <Check size={16} />
+                        <Check size={16} aria-hidden="true" />
                       </div>
                       {item}
                     </div>
