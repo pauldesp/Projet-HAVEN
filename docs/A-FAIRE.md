@@ -156,6 +156,18 @@ Légende : **[Paul]** à faire par toi (comptes, contrats, décisions), **[Code]
 - [ ] **[Test] Nouveaux tableaux de bord** propriétaire et locataire, et onglet Signalements.
 - [ ] **[Test] Navigateurs** : Safari iPhone, Chrome Android, Chrome, Safari et Firefox sur ordinateur.
 
+## 4. Après la mise en ligne : application iPhone et Android
+
+Choix retenu (11 nov.) : **Capacitor**, qui emballe le site mobile actuel (même code) dans une vraie application. Hébergement prévu : domaine chez **Gandi**, serveur sur **Google Cloud Run**.
+
+- [ ] **[Paul] Comptes développeur** : Apple Developer (99 $/an, au nom de l'entreprise) et Google Play Console (25 $ une fois).
+- [ ] **[Code] Projet Capacitor** iOS et Android branché sur le serveur en ligne.
+- [ ] **[Code] Retour dans l'application après le paiement Stripe** (lien profond) et connexion Google native.
+- [ ] **[Code] « Se connecter avec Apple »**, exigé par Apple dès qu'une connexion Google existe.
+- [ ] **[Code] Suppression du compte par le membre lui-même**, exigée par Apple.
+- [ ] **[Code] Notifications push** (confirmation, prélèvement à venir, arrivée) et appareil photo natif pour les états des lieux.
+- [ ] **[Paul] Fiches des boutiques** : icône, captures, description, politique de confidentialité, compte de démonstration pour la validation Apple.
+
 ## Références
 
 [Checklist de mise en ligne](AVANT-MISE-EN-LIGNE.md) · [Paiement](PAYMENTS.md) · [E-mails](EMAILS.md) · [Modèles Resend](resend-templates/README.md)
