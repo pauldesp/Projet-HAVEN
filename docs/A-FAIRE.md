@@ -24,7 +24,8 @@ Légende : **[Paul]** à faire par toi (comptes, contrats, décisions), **[Code]
 - [ ] **[Code] Renseigner `APP_ORIGIN`** avec l'adresse publique et vérifier tous les liens des e-mails.
 - [ ] **[Paul] Saisir les secrets de production** chez l'hébergeur (jamais dans Git ni dans une conversation).
 - [x] **[Code] Préparer la sauvegarde automatique de Firestore** : `scripts/firestore-backup.mjs` (`status`, `enable` : chaque jour gardée 14 jours et chaque dimanche gardée 14 semaines, `restore-test` dans une base séparée, `drop-restore-test`).
-- [ ] **[Paul] Activer les sauvegardes** (`node scripts/firestore-backup.mjs enable`), puis **[Test]** une restauration dans la base séparée le lendemain.
+- [x] **Sauvegardes activées** le 11 novembre (chaque jour, gardée 14 jours ; chaque dimanche, gardée 14 semaines).
+- [ ] **[Test] Essayer une restauration** dès la première sauvegarde (`node scripts/firestore-backup.mjs restore-test`, puis `drop-restore-test`).
 
 ### Paiements Stripe
 
