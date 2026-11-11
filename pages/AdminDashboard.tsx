@@ -1857,7 +1857,7 @@ export const AdminDashboard: React.FC = () => {
         onClose={() => setListingReview(null)}
         onApprove={() => void handleUpdateStatus(listingReview.id, 'APPROVED')}
         onReject={() => openRejectionModal('LISTING', listingReview.id)}
-        onEdit={() => navigate(`/owner/publish?edit=${listingReview.id}`)}
+        onEdit={() => navigate(`/owner/edit/${listingReview.id}`)}
         onException={isPrimaryAdmin ? () => setExceptionTarget({ type: 'LISTING', id: listingReview.id, label: listingReview.title, revoke: Boolean(listingReview.verificationException) }) : undefined} />}
 
       {/* Rejection Modal */}

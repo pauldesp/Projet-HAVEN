@@ -135,7 +135,8 @@ export const PublishListing: React.FC = () => {
   const isApproved = Boolean(currentUser && hasVerificationException(currentUser)) || (currentUser?.status === 'APPROVED' && currentUser.emailVerified === true && hasRequiredPhoneNumber(currentUser) && currentUser.identityVerified === true) || currentUser?.role === 'ADMIN';
   const isSubmittedForReview = Boolean(currentUser && isVerificationPending(currentUser));
   const hasOwnerDocuments = Boolean(currentUser?.documents?.idCard);
-  const canPublish = isApproved && (hasOwnerDocuments || Boolean(currentUser && hasVerificationException(currentUser)));
+  // Administrators are not owners: they are never asked for an owner dossier.
+  const canPublish = currentUser?.role === 'ADMIN' || (isApproved && (hasOwnerDocuments || Boolean(currentUser && hasVerificationException(currentUser))));
 
   if (isAuthLoading) {
     return (

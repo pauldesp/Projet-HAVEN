@@ -28,6 +28,8 @@ export const EditListing: React.FC = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { currentUser } = useAuth();
+  // An administrator correcting someone else's listing returns to the back office.
+  const homePath = currentUser?.role === 'ADMIN' ? '/admin/dashboard' : '/owner/dashboard';
   const { getListingById, updateListing } = useListings();
   
   const [listing, setListing] = useState<Listing | null>(null);
@@ -43,7 +45,7 @@ export const EditListing: React.FC = () => {
       // Check ownership
       if (data.ownerId !== currentUser?.id && currentUser?.role !== 'ADMIN') {
         toast.error("Vous n'êtes pas autorisé à modifier ce logement.");
-        navigate('/owner/dashboard');
+        navigate(homePath);
         return;
       }
       
@@ -88,7 +90,7 @@ export const EditListing: React.FC = () => {
       savedListing.current = normalizeListingPhotos(normalizedListing);
     } else {
       toast.error("Logement non trouvé.");
-      navigate('/owner/dashboard');
+      navigate(homePath);
     }
   }, [id, getListingById, currentUser, navigate]);
 
@@ -256,7 +258,7 @@ export const EditListing: React.FC = () => {
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-12">
           <div className="flex items-center gap-4">
             <button 
-              onClick={() => navigate('/owner/dashboard')}
+              onClick={() => navigate(homePath)}
               className="w-12 h-12 rounded-2xl bg-white flex items-center justify-center text-haven-stone hover:bg-gray-100 transition-colors shadow-premium"
             >
               <ArrowLeft size={24} />
