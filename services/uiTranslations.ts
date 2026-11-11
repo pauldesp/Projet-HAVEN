@@ -117,7 +117,7 @@ export const englishUi: Record<string, string> = {
   "Modalité d’arrivée": "Check-in method",
   "Cette information est publique. Les instructions détaillées et codes restent dans les consignes privées d’entrée.": "This information is public. Detailed instructions and codes remain in the private check-in instructions.",
   "Locataire": "Tenant",
-  "Mode Propriétaire": "Owner mode",
+  "Mode propriétaire": "Owner mode",
   "Back-Office Admin": "Admin dashboard",
   "Administration": "Administration",
   "Gouvernance admin": "Admin management",

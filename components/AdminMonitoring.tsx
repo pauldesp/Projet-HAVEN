@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { authenticatedFetch } from '../services/serverApi';
 import { SYSTEM_TASKS, type SystemTask, type TaskHealth } from '../services/systemHealth';
 import { mailKindLabel, mailStatusLabel, taskStatus } from '../services/adminMonitoring';
+import { AdminErrors } from './AdminErrors';
 
 type Mail = { id: string; kind: string; status: string; attempts: number; lastError: string; occurredAt: string; nextAttemptAt: string; sentAt: string; to: string };
 type SystemData = { tasks: TaskHealth[]; counts: Record<string, number>; mails: Mail[]; mailConfigured: boolean; emailFrom: string; teamRecipient: boolean };
@@ -67,6 +68,8 @@ export function AdminMonitoring() {
         })}
       </ul>
     </section>
+
+    <AdminErrors />
 
     <section className="space-y-3">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">

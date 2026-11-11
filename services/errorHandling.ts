@@ -1,3 +1,17 @@
+import { sendClientError } from './clientErrorReporter';
+/** An error whose message is shown as is, with its support code kept apart (never displayed). */
+export class HavenError extends Error {
+  constructor(message: string, public code: string) { super(message); this.name = 'HavenError'; }
+}
+/** Error from a Haven API answer: the server's message, or the standard one for that status. */
+export const httpError = (message: unknown, status: number | string) => {
+  const code = String(status);
+  return new HavenError(typeof message === 'string' && message.trim() ? message : (messages[code] || messages['500']).message, code);
+};
+const KNOWN_CODES = /^(401|402|403|404|409|422|429|451|500|503)$/;
+/** Removes legacy "(Erreur 403)" mentions from a text before display. */
+export const withoutErrorCode = (text: string) => text.replace(/\s*\(?Erreur \d{3}\)?\.?\s*$/i, '').trim();
+
 export interface UserFacingError {
   code: string;
   title: string;
@@ -65,6 +79,8 @@ const rawError = (error: unknown) => {
  * Technical details stay in the browser console for diagnosis only.
  */
 export const classifyError = (error: unknown): UserFacingError => {
+  const ownCode = error && typeof error === 'object' ? String((error as { code?: unknown }).code ?? '') : '';
+  if (KNOWN_CODES.test(ownCode)) return { code: ownCode, ...messages[ownCode] };
   const detail = rawError(error);
   const existingCode = detail.match(/(?:erreur|error)\s+(401|402|403|404|409|422|429|451|500|503)\b/);
   if (existingCode) return { code: existingCode[1], ...messages[existingCode[1]] };
@@ -85,11 +101,13 @@ export const classifyError = (error: unknown): UserFacingError => {
 
 export const userFacingErrorMessage = (error: unknown) => {
   const classified = classifyError(error);
-  return `${classified.message} (Erreur ${classified.code})`;
+  return classified.message;
 };
 
-export const reportError = (error: unknown, context: string) => {
+/** Logs an error; unexpected ones (code 500, or forced for display crashes) are also sent to Haven's error tracking. */
+export const reportError = (error: unknown, context: string, options: { track?: boolean } = {}) => {
   const classified = classifyError(error);
   console.error(`[Erreur ${classified.code}] ${context}`, error);
+  if (options.track ?? classified.code === '500') sendClientError(error, context);
   return classified;
 };

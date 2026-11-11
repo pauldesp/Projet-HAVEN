@@ -118,7 +118,7 @@ export const Header: React.FC = () => {
                     {isOwnerMode ? (
                       <><ArrowRightLeft size={16} aria-hidden="true"/> {tr("Locataire")}</>
                     ) : (
-                      <><ArrowRightLeft size={16} aria-hidden="true"/> {tr("Mode Propriétaire")}</>
+                      <><ArrowRightLeft size={16} aria-hidden="true"/> {tr("Mode propriétaire")}</>
                     )}
                   </button>
                  )}

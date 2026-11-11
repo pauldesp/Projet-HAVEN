@@ -14,7 +14,7 @@ import { needsNewReview } from './listingChanges';
 import { hasMissingRoomPhoto, normalizeListingPhotos } from './media';
 import { normalizeListingDescription } from './listingDescription';
 import { hasIncompleteRoom, hasRoomWithoutOption } from './roomValidation';
-import { reportError, userFacingErrorMessage } from './errorHandling';
+import { HavenError, httpError, reportError, userFacingErrorMessage } from './errorHandling';
 
 
 // Helper to handle firestore errors with context
@@ -64,7 +64,7 @@ export const apiService = {
         method: 'POST', body: JSON.stringify({ mode, reason })
       });
       const payload = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(payload.error || `Erreur ${response.status}`);
+      if (!response.ok) throw httpError(payload.error, response.status);
       return payload as ReturnType<typeof import('./verificationException').prepareVerificationException>;
     },
     async createAdministrator(input: { email: string; firstName: string; lastName: string }) {
@@ -73,18 +73,18 @@ export const apiService = {
         body: JSON.stringify(input)
       });
       const payload = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(payload.error || `Erreur ${response.status}`);
+      if (!response.ok) throw httpError(payload.error, response.status);
       return payload.user as User;
     },
     async revokeAdministrator(userId: string) {
       const response = await authenticatedFetch(`/api/admin/staff/${encodeURIComponent(userId)}`, { method: 'DELETE' });
       const payload = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(payload.error || `Erreur ${response.status}`);
+      if (!response.ok) throw httpError(payload.error, response.status);
     },
     async listAudit(): Promise<AdminAuditEntry[]> {
       const response = await authenticatedFetch('/api/admin/audit');
       const payload = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(payload.error || `Erreur ${response.status}`);
+      if (!response.ok) throw httpError(payload.error, response.status);
       return Array.isArray(payload.entries) ? payload.entries as AdminAuditEntry[] : [];
     },
     async recordAudit(entry: Omit<AdminAuditEntry, 'id' | 'actorId' | 'actorName' | 'createdAt'>) {
@@ -94,7 +94,7 @@ export const apiService = {
       });
       if (!response.ok) {
         const payload = await response.json().catch(() => ({}));
-        throw new Error(payload.error || `Erreur ${response.status}`);
+        throw httpError(payload.error, response.status);
       }
     }
   },
@@ -104,7 +104,7 @@ export const apiService = {
         method: 'POST', body: JSON.stringify({ status, reason })
       });
       const payload = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(payload.error || `Erreur ${response.status}`);
+      if (!response.ok) throw httpError(payload.error, response.status);
       return payload as Partial<User>;
     },
     async approveProfile(userId: string) {
@@ -112,7 +112,7 @@ export const apiService = {
         method: 'POST', body: JSON.stringify({ identityReviewed: true, residenceReviewed: true })
       });
       const payload = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(payload.error || `Erreur ${response.status}`);
+      if (!response.ok) throw httpError(payload.error, response.status);
       return payload as Pick<User, 'status' | 'identityVerified' | 'isVerified' | 'idVerifiedAt'>;
     },
     async getAll(): Promise<User[]> {
@@ -197,7 +197,7 @@ export const apiService = {
         });
         if (!response.ok) {
           const payload = await response.json().catch(() => ({}));
-          throw new Error(payload.error || `Erreur ${response.status}`);
+          throw httpError(payload.error, response.status);
         }
         return response.json() as Promise<{ status: 'PENDING'; identityVerified: false }>;
       } catch (e) {
@@ -212,7 +212,7 @@ export const apiService = {
       });
       if (!response.ok) {
         const payload = await response.json().catch(() => ({}));
-        throw new Error(payload.error || `Erreur ${response.status}`);
+        throw httpError(payload.error, response.status);
       }
     },
     async updatePhoneForVerification(userId: string, phone: string) {
@@ -222,7 +222,7 @@ export const apiService = {
       });
       if (!response.ok) {
         const payload = await response.json().catch(() => ({}));
-        throw new Error(payload.error || `Erreur ${response.status}`);
+        throw httpError(payload.error, response.status);
       }
     },
     async submitVerification(role: 'TENANT' | 'OWNER', terms?: { accepted: boolean; version: string }) {
@@ -232,7 +232,7 @@ export const apiService = {
       });
       if (!response.ok) {
         const payload = await response.json().catch(() => ({}));
-        throw new Error(payload.error || `Erreur ${response.status}`);
+        throw httpError(payload.error, response.status);
       }
       return response.json() as Promise<{ status: 'PENDING'; verificationSubmittedAt: string }>;
     },
@@ -240,7 +240,7 @@ export const apiService = {
       const response = await authenticatedFetch('/api/users/me/confirm-email', { method: 'POST', body: '{}' });
       if (!response.ok) {
         const payload = await response.json().catch(() => ({}));
-        throw new Error(payload.error || `Erreur ${response.status}`);
+        throw httpError(payload.error, response.status);
       }
       return response.json() as Promise<{ emailVerified: true; emailVerifiedAt: string }>;
     },
@@ -248,7 +248,7 @@ export const apiService = {
       const response = await authenticatedFetch('/api/users/me/confirm-phone', { method: 'POST', body: '{}' });
       if (!response.ok) {
         const payload = await response.json().catch(() => ({}));
-        throw new Error(payload.error || `Erreur ${response.status}`);
+        throw httpError(payload.error, response.status);
       }
       return response.json() as Promise<{ phoneVerified: true; phoneVerifiedAt: string }>;
     },
@@ -281,7 +281,7 @@ export const apiService = {
         method: 'POST', body: JSON.stringify({ status, reviewed, reason })
       });
       const payload = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(payload.error || `Erreur ${response.status}`);
+      if (!response.ok) throw httpError(payload.error, response.status);
       return payload;
     },
     async getAll() {
@@ -303,7 +303,7 @@ export const apiService = {
     async create(listing: Listing) {
       try {
         assertCleaningPolicyAccepted(listing.cleaningPolicyVersion);
-        if (!auth.currentUser || listing.ownerId !== auth.currentUser.uid) throw new Error('Vous devez être connecté en tant que propriétaire pour créer ce logement. (Erreur 401)');
+        if (!auth.currentUser || listing.ownerId !== auth.currentUser.uid) throw new HavenError('Vous devez être connecté en tant que propriétaire pour créer ce logement.', '401');
         if (hasIncompleteRoom(listing.rooms)) throw new Error('Chaque chambre doit avoir un nom, un prix par nuit et une surface.');
         if (hasRoomWithoutOption(listing.rooms)) throw new Error('Chaque chambre doit disposer d’au moins une option du cahier des charges HAVEN.');
         if (listing.galleryUrls.length < 3 || hasMissingRoomPhoto(listing.rooms)) throw new Error('Ajoutez au moins trois photos des parties communes et une photo par chambre.');
@@ -317,7 +317,7 @@ export const apiService = {
         if (hasVerificationException(profile.data() || {})) {
           const response = await authenticatedFetch('/api/listings/test-create', { method: 'POST', body: JSON.stringify({ listing: normalizedListing }) });
           const result = await response.json().catch(() => ({}));
-          if (!response.ok) throw new Error(result.error || `Erreur ${response.status}`);
+          if (!response.ok) throw httpError(result.error, response.status);
           return result as Listing;
         }
         await setDoc(doc(db, 'listings', listing.id), normalizedListing);
@@ -330,23 +330,23 @@ export const apiService = {
     async saveBlockedDates(listingId: string, target: string, dates: string[]) {
       const response = await authenticatedFetch(`/api/listings/${encodeURIComponent(listingId)}/blocked-dates`, { method: 'POST', body: JSON.stringify({ target, dates }) });
       const payload = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(`${payload.error || 'Les dates n’ont pas pu être enregistrées.'} (Erreur ${response.status})`);
+      if (!response.ok) throw httpError(payload.error || 'Les dates n’ont pas pu être enregistrées.', response.status);
       return payload as { target: string; dates: string[] };
     },
     async update(listing: Listing) {
       try {
         if (listing.cleaningPolicyVersion !== undefined) assertCleaningPolicyAccepted(listing.cleaningPolicyVersion);
-        if (!auth.currentUser) throw new Error('Vous n’êtes pas autorisé à modifier ce logement. (Erreur 403)');
+        if (!auth.currentUser) throw new HavenError('Vous n’êtes pas autorisé à modifier ce logement.', '403');
         // An administrator may correct a listing (remove a photo, fix a text) without sending it back to review.
         const isAdminEditor = listing.ownerId !== auth.currentUser.uid && (await getDoc(doc(db, 'users', auth.currentUser.uid))).data()?.role === 'ADMIN';
-        if (listing.ownerId !== auth.currentUser.uid && !isAdminEditor) throw new Error('Vous n’êtes pas autorisé à modifier ce logement. (Erreur 403)');
+        if (listing.ownerId !== auth.currentUser.uid && !isAdminEditor) throw new HavenError('Vous n’êtes pas autorisé à modifier ce logement.', '403');
         const existingSnapshot = await getDoc(doc(db, 'listings', listing.id));
-        if (!existingSnapshot.exists()) throw new Error('Ce logement n’existe plus. (Erreur 404)');
+        if (!existingSnapshot.exists()) throw new HavenError('Ce logement n’existe plus.', '404');
         const existingListing = existingSnapshot.data() as Listing;
-        if (existingListing.ownerId !== auth.currentUser.uid && !isAdminEditor) throw new Error('Vous n’êtes pas autorisé à modifier ce logement. (Erreur 403)');
-        if (hasIncompleteRoom(listing.rooms)) throw new Error('Chaque chambre doit avoir un nom, un prix par nuit et une surface. (Erreur 422)');
-        if (hasRoomWithoutOption(listing.rooms)) throw new Error('Chaque chambre doit disposer d’au moins une option du cahier des charges HAVEN. (Erreur 422)');
-        if (listing.galleryUrls.length < 3 || hasMissingRoomPhoto(listing.rooms)) throw new Error('Ajoutez au moins trois photos des parties communes et une photo par chambre. (Erreur 422)');
+        if (existingListing.ownerId !== auth.currentUser.uid && !isAdminEditor) throw new HavenError('Vous n’êtes pas autorisé à modifier ce logement.', '403');
+        if (hasIncompleteRoom(listing.rooms)) throw new HavenError('Chaque chambre doit avoir un nom, un prix par nuit et une surface.', '422');
+        if (hasRoomWithoutOption(listing.rooms)) throw new HavenError('Chaque chambre doit disposer d’au moins une option du cahier des charges HAVEN.', '422');
+        if (listing.galleryUrls.length < 3 || hasMissingRoomPhoto(listing.rooms)) throw new HavenError('Ajoutez au moins trois photos des parties communes et une photo par chambre.', '422');
         const removedRoomIds = new Set((existingListing.rooms || [])
           .filter(existingRoom => !listing.rooms.some(room => room.id === existingRoom.id))
           .map(room => room.id));
@@ -356,7 +356,7 @@ export const apiService = {
             .map(item => item.data() as BookingAvailability)
             .some(item => removedRoomIds.has(item.roomId) && ['PENDING', 'APPROVED', 'CONFIRMED'].includes(item.status));
           if (hasActiveBooking) {
-            throw new Error('Une chambre avec une réservation active ne peut pas être supprimée. Annulez d’abord la réservation concernée. (Erreur 409)');
+            throw new HavenError('Une chambre avec une réservation active ne peut pas être supprimée. Annulez d’abord la réservation concernée.', '409');
           }
         }
         const normalizedListing = normalizeListingDescription(normalizeListingPhotos({
@@ -402,14 +402,14 @@ export const apiService = {
     async create(booking: Booking) {
       try {
         if (!auth.currentUser || booking.tenantId !== auth.currentUser.uid) {
-          throw new Error('Vous devez être connecté pour réserver. (Erreur 401)');
+          throw new HavenError('Vous devez être connecté pour réserver.', '401');
         }
         const response = await authenticatedFetch('/api/bookings', {
           method: 'POST',
           body: JSON.stringify({ id: booking.id, listingId: booking.listingId, roomId: booking.roomId, startDate: booking.startDate, endDate: booking.endDate, cleaningPolicyVersion: booking.cleaningPolicyVersion })
         });
         const payload = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error(`${payload.error || 'Impossible de créer la réservation'} (Erreur ${response.status})`);
+        if (!response.ok) throw httpError(payload.error || 'Impossible de créer la réservation', response.status);
         return payload.booking as Booking;
       } catch (e) {
         throw e;
@@ -417,10 +417,10 @@ export const apiService = {
     },
     /** Reserves every stay of a recurring search at once; only the first stay is paid now. */
     async createSeries(input: { seriesId: string; listingId: string; stays: { id: string; roomId: string; startDate: string; endDate: string }[]; cleaningPolicyVersion: string; autoChargeConsentVersion: string }) {
-      if (!auth.currentUser) throw new Error('Vous devez être connecté pour réserver. (Erreur 401)');
+      if (!auth.currentUser) throw new HavenError('Vous devez être connecté pour réserver.', '401');
       const response = await authenticatedFetch('/api/booking-series', { method: 'POST', body: JSON.stringify(input) });
       const payload = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(`${payload.error || 'Impossible de réserver ces séjours'} (Erreur ${response.status})`);
+      if (!response.ok) throw httpError(payload.error || 'Impossible de réserver ces séjours', response.status);
       return payload as { bookings: Booking[] };
     },
     async getByUserId(userId: string) {
@@ -467,7 +467,7 @@ export const apiService = {
         method: 'POST', body: JSON.stringify({ status })
       });
       const payload = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(`${payload.error || 'Impossible de modifier cette réservation'} (Erreur ${response.status})`);
+      if (!response.ok) throw httpError(payload.error || 'Impossible de modifier cette réservation', response.status);
       return status === 'COMPLETED' ? payload.completedAt : payload;
     },
     listenByParticipant(userId: string, role: 'OWNER' | 'TENANT', callback: (bookings: Booking[]) => void, onError: () => void) {
@@ -488,7 +488,7 @@ export const apiService = {
         body: JSON.stringify({ reason }),
       });
       const payload = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(`${payload.error || 'Annulation impossible'}${payload.code ? ` (Erreur ${payload.code})` : ''}`);
+      if (!response.ok) throw httpError(payload.error || 'Annulation impossible', payload.code || response.status);
       return payload as { success: true; status: 'CANCELLED'; cancellation: NonNullable<Booking['cancellation']> };
     }
   },
@@ -506,7 +506,7 @@ export const apiService = {
         const response = await authenticatedFetch(`/api/listings/${encodeURIComponent(listingId)}/housemates?${params.toString()}`);
         if (!response.ok) {
           const payload = await response.json().catch(() => ({}));
-          throw new Error(payload.error || `Erreur ${response.status}`);
+          throw httpError(payload.error, response.status);
         }
         const payload = await response.json() as { housemates?: HousematePreview[] };
         return Array.isArray(payload.housemates) ? payload.housemates : [];
@@ -709,7 +709,7 @@ export const apiService = {
         method: 'POST', body: JSON.stringify({ status, note: adminNotes, reviewDate })
       });
       const payload = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(payload.error || `Erreur ${response.status}`);
+      if (!response.ok) throw httpError(payload.error, response.status);
       return payload;
     }
   },
@@ -718,7 +718,7 @@ export const apiService = {
     async create(input: Parameters<typeof routeStayIssue>[0]) {
       const response = await authenticatedFetch('/api/stay-issues', { method: 'POST', body: JSON.stringify(input) });
       const payload = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(payload.error || `Erreur ${response.status}`);
+      if (!response.ok) throw httpError(payload.error, response.status);
       return payload.destination as 'OWNER' | 'HAVEN';
     }
   },
@@ -732,7 +732,7 @@ export const apiService = {
         method: 'POST', body: JSON.stringify({ reason })
       });
       const payload = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(payload.error || `Erreur ${response.status}`);
+      if (!response.ok) throw httpError(payload.error, response.status);
       return payload;
     },
     listenByOwnerId(ownerId: string, onData: (incidents: Incident[]) => void, onError: (error: Error) => void) {
@@ -777,7 +777,7 @@ export const apiService = {
         method: 'POST', body: JSON.stringify({ status, ownerNotes })
       });
       const payload = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(payload.error || `Erreur ${response.status}`);
+      if (!response.ok) throw httpError(payload.error, response.status);
       return payload;
     }
   },

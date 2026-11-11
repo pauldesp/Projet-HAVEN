@@ -180,7 +180,7 @@ export const ForPartners: React.FC = () => {
             <form onSubmit={handleSubmit} className="space-y-5">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5 animate-fade-in">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Votre Nom Complet *</label>
+                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Votre nom complet *</label>
                   <input
                     type="text"
                     required

@@ -179,12 +179,12 @@ export const ListingDetails: React.FC = () => {
     }
 
     if (isListingOwner) {
-      toast.error('Vous ne pouvez pas réserver votre propre logement. (Erreur 403)');
+      toast.error('Vous ne pouvez pas réserver votre propre logement.');
       return false;
     }
 
     if (isHost && !isListingOwner) {
-      toast.error('Basculez en mode locataire pour réserver ce logement. (Erreur 403)');
+      toast.error('Basculez en mode locataire pour réserver ce logement.');
       return false;
     }
 
@@ -230,7 +230,7 @@ export const ListingDetails: React.FC = () => {
     if (!passesBookingGate()) return;
 
     if (activeRoom && nights < requiredNightsForStay(activeRoom, listing, availability, startDate, endDate)) {
-      toast.error(`Ce logement nécessite un séjour minimum de ${minimumNights(listing.minStay)} nuits. (Erreur 422)`);
+      toast.error(`Ce logement nécessite un séjour minimum de ${minimumNights(listing.minStay)} nuits.`);
       return;
     }
 

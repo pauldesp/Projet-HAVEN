@@ -8,6 +8,7 @@ import { createSystemHealth } from './services/systemHealth';
 import { buildMemberFile } from './services/memberFile';
 import { AdminFinanceError, createAdminFinances } from './services/adminFinancesServer';
 import { createAdminModeration } from './services/adminModerationServer';
+import { createErrorTracking } from './services/errorTrackingServer';
 import { CONNECT_POLICY_VERSION, DEPOSIT_POLICY } from './services/stripeConnect';
 import { normalizePlatformFeedback } from './services/platformFeedback';
 import { normalizeRoomGuide, normalizeRoomGuides } from './services/roomGuide';
@@ -264,7 +265,7 @@ const recurringSeries = createRecurringSeries({
   paymentMode: () => getPaymentMode(),
   stripe: getStripe,
   isTestMode: () => connectConfiguration().isTest,
-  readyOwnerAccount: ownerId => ownerConnect.readyAccount(ownerId),
+  ownerPayoutAccount: ownerId => ownerConnect.payoutAccount(ownerId),
   settle: (receipt, actorId) => settleBookingPayment(receipt, actorId),
   registerPayment: (booking, payment) => ownerConnect.registerPayment(booking, payment),
   assertTenantCanBook,
@@ -272,6 +273,7 @@ const recurringSeries = createRecurringSeries({
 });
 
 const adminModeration = createAdminModeration({ db: adminDb, notifyMail: () => void deliverReservationMail() });
+const errorTracking = createErrorTracking({ db: adminDb, notifyMail: () => void deliverReservationMail(), alertsEnabled: process.env.NODE_ENV === 'production' });
 const adminFinances = createAdminFinances({ db: adminDb, stripe: getStripe, sweepInstallments: () => recurringSeries.sweep() });
 
 async function synchronizeCheckout(session: Stripe.Checkout.Session) {
@@ -1241,6 +1243,11 @@ async function startServer() {
       mailConfigured: !('error' in getEmailProvider()), emailFrom, teamRecipient: Boolean(teamMailRecipient(process.env)),
     };
   }));
+  // Application errors grouped by fingerprint (browsers and server).
+  app.get('/api/admin/errors', sensitiveApiLimiter, requireAuth, financeRoute(async () => ({ errors: await errorTracking.list() })));
+  app.post('/api/admin/errors/:errorId/resolve', sensitiveApiLimiter, requireAuth, financeRoute(async (_admin, req) => {
+    if (!await errorTracking.setResolved(String(req.params.errorId), req.body?.resolved !== false)) throw new AdminFinanceError('Erreur introuvable.', 404);
+  }));
   app.post('/api/admin/mail-outbox/:jobId/retry', sensitiveApiLimiter, requireAuth, financeRoute(async (admin, req) => {
     const id = String(req.params.jobId);
     if (!/^[a-zA-Z0-9_.:-]{1,200}$/.test(id)) throw new AdminFinanceError('Message invalide.', 422);
@@ -1622,6 +1629,13 @@ async function startServer() {
 
   // The signed-in member's own profile over plain HTTPS: fallback when Firestore's live channel
   // is slow to open (seen in Safari after returning from Stripe).
+  // Unexpected errors seen in visitors' browsers. Anonymous on purpose (a crash may happen before sign-in); cleaned server-side.
+  app.post('/api/client-errors', rateLimit({ windowMs: 60_000, limit: 20, standardHeaders: true, legacyHeaders: false }), (req, res) => {
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    void errorTracking.record({ source: 'CLIENT', message: body.message, stack: body.stack, context: body.context, path: body.path, userAgent: req.get('user-agent') || '' });
+    res.status(204).end();
+  });
+
   app.get('/api/me/profile', requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
       const snapshot = await adminDb.collection('users').doc(req.user!.uid).get();
@@ -2244,6 +2258,16 @@ async function startServer() {
     }
   });
 
+  // Last resort for errors no route handled: recorded for the back office, generic answer to the visitor.
+  app.use((error: unknown, req: Request, res: Response, next: (error?: unknown) => void) => {
+    if (res.headersSent) return next(error);
+    const cause = error as { message?: unknown; stack?: unknown; status?: unknown; type?: unknown };
+    // Malformed JSON or oversized bodies are the client's doing, not a Haven bug.
+    if (typeof cause?.status === 'number' && cause.status >= 400 && cause.status < 500) return sendApiError(res, cause.status, 'Requête invalide.');
+    void errorTracking.record({ source: 'SERVER', message: typeof cause?.message === 'string' ? cause.message : String(error), stack: typeof cause?.stack === 'string' ? cause.stack : '', context: `${req.method} ${req.path.replace(/\/[a-zA-Z0-9_-]{12,}/g, '/:id')}` });
+    return sendApiError(res, 500, 'Une erreur inattendue est survenue.');
+  });
+
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on http://0.0.0.0:${PORT}`);
   });
@@ -2297,8 +2321,10 @@ async function startServer() {
 // A brief network loss (Wi-Fi switch, sleep) makes background Firestore/Stripe calls fail.
 // Every sweep retries on its next run, so log the failure instead of stopping the whole server.
 process.on('unhandledRejection', reason => {
-  const error = reason as { code?: unknown; message?: unknown } | undefined;
+  const error = reason as { code?: unknown; message?: unknown; stack?: unknown } | undefined;
   console.error('Background task failed; it will be retried.', error?.code ?? '', typeof error?.message === 'string' ? error.message.slice(0, 200) : '');
+  // Network losses are filtered out by the tracker; anything else is shown in the back office.
+  void errorTracking.record({ source: 'SERVER', message: typeof error?.message === 'string' ? error.message : String(reason), stack: typeof error?.stack === 'string' ? error.stack : '', context: 'Tâche de fond' });
 });
 
 startServer().catch(err => {

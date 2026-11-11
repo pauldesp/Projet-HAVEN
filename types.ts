@@ -221,6 +221,8 @@ export interface Booking {
   installmentAttempts?: number;
   nextInstallmentAttemptAt?: string;
   installmentLastError?: string;
+  /** Haven was warned that the owner payout account was not ready when this stay was charged. */
+  ownerPayoutAlertAt?: string;
   installmentLeaseUntil?: string;
   unpaidCancelledAt?: string;
   /** Refunds decided by Haven without cancelling the stay (goodwill gestures, settled disputes). */

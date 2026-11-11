@@ -23,7 +23,8 @@ Légende : **[Paul]** à faire par toi (comptes, contrats, décisions), **[Code]
 - [ ] **[Paul] Acheter et relier le nom de domaine** en HTTPS.
 - [ ] **[Code] Renseigner `APP_ORIGIN`** avec l'adresse publique et vérifier tous les liens des e-mails.
 - [ ] **[Paul] Saisir les secrets de production** chez l'hébergeur (jamais dans Git ni dans une conversation).
-- [ ] **[Code] Mettre en place une sauvegarde automatique de Firestore** et tester une restauration.
+- [x] **[Code] Préparer la sauvegarde automatique de Firestore** : `scripts/firestore-backup.mjs` (`status`, `enable` : chaque jour gardée 14 jours et chaque dimanche gardée 14 semaines, `restore-test` dans une base séparée, `drop-restore-test`).
+- [ ] **[Paul] Activer les sauvegardes** (`node scripts/firestore-backup.mjs enable`), puis **[Test]** une restauration dans la base séparée le lendemain.
 
 ### Paiements Stripe
 
@@ -64,15 +65,15 @@ Légende : **[Paul]** à faire par toi (comptes, contrats, décisions), **[Code]
 
 - [x] **[Code] Compiler Tailwind dans le projet** au lieu du CDN, puis **activer la politique de sécurité des contenus (CSP)** en production (7 novembre ; rendu identique vérifié sur 6 pages, aucune violation sur les pages publiques).
 - [ ] **[Test] Vérifier la CSP sur les pages connectées** une fois en ligne : connexion Google, messagerie, paiement Stripe, publication d'annonce.
-- [ ] **[Code] Ajouter un suivi des erreurs** en production (Sentry ou équivalent) et des alertes.
+- [x] **[Code] Suivi des erreurs** (11 nov.) : erreurs imprévues du site et du serveur regroupées dans Surveillance (« Erreurs de l’application »), sans donnée personnelle ; en ligne, une alerte à l’équipe à la première apparition (10 par heure au plus).
 - [ ] **[Code] Revoir les limites de requêtes** (connexion, paiement, signalements) une fois le trafic réel connu.
 - [x] **[Code] Mettre à jour les dépendances** et lancer un audit de sécurité (`npm audit`) : 29 failles → 17, dont plus aucune critique ; React Router mis à jour, `showdown` (inutilisé) retiré.
 - [ ] **[Code] Suivre la mise à jour de Firebase** : les 4 failles « élevées » restantes viennent de son module gRPC interne, sans correction compatible pour l'instant.
 
 ### Performance
 
-- [ ] **[Code] Découper le fichier principal** (environ 1 Mo) pour accélérer l'ouverture sur mobile.
-- [ ] **[Code] Optimiser les images** (WebP ou AVIF, tailles adaptées au téléphone).
+- [x] **[Code] Découper le fichier principal** (11 nov.) : animations de l’accueil en CSS (−120 Ko), Firebase et React dans des fichiers séparés mis en cache, données de démonstration chargées à la demande.
+- [x] **[Code] Optimiser les images** (11 nov.) : photo d’accueil en AVIF (79 Ko au lieu de 400 Ko, 42 Ko sur téléphone), logo allégé (34 Ko au lieu de 117 Ko, aussi dans les PDF), photos des annonces en WebP quand le navigateur le permet.
 
 ### Parcours locataire
 
@@ -90,7 +91,7 @@ Légende : **[Paul]** à faire par toi (comptes, contrats, décisions), **[Code]
 - [x] **[Code] Limiter l'annulation par le propriétaire** à 30 jours avant l'arrivée minimum, locataire remboursé à 100 % (7 novembre).
 - [ ] **[Code] Calendrier d'occupation par chambre** pour voir d'un coup d'œil les séjours et les trous.
 - [ ] **[Code] Relevés mensuels et factures** téléchargeables pour sa comptabilité.
-- [ ] **[Code] Gérer la perte des versements Stripe en cours de série** : si le compte du propriétaire n'est plus prêt, ne pas annuler le séjour du locataire à tort.
+- [x] **[Code] Gérer la perte des versements Stripe en cours de série** (11 nov.) : le locataire est prélevé normalement, le versement du propriétaire attend son compte complet et l’équipe Haven reçoit une alerte.
 - [ ] **[Paul] Décider d'une remise** pour la récurrence ou les séjours courts entre deux locations.
 
 ### Comptes et connexion
@@ -129,8 +130,8 @@ Légende : **[Paul]** à faire par toi (comptes, contrats, décisions), **[Code]
 ### Textes
 
 - [ ] **[Paul] Choisir tutoiement ou vouvoiement** pour tout le site ; **[Code]** uniformiser (l'accueil et la récurrence tutoient, les espaces personnels vouvoient).
-- [ ] **[Code] Corriger les majuscules et accents irréguliers** (« Mes Favoris », « Certificat de Conformité »…).
-- [ ] **[Code] Retirer les codes techniques des messages** (« (Erreur 403) », « (Erreur 422) »).
+- [x] **[Code] Corriger les majuscules et accents irréguliers** (11 nov.).
+- [x] **[Code] Retirer les codes techniques des messages** (11 nov.) : gardés en interne pour le classement des erreurs, jamais affichés.
 - [ ] **[Paul] Faire relire tous les textes** par une personne extérieure.
 
 ### Images et identité

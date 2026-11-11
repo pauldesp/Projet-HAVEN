@@ -9,11 +9,11 @@ export function SearchLoading({ message = 'Recherche des logements disponiblesâ€
       <div className="flex w-full max-w-[300px] items-center" style={{ aspectRatio: '1367 / 417', transform: 'translateX(-10px)' }}>
         <div className="relative h-full shrink-0 motion-safe:animate-spin" style={{ width: '28.5296%', animationDuration: '2.8s' }}>
           <div className="absolute inset-0 overflow-hidden">
-            <img src="/logo.png" alt="" draggable={false} className="absolute top-0 h-full max-w-none" style={{ width: '350.5128%', left: 0 }} />
+            <img src="/logo-600.png" alt="" draggable={false} className="absolute top-0 h-full max-w-none" style={{ width: '350.5128%', left: 0 }} />
           </div>
         </div>
         <div className="relative h-full flex-1 overflow-hidden" style={{ transform: 'translateX(20px)' }}>
-          <img src="/logo.png" alt="" draggable={false} className="absolute top-0 h-full max-w-none" style={{ width: '139.9181%', left: '-39.9181%' }} />
+          <img src="/logo-600.png" alt="" draggable={false} className="absolute top-0 h-full max-w-none" style={{ width: '139.9181%', left: '-39.9181%' }} />
         </div>
       </div>
     </div>

@@ -17,10 +17,23 @@ async function loadImage(source: string): Promise<HTMLImageElement> {
   });
 }
 
+/** WebP is about 30 % lighter than JPEG at equal quality; browsers that cannot encode it (older Safari) fall back to JPEG. */
+let webpEncoding: boolean | undefined;
+function canEncodeWebp() {
+  if (webpEncoding === undefined) {
+    const probe = document.createElement('canvas');
+    probe.width = probe.height = 1;
+    webpEncoding = probe.toDataURL('image/webp').startsWith('data:image/webp');
+  }
+  return webpEncoding;
+}
+
 async function compressImageSource(source: string): Promise<string> {
   const image = await loadImage(source);
   let latest = source;
+  const format = canEncodeWebp() ? 'image/webp' : 'image/jpeg';
 
+  // Same storage budget either way; WebP stays sharper at that weight.
   for (const maxDimension of [960, 800, 640, 512]) {
     const scale = Math.min(1, maxDimension / Math.max(image.naturalWidth, image.naturalHeight));
     const canvas = document.createElement('canvas');
@@ -29,7 +42,7 @@ async function compressImageSource(source: string): Promise<string> {
     canvas.getContext('2d')?.drawImage(image, 0, 0, canvas.width, canvas.height);
 
     for (const quality of [0.76, 0.62, 0.5, 0.4]) {
-      latest = canvas.toDataURL('image/jpeg', quality);
+      latest = canvas.toDataURL(format, quality);
       if (dataUrlSize(latest) <= MAX_STORED_IMAGE_BYTES) return latest;
     }
   }

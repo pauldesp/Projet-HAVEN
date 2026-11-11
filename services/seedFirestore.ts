@@ -1,0 +1,150 @@
+// Development seeding of an empty database by an approved administrator.
+// Loaded on demand only, so the demo data stays out of the main bundle.
+import { doc, getDocFromServer, collection, getDocs, setDoc } from 'firebase/firestore';
+import { auth, db } from '../firebase';
+import { MOCK_USERS_DB, MOCK_LISTINGS, SEED_BOOKINGS } from './mockData';
+import { BookingAvailability, User, UserRole } from '../types';
+import { reportError, userFacingErrorMessage } from './errorHandling';
+
+enum OperationType {
+  CREATE = 'create',
+  UPDATE = 'update',
+  DELETE = 'delete',
+  LIST = 'list',
+  GET = 'get',
+  WRITE = 'write',
+}
+
+interface FirestoreErrorInfo {
+  error: string;
+  operationType: OperationType;
+  path: string | null;
+  authInfo: {
+    userId: string | undefined;
+    email: string | null | undefined;
+    emailVerified: boolean | undefined;
+    isAnonymous: boolean | undefined;
+    providerInfo: {
+      providerId: string;
+      displayName: string | null;
+      email: string | null;
+      photoUrl: string | null;
+    }[];
+  }
+}
+
+function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
+  const errInfo: FirestoreErrorInfo = {
+    error: error instanceof Error ? error.message : String(error),
+    authInfo: {
+      userId: auth.currentUser?.uid,
+      email: auth.currentUser?.email,
+      emailVerified: auth.currentUser?.emailVerified,
+      isAnonymous: auth.currentUser?.isAnonymous,
+      providerInfo: auth.currentUser?.providerData.map(provider => ({
+        providerId: provider.providerId,
+        displayName: provider.displayName,
+        email: provider.email,
+        photoUrl: provider.photoURL
+      })) || []
+    },
+    operationType,
+    path
+  };
+  reportError(errInfo, `Firebase ${operationType} ${path ?? 'inconnu'}`);
+  throw new Error(userFacingErrorMessage(error));
+}
+
+// Seed Firestore if empty or forced
+export async function seedFirestore(force = false) {
+  if (!auth.currentUser) {
+    console.log("Seeding deferred: User not authenticated.");
+    return;
+  }
+
+  try {
+    const currentProfileSnap = await getDocFromServer(doc(db, 'users', auth.currentUser.uid));
+    const currentProfile = currentProfileSnap.exists() ? currentProfileSnap.data() as User : undefined;
+    const isAdminUser = currentProfile?.role === UserRole.ADMIN && currentProfile.status === 'APPROVED';
+
+    console.log(`DEBUG: Seeding check for user ${auth.currentUser.uid} (isAdmin: ${isAdminUser}, force: ${force})`);
+    // Check listings first as they are public-readable
+    const listingsSnap = await getDocs(collection(db, 'listings'));
+    
+    if (listingsSnap.empty || force) {
+      if (!isAdminUser) {
+        console.log("Database is empty or force seed requested. An approved administrator must initialize the mock data.");
+        return;
+      }
+
+      console.log("Seeding database...");
+      
+      // Seed users
+      for (const user of MOCK_USERS_DB) {
+        try {
+          await setDoc(doc(db, 'users', user.id), {
+            ...user,
+            createdAt: user.createdAt || new Date().toISOString()
+          });
+          console.log(`Seeded user ${user.id}`);
+        } catch (e) {
+          handleFirestoreError(e, OperationType.WRITE, `users/${user.id}`);
+        }
+      }
+
+      // Seed listings
+      for (const listing of MOCK_LISTINGS) {
+        try {
+          await setDoc(doc(db, 'listings', listing.id), listing);
+          console.log(`Seeded listing ${listing.id}`);
+        } catch (e) {
+          handleFirestoreError(e, OperationType.WRITE, `listings/${listing.id}`);
+        }
+      }
+
+      // Seed bookings
+      for (const booking of SEED_BOOKINGS) {
+        try {
+          await setDoc(doc(db, 'bookings', booking.id), booking);
+          const availability: BookingAvailability = {
+            id: booking.id,
+            bookingId: booking.id,
+            listingId: booking.listingId,
+            roomId: booking.roomId,
+            startDate: booking.startDate,
+            endDate: booking.endDate,
+            status: booking.status,
+            updatedAt: new Date().toISOString()
+          };
+          await setDoc(doc(db, 'booking_availability', booking.id), availability);
+          console.log(`Seeded booking ${booking.id}`);
+        } catch (e) {
+          handleFirestoreError(e, OperationType.WRITE, `bookings/${booking.id}`);
+        }
+      }
+      console.log("Seeding completed successfully.");
+    }
+
+    // Incremental migration for bookings created before the public availability
+    // collection existed. Only an approved administrator can run it.
+    if (isAdminUser) {
+      const bookingsSnap = await getDocs(collection(db, 'bookings'));
+      for (const bookingDoc of bookingsSnap.docs) {
+        const booking = bookingDoc.data() as typeof SEED_BOOKINGS[number];
+        const availability: BookingAvailability = {
+          id: booking.id,
+          bookingId: booking.id,
+          listingId: booking.listingId,
+          roomId: booking.roomId,
+          startDate: booking.startDate,
+          endDate: booking.endDate,
+          status: booking.status,
+          updatedAt: new Date().toISOString()
+        };
+        await setDoc(doc(db, 'booking_availability', booking.id), availability);
+      }
+    }
+  } catch (e) {
+    console.error("Seeding error (top level):", e);
+  }
+}

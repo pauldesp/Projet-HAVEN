@@ -24,7 +24,8 @@ export interface RecurringSeriesDependencies {
   paymentMode: () => 'SIMULATION' | 'STRIPE';
   stripe: () => Stripe;
   isTestMode: () => boolean;
-  readyOwnerAccount: (ownerId: string) => Promise<string>;
+  /** The owner's payout account, even when it needs completing (null: none at all). Throws when Stripe is unreachable. */
+  ownerPayoutAccount: (ownerId: string) => Promise<{ accountId: string; ready: boolean } | null>;
   settle: (receipt: PaymentReceiptInput, actorId?: string) => Promise<SettleResult>;
   registerPayment: (booking: Booking, payment: IntentLike) => Promise<void>;
   /** Throws when the tenant may not book (verification, role). */
@@ -180,6 +181,21 @@ export function createRecurringSeries(deps: RecurringSeriesDependencies) {
     deps.notifyMail();
   }
 
+  /** One alert to the Haven team per stay whose owner payout account is not ready at charge time. */
+  async function alertOwnerAccount(booking: Booking, situation: string) {
+    if (booking.ownerPayoutAlertAt) return;
+    const at = new Date().toISOString();
+    const message = `Compte de versement du propriétaire ${situation}. Séjour ${booking.id} (${booking.listingTitle || 'logement'}, ${booking.startDate} → ${booking.endDate}).`;
+    await db.runTransaction(async transaction => {
+      const ref = bookings.doc(booking.id);
+      if ((await transaction.get(ref)).data()?.ownerPayoutAlertAt) return;
+      transaction.update(ref, { ownerPayoutAlertAt: at });
+      transaction.set(outbox.doc(`${booking.id}-OWNER_ACCOUNT-HAVEN_ALERT`), { kind: 'HAVEN_ALERT', task: 'OWNER_TRANSFERS', message, failures: 1, occurredAt: at, status: 'PENDING', attempts: 0, nextAttemptAt: at });
+    });
+    console.error('Owner payout account not ready at installment time.', booking.id);
+    deps.notifyMail();
+  }
+
   async function chargeOne(booking: Booking) {
     const ref = bookings.doc(booking.id);
     const leased = await db.runTransaction(async transaction => {
@@ -199,14 +215,24 @@ export function createRecurringSeries(deps: RecurringSeriesDependencies) {
       return;
     }
     if (!series.stripeCustomerId || !series.paymentMethodId) return recordFailure(leased, 'Aucune carte enregistrée pour cette série.');
-    let ownerAccountId: string;
-    try { ownerAccountId = await deps.readyOwnerAccount(leased.ownerId); }
+    let payoutAccount: { accountId: string; ready: boolean } | null;
+    try { payoutAccount = await deps.ownerPayoutAccount(leased.ownerId); }
     catch {
-      // The owner's payout account is not ready: not the tenant's fault, retry in an hour without counting an attempt.
+      // Stripe unreachable: not the tenant's fault, retry in an hour without counting an attempt.
       await bookings.doc(leased.id).update({ nextInstallmentAttemptAt: new Date(Date.now() + 3600_000).toISOString(), installmentLeaseUntil: null });
-      console.error('Installment waiting for the owner payout account.', leased.id);
+      console.error('Installment waiting for Stripe.', leased.id);
       return;
     }
+    if (!payoutAccount || !payoutAccount.ready) {
+      // The owner's payout account needs completing. The tenant is never penalised for it: the stay is charged as
+      // planned when an account exists (the owner's transfer waits until it is complete), and Haven is warned once.
+      await alertOwnerAccount(leased, payoutAccount ? 'incomplet : le séjour est prélevé, son versement attendra que le compte soit complété' : 'absent : le prélèvement attend, contactez le propriétaire avant l’échéance');
+      if (!payoutAccount) {
+        await bookings.doc(leased.id).update({ nextInstallmentAttemptAt: new Date(Date.now() + 3600_000).toISOString(), installmentLeaseUntil: null });
+        return;
+      }
+    }
+    const ownerAccountId = payoutAccount.accountId;
     let intent: Stripe.PaymentIntent;
     try {
       intent = await deps.stripe().paymentIntents.create({

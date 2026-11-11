@@ -1436,7 +1436,7 @@ export const AdminDashboard: React.FC = () => {
                     className="bg-haven-red text-white px-8 py-4 text-sm"
                     size="md"
                   >
-                    <Plus size={20} className="mr-2" /> Nouveau Document
+                    <Plus size={20} className="mr-2" /> Nouveau document
                   </Button>
                 </div>
 
@@ -1485,7 +1485,7 @@ export const AdminDashboard: React.FC = () => {
                 <div className="bg-white rounded-3xl shadow-card border border-gray-100 p-4 sm:p-8 animate-fade-in-up">
                   <div className="flex items-center justify-between mb-8">
                     <h3 className="font-heading font-bold text-xl text-haven-navy">
-                      {selectedLegalDoc?.id.startsWith('new-') ? "Nouveau Document" : `Édition : ${selectedLegalDoc?.title || selectedLegalDoc?.id}`}
+                      {selectedLegalDoc?.id.startsWith('new-') ? "Nouveau document" : `Édition : ${selectedLegalDoc?.title || selectedLegalDoc?.id}`}
                     </h3>
                     <div className="flex gap-3">
                       <Button variant="outline" size="sm" onClick={() => setIsEditingLegal(false)}>Annuler</Button>
@@ -1508,7 +1508,7 @@ export const AdminDashboard: React.FC = () => {
                         value={legalEditForm.title || ''}
                         onChange={(e) => setLegalEditForm({ ...legalEditForm, title: e.target.value })}
                         className="w-full px-6 py-4 bg-gray-50 border border-gray-100 rounded-2xl outline-none focus:border-haven-red transition-all text-xl font-bold text-haven-navy"
-                        placeholder="Ex: Conditions Générales de Vente"
+                        placeholder="Ex. : Conditions générales de vente"
                       />
                     </div>
                     <div className="space-y-2">
@@ -1800,7 +1800,7 @@ export const AdminDashboard: React.FC = () => {
                   </div>
                   <div className="relative z-10">
                     <h3 className="font-heading font-bold text-2xl mb-8 flex items-center gap-3">
-                      <Shield className="text-haven-red" /> Informations Administrateur & Mode Réservations
+                      <Shield className="text-haven-red" /> Informations administrateur et mode de réservation
                     </h3>
                     <div className="grid md:grid-cols-2 gap-12">
                       <div className="space-y-6">

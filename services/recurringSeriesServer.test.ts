@@ -57,7 +57,7 @@ function setup() {
   const settled: string[] = [];
   const series = createRecurringSeries({
     db, paymentMode: () => 'SIMULATION', stripe: () => { throw new Error('no stripe'); }, isTestMode: () => true,
-    readyOwnerAccount: async () => 'acct_1', registerPayment: async () => undefined, assertTenantCanBook: async () => undefined, notifyMail: () => undefined,
+    ownerPayoutAccount: async () => ({ accountId: 'acct_1', ready: true }), registerPayment: async () => undefined, assertTenantCanBook: async () => undefined, notifyMail: () => undefined,
     settle: async receipt => {
       const path = `bookings/${receipt.bookingId}`;
       const booking = data.get(path) as Booking;
@@ -128,4 +128,32 @@ test('sans autorisation explicite du prélèvement automatique, la série est re
   assert.equal(data.get('booking_series/s1'), undefined);
   await series.create('tenant', { seriesId: 's2', listingId: 'l1', stays: stays(), autoChargeConsentVersion: AUTO_CHARGE_CONSENT_VERSION });
   assert.equal((data.get('booking_series/s2') as BookingSeries).autoChargeConsent?.version, AUTO_CHARGE_CONSENT_VERSION);
+});
+
+test('un compte de versement du propriétaire incomplet ne pénalise pas le locataire : prélevé, Haven prévenu une fois', async () => {
+  const { db, data } = memoryDb();
+  data.set('listings/l1', structuredClone(listing));
+  const charged: string[] = [];
+  const registered: string[] = [];
+  const stripe: any = { paymentIntents: { create: async (params: any) => { charged.push(params.metadata.ownerAccountId); return { id: `pi_${charged.length}`, status: 'succeeded', livemode: false, amount: params.amount, amount_received: params.amount, currency: 'eur', metadata: params.metadata }; } } };
+  const series = createRecurringSeries({
+    db, paymentMode: () => 'STRIPE', stripe: () => stripe, isTestMode: () => true,
+    ownerPayoutAccount: async () => ({ accountId: 'acct_owner', ready: false }),
+    registerPayment: async booking => { registered.push(booking.id); }, assertTenantCanBook: async () => undefined, notifyMail: () => undefined,
+    settle: async receipt => {
+      const path = `bookings/${receipt.bookingId}`;
+      data.set(path, { ...data.get(path), status: 'CONFIRMED', paymentStatus: 'PAID', paymentProvider: 'STRIPE', checkoutSessionId: receipt.sessionId });
+      return { disposition: 'CONFIRM', booking: data.get(path) as Booking };
+    },
+  });
+  await series.create('tenant', { seriesId: 's1', listingId: 'l1', stays: stays(), autoChargeConsentVersion: AUTO_CHARGE_CONSENT_VERSION });
+  data.set('bookings/b1', { ...data.get('bookings/b1'), status: 'CONFIRMED', paymentStatus: 'PAID' });
+  data.set('booking_series/s1', { ...data.get('booking_series/s1'), paymentProvider: 'STRIPE', stripeCustomerId: 'cus_1', paymentMethodId: 'pm_1' });
+  await series.sweep();
+  assert.deepEqual(charged, ['acct_owner'], 'le séjour dû est prélevé vers le compte existant');
+  assert.equal(data.get('bookings/b2')!.paymentStatus, 'PAID');
+  assert.deepEqual(registered, ['b2'], 'le versement est préparé et attendra le compte complet');
+  const alert = data.get('reservation_mail_outbox/b2-OWNER_ACCOUNT-HAVEN_ALERT');
+  assert.equal(alert?.kind, 'HAVEN_ALERT');
+  assert.ok(data.get('bookings/b2')!.ownerPayoutAlertAt);
 });

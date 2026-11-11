@@ -115,8 +115,8 @@ export const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose, lis
 
       const terms = bookingTerms || docs.find(d => d.id === 'terms') || {
         id: 'terms',
-        title: 'Conditions Générales de Réservation',
-        content: '# Conditions Générales de Réservation\n\nBienvenue sur HAVEN. En réservant ce logement, vous acceptez les conditions suivantes...',
+        title: 'Conditions générales de réservation',
+        content: '# Conditions générales de réservation\n\nBienvenue sur HAVEN. En réservant ce logement, vous acceptez les conditions suivantes...',
         lastUpdated: new Date().toISOString()
       };
       setLegalDoc(terms);
@@ -345,7 +345,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose, lis
                     <Shield size={32} />
                   </div>
                   <h3 className="text-xl font-heading font-bold text-haven-navy">Conditions générales & Accord Tripartite</h3>
-                  <p className="text-sm text-haven-stone">Veuillez lire et accepter les Conditions Générales de Réservations. Votre validation et votre paiement vaudront signature de l'accord tripartite (Locataire, Propriétaire, HAVEN) valant contrat officiel.</p>
+                  <p className="text-sm text-haven-stone">Veuillez lire et accepter les conditions générales de réservation. Votre validation et votre paiement vaudront signature de l’accord tripartite (locataire, propriétaire et Haven), qui tient lieu de contrat.</p>
                 </div>
 
                 <div className="rounded-2xl border border-blue-100 bg-blue-50/60 p-4 text-sm text-gray-600">
@@ -365,7 +365,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose, lis
                     <div className="flex items-center gap-3">
                       <FileText className="text-haven-red" size={24} />
                       <span className="font-bold text-haven-navy">
-                        {legalDoc ? legalDoc.title : "Conditions Générales"}
+                        {legalDoc ? legalDoc.title : "Conditions générales"}
                       </span>
                     </div>
                     {isSigned && <CheckCircle className="text-green-600" size={24} />}

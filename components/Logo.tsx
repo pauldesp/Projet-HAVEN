@@ -9,7 +9,7 @@ interface LogoProps {
 export const Logo: React.FC<LogoProps> = ({ className = "h-10", white = false }) => {
   return (
     <img 
-      src="/logo.png" 
+      src="/logo-600.png" 
       alt="HAVEN" 
       className={`block w-auto ${className} ${white ? 'brightness-0 invert' : ''}`}
       draggable={false}

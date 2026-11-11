@@ -758,7 +758,7 @@ export const TenantDashboard: React.FC = () => {
                        <div className="inline-block px-4 py-1.5 bg-haven-navy text-white text-[10px] font-black uppercase tracking-[0.2em] rounded-full mb-4">
                           {viewingDocument.type.replace('_', ' ')}
                        </div>
-                       <h2 className="text-haven-navy font-heading font-bold text-[1.75rem] sm:text-4xl leading-tight">Certificat de Conformité</h2>
+                       <h2 className="text-haven-navy font-heading font-bold text-[1.75rem] sm:text-4xl leading-tight">Certificat de conformité</h2>
                        <p className="text-haven-stone font-medium">Référence d'archivage : <span className="font-mono text-gray-400">{viewingDocument.id}</span></p>
                        <p className="text-xs text-gray-400 pt-2">Généré numériquement le {new Date(viewingDocument.createdAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
                     </div>
@@ -779,7 +779,7 @@ export const TenantDashboard: React.FC = () => {
                     <div className="space-y-8">
                        <div className="flex items-center gap-3">
                           <div className="h-px flex-1 bg-gray-100"></div>
-                          <h4 className="font-black text-heaven-stone uppercase tracking-[0.3em] text-[10px]">Informations Certifiées</h4>
+                          <h4 className="font-black text-heaven-stone uppercase tracking-[0.3em] text-[10px]">Informations certifiées</h4>
                           <div className="h-px flex-1 bg-gray-100"></div>
                        </div>
 

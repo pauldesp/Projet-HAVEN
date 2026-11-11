@@ -30,9 +30,9 @@ export function googleSignInErrorMessage(error: unknown) {
     case 'auth/cancelled-popup-request':
       return 'La fenêtre Google a été fermée avant la fin de la connexion. Vous pouvez réessayer.';
     case 'auth/unauthorized-domain':
-      return 'La connexion Google n’est pas encore autorisée depuis cette adresse. (Erreur 403)';
+      return 'La connexion Google n’est pas encore autorisée depuis cette adresse.';
     case 'auth/operation-not-allowed':
-      return 'La connexion Google est momentanément indisponible. (Erreur 503)';
+      return 'La connexion Google est momentanément indisponible.';
     case 'auth/account-exists-with-different-credential':
       return 'Un compte utilise déjà cette adresse e-mail avec un autre mode de connexion. Connectez-vous avec votre adresse e-mail et votre mot de passe.';
     case 'auth/web-storage-unsupported':

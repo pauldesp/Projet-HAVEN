@@ -87,7 +87,7 @@ const AppContent: React.FC = () => {
     const showUnexpectedError = (error: unknown, context: string) => {
       const userError = reportError(error, context);
       toast.error(userError.title, {
-        description: `${userError.message} Erreur ${userError.code}.`,
+        description: userError.message,
       });
     };
     const onUnhandledRejection = (event: PromiseRejectionEvent) => {
@@ -177,7 +177,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   }
 
   componentDidCatch(error: unknown) {
-    reportError(error, 'Erreur d’affichage');
+    reportError(error, 'Erreur d’affichage', { track: true });
   }
 
   render() {
@@ -186,7 +186,6 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
         <div className="p-10 text-center font-sans">
           <h1 className="text-haven-red text-2xl font-bold mb-3">Un problème temporaire est survenu</h1>
           <p className="mx-auto max-w-md text-haven-stone">{this.state.errorMessage}</p>
-          <p className="mt-3 text-sm font-semibold text-haven-stone">Erreur {this.state.errorCode}</p>
           <div className="mt-6 flex justify-center gap-3">
             <button 
               onClick={() => window.location.hash = '#/'}

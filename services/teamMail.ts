@@ -8,6 +8,8 @@ export const TEAM_ALERTS_START = '2026-11-10T00:00:00.000Z';
 export interface TeamMailJob {
   kind: 'HAVEN_REPORT' | 'HAVEN_ALERT'; reportId?: string; occurredAt: string; status: 'PENDING'; attempts: number; nextAttemptAt: string;
   task?: SystemTask; message?: string; failures?: number;
+  /** Overrides the task name, e.g. for application errors. */
+  title?: string;
 }
 export interface TeamMailData {
   report?: Report;
@@ -51,7 +53,7 @@ const instant = (value: string) => new Intl.DateTimeFormat('fr-FR', { dateStyle:
 export function teamMailValues(job: TeamMailJob, data: TeamMailData): Record<string, string> {
   if (job.kind === 'HAVEN_ALERT') return {
     PRENOM_DESTINATAIRE: 'équipe Haven', MENTION_TEST: '', REFERENCE_DOSSIER: 'Surveillance Haven', DATE_ACTION: instant(job.occurredAt),
-    TACHE: job.task ? SYSTEM_TASKS[job.task] : 'Tâche automatique', MESSAGE_ERREUR: job.message || 'Erreur inconnue', NOMBRE_ECHECS: String(job.failures || 0),
+    TACHE: job.title || (job.task ? SYSTEM_TASKS[job.task] : 'Tâche automatique'), MESSAGE_ERREUR: job.message || 'Erreur inconnue', NOMBRE_ECHECS: String(job.failures || 0),
   };
   const report = data.report!;
   const type = report.incidentId ? 'Demande d’intervention sur un incident' : report.bookingId ? 'Problème de séjour transmis à Haven'

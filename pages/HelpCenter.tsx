@@ -23,7 +23,7 @@ export const HelpCenter: React.FC = () => {
     { id: 'FLATMATE', label: 'Profil & Colocataires', icon: User },
     { id: 'BOOKING', label: 'Réservation & Stripe', icon: CreditCard },
     { id: 'CHECKIN', label: 'États des lieux', icon: ClipboardCheck },
-    { id: 'OWNER', label: 'Espace Propriétaire', icon: MapPin }
+    { id: 'OWNER', label: 'Espace propriétaire', icon: MapPin }
   ];
 
   const articles: HelpArticle[] = [

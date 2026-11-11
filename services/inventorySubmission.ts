@@ -1,4 +1,5 @@
 import type { InventoryReport } from '../types';
+import { httpError } from './errorHandling';
 
 type Request = (url: string, init: RequestInit) => Promise<Response>;
 const connectionError = (error: unknown) => error instanceof TypeError || (error instanceof Error && /load failed|failed to fetch|network|networkerror|connexion interrompue/i.test(error.message));
@@ -19,7 +20,7 @@ export async function submitInventoryReport(report: InventoryReport, request: Re
     if (response.ok && payload?.report?.id === report.id && payload.report.bookingId === report.bookingId) return payload.report as InventoryReport;
     if (([502, 503, 504].includes(response.status) || response.ok) && attempt < 2) { await pause(attempt === 0 ? 500 : 1500); continue; }
     if (response.ok) throw new Error('La confirmation n’a pas pu être reçue. Vos réponses sont conservées. Réessayez la validation.');
-    throw new Error(`${payload?.error || 'Impossible d’enregistrer l’état des lieux. Réessayez sans fermer le formulaire.'} (Erreur ${response.status})`);
+    throw httpError(payload?.error || 'Impossible d’enregistrer l’état des lieux. Réessayez sans fermer le formulaire.', response.status);
   }
   throw new Error('Impossible de confirmer l’état des lieux. Réessayez sans fermer le formulaire.');
 }

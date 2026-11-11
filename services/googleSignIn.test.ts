@@ -55,8 +55,10 @@ test('Google errors distinguish popup blocking, cancellation, existing credentia
   assert.match(googleSignInErrorMessage({ code: 'auth/popup-blocked' }), /bloquée.*Autorisez/);
   assert.match(googleSignInErrorMessage({ code: 'auth/popup-closed-by-user' }), /fermée.*réessayer/);
   assert.match(googleSignInErrorMessage({ code: 'auth/account-exists-with-different-credential' }), /mot de passe/);
-  assert.match(googleSignInErrorMessage({ code: 'auth/unauthorized-domain' }), /403/);
-  assert.match(googleSignInErrorMessage({ code: 'auth/operation-not-allowed' }), /503/);
-  assert.match(googleSignInErrorMessage({ code: 'auth/network-request-failed' }), /402/);
+  assert.match(googleSignInErrorMessage({ code: 'auth/unauthorized-domain' }), /pas encore autorisée/);
+  assert.match(googleSignInErrorMessage({ code: 'auth/operation-not-allowed' }), /momentanément indisponible/);
+  assert.match(googleSignInErrorMessage({ code: 'auth/network-request-failed' }), /synchronisation/i);
+  // Technical codes are never shown to members.
+  assert.doesNotMatch(googleSignInErrorMessage({ code: 'auth/network-request-failed' }), /Erreur \d{3}/);
   assert.doesNotMatch(googleSignInErrorMessage({ code: 'auth/internal-error', message: 'PRIVATE_TOKEN' }), /PRIVATE_TOKEN/);
 });

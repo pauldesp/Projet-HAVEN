@@ -1,6 +1,6 @@
 
 import React, { useRef, useState } from 'react';
-import { motion } from 'motion/react';
+import { Reveal } from '../components/Reveal';
 import { Calendar as CalendarIcon, ShieldCheck, Sparkles, TrendingUp, BarChart3, AlertCircle, Users, Route, Info } from 'lucide-react';
 import { Button } from '../components/Button';
 import { HomeSearchPreview } from '../components/HomeSearchPreview';
@@ -192,12 +192,7 @@ export const Home: React.FC = () => {
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 items-stretch max-w-6xl mx-auto pt-3 sm:pt-4">
             {/* Hotel Card */}
-            <motion.div 
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              className="bg-gray-50/50 rounded-[1.75rem] sm:rounded-[2rem] p-5 sm:p-8 border border-gray-100 flex flex-col items-center justify-center space-y-2 sm:space-y-6 h-full"
-            >
+            <Reveal className="bg-gray-50/50 rounded-[1.75rem] sm:rounded-[2rem] p-5 sm:p-8 border border-gray-100 flex flex-col items-center justify-center space-y-2 sm:space-y-6 h-full">
               <h3 className="text-lg sm:text-xl font-black text-haven-navy tracking-tight">Hôtel low cost</h3>
               <div className="space-y-1">
                 <div className="text-3xl sm:text-5xl font-black text-haven-navy tracking-tighter">260 €</div>
@@ -206,16 +201,10 @@ export const Home: React.FC = () => {
                 <p className="text-[10px] font-bold text-haven-stone uppercase tracking-widest">Ex. : hôtel Première Classe</p>
                 <p className="text-[10px] font-medium text-gray-400">WC + SDB sur le palier</p>
               </div>
-            </motion.div>
+            </Reveal>
 
             {/* Airbnb Card */}
-            <motion.div 
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: 0.1 }}
-              className="bg-gray-50/50 rounded-[1.75rem] sm:rounded-[2rem] p-5 sm:p-8 border border-gray-100 flex flex-col items-center justify-center space-y-2 sm:space-y-6 h-full"
-            >
+            <Reveal className="bg-gray-50/50 rounded-[1.75rem] sm:rounded-[2rem] p-5 sm:p-8 border border-gray-100 flex flex-col items-center justify-center space-y-2 sm:space-y-6 h-full" delay={100}>
               <h3 className="text-lg sm:text-xl font-black text-haven-navy tracking-tight">Airbnb</h3>
               <div className="w-full grid grid-cols-2 gap-3 sm:block sm:space-y-4">
                 <div className="space-y-0.5">
@@ -228,16 +217,10 @@ export const Home: React.FC = () => {
                   <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-tight sm:leading-none">chambre chez l’habitant</p>
                 </div>
               </div>
-            </motion.div>
+            </Reveal>
 
             {/* Haven Card */}
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.95 }}
-              whileInView={{ opacity: 1, scale: 1 }}
-              viewport={{ once: true }}
-              transition={{ type: "spring", stiffness: 100 }}
-              className="relative rounded-[2rem] bg-white border-2 border-haven-red p-0.5 shadow-2xl flex flex-col items-center h-full group"
-            >
+            <Reveal className="relative rounded-[2rem] bg-white border-2 border-haven-red p-0.5 shadow-2xl flex flex-col items-center h-full group" from="scale">
               <div className="absolute -top-3.5 bg-haven-red text-white text-[10px] font-black uppercase tracking-[0.15em] px-5 py-1.5 rounded-full shadow-lg z-10 translate-y-0 group-hover:-translate-y-1 transition-transform">
                 Le plus avantageux
               </div>
@@ -248,7 +231,7 @@ export const Home: React.FC = () => {
                   <p className="text-[11px] font-black text-haven-navy uppercase tracking-[0.2em]">POUR CE SÉJOUR</p>
                 </div>
               </div>
-            </motion.div>
+            </Reveal>
           </div>
         </div>
       </section>
@@ -277,12 +260,7 @@ export const Home: React.FC = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-6 items-stretch max-w-6xl mx-auto">
             {/* Basic Furnished Card */}
-            <motion.div 
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              className="bg-white rounded-[2rem] shadow-premium border border-gray-100 flex flex-col overflow-hidden h-full"
-            >
+            <Reveal className="bg-white rounded-[2rem] shadow-premium border border-gray-100 flex flex-col overflow-hidden h-full">
               <div className="bg-haven-navy p-3 sm:p-5 flex items-center justify-center">
                 <h3 className="text-sm sm:text-base font-bold text-white tracking-tight">Logement entier meublé</h3>
               </div>
@@ -290,16 +268,10 @@ export const Home: React.FC = () => {
                 <div className="text-3xl sm:text-5xl font-black text-haven-navy tracking-tighter">900 €</div>
                 <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">/ mois</p>
               </div>
-            </motion.div>
+            </Reveal>
 
             {/* Classic Colocation Card */}
-            <motion.div 
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: 0.1 }}
-              className="bg-white rounded-[2rem] shadow-premium border border-gray-100 flex flex-col overflow-hidden h-full"
-            >
+            <Reveal className="bg-white rounded-[2rem] shadow-premium border border-gray-100 flex flex-col overflow-hidden h-full" delay={100}>
               <div className="bg-gray-100 p-3 sm:p-5 flex flex-col items-center justify-center">
                 <h3 className="text-sm sm:text-base font-bold text-haven-navy tracking-tight text-center">Colocation{' '}<br className="hidden sm:inline"/>classique</h3>
               </div>
@@ -311,16 +283,10 @@ export const Home: React.FC = () => {
                 <div className="h-px w-6 bg-gray-100"></div>
                 <p className="text-xs font-bold text-haven-navy tracking-tight">450 € HC / chambre</p>
               </div>
-            </motion.div>
+            </Reveal>
 
             {/* Haven Card */}
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.95 }}
-              whileInView={{ opacity: 1, scale: 1 }}
-              viewport={{ once: true }}
-              transition={{ type: "spring", stiffness: 100 }}
-              className="relative rounded-[2rem] bg-white border-2 border-haven-red shadow-2xl flex flex-col overflow-hidden h-full scale-[1.02] z-10"
-            >
+            <Reveal className="relative rounded-[2rem] bg-white border-2 border-haven-red shadow-2xl flex flex-col overflow-hidden h-full scale-[1.02] z-10" from="scale">
               <div className="bg-haven-red p-3 sm:p-6 flex items-center justify-center">
                 <Logo className="h-7 sm:h-10" white />
               </div>
@@ -337,7 +303,7 @@ export const Home: React.FC = () => {
                   </div>
                 </div>
               </div>
-            </motion.div>
+            </Reveal>
           </div>
 
           <p className="mt-6 sm:mt-10 md:mt-12 max-w-2xl mx-auto text-haven-stone text-sm sm:text-base md:text-lg font-light leading-relaxed">

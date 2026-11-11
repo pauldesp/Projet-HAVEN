@@ -1049,7 +1049,7 @@ export const PublishListing: React.FC = () => {
                 <div className="bg-white rounded-[2rem] p-4 sm:p-8 border border-gray-100 shadow-soft space-y-6">
                   <div className="flex items-center gap-3 text-haven-navy">
                     <Info size={24} className="text-haven-red" />
-                    <h3 className="font-heading font-bold text-xl">Informations Générales</h3>
+                    <h3 className="font-heading font-bold text-xl">Informations générales</h3>
                   </div>
                   <div className="grid md:grid-cols-2 gap-y-4 gap-x-12">
                     <div><span className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-1">Titre de l'annonce</span><span className="font-bold text-haven-navy">{formData.title}</span></div>
@@ -1217,7 +1217,7 @@ export const PublishListing: React.FC = () => {
                 </Button>
               </div>
 
-              {/* Conditions Générales Card */}
+              {/* General terms card */}
               <div className={`relative bg-white rounded-[2.5rem] p-5 sm:p-10 border transition-all duration-500 flex flex-col h-full ${
                 legalReadStatus.terms.validated 
                   ? 'border-green-200 shadow-sm' 
@@ -1237,7 +1237,7 @@ export const PublishListing: React.FC = () => {
                 </div>
 
                 <div className="space-y-3 mb-10 flex-grow">
-                  <h3 className="font-heading font-bold text-2xl text-haven-navy">Conditions Générales</h3>
+                  <h3 className="font-heading font-bold text-2xl text-haven-navy">Conditions générales</h3>
                   <p className="text-haven-stone leading-relaxed">
                     Cadre contractuel, responsabilités juridiques et conditions d'utilisation de la plateforme.
                   </p>

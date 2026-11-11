@@ -86,6 +86,16 @@ export function createStripeConnect(db: Firestore, stripe: () => Stripe, configu
     return (await accountRef(uid).get()).data()!.accountId as string;
   }
 
+  /** The owner's account even when it needs completing, with its readiness; null when none was ever created. */
+  async function payoutAccount(uid: string) {
+    assertEnabled();
+    const saved = await accountRef(uid).get();
+    const accountId = saved.data()?.accountId;
+    if (typeof accountId !== 'string' || await accountOwner(accountId) !== uid) return null;
+    const view = await syncAccount(uid);
+    return { accountId, ready: view.status === 'READY' && Boolean(view.bank) };
+  }
+
   async function registerPayment(booking: Booking, session: Pick<Stripe.Checkout.Session, 'id' | 'metadata' | 'livemode'> & { payment_intent: Stripe.Checkout.Session['payment_intent'] }) {
     if (session.metadata?.connectPolicy !== CONNECT_POLICY_VERSION) return; // Never transfer historical/legacy receipts.
     const destination = session.metadata?.ownerAccountId;
@@ -283,5 +293,5 @@ export function createStripeConnect(db: Firestore, stripe: () => Stripe, configu
       await releaseArrivedBookings();
     } finally { reconciling = false; }
   }
-  return { syncAccount, onboarding, dashboard, readyAccount, registerPayment, releaseArrivedBookings, syncPayout, reconcileOwner, reconcileAll, handleEvent };
+  return { syncAccount, onboarding, dashboard, readyAccount, payoutAccount, registerPayment, releaseArrivedBookings, syncPayout, reconcileOwner, reconcileAll, handleEvent };
 }

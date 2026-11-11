@@ -1,6 +1,9 @@
 import React, { createContext, useContext, useState, ReactNode, useEffect, useMemo, useCallback } from 'react';
 import { User, UserRole, UserStatus } from '../types';
-import { auth, db, googleProvider, seedFirestore } from '../firebase';
+import { auth, db, googleProvider } from '../firebase';
+
+// Demo data seeding, loaded on demand after a sign-in only.
+const seedFirestore = () => import('../services/seedFirestore').then(module => module.seedFirestore());
 import { onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, signInWithPopup, getRedirectResult, User as FirebaseUser } from 'firebase/auth';
 import { requestPasswordResetEmail } from '../services/authEmailApi';
 import { doc, getDoc, setDoc, onSnapshot, runTransaction } from 'firebase/firestore';
