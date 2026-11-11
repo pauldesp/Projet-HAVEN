@@ -1,4 +1,5 @@
 import { ReservationInformation } from '../components/ReservationInformation';
+import { trackStep } from '../services/analyticsClient';
 import React, { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
@@ -32,11 +33,13 @@ export const PaymentPage: React.FC = () => {
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || 'Impossible de confirmer le paiement de test.');
         if (data.status !== 'CONFIRMED') throw new Error('La réservation n’est pas encore confirmée. Actualisez la page.');
+        trackStep('checkout'); trackStep('payment_return');
         setDetails(previous => previous ? { ...previous, booking: { ...previous.booking, status: 'CONFIRMED', paymentStatus: 'PAID', paidAt: data.paidAt, paymentIsTest: true, paymentProvider: 'SIMULATION' } } : previous);
       } else {
         const response = await authenticatedFetch('/api/create-checkout-session', { method: 'POST', body: JSON.stringify({ bookingId }) });
         const data = await response.json();
         if (!response.ok || !data.url) throw new Error(data.error || 'Le paiement sécurisé est indisponible.');
+        trackStep('checkout');
         window.location.assign(data.url);
       }
     } catch (error) { setError(error instanceof Error ? error.message : 'Le paiement est indisponible. Vous pouvez réessayer.'); }

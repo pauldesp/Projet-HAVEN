@@ -1,4 +1,5 @@
 import { formatEuros } from '../services/money';
+import { trackStep } from '../services/analyticsClient';
 import { ScrollableRow } from '../components/ScrollableRow';
 import { installmentDateLabel, installmentDeadlineLabel, installmentState } from '../services/recurringInstallments';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -117,6 +118,7 @@ export const TenantDashboard: React.FC = () => {
       const bookingId = params.get('id');
 
       if (bookingResult === 'pending' && bookingId) {
+        trackStep('payment_return');
         try {
           toast.info("Vérification du paiement en cours. Votre séjour apparaîtra comme confirmé dès validation du paiement.");
 

@@ -1,4 +1,5 @@
 import React, { Component, ReactNode, useEffect, lazy, Suspense } from 'react';
+import { AnalyticsTracker } from './components/AnalyticsTracker';
 import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { Header } from './components/Header';
 import { Footer } from './components/Footer';
@@ -146,6 +147,7 @@ const AppContent: React.FC = () => {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
         <RouteScrollReset />
+        <AnalyticsTracker />
         </Suspense>
       </main>
 

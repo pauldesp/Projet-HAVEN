@@ -1,4 +1,5 @@
 import { CityAutocomplete } from '../components/CityAutocomplete';
+import { trackSearch } from '../services/analyticsClient';
 import { DateRangePicker } from '../components/DateRangePicker';
 import { SearchLoading } from '../components/SearchLoading';
 import { cheapestStayPrice } from '../services/stayPrice';
@@ -67,6 +68,8 @@ export const SearchPage: React.FC = () => {
   const [searchStart, setSearchStart] = useState(searchParams.get('start') || '');
   const [editedPeriods, setEditedPeriods] = useState(requestedPeriods);
   const [searchEnd, setSearchEnd] = useState(searchParams.get('end') || '');
+  // Audience: the searched city (never an address), once per change of search.
+  useEffect(() => { trackSearch(cityParam, isRecurring, searchParams.toString()); }, [cityParam, isRecurring, searchParams]);
   useEffect(() => {
     setEditedPeriods(requestedPeriods);
     setSearchCity(cityParam); setSearchCityCode(cityCode);

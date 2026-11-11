@@ -16,13 +16,14 @@ import { AdminMonitoring } from '../components/AdminMonitoring';
 import { AdminMemberFile } from '../components/AdminMemberFile';
 import { AdminModeration } from '../components/AdminModeration';
 import { AdminKpis } from '../components/AdminKpis';
+import { AdminAudience } from '../components/AdminAudience';
 import { AdminListingReview } from '../components/AdminListingReview';
 import { Logo } from '../components/Logo';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { onSnapshot, collection, query, orderBy } from 'firebase/firestore';
 import { db } from '../firebase';
-import { Users, Home, AlertTriangle, TrendingUp, CheckCircle, XCircle, Shield, Eye, FileText, MessageSquare, UserCheck, AlertCircle, Mail, Flag, Ban, Plus, Loader2, Calendar, ArrowUpDown, ChevronUp, ChevronDown, History } from 'lucide-react';
+import { Users, Home, AlertTriangle, TrendingUp, CheckCircle, XCircle, Shield, Eye, FileText, MessageSquare, UserCheck, AlertCircle, Mail, Flag, Ban, Plus, Loader2, Calendar, ArrowUpDown, ChevronUp, ChevronDown, History, BarChart3 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useListings } from '../contexts/ListingContext';
 import { apiService } from '../services/api';
@@ -33,7 +34,7 @@ export const AdminDashboard: React.FC = () => {
   const { currentUser, isLoading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [activeTab, setActiveTab] = useState<'LISTINGS' | 'USERS' | 'BOOKINGS' | 'FINANCES' | 'MONITORING' | 'MODERATION' | 'OVERVIEW' | 'STAFF' | 'CONTACTS' | 'REPORTS' | 'LEGAL' | 'INCIDENTS' | 'AUDIT' | 'PLATFORM_FEEDBACK'>('LISTINGS');
+  const [activeTab, setActiveTab] = useState<'LISTINGS' | 'USERS' | 'BOOKINGS' | 'FINANCES' | 'AUDIENCE' | 'MONITORING' | 'MODERATION' | 'OVERVIEW' | 'STAFF' | 'CONTACTS' | 'REPORTS' | 'LEGAL' | 'INCIDENTS' | 'AUDIT' | 'PLATFORM_FEEDBACK'>('LISTINGS');
   const { listings, refreshListings, isLoading: listingsLoading } = useListings();
   const [exceptionTarget, setExceptionTarget] = useState<{ type: 'USER' | 'LISTING'; id: string; label: string; revoke: boolean } | null>(null);
   const [listingReview, setListingReview] = useState<Listing | null>(null);
@@ -666,6 +667,7 @@ export const AdminDashboard: React.FC = () => {
              { id: 'USERS', label: 'Utilisateurs', icon: Users, count: pendingUsers.length },
              { id: 'BOOKINGS', label: 'Réservations', icon: Calendar },
              { id: 'FINANCES', label: 'Finances', icon: TrendingUp },
+             { id: 'AUDIENCE', label: 'Audience', icon: BarChart3 },
              { id: 'MONITORING', label: 'Surveillance', icon: AlertCircle },
              { id: 'MODERATION', label: 'Modération', icon: Shield },
              { id: 'INCIDENTS', label: 'Incidents', icon: AlertTriangle },
@@ -1549,6 +1551,7 @@ export const AdminDashboard: React.FC = () => {
             </div>
           )}
 
+          {activeTab === 'AUDIENCE' && <AdminAudience listings={listings} />}
           {activeTab === 'OVERVIEW' && <AdminKpis bookings={bookings} listings={listings} />}
           {activeTab === 'OVERVIEW' && (() => {
             // Stats Calculations

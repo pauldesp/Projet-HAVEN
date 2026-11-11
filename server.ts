@@ -9,6 +9,8 @@ import { buildMemberFile } from './services/memberFile';
 import { AdminFinanceError, createAdminFinances } from './services/adminFinancesServer';
 import { createAdminModeration } from './services/adminModerationServer';
 import { createErrorTracking } from './services/errorTrackingServer';
+import { createAnalytics } from './services/analyticsServer';
+import { parisDayAndHour } from './services/analytics';
 import { CONNECT_POLICY_VERSION, DEPOSIT_POLICY } from './services/stripeConnect';
 import { normalizePlatformFeedback } from './services/platformFeedback';
 import { normalizeRoomGuide, normalizeRoomGuides } from './services/roomGuide';
@@ -273,6 +275,8 @@ const recurringSeries = createRecurringSeries({
 });
 
 const adminModeration = createAdminModeration({ db: adminDb, notifyMail: () => void deliverReservationMail() });
+// Local tests write to their own collection, never mixed with real visits.
+const analytics = createAnalytics({ db: adminDb, collection: process.env.NODE_ENV === 'production' ? 'analytics_daily' : 'analytics_daily_dev' });
 const errorTracking = createErrorTracking({ db: adminDb, notifyMail: () => void deliverReservationMail(), alertsEnabled: process.env.NODE_ENV === 'production' });
 const adminFinances = createAdminFinances({ db: adminDb, stripe: getStripe, sweepInstallments: () => recurringSeries.sweep() });
 
@@ -1243,6 +1247,22 @@ async function startServer() {
       mailConfigured: !('error' in getEmailProvider()), emailFrom, teamRecipient: Boolean(teamMailRecipient(process.env)),
     };
   }));
+  // Audience: daily totals of the period and of the one before, with the paid stays of both.
+  app.get('/api/admin/analytics', sensitiveApiLimiter, requireAuth, financeRoute(async (_admin, req) => {
+    const days = Math.min(365, Math.max(7, Number(req.query.days) || 30));
+    await analytics.flush().catch(() => undefined); // include the last minute
+    const shift = (date: string, offset: number) => { const value = new Date(`${date}T12:00:00Z`); value.setUTCDate(value.getUTCDate() + offset); return value.toISOString().slice(0, 10); };
+    const today = parisDayAndHour().date;
+    const from = shift(today, -(days - 1)), previousFrom = shift(from, -days), previousTo = shift(from, -1);
+    const [current, previous, paidSnapshot] = await Promise.all([
+      analytics.read(from, today), analytics.read(previousFrom, previousTo),
+      adminDb.collection('bookings').where('paidAt', '>=', `${previousFrom}T00:00:00`).get(),
+    ]);
+    const paid = paidSnapshot.docs.map(doc => doc.data() as Booking).filter(booking => booking.paymentStatus === 'PAID' && booking.paidAt)
+      .map(booking => ({ date: parisDayAndHour(new Date(booking.paidAt!)).date, amount: Number(booking.totalPrice) || 0, commission: Number(booking.platformFee) || 0, isTest: booking.paymentIsTest === true || booking.paymentProvider === 'SIMULATION' }));
+    return { from, to: today, previousFrom, previousTo, current, previous, paid };
+  }));
+
   // Application errors grouped by fingerprint (browsers and server).
   app.get('/api/admin/errors', sensitiveApiLimiter, requireAuth, financeRoute(async () => ({ errors: await errorTracking.list() })));
   app.post('/api/admin/errors/:errorId/resolve', sensitiveApiLimiter, requireAuth, financeRoute(async (_admin, req) => {
@@ -1629,6 +1649,12 @@ async function startServer() {
 
   // The signed-in member's own profile over plain HTTPS: fallback when Firestore's live channel
   // is slow to open (seen in Safari after returning from Stripe).
+  // Anonymous audience measurement (CNIL-exempt): a few events per visit, added up in memory, daily totals only.
+  app.post('/api/analytics', rateLimit({ windowMs: 60_000, limit: 60, standardHeaders: true, legacyHeaders: false }), (req, res) => {
+    analytics.record(req.body?.events);
+    res.status(204).end();
+  });
+
   // Unexpected errors seen in visitors' browsers. Anonymous on purpose (a crash may happen before sign-in); cleaned server-side.
   app.post('/api/client-errors', rateLimit({ windowMs: 60_000, limit: 20, standardHeaders: true, legacyHeaders: false }), (req, res) => {
     const body = req.body && typeof req.body === 'object' ? req.body : {};
@@ -2291,6 +2317,12 @@ async function startServer() {
   void finalizeExpiredStayReviews().catch(() => undefined);
   const reviewSweep = setInterval(() => void finalizeExpiredStayReviews().catch(() => undefined), 60 * 60 * 1000);
   reviewSweep.unref();
+  const analyticsSweep = setInterval(() => void analytics.flush().catch(() => console.error('Audience totals will be written on the next run.')), 60_000);
+  analyticsSweep.unref();
+  const analyticsPurge = setInterval(() => void analytics.purgeOld().catch(() => undefined), 24 * 3600_000);
+  analyticsPurge.unref();
+  // Totals of the last minute are written before the server stops (deployments).
+  process.once('SIGTERM', () => { void analytics.flush().finally(() => process.exit(0)); });
 
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {

@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, ReactNode, useEffect, useMemo, useCallback } from 'react';
+import { trackSignup } from '../services/analyticsClient';
 import { User, UserRole, UserStatus } from '../types';
 import { auth, db, googleProvider } from '../firebase';
 
@@ -50,13 +51,16 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const completeSocialSignIn = useCallback(async (firebaseUser: FirebaseUser) => {
     const reference = doc(db, 'users', firebaseUser.uid);
     // Never overwrite an existing member's dossier when callbacks overlap.
+    let isNewMember = false;
     const profile = await runTransaction(db, async transaction => {
       const snapshot = await transaction.get(reference);
       if (snapshot.exists()) return snapshot.data() as User;
       const pendingProfile = createPendingMemberProfile(firebaseUser);
       transaction.set(reference, pendingProfile);
+      isNewMember = true;
       return pendingProfile;
     });
+    if (isNewMember) trackSignup();
     seedFirestore().catch(console.error);
     if (auth.currentUser?.uid === firebaseUser.uid) setCurrentUser(profile);
     return profile;
@@ -197,6 +201,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         createdAt: new Date().toISOString()
       };
       await setDoc(doc(db, 'users', userCredential.user.uid), newUser);
+      trackSignup();
       seedFirestore().catch(console.error);
       setCurrentUser(newUser);
       setIsLoading(false);

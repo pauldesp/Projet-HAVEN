@@ -1,4 +1,5 @@
 import { CleaningPolicyNotice } from '../components/CleaningPolicyNotice';
+import { trackListingView, trackStep } from '../services/analyticsClient';
 import { ARRIVAL_METHODS } from '../components/ListingPublicInfoFields';
 import { hasVerificationException } from '../services/verificationException';
 import { hasRequiredPhoneNumber, isVerificationPending } from '../services/profileVerification';
@@ -32,6 +33,7 @@ import { recurringPaymentSchedule } from '../services/recurringPaymentSchedule';
 
 export const ListingDetails: React.FC = () => {
   const { id } = useParams();
+  useEffect(() => { if (id) trackListingView(id); }, [id]);
   const { currentUser, refreshUser } = useAuth();
   const { getListingById, saveBlockedDates } = useListings();
   const listing = getListingById(id || '');
@@ -209,6 +211,7 @@ export const ListingDetails: React.FC = () => {
     if (!seriesStays || seriesStays.length < 2 || !passesBookingGate()) return;
     setBookAsSeries(true);
     setIsBookingOpen(true);
+    trackStep('booking_start');
   };
 
   const handleBookClick = async () => {
@@ -235,6 +238,7 @@ export const ListingDetails: React.FC = () => {
     }
 
     setIsBookingOpen(true);
+    trackStep('booking_start');
   };
 
   const handleDateSelect = (start: string, end: string) => {

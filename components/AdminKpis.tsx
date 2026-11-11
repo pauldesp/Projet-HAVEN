@@ -25,6 +25,6 @@ export function AdminKpis({ bookings, listings }: { bookings: Booking[]; listing
         <tbody className="divide-y divide-gray-100">{kpis.byCity.map(row => <tr key={row.city}><td className="py-2 font-semibold text-haven-navy">{row.city}</td><td>{row.stays}</td><td>{formatEuros(row.revenue)}</td><td>{formatEuros(row.commission)}</td></tr>)}</tbody>
       </table>
     </ScrollableRow>}
-    <p className="text-xs text-gray-500">Le taux de conversion de la recherche nécessite un outil de mesure d’audience, pas encore installé.</p>
+    <p className="text-xs text-gray-500">Visites, parcours de réservation et taux de conversion : onglet Audience.</p>
   </section>;
 }
