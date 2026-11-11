@@ -1313,42 +1313,88 @@ async function startServer() {
   app.post('/api/admin/bookings/:bookingId/move', sensitiveApiLimiter, requireAuth, financeRoute((admin, req) => adminModeration.moveBooking(admin, String(req.params.bookingId), req.body || {})));
 
   // GDPR: export everything about a member, or erase and anonymise the account (accounting records are kept).
+  // Shared by the back office and by the member's own account page.
+  const recordGdprAudit = async (actor: { uid: string; name: string }, action: string, targetId: string, summary: string) => {
+    const auditRef = adminDb.collection('admin_audit').doc();
+    await auditRef.create({ id: auditRef.id, actorId: actor.uid, actorName: actor.name, action, category: 'ACCOUNT', targetType: 'USER', targetId, summary, createdAt: new Date().toISOString() });
+  };
+  const exportMemberData = async (id: string) => {
+    const by = (collection: string, field: string, op: FirebaseFirestore.WhereFilterOp = '==') => adminDb.collection(collection).where(field, op, id).get().then(snap => snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    const [profile, residence, tb, ob, tp, op, payouts, reports, incidents, reviews, messages, documents, inventoryT, inventoryO, listings] = await Promise.all([
+      adminDb.collection('users').doc(id).get().then(doc => doc.data() || null),
+      adminDb.collection('user_residences').doc(id).get().then(doc => doc.data() || null),
+      by('bookings', 'tenantId'), by('bookings', 'ownerId'), by('payments', 'tenantId'), by('payments', 'ownerId'), by('owner_payouts', 'ownerId'),
+      by('reports', 'reporterId'), by('incidents', 'reporterId'), by('reviews', 'authorId'), by('messages', 'participants', 'array-contains'),
+      by('documents', 'userId'), by('inventory', 'tenantId'), by('inventory', 'ownerId'), by('listings', 'ownerId'),
+    ]);
+    return { exportedAt: new Date().toISOString(), profile, residence, listings, bookings: { asTenant: tb, asOwner: ob }, payments: [...tp, ...op], payouts, reports, incidents, reviews, messages, documents, inventory: [...inventoryT, ...inventoryO] };
+  };
+  /** Refuses while stays are under way or listings online; then anonymises the profile, deletes personal documents and the login. */
+  const eraseMember = async (id: string, self: boolean) => {
+    const userRef = adminDb.collection('users').doc(id);
+    const user = (await userRef.get()).data();
+    if (!user) throw new AdminFinanceError('Compte introuvable.', 404);
+    if (user.role === 'ADMIN') throw new AdminFinanceError(self ? 'Un compte administrateur ne peut pas être supprimé depuis cette page.' : 'Retirez d’abord ce compte de l’équipe d’administration.');
+    const today = new Date().toISOString().slice(0, 10);
+    const active = (await Promise.all(['tenantId', 'ownerId'].map(field => adminDb.collection('bookings').where(field, '==', id).get())))
+      .flatMap(snap => snap.docs.map(doc => doc.data() as Booking))
+      .filter(booking => booking.endDate >= today && (booking.status === 'CONFIRMED' || (booking.status === 'PENDING' && booking.seriesScheduled)));
+    if (active.length) throw new AdminFinanceError(self
+      ? `Vous avez ${active.length} séjour${active.length > 1 ? 's' : ''} à venir ou en cours. Annulez-les ou attendez leur fin avant de supprimer votre compte.`
+      : `Ce membre a ${active.length} séjour(s) à venir ou en cours : annulez-les ou attendez leur fin avant l’effacement.`);
+    const online = await adminDb.collection('listings').where('ownerId', '==', id).where('status', '==', 'APPROVED').get();
+    if (!online.empty) throw new AdminFinanceError(self ? 'Vous avez des annonces en ligne. Retirez-les avant de supprimer votre compte.' : 'Ce membre a des annonces en ligne : suspendez-les avant l’effacement.');
+    const at = new Date().toISOString();
+    // Bookings, payments, inventories and invoices stay for accounting and legal obligations; the person behind them is anonymised.
+    await userRef.set({ id, role: user.role, status: 'BANNED', firstName: 'Membre', lastName: 'supprimé', email: `supprime-${id}@haven.invalid`, avatarUrl: '', erasedAt: at, createdAt: user.createdAt || at });
+    // Identity and address documents are deleted outright.
+    const personal = await adminDb.collection('documents').where('userId', '==', id).get();
+    await Promise.all([
+      ...personal.docs.map(doc => doc.ref.delete()),
+      adminDb.collection('user_residences').doc(id).delete(),
+      adminDb.collection('residence_documents').doc(id).delete(),
+    ]);
+    await adminAuth.deleteUser(id).catch(error => { if ((error as { code?: string }).code !== 'auth/user-not-found') throw error; });
+  };
+
   app.get('/api/admin/users/:userId/export', sensitiveApiLimiter, requireAuth, financeRoute(async (admin, req) => {
     const id = String(req.params.userId);
     if (!/^[a-zA-Z0-9_-]{1,128}$/.test(id)) throw new AdminFinanceError('Membre invalide.', 422);
-    const by = (collection: string, field: string, op: FirebaseFirestore.WhereFilterOp = '==') => adminDb.collection(collection).where(field, op, id).get().then(snap => snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    const [profile, tb, ob, tp, op, payouts, reports, incidents, reviews, messages, documents, inventoryT, inventoryO] = await Promise.all([
-      adminDb.collection('users').doc(id).get().then(doc => doc.data() || null),
-      by('bookings', 'tenantId'), by('bookings', 'ownerId'), by('payments', 'tenantId'), by('payments', 'ownerId'), by('owner_payouts', 'ownerId'),
-      by('reports', 'reporterId'), by('incidents', 'reporterId'), by('reviews', 'authorId'), by('messages', 'participants', 'array-contains'),
-      by('documents', 'userId'), by('inventory', 'tenantId'), by('inventory', 'ownerId'),
-    ]);
-    const auditRef = adminDb.collection('admin_audit').doc();
-    await auditRef.create({ id: auditRef.id, actorId: admin.uid, actorName: admin.name, action: 'MEMBER_DATA_EXPORTED', category: 'ACCOUNT', targetType: 'USER', targetId: id, summary: 'Export des données personnelles (RGPD).', createdAt: new Date().toISOString() });
-    return { exportedAt: new Date().toISOString(), profile, bookings: { asTenant: tb, asOwner: ob }, payments: [...tp, ...op], payouts, reports, incidents, reviews, messages, documents, inventory: [...inventoryT, ...inventoryO] };
+    const data = await exportMemberData(id);
+    await recordGdprAudit(admin, 'MEMBER_DATA_EXPORTED', id, 'Export des données personnelles (RGPD).');
+    return data;
   }));
   app.post('/api/admin/users/:userId/erase', sensitiveApiLimiter, requireAuth, financeRoute(async (admin, req) => {
     const id = String(req.params.userId);
     if (!/^[a-zA-Z0-9_-]{1,128}$/.test(id)) throw new AdminFinanceError('Membre invalide.', 422);
     if (req.body?.confirm !== 'EFFACER') throw new AdminFinanceError('Tapez EFFACER pour confirmer.', 422);
     if (id === admin.uid) throw new AdminFinanceError('Vous ne pouvez pas effacer votre propre compte.');
-    const userRef = adminDb.collection('users').doc(id);
-    const user = (await userRef.get()).data();
-    if (!user) throw new AdminFinanceError('Membre introuvable.', 404);
-    if (user.role === 'ADMIN') throw new AdminFinanceError('Retirez d’abord ce compte de l’équipe d’administration.');
-    const today = new Date().toISOString().slice(0, 10);
-    const active = (await Promise.all(['tenantId', 'ownerId'].map(field => adminDb.collection('bookings').where(field, '==', id).get())))
-      .flatMap(snap => snap.docs.map(doc => doc.data() as Booking))
-      .filter(booking => booking.endDate >= today && (booking.status === 'CONFIRMED' || (booking.status === 'PENDING' && booking.seriesScheduled)));
-    if (active.length) throw new AdminFinanceError(`Ce membre a ${active.length} séjour(s) à venir ou en cours : annulez-les ou attendez leur fin avant l’effacement.`);
-    const online = await adminDb.collection('listings').where('ownerId', '==', id).where('status', '==', 'APPROVED').get();
-    if (!online.empty) throw new AdminFinanceError('Ce membre a des annonces en ligne : suspendez-les avant l’effacement.');
-    const at = new Date().toISOString();
-    // Bookings, payments and invoices stay for accounting obligations; the person behind them is anonymised.
-    await userRef.set({ id, role: user.role, status: 'BANNED', firstName: 'Membre', lastName: 'supprimé', email: `supprime-${id}@haven.invalid`, avatarUrl: '', erasedAt: at, createdAt: user.createdAt || at });
-    await adminAuth.deleteUser(id).catch(error => { if ((error as { code?: string }).code !== 'auth/user-not-found') throw error; });
-    const auditRef = adminDb.collection('admin_audit').doc();
-    await auditRef.create({ id: auditRef.id, actorId: admin.uid, actorName: admin.name, action: 'MEMBER_ERASED', category: 'ACCOUNT', targetType: 'USER', targetId: id, summary: 'Compte effacé et anonymisé (RGPD) ; données comptables conservées.', createdAt: at });
+    await eraseMember(id, false);
+    await recordGdprAudit(admin, 'MEMBER_ERASED', id, 'Compte effacé et anonymisé (RGPD) ; données comptables conservées.');
+  }));
+
+  // The member's own GDPR rights, from "Mon compte": download everything, or delete the account.
+  const memberRoute = (handler: (req: AuthenticatedRequest) => Promise<unknown>) => async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      res.setHeader('Cache-Control', 'no-store');
+      return res.json(await handler(req) ?? { success: true });
+    } catch (error) {
+      if (error instanceof AdminFinanceError) return sendApiError(res, error.status, error.message);
+      console.error('Member data request failed', (error as { code?: unknown })?.code ?? '');
+      return sendApiError(res, 503, 'La demande n’a pas pu aboutir. Réessayez dans quelques instants.');
+    }
+  };
+  app.get('/api/me/export', sensitiveApiLimiter, requireAuth, memberRoute(async req => {
+    const data = await exportMemberData(req.user!.uid);
+    await recordGdprAudit({ uid: req.user!.uid, name: 'Le membre lui-même' }, 'MEMBER_DATA_EXPORTED', req.user!.uid, 'Export de ses données par le membre (RGPD).');
+    return data;
+  }));
+  app.post('/api/me/erase', sensitiveApiLimiter, requireAuth, memberRoute(async req => {
+    if (req.body?.confirm !== 'SUPPRIMER') throw new AdminFinanceError('Tapez SUPPRIMER pour confirmer.', 422);
+    // A deletion needs a fresh sign-in (less than 10 minutes), like an e-mail change.
+    if (!req.user!.authTime || Date.now() / 1000 - req.user!.authTime > 600) throw new AdminFinanceError('Pour votre sécurité, reconnectez-vous puis recommencez la suppression.', 401);
+    await eraseMember(req.user!.uid, true);
+    await recordGdprAudit({ uid: req.user!.uid, name: 'Le membre lui-même' }, 'MEMBER_ERASED', req.user!.uid, 'Compte supprimé par le membre (RGPD) ; données comptables conservées.');
   }));
 
   // Blocking dates changes only the dates: it must work even if the listing is not complete enough to be re-published.

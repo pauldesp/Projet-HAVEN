@@ -51,8 +51,13 @@ Légende : **[Paul]** à faire par toi (comptes, contrats, décisions), **[Code]
 - [ ] **[Paul] Mettre à jour les conditions générales de réservation** : réservation récurrente, enregistrement de la carte, prélèvements automatiques un mois avant chaque arrivée, délai de 5 jours en cas d'échec, annulation séjour par séjour, séjours courts entre deux locations.
 - [x] **[Code] Faire accepter explicitement le prélèvement automatique** au moment de réserver une série (case obligatoire ; texte, version et date conservés avec la série, 11 novembre).
 - [ ] **[Paul] Faire relire par un juriste** : conditions générales (locataires et propriétaires), accord tripartite, mentions légales, politique de confidentialité.
-- [ ] **[Paul] RGPD** : registre des traitements, durée de conservation des pièces d'identité, photos et états des lieux, sous-traitants (Firebase, Stripe, Resend, hébergeur).
-- [ ] **[Code] Bandeau cookies conforme** (refus aussi simple que l'acceptation) si des cookies non essentiels sont ajoutés.
+- [x] **[Code] Brouillons de la politique de confidentialité et des mentions légales** (11 nov.) : `docs/juridique/`, rédigés d'après le fonctionnement réel du site.
+- [ ] **[Paul] Compléter ces brouillons** (société, SIREN, adresses, médiateur, région Firebase), les faire valider, puis les publier dans le back office (onglet Légal) ; **[Code]** ajouter alors le lien vers la politique sur l'inscription et en pied de page.
+- [ ] **[Paul] RGPD** : registre des traitements, durées de conservation à arbitrer (propositions dans le brouillon), contrats de sous-traitance (Firebase, Stripe, Resend, hébergeur).
+- [ ] **[Code] Supprimer automatiquement les données** au terme des durées de conservation retenues.
+- [x] **[Code] Polices servies par le site** (11 nov.) : plus aucune adresse IP de visiteur envoyée à Google Fonts.
+- [x] **[Code] Page Cookies fidèle** (11 nov.) : liste réelle de ce qui est stocké, refus de la mesure d'audience en un clic, « Do Not Track » respecté.
+- [ ] **[Code] Bandeau cookies conforme** (refus aussi simple que l'acceptation) **seulement** si des cookies non essentiels sont ajoutés un jour ; inutile aujourd'hui.
 - [ ] **[Paul] Statut et fiscalité de Haven** : TVA sur les frais de service, factures aux locataires, obligations de déclaration des revenus des propriétaires par la plateforme.
 
 ### Données
@@ -70,6 +75,10 @@ Légende : **[Paul]** à faire par toi (comptes, contrats, décisions), **[Code]
 - [ ] **[Code] Revoir les limites de requêtes** (connexion, paiement, signalements) une fois le trafic réel connu.
 - [x] **[Code] Mettre à jour les dépendances** et lancer un audit de sécurité (`npm audit`) : 29 failles → 17, dont plus aucune critique ; React Router mis à jour, `showdown` (inutilisé) retiré.
 - [ ] **[Code] Suivre la mise à jour de Firebase** : les 4 failles « élevées » restantes viennent de son module gRPC interne, sans correction compatible pour l'instant.
+
+### Mesure d'audience
+
+- [x] **[Code] Mesure d'audience maison** (11 nov.) : onglet Audience du back office, anonyme et sans cookie (exemption CNIL).
 
 ### Performance
 
@@ -100,7 +109,7 @@ Légende : **[Paul]** à faire par toi (comptes, contrats, décisions), **[Code]
 - [ ] **[Code] Connexion avec Google** (une documentation existe dans `docs/GOOGLE-SIGN-IN.md`).
 - [ ] **[Code] Double authentification pour les administrateurs.**
 - [x] **[Code] Export et effacement des données d'un membre** depuis le back office (fiche du membre : export JSON, anonymisation avec conservation des données comptables, refusée s'il reste un séjour à venir ou une annonce en ligne, 11 novembre).
-- [ ] **[Code] Demande d'export ou de suppression par le membre lui-même** depuis son compte.
+- [x] **[Code] Export et suppression du compte par le membre lui-même** (11 nov.) : « Mon compte › Mes données personnelles » ; suppression avec connexion récente, justificatifs effacés, données comptables conservées sans nom.
 
 ### Signalements et incidents
 

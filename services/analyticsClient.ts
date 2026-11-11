@@ -14,7 +14,17 @@ const repeated = (key: string) => {
 };
 let timer: ReturnType<typeof setTimeout> | undefined;
 
-const enabled = () => typeof window !== 'undefined' && !navigator.webdriver
+const OPT_OUT_KEY = 'haven-audience-optout';
+/** The visitor refused to be counted (Cookies page). Required for the consent exemption. */
+export function audienceOptedOut() {
+  try { return localStorage.getItem(OPT_OUT_KEY) === '1'; } catch { return false; }
+}
+export function setAudienceOptOut(optOut: boolean) {
+  try { if (optOut) localStorage.setItem(OPT_OUT_KEY, '1'); else localStorage.removeItem(OPT_OUT_KEY); } catch { /* private browsing: nothing kept */ }
+  if (optOut) queue.length = 0;
+}
+
+const enabled = () => typeof window !== 'undefined' && !navigator.webdriver && !audienceOptedOut()
   // Visitors who ask not to be tracked are not counted.
   && navigator.doNotTrack !== '1' && (navigator as Navigator & { globalPrivacyControl?: boolean }).globalPrivacyControl !== true;
 

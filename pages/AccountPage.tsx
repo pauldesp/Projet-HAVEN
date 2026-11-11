@@ -2,6 +2,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { AccountPersonalDetails } from '../components/AccountPersonalDetails';
 import { AccountResidence } from '../components/AccountResidence';
 import { AccountDocuments } from '../components/AccountDocuments';
+import { AccountPrivacy } from '../components/AccountPrivacy';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { LockKeyhole, ShieldCheck } from 'lucide-react';
@@ -47,6 +48,7 @@ export function AccountPage() {
       <button type="button" disabled={sending || resetSent} onClick={() => void resetPassword()} className="mt-4 rounded-xl border border-gray-200 px-5 py-3 text-sm font-bold text-haven-navy disabled:opacity-50">{sending ? tr("Envoi…") : resetSent ? tr("Demande envoyée") : tr("Modifier mon mot de passe")}</button>
       {message && <p role="status" className="mt-3 text-sm text-gray-600">{tr(message)}</p>}
     </section>
+    <AccountPrivacy />
     <div className="flex flex-wrap items-center justify-between gap-4 rounded-3xl bg-haven-navy p-6 text-white"><div><h2 className="font-bold">{tr("Votre présentation aux autres membres")}</h2><p className="mt-1 text-sm text-white/75">{tr("Prénom, âge, activité et centres d’intérêt.")}</p></div><Link to={`/profile/${currentUser.id}`} className="rounded-xl bg-white px-5 py-3 text-sm font-bold text-haven-navy">{tr("Voir mon profil public")}</Link></div>
     <AccountStatusOverlay isOpen={verificationOpen} onClose={() => setVerificationOpen(false)} />
   </div></div>;

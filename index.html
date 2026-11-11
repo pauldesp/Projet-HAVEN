@@ -14,16 +14,13 @@
     <link rel="apple-touch-icon" href="/logo.png" />
     <title>HAVEN | La colocation flexible</title>
     
-    <!-- Fonts: DM Sans (Headings) & Inter (Body) -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;500;700&family=Inter:wght@300;400;500;600;700&family=Libre+Baskerville:wght@400;700&display=swap" rel="stylesheet">
+    <!-- Fonts (DM Sans for headings, Inter for text) are served by Haven itself: no visitor IP is sent to Google. -->
 
     <style>
       body {
         background-color: #FDFCFB;
         color: #1E293B;
-        font-family: 'Inter', sans-serif;
+        font-family: 'Inter Variable', 'Inter', system-ui, sans-serif;
         -webkit-font-smoothing: antialiased;
         min-height: 100dvh;
         overscroll-behavior-y: none;
@@ -94,7 +91,7 @@
       .haven-dual-range-min { z-index: 2; }
       .haven-dual-range-max { z-index: 3; }
       h1, h2, h3, h4, h5, h6 {
-        font-family: 'DM Sans', sans-serif;
+        font-family: 'DM Sans Variable', 'DM Sans', system-ui, sans-serif;
       }
       /* Custom scrollbar */
       .haven-booking-terms,
@@ -140,7 +137,7 @@
   </head>
   <body>
     <div id="root">
-      <div style="display:flex;align-items:center;justify-content:center;height:100dvh;background:#FDFCFB;font-family:Inter,sans-serif;color:#1E293B;">
+      <div style="display:flex;align-items:center;justify-content:center;height:100dvh;background:#FDFCFB;font-family:'Inter Variable',system-ui,sans-serif;color:#1E293B;">
         <div style="text-align:center;">
           <img src="/logo-600.png" alt="HAVEN" style="width:190px;height:auto;animation:haven-breathe 1.8s ease-in-out infinite;" />
           <p style="margin:18px 0 0;font-size:11px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:#78716C;">La colocation flexible</p>

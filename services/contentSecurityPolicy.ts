@@ -7,8 +7,8 @@ export const CONTENT_SECURITY_POLICY = {
   defaultSrc: ["'self'"],
   scriptSrc: ["'self'", 'https://maps.googleapis.com', 'https://apis.google.com', 'https://www.gstatic.com'],
   // React style attributes and the Google Maps widgets need inline styles.
-  styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
-  fontSrc: ["'self'", 'data:', 'https://fonts.gstatic.com'],
+  styleSrc: ["'self'", "'unsafe-inline'"],
+  fontSrc: ["'self'", 'data:'],
   // Listing photos, avatars and map tiles come from several HTTPS hosts and uploads.
   imgSrc: ["'self'", 'data:', 'blob:', 'https:'],
   connectSrc: ["'self'", 'https://*.googleapis.com', 'https://*.firebaseio.com', 'wss://*.firebaseio.com', 'https://*.firebaseapp.com', 'https://geo.api.gouv.fr', 'https://maps.googleapis.com'],

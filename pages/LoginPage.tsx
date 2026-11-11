@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '../components/Button';
 import { BirthDateInput } from '../components/BirthDateInput';
 import { HavenPhotoBackground } from '../components/HavenPhotoBackground';
@@ -398,6 +398,10 @@ export const LoginPage: React.FC = () => {
               </label>
             </div>
             <Button type="submit" fullWidth size="lg" disabled={isLoading}>{isLoading ? <Loader2 className="animate-spin" /> : 'Créer mon compte'}</Button>
+            {/* Information owed at collection time (GDPR art. 13). */}
+            <p className="text-[11px] leading-relaxed text-haven-stone">
+              Haven utilise vos informations pour créer votre compte, vérifier votre identité et gérer vos réservations et paiements. Elles ne sont jamais vendues. Vous pouvez les télécharger ou supprimer votre compte à tout moment depuis « Mon compte ». <Link to="/cookies" className="underline">Cookies et mesure d’audience</Link>.
+            </p>
           </form>
         );
 

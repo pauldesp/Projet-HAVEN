@@ -1518,7 +1518,7 @@ export const AdminDashboard: React.FC = () => {
                       <div className="bg-gray-50 rounded-2xl overflow-hidden border border-gray-100 focus-within:border-haven-red transition-all">
                         <style>{`
                           .quill-editor .ql-container {
-                            font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif !important;
+                            font-family: 'Inter Variable', 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif !important;
                             font-size: 16px;
                           }
                           .quill-editor .ql-editor {
