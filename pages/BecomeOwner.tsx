@@ -1,7 +1,17 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Check, ChevronRight, Home, ShieldCheck } from 'lucide-react';
+import { BadgeCheck, CalendarRange, Check, ChevronRight, Home, KeyRound, ShieldCheck, SlidersHorizontal, Wallet } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+
+/** Reasons to join, all true today: shown first, before the details. */
+const REASONS = [
+  { icon: Wallet, title: '0 % de commission', text: 'Vous gardez 100 % du prix de vos nuits et de votre forfait ménage. Les frais de service sont payés par le locataire.' },
+  { icon: ShieldCheck, title: 'Fini les impayés', text: 'Chaque séjour est payé en ligne au moment de la réservation. Haven vous le verse après l’arrivée du locataire.' },
+  { icon: CalendarRange, title: 'Moins de chambres vides', text: 'Stagiaires, alternants, étudiants en mobilité : ils réservent quelques semaines ou plusieurs périodes dans l’année, et les séjours courts comblent les trous entre deux locations.' },
+  { icon: BadgeCheck, title: 'Des locataires vérifiés', text: 'Personne ne réserve sans avoir fait vérifier son identité et son domicile par l’équipe Haven.' },
+  { icon: KeyRound, title: 'Vous gérez moins', text: 'Réservation instantanée, consignes d’accès envoyées automatiquement, états des lieux avec photos : plus de remises de clés ni de relances.' },
+  { icon: SlidersHorizontal, title: 'Vous gardez la main', text: 'Vos prix, votre forfait ménage, votre minimum de nuits, vos dates bloquées. Publication gratuite, sans engagement.' },
+];
 
 /** What Haven does, and what stays with the owner: stated plainly, matching how the site works. */
 const HAVEN_DOES = [
@@ -42,12 +52,37 @@ export const BecomeOwner: React.FC = () => {
         <div className="text-center">
           <span className="px-4 py-1.5 bg-haven-navy/5 text-haven-navy rounded-full text-xs font-black uppercase tracking-widest">Propriétaires</span>
           <h1 className="text-[1.75rem] sm:text-5xl font-heading font-black text-haven-navy mt-3 sm:mt-4 mb-3 sm:mb-6 leading-tight">
-            Louez vos chambres meublées <br className="hidden sm:inline" />en toute sérénité
+            Vos chambres louées, <br className="hidden sm:inline" />vos revenus sans commission
           </h1>
           <p className="text-sm sm:text-lg text-gray-500 max-w-2xl mx-auto">
-            Proposez vos chambres à des locataires vérifiés, pour quelques semaines ou plusieurs mois. Publication gratuite, aucune commission sur vos revenus.
+            Des locataires vérifiés qui paient d’avance, pour quelques semaines ou plusieurs mois. Haven s’occupe des réservations, des paiements et des états des lieux ; vous gardez 100 % de vos revenus.
+          </p>
+          <div className="mt-6 flex flex-col items-center justify-center gap-3 sm:flex-row">
+            <button type="button" onClick={startPublishing} className="inline-flex min-h-12 items-center gap-2 rounded-2xl bg-haven-red px-7 font-extrabold text-white shadow-lg transition-all hover:bg-red-700">
+              Publier gratuitement <ChevronRight size={18} aria-hidden="true" />
+            </button>
+            <a href="#earn-title" onClick={event => { event.preventDefault(); document.getElementById('earn-title')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }} className="inline-flex min-h-12 items-center rounded-2xl px-5 font-semibold text-haven-navy underline-offset-4 hover:underline">
+              Voir combien je gagne
+            </a>
+          </div>
+          <p className="mt-5 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-xs font-semibold text-gray-500">
+            {['Publication gratuite', '0 % de commission', 'Payé à chaque réservation'].map(item => <span key={item} className="inline-flex items-center gap-1.5"><Check size={14} className="text-green-600" aria-hidden="true" />{item}</span>)}
           </p>
         </div>
+
+        {/* Why Haven: the benefits first. */}
+        <section aria-labelledby="reasons-title">
+          <h2 id="reasons-title" className="mb-4 text-center font-heading text-xl sm:text-2xl font-black text-haven-navy">Pourquoi proposer vos chambres sur Haven</h2>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {REASONS.map(({ icon: Icon, title, text }) => (
+              <div key={title} className="rounded-2xl border border-gray-100 bg-white p-5 shadow-card">
+                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-haven-red/5 text-haven-red"><Icon size={22} aria-hidden="true" /></div>
+                <h3 className="mt-3 font-heading text-lg font-black text-haven-navy">{title}</h3>
+                <p className="mt-1 text-sm leading-relaxed text-gray-600">{text}</p>
+              </div>
+            ))}
+          </div>
+        </section>
 
         {/* 1. What the owner earns, with the real computation. */}
         <section className="bg-white rounded-[1.75rem] sm:rounded-[2.5rem] border border-gray-100 shadow-premium p-6 sm:p-10" aria-labelledby="earn-title">
@@ -66,7 +101,7 @@ export const BecomeOwner: React.FC = () => {
 
         {/* 2. Who does what. */}
         <section className="grid gap-4 sm:gap-6 md:grid-cols-2" aria-label="Qui fait quoi">
-          {([['Ce que Haven fait pour vous', HAVEN_DOES, 'text-green-600'], ['Ce qui reste à votre charge', YOU_DO, 'text-haven-navy']] as const).map(([title, items, tone]) => (
+          {([['Haven s’occupe de', HAVEN_DOES, 'text-green-600'], ['Votre rôle', YOU_DO, 'text-haven-navy']] as const).map(([title, items, tone]) => (
             <div key={title} className="bg-white rounded-[1.75rem] sm:rounded-[2.5rem] border border-gray-100 shadow-premium p-6 sm:p-8">
               <h2 className="font-heading font-black text-lg sm:text-xl text-haven-navy">{title}</h2>
               <ul className="mt-4 space-y-3">
@@ -103,10 +138,10 @@ export const BecomeOwner: React.FC = () => {
 
         <div className="bg-haven-navy rounded-[1.75rem] sm:rounded-[2.5rem] p-6 sm:p-12 text-white shadow-premium text-center">
           <Home size={28} className="mx-auto text-haven-red" aria-hidden="true" />
-          <h2 className="mt-3 font-heading font-bold text-2xl sm:text-3xl">Publiez votre annonce gratuitement</h2>
-          <p className="mt-3 text-sm text-gray-300 max-w-xl mx-auto">Compte vérifié, versements configurés, annonce décrite : Haven la vérifie et la met en ligne.</p>
+          <h2 className="mt-3 font-heading font-bold text-2xl sm:text-3xl">Prêt à louer vos chambres ?</h2>
+          <p className="mt-3 text-sm text-gray-300 max-w-xl mx-auto">Publication gratuite, sans engagement : créez votre compte, décrivez votre logement, Haven vérifie l’annonce et la met en ligne.</p>
           <button type="button" onClick={startPublishing} className="mt-6 px-8 py-4 bg-haven-red text-white font-extrabold rounded-2xl hover:bg-red-700 transition-all shadow-lg inline-flex items-center gap-2">
-            Commencer <ChevronRight size={18} aria-hidden="true" />
+            Publier gratuitement <ChevronRight size={18} aria-hidden="true" />
           </button>
         </div>
       </div>
