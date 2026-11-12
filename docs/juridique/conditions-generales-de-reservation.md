@@ -105,12 +105,17 @@ Le remboursement porte sur le prix total payé (hébergement, ménage et frais d
 - occuper la chambre réservée paisiblement, seul (sauf mention contraire de l'annonce), et respecter les autres colocataires, le voisinage et les **règles de la maison** ;
 - ne pas sous-louer ni prêter sa chambre, ni céder sa réservation ;
 - ne pas organiser de fête ni d'événement, ne pas fumer ni introduire d'animal si l'annonce l'interdit ;
-- utiliser les parties communes et les équipements avec soin et participer à leur tenue ;
+- utiliser les parties communes et les équipements avec soin, et ranger et nettoyer derrière soi (vaisselle, cuisine, salle de bain, déchets et tri) ;
 - signaler sans délai tout dommage, panne ou problème depuis « Mes séjours › Incident / signalement ».
 
 Le propriétaire assure un ménage des parties communes au moins une fois par semaine, comme le prévoit le Cahier des charges du logement.
 
-**8.4 Départ et état des lieux de sortie.** Le locataire libère la chambre avant l'heure de départ (11 h par défaut), la laisse rangée et propre, restitue les clés selon les consignes et réalise **l'état des lieux de sortie** dans son espace.
+**8.4 Départ et état des lieux de sortie.** Le locataire libère la chambre avant l'heure de départ (11 h par défaut) et la remet en état :
+
+- **sa chambre** : sol aspiré et nettoyé, surfaces, bureau et rangements nettoyés, affaires et déchets retirés, parure de lit retirée et placée dans le sac prévu ;
+- **les espaces communs qu'il a utilisés** : vaisselle lavée et rangée, évier, plan de travail, plaques et appareils nettoyés, aliments retirés, douche, lavabo et sanitaires nettoyés, déchets évacués selon les consignes de tri.
+
+Il éteint ses équipements, sécurise les accès et dépose les clés selon les consignes, puis réalise **l'état des lieux de sortie** dans son espace, en confirmant chacun de ces points et en ajoutant les photos demandées (chambre, cuisine, parties communes, salle de bain, clés). Le forfait ménage payé à la réservation rémunère le ménage du propriétaire ; il ne dispense pas le locataire de cette remise en état. Une remise en état anormalement lourde peut donner lieu à une réclamation du propriétaire selon l'article 10.
 
 **8.5 Problème pendant le séjour.** Le locataire signale tout problème depuis son espace. Le propriétaire est prévenu et doit y répondre rapidement. Si le problème n'est pas résolu ou s'il est grave (logement non conforme, insalubre, inaccessible), le locataire peut demander l'intervention de Haven, qui peut proposer une solution, un remboursement partiel ou total, ou une annulation. Les remboursements décidés par Haven sont pris en priorité sur ses frais de service.
 

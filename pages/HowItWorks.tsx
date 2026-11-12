@@ -57,12 +57,21 @@ const TENANT_STEPS: Step[] = [
     ],
   },
   {
-    icon: ClipboardCheck, tone: 'bg-rose-50 text-haven-red', title: 'Vivez votre séjour, puis partez sereinement',
-    text: 'Un problème ? Signalez-le. À la fin, un état des lieux de sortie et un avis.',
+    icon: Home, tone: 'bg-sky-50 text-sky-600', title: 'Vivez votre séjour',
+    text: 'Une colocation, c’est un logement partagé : chacun en prend soin.',
     details: [
-      'Panne, propreté, souci d’accès : utilisez « Incident / signalement » dans « Mes séjours ». Le propriétaire est prévenu, puis Haven si besoin.',
-      'Le jour du départ, libérez la chambre avant l’heure indiquée et faites l’état des lieux de sortie.',
-      'Vous avez ensuite 7 jours pour laisser un avis sur le logement.',
+      'Le propriétaire fait réaliser un ménage des parties communes au moins une fois par semaine ; le forfait ménage payé à la réservation y contribue.',
+      'Entre deux passages, chacun range et nettoie derrière soi : vaisselle, plan de travail, salle de bain après usage, poubelles et tri.',
+      'Un problème (panne, propreté, accès) ? Utilisez « Incident / signalement » dans « Mes séjours » : le propriétaire est prévenu, puis Haven si besoin.',
+    ],
+  },
+  {
+    icon: ClipboardCheck, tone: 'bg-rose-50 text-haven-red', title: 'Au départ : ménage et état des lieux de sortie',
+    text: 'Laissez la chambre comme vous aimeriez la trouver, puis validez votre départ.',
+    details: [
+      'Votre chambre : sol aspiré et nettoyé, bureau et rangements essuyés, affaires et déchets retirés, parure de lit placée dans le sac prévu.',
+      'Les espaces communs que vous avez utilisés : vaisselle lavée et rangée, plaques et plan de travail nettoyés, vos aliments retirés, douche, lavabo et sanitaires propres, déchets évacués.',
+      'Le jour du départ, avant l’heure indiquée, l’état des lieux de sortie vous guide : vous cochez chaque point et ajoutez des photos (chambre, cuisine, parties communes, salle de bain, clés déposées). Vous pouvez ensuite laisser un avis pendant 7 jours.',
     ],
   },
 ];
@@ -70,6 +79,7 @@ const TENANT_STEPS: Step[] = [
 const TENANT_FACTS: Fact[] = [
   { icon: Wallet, title: 'Un prix tout compris', text: 'Nuits + ménage + frais de service de 15 % du prix des nuits. Aucun frais caché, aucune caution demandée aujourd’hui.' },
   { icon: CalendarX, title: 'Annulation', text: 'Remboursé à 100 % jusqu’à 30 jours avant l’arrivée, à 50 % entre 14 et 29 jours, pas en dessous. Si le propriétaire annule, vous êtes remboursé intégralement.' },
+  { icon: Sparkles, title: 'Le ménage', text: 'Le propriétaire fait réaliser un ménage des parties communes chaque semaine. Vous, vous rangez derrière vous pendant le séjour et laissez votre chambre et les espaces utilisés propres en partant.' },
   { icon: Repeat2, title: 'Réservation récurrente', text: 'Tous vos séjours réservés au même prix. Vous payez le premier ; les suivants sont prélevés un mois avant chaque arrivée, après un rappel 3 jours avant.' },
   { icon: LifeBuoy, title: 'En cas de problème', text: 'Haven peut intervenir à tout moment : solution avec le propriétaire, remboursement ou annulation si le logement ne convient pas.' },
 ];
@@ -124,7 +134,7 @@ const OWNER_STEPS: Step[] = [
     icon: FileText, tone: 'bg-amber-50 text-amber-600', title: 'Suivez les séjours et recevez vos revenus',
     text: 'Les états des lieux arrivent dans votre espace, et le paiement suit.',
     details: [
-      'Le locataire fait l’état des lieux d’entrée à son arrivée et de sortie à son départ, avec photos.',
+      'Le locataire fait l’état des lieux d’entrée à son arrivée et de sortie à son départ, avec photos ; au départ, il remet sa chambre et les espaces utilisés en état, en complément de votre ménage hebdomadaire.',
       'Après l’état des lieux d’entrée, votre part est transférée automatiquement, puis virée sur votre compte bancaire par Stripe.',
       'Un signalement ? Vous êtes prévenu et répondez depuis votre espace ; Haven intervient si nécessaire.',
     ],
@@ -204,8 +214,8 @@ export const HowItWorks: React.FC = () => {
         <section className="mb-6 sm:mb-10" aria-labelledby="facts-title">
           <h2 id="facts-title" className="mb-4 text-center font-heading text-xl sm:text-2xl font-black text-haven-navy">Bon à savoir</h2>
           <div className="grid gap-3 sm:grid-cols-2">
-            {facts.map(({ icon: Icon, title, text }) => (
-              <div key={title} className="rounded-2xl border border-gray-100 bg-white p-5 shadow-card">
+            {facts.map(({ icon: Icon, title, text }, index) => (
+              <div key={title} className={`rounded-2xl border border-gray-100 bg-white p-5 shadow-card ${facts.length % 2 && index === facts.length - 1 ? 'sm:col-span-2' : ''}`}>
                 <p className="flex items-center gap-2 font-bold text-haven-navy"><Icon size={18} className="text-haven-red" aria-hidden="true" />{title}</p>
                 <p className="mt-2 text-sm leading-relaxed text-gray-600">{text}</p>
               </div>
