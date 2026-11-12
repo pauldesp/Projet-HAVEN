@@ -109,6 +109,11 @@ Légende : **[Paul]** à faire par toi (comptes, contrats, décisions), **[Code]
 - [x] **[Code] Gérer la perte des versements Stripe en cours de série** (11 nov.) : le locataire est prélevé normalement, le versement du propriétaire attend son compte complet et l’équipe Haven reçoit une alerte.
 - [ ] **[Paul] Décider d'une remise** pour la récurrence ou les séjours courts entre deux locations.
 
+### Langues
+
+- [ ] **[Code] Masquer le sélecteur de langue** (anglais, espagnol) tant que les pages ne sont pas traduites : la plupart des pages, dont toutes celles réécrites en novembre, sont uniquement en français.
+- [ ] **[Code] Traduire le site** en anglais si une clientèle internationale est visée (étudiants en échange), puis réafficher le sélecteur.
+
 ### Comptes et connexion
 
 - [ ] **[Code] Connexion avec Google** (une documentation existe dans `docs/GOOGLE-SIGN-IN.md`).
@@ -184,6 +189,14 @@ Choix retenu (11 nov.) : **Capacitor**, qui emballe le site mobile actuel (même
 - [x] **[Code] Suppression du compte par le membre lui-même**, exigée par Apple (fait le 11 nov., « Mon compte »).
 - [ ] **[Code] Notifications push** (confirmation, prélèvement à venir, arrivée) et appareil photo natif pour les états des lieux.
 - [ ] **[Paul] Fiches des boutiques** : icône, captures, description, politique de confidentialité, compte de démonstration pour la validation Apple.
+
+## 5. Pour faire grandir le site
+
+- [ ] **[Code] Pages par ville** (« Colocation à Lyon », « Colocation à Bordeaux »…), générées automatiquement à partir des annonces en ligne, rendues par le serveur comme les articles et ajoutées au plan du site : levier n°1 du référencement local.
+- [ ] **[Code] Alerte « Prévenez-moi »** : un locataire qui ne trouve rien reçoit un e-mail dès qu'une chambre se libère dans sa ville à ses dates.
+- [ ] **[Code] Avis des locataires sur l'accueil**, dès les premiers séjours, pour rassurer les nouveaux visiteurs.
+- [ ] **[Paul] Décider d'un parrainage** (locataires ou propriétaires), puis **[Code]** le mettre en place avec un lien personnel et son suivi dans le back office.
+- [ ] **[Paul] Écrire les premiers articles** (au moins 600 mots, deux ou trois intertitres, un mot-clé précis dans le titre) depuis l'onglet Articles du back office.
 
 ## Références
 
