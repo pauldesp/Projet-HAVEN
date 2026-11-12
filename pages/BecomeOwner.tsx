@@ -1,60 +1,46 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
-import { ShieldCheck, CheckCircle2, TrendingUp, Handshake, ShieldAlert, ChevronRight, Check } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Check, ChevronRight, Home, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+
+/** What Haven does, and what stays with the owner: stated plainly, matching how the site works. */
+const HAVEN_DOES = [
+  'Vérifie l’identité et le domicile de chaque locataire avant qu’il puisse réserver',
+  'Encaisse le paiement à la réservation : pas d’impayé, pas de relance',
+  'Envoie vos consignes d’accès au locataire 72 heures avant son arrivée',
+  'Fait réaliser les états des lieux d’entrée et de sortie, avec photos',
+  'Suit les incidents et intervient si une situation n’est pas réglée',
+];
+const YOU_DO = [
+  'Décrire votre logement et tenir vos disponibilités à jour',
+  'Faire réaliser un ménage des parties communes chaque semaine pendant les séjours',
+  'Remettre les chambres en état entre deux locataires',
+  'Répondre rapidement aux signalements des locataires',
+];
+const QUESTIONS = [
+  { q: 'Quand suis-je payé ?', a: 'Après l’arrivée de chaque locataire, une fois son état des lieux d’entrée enregistré. Le virement part automatiquement vers votre compte bancaire, séjour par séjour.' },
+  { q: 'Est-ce que je choisis mes locataires ?', a: 'Les locataires dont le compte a été vérifié par Haven réservent directement vos dates libres, sans demande à valider. Vous voyez qui a réservé dans votre espace, et vous bloquez à l’avance les dates où une chambre n’est pas disponible.' },
+  { q: 'Et en cas de dégradation ?', a: 'Les états des lieux avec photos servent de preuve. Vous signalez la dégradation depuis votre espace, avec photos et devis : Haven examine le dossier et recherche une solution amiable avec le locataire. Aucune caution n’est demandée aux locataires à ce jour.' },
+  { q: 'Puis-je annuler une réservation ?', a: 'Oui, seul, jusqu’à 30 jours avant l’arrivée ; le locataire est alors remboursé intégralement. Plus tard, seule Haven peut annuler, pour un motif sérieux.' },
+  { q: 'Que dois-je faire avant de publier ?', a: 'Faire vérifier votre compte (identité et domicile), puis configurer vos versements avec Stripe (identité et compte bancaire). Haven vérifie ensuite votre annonce avant sa mise en ligne.' },
+];
+const STANDARDS = [
+  'Un logement décent, propre et en bon état, adapté à la vie à plusieurs',
+  'Des chambres meublées : lit et literie, rangement, bureau, éclairage et occultation',
+  'Une cuisine équipée et des parties communes fonctionnelles',
+  'Pour chaque chambre, au moins une option : salle de bain privée, bureau, verrou ou armoire',
+];
 
 export const BecomeOwner: React.FC = () => {
   const navigate = useNavigate();
   const { currentUser } = useAuth();
-
-  const advantages = [
-    {
-      icon: TrendingUp,
-      color: 'text-emerald-650',
-      bgColor: 'bg-emerald-50',
-      title: "Des chambres occupées plus souvent",
-      desc: "Stagiaires, alternants, étudiants en mobilité et jeunes actifs réservent quelques semaines ou plusieurs périodes dans l’année grâce à la réservation récurrente. Les séjours courts entre deux locations remplissent aussi les intervalles libres."
-    },
-    {
-      icon: ShieldCheck,
-      color: 'text-indigo-600',
-      bgColor: 'bg-indigo-50',
-      title: "Des locataires vérifiés, des preuves claires",
-      desc: "Chaque locataire fait vérifier son identité et son domicile avant de réserver. Les états des lieux d’entrée et de sortie, avec photos, sont réalisés à chaque séjour et conservés dans votre espace."
-    },
-    {
-      icon: Handshake,
-      color: 'text-orange-600',
-      bgColor: 'bg-orange-50',
-      title: "Une gestion simplifiée",
-      desc: "Réservation instantanée, paiement encaissé par Haven, consignes d’accès envoyées automatiquement 72 heures avant l’arrivée, messagerie et suivi des incidents : vous gérez tout depuis votre tableau de bord."
-    }
-  ];
-
-  const requirements = [
-    "Un logement décent, propre et en bon état, adapté à la vie à plusieurs",
-    "Des chambres meublées : lit et literie, rangement, bureau, éclairage et occultation",
-    "Une cuisine équipée (réfrigérateur, plaques, vaisselle) et des parties communes fonctionnelles",
-    "Un ménage des parties communes au moins une fois par semaine pendant les séjours",
-    "Des disponibilités et des consignes d’accès toujours à jour, et une réponse rapide aux signalements"
-  ];
-
-  const handleStartPublishing = () => {
-    if (!currentUser) {
-      navigate('/login?redirect=/owner/publish&role=OWNER');
-    } else {
-      navigate('/owner/publish');
-    }
-  };
+  const startPublishing = () => navigate(currentUser ? '/owner/publish' : '/login?redirect=/owner/publish&role=OWNER');
 
   return (
     <div className="bg-haven-cream min-h-screen py-8 sm:py-16 px-4 sm:px-6 lg:px-8 mt-4 sm:mt-12 animate-fade-in">
-      <div className="max-w-4xl mx-auto">
-        {/* Top Header */}
-        <div className="text-center mb-8 sm:mb-16">
-          <span className="px-4 py-1.5 bg-haven-navy/5 text-haven-navy rounded-full text-xs font-black uppercase tracking-widest">
-            Propriétaires
-          </span>
+      <div className="max-w-4xl mx-auto space-y-6 sm:space-y-10">
+        <div className="text-center">
+          <span className="px-4 py-1.5 bg-haven-navy/5 text-haven-navy rounded-full text-xs font-black uppercase tracking-widest">Propriétaires</span>
           <h1 className="text-[1.75rem] sm:text-5xl font-heading font-black text-haven-navy mt-3 sm:mt-4 mb-3 sm:mb-6 leading-tight">
             Louez vos chambres meublées <br className="hidden sm:inline" />en toute sérénité
           </h1>
@@ -63,135 +49,66 @@ export const BecomeOwner: React.FC = () => {
           </p>
         </div>
 
-        {/* Traditional vs HAVEN Comparison Card */}
-        <div className="bg-white rounded-[1.75rem] sm:rounded-[2.5rem] border border-gray-100 shadow-premium p-5 sm:p-12 mb-8 sm:mb-16 overflow-hidden relative">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/5 rounded-full blur-3xl"></div>
-          
-          <h3 className="font-heading font-black text-xl sm:text-2xl text-haven-navy mb-8 text-center sm:text-left">
-            Ce que Haven change pour vous
-          </h3>
+        {/* 1. What the owner earns, with the real computation. */}
+        <section className="bg-white rounded-[1.75rem] sm:rounded-[2.5rem] border border-gray-100 shadow-premium p-6 sm:p-10" aria-labelledby="earn-title">
+          <h2 id="earn-title" className="font-heading font-black text-xl sm:text-2xl text-haven-navy">Combien vous gagnez</h2>
+          <p className="mt-2 text-sm sm:text-base text-gray-600">Vous fixez le prix par nuit de chaque chambre et un forfait ménage par séjour, et vous recevez <strong className="text-haven-navy">100 % de ces montants</strong>. Les frais de service Haven sont payés par le locataire, en plus.</p>
+          <div className="mt-6 rounded-2xl bg-gray-50 p-5 sm:p-6">
+            <p className="text-xs font-bold uppercase tracking-widest text-gray-400">Exemple : une chambre à 22 € la nuit, un séjour de 6 nuits</p>
+            <dl className="mt-4 space-y-2 text-sm">
+              <div className="flex justify-between gap-4"><dt className="text-gray-600">6 nuits × 22 €</dt><dd className="font-semibold text-haven-navy">132 €</dd></div>
+              <div className="flex justify-between gap-4"><dt className="text-gray-600">Forfait ménage</dt><dd className="font-semibold text-haven-navy">15 €</dd></div>
+              <div className="flex justify-between gap-4 border-t border-gray-200 pt-3 text-base"><dt className="font-bold text-haven-navy">Versé sur votre compte</dt><dd className="font-black text-haven-navy">147 €</dd></div>
+              <div className="flex justify-between gap-4 text-xs text-gray-400"><dt>Payé par le locataire, avec 20 € de frais de service</dt><dd>167 €</dd></div>
+            </dl>
+          </div>
+        </section>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-10">
-            {/* Traditional */}
-            <div className="space-y-4">
-              <div className="flex items-center gap-2.5 text-xs font-black uppercase tracking-widest text-[#B24E31]">
-                <ShieldAlert size={16} />
-                <span>Colocation classique</span>
-              </div>
-              <ul className="space-y-3.5 text-sm text-gray-500">
-                <li className="flex items-start gap-2">
-                  <span className="text-red-500 font-extrabold mr-1 shrink-0">✕</span>
-                  <span>Un seul bail pour tous, des garants à vérifier</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-red-500 font-extrabold mr-1 shrink-0">✕</span>
-                  <span>Des états des lieux papier, sources de désaccords</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-red-500 font-extrabold mr-1 shrink-0">✕</span>
-                  <span>Des chambres vides entre deux locataires</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-red-500 font-extrabold mr-1 shrink-0">✕</span>
-                  <span>Des remises de clés et des relances de paiement</span>
-                </li>
+        {/* 2. Who does what. */}
+        <section className="grid gap-4 sm:gap-6 md:grid-cols-2" aria-label="Qui fait quoi">
+          {([['Ce que Haven fait pour vous', HAVEN_DOES, 'text-green-600'], ['Ce qui reste à votre charge', YOU_DO, 'text-haven-navy']] as const).map(([title, items, tone]) => (
+            <div key={title} className="bg-white rounded-[1.75rem] sm:rounded-[2.5rem] border border-gray-100 shadow-premium p-6 sm:p-8">
+              <h2 className="font-heading font-black text-lg sm:text-xl text-haven-navy">{title}</h2>
+              <ul className="mt-4 space-y-3">
+                {items.map(item => <li key={item} className="flex gap-2.5 text-sm text-gray-600"><Check size={16} className={`${tone} shrink-0 mt-0.5`} aria-hidden="true" />{item}</li>)}
               </ul>
             </div>
+          ))}
+        </section>
 
-            {/* HAVEN */}
-            <div className="space-y-4 border-t md:border-t-0 md:border-l border-gray-100 pt-8 md:pt-0 md:pl-10">
-              <div className="flex items-center gap-2.5 text-xs font-black uppercase tracking-widest text-emerald-650">
-                <CheckCircle2 size={16} />
-                <span>Avec Haven</span>
-              </div>
-              <ul className="space-y-3.5 text-sm text-gray-600 font-medium">
-                <li className="flex items-start gap-2">
-                  <span className="text-emerald-600 font-extrabold mr-1 shrink-0">✓</span>
-                  <span>Une réservation par chambre et par locataire</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-emerald-600 font-extrabold mr-1 shrink-0">✓</span>
-                  <span>États des lieux avec photos à chaque entrée et sortie</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-emerald-600 font-extrabold mr-1 shrink-0">✓</span>
-                  <span>Séjours courts et réservations récurrentes toute l’année</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <span className="text-emerald-600 font-extrabold mr-1 shrink-0">✓</span>
-                  <span>Paiement encaissé par Haven, versé après chaque arrivée</span>
-                </li>
-              </ul>
-            </div>
+        {/* 3. The questions owners ask. */}
+        <section className="bg-white rounded-[1.75rem] sm:rounded-[2.5rem] border border-gray-100 shadow-premium p-6 sm:p-10" aria-labelledby="owner-questions">
+          <h2 id="owner-questions" className="font-heading font-black text-xl sm:text-2xl text-haven-navy">Vos questions</h2>
+          <div className="mt-4 divide-y divide-gray-100">
+            {QUESTIONS.map(({ q, a }) => (
+              <details key={q} className="group py-1">
+                <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-4 py-3 font-semibold text-haven-navy">
+                  {q}<ChevronRight size={18} className="shrink-0 text-gray-400 transition-transform group-open:rotate-90" aria-hidden="true" />
+                </summary>
+                <p className="pb-4 text-sm leading-relaxed text-gray-600">{a}</p>
+              </details>
+            ))}
           </div>
-        </div>
+          <p className="mt-4 text-sm text-gray-500">Le fonctionnement complet, étape par étape : <Link to="/how-it-works" className="font-semibold text-haven-red underline underline-offset-4">Comment ça marche</Link>.</p>
+        </section>
 
-        {/* Core Advantages List */}
-        <div className="space-y-8 mb-8 sm:mb-16">
-          <h3 className="font-heading font-bold text-xl sm:text-2xl text-haven-navy text-center mb-6 sm:mb-10">
-            Trois piliers conçus pour votre sérénité
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {advantages.map((adv, idx) => {
-              const IconComp = adv.icon;
-              return (
-                <div key={idx} className="bg-white p-5 sm:p-8 rounded-3xl border border-gray-100 shadow-card flex flex-col justify-start">
-                  <div className={`w-12 h-12 rounded-2xl ${adv.bgColor} ${adv.color} flex items-center justify-center mb-6`}>
-                    <IconComp size={22} />
-                  </div>
-                  <h4 className="text-base font-bold text-haven-navy mb-2 leading-tight">
-                    {adv.title}
-                  </h4>
-                  <p className="text-xs text-gray-400 leading-relaxed font-semibold">
-                    {adv.desc}
-                  </p>
-                </div>
-              );
-            })}
-          </div>
-        </div>
+        {/* 4. Standards, then publish. */}
+        <section className="bg-white rounded-[1.75rem] sm:rounded-[2.5rem] border border-gray-100 shadow-premium p-6 sm:p-10" aria-labelledby="standards-title">
+          <h2 id="standards-title" className="flex items-center gap-2 font-heading font-black text-xl sm:text-2xl text-haven-navy"><ShieldCheck size={22} className="text-haven-red" aria-hidden="true" />Le cahier des charges</h2>
+          <p className="mt-2 text-sm text-gray-600">Chaque annonce est vérifiée par Haven avant sa mise en ligne. Votre logement doit notamment offrir :</p>
+          <ul className="mt-4 space-y-3">
+            {STANDARDS.map(item => <li key={item} className="flex gap-2.5 text-sm text-gray-600"><Check size={16} className="text-haven-red shrink-0 mt-0.5" aria-hidden="true" />{item}</li>)}
+          </ul>
+        </section>
 
-        {/* Specifications & Charter Specifications (Cahier des charges) */}
-        <div className="bg-white rounded-[1.75rem] sm:rounded-[2.5rem] border border-gray-100 shadow-premium p-5 sm:p-12 mb-8 sm:mb-16">
-          <div className="max-w-2xl mx-auto">
-            <h3 className="font-heading font-black text-xl sm:text-2xl text-haven-navy mb-4 text-center">
-              Le cahier des charges Haven
-            </h3>
-            <p className="text-sm text-gray-500 text-center mb-8">
-              Pour garantir aux locataires une qualité constante, chaque propriétaire s’engage notamment à proposer :
-            </p>
-
-            <ul className="space-y-4">
-              {requirements.map((req, idx) => (
-                <li key={idx} className="flex gap-4 items-start text-sm text-gray-600">
-                  <div className="w-5 h-5 rounded-full bg-haven-red/10 flex items-center justify-center shrink-0 mt-0.5">
-                    <Check size={12} className="text-haven-red" />
-                  </div>
-                  <span>{req}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
-
-        {/* Call To Action Box */}
-        <div className="bg-gray-950 rounded-[1.75rem] sm:rounded-[2.5rem] p-6 sm:p-12 text-white shadow-premium text-center">
-          <h3 className="font-heading font-bold text-2xl sm:text-3xl mb-4">
-            Publiez votre annonce gratuitement
-          </h3>
-          <p className="text-sm text-gray-300 max-w-xl mx-auto mb-8 font-semibold">
-            Créez votre compte, faites-le vérifier, configurez vos versements avec Stripe, puis décrivez votre logement. Haven vérifie votre annonce avant sa mise en ligne.
-          </p>
-
-          <button
-            onClick={handleStartPublishing}
-            className="px-8 py-4 bg-haven-red text-white font-extrabold rounded-2xl hover:bg-red-700 transition-all shadow-lg inline-flex items-center gap-2"
-          >
-            <span>Démarrer la publication</span>
-            <ChevronRight size={18} />
+        <div className="bg-haven-navy rounded-[1.75rem] sm:rounded-[2.5rem] p-6 sm:p-12 text-white shadow-premium text-center">
+          <Home size={28} className="mx-auto text-haven-red" aria-hidden="true" />
+          <h2 className="mt-3 font-heading font-bold text-2xl sm:text-3xl">Publiez votre annonce gratuitement</h2>
+          <p className="mt-3 text-sm text-gray-300 max-w-xl mx-auto">Compte vérifié, versements configurés, annonce décrite : Haven la vérifie et la met en ligne.</p>
+          <button type="button" onClick={startPublishing} className="mt-6 px-8 py-4 bg-haven-red text-white font-extrabold rounded-2xl hover:bg-red-700 transition-all shadow-lg inline-flex items-center gap-2">
+            Commencer <ChevronRight size={18} aria-hidden="true" />
           </button>
         </div>
-
       </div>
     </div>
   );
