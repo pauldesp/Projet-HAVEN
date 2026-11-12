@@ -48,7 +48,7 @@ Légende : **[Paul]** à faire par toi (comptes, contrats, décisions), **[Code]
 
 ### Juridique
 
-- [ ] **[Paul] Mettre à jour les conditions générales de réservation** : réservation récurrente, enregistrement de la carte, prélèvements automatiques un mois avant chaque arrivée, délai de 5 jours en cas d'échec, annulation séjour par séjour, séjours courts entre deux locations.
+- [x] **[Paul] Mettre à jour les conditions générales de réservation** (brouillon rédigé le 12 nov. dans `docs/juridique/`, à valider avec le juriste) : réservation récurrente, enregistrement de la carte, prélèvements automatiques un mois avant chaque arrivée, délai de 5 jours en cas d'échec, annulation séjour par séjour, séjours courts entre deux locations.
 - [x] **[Code] Faire accepter explicitement le prélèvement automatique** au moment de réserver une série (case obligatoire ; texte, version et date conservés avec la série, 11 novembre).
 - [ ] **[Paul] Faire relire par un juriste** : conditions générales (locataires et propriétaires), accord tripartite, mentions légales, politique de confidentialité.
 - [x] **[Code] Brouillons de la politique de confidentialité et des mentions légales** (11 nov.) : `docs/juridique/`, rédigés d'après le fonctionnement réel du site.
@@ -181,7 +181,7 @@ Choix retenu (11 nov.) : **Capacitor**, qui emballe le site mobile actuel (même
 - [ ] **[Code] Projet Capacitor** iOS et Android branché sur le serveur en ligne.
 - [ ] **[Code] Retour dans l'application après le paiement Stripe** (lien profond) et connexion Google native.
 - [ ] **[Code] « Se connecter avec Apple »**, exigé par Apple dès qu'une connexion Google existe.
-- [ ] **[Code] Suppression du compte par le membre lui-même**, exigée par Apple.
+- [x] **[Code] Suppression du compte par le membre lui-même**, exigée par Apple (fait le 11 nov., « Mon compte »).
 - [ ] **[Code] Notifications push** (confirmation, prélèvement à venir, arrivée) et appareil photo natif pour les états des lieux.
 - [ ] **[Paul] Fiches des boutiques** : icône, captures, description, politique de confidentialité, compte de démonstration pour la validation Apple.
 
