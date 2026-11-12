@@ -145,7 +145,7 @@ export const ForPartners: React.FC = () => {
                   <select
                     value={formData.orgType}
                     onChange={e => setFormData(p => ({ ...p, orgType: e.target.value }))}
-                    className="w-full text-sm font-bold px-4 py-3 rounded-xl border border-gray-100 bg-gray-50 focus:bg-white focus:outline-none focus:border-haven-navy transition-all"
+                    className="w-full text-sm font-medium text-haven-navy px-4 py-3 rounded-xl border border-gray-100 bg-gray-50 focus:bg-white focus:outline-none focus:border-haven-navy transition-all"
                   >
                     <option value="SCHOOL">Une école ou une université</option>
                     <option value="COMPANY">Une entreprise</option>
