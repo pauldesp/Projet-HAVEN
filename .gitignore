@@ -31,3 +31,6 @@ dist-ssr
 
 # Local PDF payment previews can contain reservation details
 output/pdf/
+
+# Local previews of the legal documents (scripts/legal-documents.mjs preview)
+docs/juridique/apercu/

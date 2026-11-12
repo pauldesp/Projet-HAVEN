@@ -13,46 +13,24 @@ export const FaqPage: React.FC = () => {
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null);
 
   const faqItems: FaqItem[] = [
-    {
-      category: 'RESERVATION',
-      question: "Quelle est la durée de séjour minimale et maximale ?",
-      answer: "HAVEN propose des colocations flexibles pensées pour les séjours de courte durée (généralement de 1 à 12 mois), idéales pour les étudiants, alternants, stagiaires et professionnels en transition. Les dates exactes sont calibrées lors de votre demande de réservation sur la fiche de l'annonce."
-    },
-    {
-      category: 'RESERVATION',
-      question: "Comment fonctionne la validation des profils ?",
-      answer: "Les propriétaires peuvent consulter le profil de chaque candidat locataire (prénom, âge, statut, présentation personnelle ainsi que les avis laissés par d'autres propriétaires). Les accords de colocation ne sont officiellement confirmés que lorsque le propriétaire approuve activement la demande après paiement."
-    },
-    {
-      category: 'PAYMENT',
-      question: "Le paiement en ligne est-il hautement sécurisé ?",
-      answer: "Oui, à 100%. Toutes les transactions bancaires (réservations, loyers, frais de service du locataire et versements aux propriétaires) transitent par Stripe, leader mondial du paiement en ligne. HAVEN ne stocke aucune donnée de carte bancaire."
-    },
-    {
-      category: 'PAYMENT',
-      question: "Qu'est-ce que les frais de plateforme (Commission de 15%) ?",
-      answer: "HAVEN prélève des frais de service de 15% pour couvrir la gestion de la mise en relation et de l'accord tripartite, l'hébergement sécurisé des états des lieux (check-in / check-out) et d'éventuels signalements ou médiations en cas de défaut ou sinistre."
-    },
-    {
-      category: 'INVENTORY',
-      question: "Quand puis-je réaliser mon état des lieux d'entrée (Check-in) ?",
-      answer: "L'état des lieux d'entrée (Check-in) est accessible uniquement le jour exact du début de votre bail de réservation (date d'entrée définie). Il s'effectue directement sur l'application HAVEN. Pour des raisons d'authenticité juridique, une fois finalisé et validé, le check-in est enregistré comme preuve faisant foi mais ne peut plus être modifié par le locataire."
-    },
-    {
-      category: 'INVENTORY',
-      question: "Comment se déroule l'état des lieux de sortie (Check-out) ?",
-      answer: "De même que pour l'entrée, le Check-out est accessible uniquement le jour du départ officiel (sauf déverrouillage anticipé approuvé par le propriétaire ou l'administrateur en cas de départ précoce). Une fois soumis par le locataire, il est figé et consultable dans vos archives."
-    },
-    {
-      category: 'HOUSING',
-      question: "Qu'est-ce que le cahier des charges d'excellence pour les propriétaires ?",
-      answer: "Avant de pouvoir mettre en ligne une annonce, les propriétaires s'engagent à respecter une charte d'équipement stricte (chambre meublée d'au moins 9m², literie de qualité, équipements de cuisine modernes et fonctionnels, connexion Internet haut débit Wi-Fi incluse). C'est le gage de qualité HAVEN."
-    },
-    {
-      category: 'HOUSING',
-      question: "Est-il possible de laisser un avis après mon séjour ?",
-      answer: "Absolument ! Les locataires et les propriétaires sont invités à se noter mutuellement à la fin du séjour (note globale, propreté, communication). Les avis contribuent à instaurer un climat de confiance solide au sein de la communauté HAVEN."
-    }
+    { category: 'RESERVATION', question: "Qui peut réserver sur Haven ?", answer: "Toute personne majeure dont le compte a été vérifié par Haven. Après votre inscription, vous transmettez une pièce d’identité et un justificatif de domicile depuis « Mon compte » ; un membre de l’équipe vérifie votre dossier. Vous pouvez ensuite réserver directement." },
+    { category: 'RESERVATION', question: "Combien de temps puis-je rester ?", answer: "Chaque logement fixe un nombre minimum de nuits, indiqué sur son annonce. Il n’y a pas de durée maximale : vous pouvez réserver quelques nuits comme plusieurs mois. Un séjour plus court que le minimum peut être accepté s’il occupe exactement l’intervalle libre entre deux réservations de la même chambre (2 nuits au moins)." },
+    { category: 'RESERVATION', question: "Le propriétaire doit-il accepter ma réservation ?", answer: "Non. La réservation est instantanée : dès que votre paiement est accepté, elle est confirmée et vous recevez un e-mail de confirmation. Le propriétaire en est informé aussitôt." },
+    { category: 'RESERVATION', question: "Qu’est-ce que la réservation récurrente ?", answer: "Elle permet de réserver en une seule fois plusieurs séjours répartis dans le temps, par exemple une semaine par mois pour un stage ou une alternance. Tous les séjours sont réservés et leurs prix fixés dès le départ. Vous ne payez que le premier ; les suivants sont prélevés automatiquement sur la même carte un mois avant chaque arrivée, après un rappel par e-mail trois jours avant." },
+    { category: 'RESERVATION', question: "Puis-je annuler ma réservation ?", answer: "Oui, depuis « Mes séjours ». Vous êtes remboursé à 100 % si vous annulez au moins 30 jours avant l’arrivée, à 50 % entre 14 et 29 jours, et pas en dessous. Dans une réservation récurrente, un séjour pas encore prélevé s’annule sans frais. Il n’y a pas de droit de rétractation pour un hébergement à dates fixes." },
+    { category: 'RESERVATION', question: "Que se passe-t-il si le propriétaire annule ?", answer: "Un propriétaire ne peut annuler seul qu’au moins 30 jours avant votre arrivée, et vous êtes alors remboursé intégralement. Plus tard, seule Haven peut annuler, pour un motif sérieux, avec un remboursement intégral et notre aide pour trouver une autre solution." },
+    { category: 'PAYMENT', question: "Combien coûte un séjour ?", answer: "Le prix affiché avant de payer comprend tout : le prix des nuits fixé par le propriétaire, un forfait ménage par séjour et les frais de service Haven, égaux à 15 % du prix des nuits. Il n’y a aucun frais caché ni dépôt de garantie à ce jour." },
+    { category: 'PAYMENT', question: "Comment se fait le paiement ?", answer: "Par carte bancaire, sur la page sécurisée de Stripe, notre prestataire de paiement. Haven ne voit jamais votre numéro de carte. Une réservation non payée est libérée au bout de 30 minutes." },
+    { category: 'PAYMENT', question: "Que se passe-t-il si un prélèvement automatique échoue ?", answer: "Vous êtes prévenu par e-mail et pouvez payer le séjour depuis votre espace. Une nouvelle tentative a lieu 48 heures plus tard. Sans paiement 5 jours après la date prévue, ce seul séjour est annulé ; les autres séjours de votre série sont maintenus." },
+    { category: 'PAYMENT', question: "Quand le propriétaire est-il payé ?", answer: "Haven conserve votre paiement jusqu’à votre arrivée. La part du propriétaire (nuits et ménage) lui est versée après votre état des lieux d’entrée. En cas de problème signalé, Haven peut suspendre ce versement le temps de l’examiner." },
+    { category: 'INVENTORY', question: "Quand vais-je recevoir l’adresse et les codes d’accès ?", answer: "Les consignes d’entrée (adresse exacte, accès, clés ou code, repères de votre chambre) vous sont envoyées 72 heures avant votre arrivée, ou dès la confirmation si vous réservez à la dernière minute. Elles sont aussi disponibles dans « Mes séjours »." },
+    { category: 'INVENTORY', question: "Comment se passe l’état des lieux d’entrée ?", answer: "Le jour de votre arrivée, à partir de l’heure d’arrivée, vous le réalisez depuis « Mes séjours » : quelques photos et un constat de votre chambre et des parties communes. Signalez-y toute anomalie : une fois validé, il fait foi et ne peut plus être modifié." },
+    { category: 'INVENTORY', question: "Et l’état des lieux de sortie ?", answer: "Il se fait de la même façon le jour de votre départ, avant l’heure de départ indiquée sur l’annonce. Si vous partez plus tôt que prévu, vous pouvez le réaliser dès votre départ effectif. Les nuits non utilisées ne sont pas remboursées." },
+    { category: 'INVENTORY', question: "Que faire en cas de problème pendant le séjour ?", answer: "Utilisez « Incident / signalement » dans « Mes séjours », avec une description et une photo si possible. Le propriétaire est prévenu et doit y répondre rapidement. Si le problème n’est pas résolu ou s’il est grave, vous pouvez demander l’intervention de Haven." },
+    { category: 'HOUSING', question: "Les logements sont-ils vérifiés ?", answer: "Oui. Chaque annonce est examinée par Haven avant sa mise en ligne, et à nouveau dès que ses textes, ses photos ou son adresse changent. Les propriétaires s’engagent à respecter le cahier des charges Haven : logement propre et en bon état, cuisine équipée, chambre meublée avec lit, rangement et bureau, ménage des parties communes chaque semaine." },
+    { category: 'HOUSING', question: "Avec qui vais-je partager le logement ?", answer: "La fiche du logement indique les colocataires déjà confirmés aux mêmes dates, avec un aperçu de leur profil. Tous les membres de Haven ont un compte vérifié." },
+    { category: 'HOUSING', question: "Puis-je laisser un avis ?", answer: "Oui. À la fin du séjour, locataire et propriétaire disposent de 7 jours pour se laisser un avis. Seuls les membres ayant réellement séjourné peuvent noter un logement, et les avis ne sont ni payés ni triés selon leur note." },
+    { category: 'HOUSING', question: "Je suis propriétaire : comment proposer mon logement ?", answer: "Créez votre compte, faites-le vérifier, configurez vos versements avec Stripe (identité et compte bancaire), puis publiez votre annonce depuis « Ajouter un logement ». Haven la vérifie avant sa mise en ligne. Vous fixez vos prix, votre forfait ménage, votre nombre minimum de nuits et vos disponibilités." },
   ];
 
   const filteredFaqs = faqItems.filter(item => {
@@ -65,8 +43,8 @@ export const FaqPage: React.FC = () => {
   const categories = [
     { id: 'ALL', label: 'Toutes les questions' },
     { id: 'RESERVATION', label: 'Réservations' },
-    { id: 'PAYMENT', label: 'Paiements & Stripe' },
-    { id: 'INVENTORY', label: 'Check-in / Check-out' },
+    { id: 'PAYMENT', label: 'Prix et paiements' },
+    { id: 'INVENTORY', label: 'Pendant le séjour' },
     { id: 'HOUSING', label: 'Logements' }
   ];
 
@@ -91,7 +69,7 @@ export const FaqPage: React.FC = () => {
             Comment pouvons-nous vous aider ?
           </h1>
           <p className="text-gray-500 text-sm max-w-xl mx-auto font-medium">
-            Toutes les réponses à vos questions concernant les réservations en courte durée, la sécurité Stripe, le cahier des charges propriétaire et les états des lieux numériques.
+            Réservation, prix, paiements, séjour et logements : les réponses aux questions les plus fréquentes.
           </p>
         </div>
 
@@ -102,7 +80,7 @@ export const FaqPage: React.FC = () => {
             type="text"
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
-            placeholder="Rechercher une question (ex: Stripe, Check-in, empreinte bancaire...)"
+            placeholder="Rechercher une question (ex. : annulation, paiement, état des lieux…)"
             className="w-full text-sm font-bold text-haven-navy focus:outline-none placeholder-gray-400 bg-transparent"
           />
         </div>

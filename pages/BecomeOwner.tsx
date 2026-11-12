@@ -12,31 +12,31 @@ export const BecomeOwner: React.FC = () => {
       icon: TrendingUp,
       color: 'text-emerald-650',
       bgColor: 'bg-emerald-50',
-      title: "Rendement financier optimisé (+30%)",
-      desc: "La location à la chambre en courte durée permet d'augmenter significativement vos revenus locatifs par rapport à un bail classique de colocation nue ou d'un appartement meublé individuel."
+      title: "Des chambres occupées plus souvent",
+      desc: "Stagiaires, alternants, étudiants en mobilité et jeunes actifs réservent quelques semaines ou plusieurs périodes dans l’année grâce à la réservation récurrente. Les séjours courts entre deux locations remplissent aussi les intervalles libres."
     },
     {
       icon: ShieldCheck,
       color: 'text-indigo-600',
       bgColor: 'bg-indigo-50',
-      title: "Sécurité juridique maximale",
-      desc: "Nos baux numériques individuels, validés par notre équipe juridique, sont combinés avec un état des lieux (check-in / check-out) numérique et infalsifiable qui fait foi en matière d'état du logement."
+      title: "Des locataires vérifiés, des preuves claires",
+      desc: "Chaque locataire fait vérifier son identité et son domicile avant de réserver. Les états des lieux d’entrée et de sortie, avec photos, sont réalisés à chaque séjour et conservés dans votre espace."
     },
     {
       icon: Handshake,
       color: 'text-orange-600',
       bgColor: 'bg-orange-50',
-      title: "Gestion autonome et simplifiée",
-      desc: "Oubliez les allers-retours fastidieux pour les remises de clés. Nos outils de messagerie intégrée et de check-in autonome sur mobile réduisent votre temps de gestion à zéro."
+      title: "Une gestion simplifiée",
+      desc: "Réservation instantanée, paiement encaissé par Haven, consignes d’accès envoyées automatiquement 72 heures avant l’arrivée, messagerie et suivi des incidents : vous gérez tout depuis votre tableau de bord."
     }
   ];
 
   const requirements = [
-    "Un logement meublé décent conforme aux critères de surface légaux (min. 9m² par chambre)",
-    "Équipements de cuisine haut-de-gamme (four, plaques de cuisson, réfrigérateur de grande capacité)",
-    "Une connexion Internet Wi-Fi haut débit incluse dans le montant des charges globales",
-    "Garantie d'accès autonome pour les colocataires (serrure connectée ou boîte à clés sécurisée)",
-    "Accord de respect du cahier des charges d'entretien et de confort HAVEN"
+    "Un logement décent, propre et en bon état, adapté à la vie à plusieurs",
+    "Des chambres meublées : lit et literie, rangement, bureau, éclairage et occultation",
+    "Une cuisine équipée (réfrigérateur, plaques, vaisselle) et des parties communes fonctionnelles",
+    "Un ménage des parties communes au moins une fois par semaine pendant les séjours",
+    "Des disponibilités et des consignes d’accès toujours à jour, et une réponse rapide aux signalements"
   ];
 
   const handleStartPublishing = () => {
@@ -53,13 +53,13 @@ export const BecomeOwner: React.FC = () => {
         {/* Top Header */}
         <div className="text-center mb-8 sm:mb-16">
           <span className="px-4 py-1.5 bg-haven-navy/5 text-haven-navy rounded-full text-xs font-black uppercase tracking-widest">
-            ESPACE PROPRIÉTAIRE LOGEMENTS
+            Propriétaires
           </span>
           <h1 className="text-[1.75rem] sm:text-5xl font-heading font-black text-haven-navy mt-3 sm:mt-4 mb-3 sm:mb-6 leading-tight">
-            Rentabilisez et protégez vos <br className="hidden sm:inline" />investissements en colocation
+            Louez vos chambres meublées <br className="hidden sm:inline" />en toute sérénité
           </h1>
           <p className="text-sm sm:text-lg text-gray-500 max-w-2xl mx-auto">
-            Rejoignez des centaines de bailleurs particuliers qui louent leurs chambres meublées en courte durée grâce à l'assurance de notre technologie autonome.
+            Proposez vos chambres à des locataires vérifiés, pour quelques semaines ou plusieurs mois. Publication gratuite, aucune commission sur vos revenus.
           </p>
         </div>
 
@@ -68,7 +68,7 @@ export const BecomeOwner: React.FC = () => {
           <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/5 rounded-full blur-3xl"></div>
           
           <h3 className="font-heading font-black text-xl sm:text-2xl text-haven-navy mb-8 text-center sm:text-left">
-            La colocation réinventée par HAVEN
+            Ce que Haven change pour vous
           </h3>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-10">
@@ -81,19 +81,19 @@ export const BecomeOwner: React.FC = () => {
               <ul className="space-y-3.5 text-sm text-gray-500">
                 <li className="flex items-start gap-2">
                   <span className="text-red-500 font-extrabold mr-1 shrink-0">✕</span>
-                  <span>Solidarité des loyers compliquée pour les parents garants</span>
+                  <span>Un seul bail pour tous, des garants à vérifier</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-red-500 font-extrabold mr-1 shrink-0">✕</span>
-                  <span>États des lieux papier imprécis menant à des litiges répétés</span>
+                  <span>Des états des lieux papier, sources de désaccords</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-red-500 font-extrabold mr-1 shrink-0">✕</span>
-                  <span>Chambres vacantes pendant les périodes scolaires creuses</span>
+                  <span>Des chambres vides entre deux locataires</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-red-500 font-extrabold mr-1 shrink-0">✕</span>
-                  <span>Gestion fastidieuse des entrées/sorties de locataires</span>
+                  <span>Des remises de clés et des relances de paiement</span>
                 </li>
               </ul>
             </div>
@@ -102,24 +102,24 @@ export const BecomeOwner: React.FC = () => {
             <div className="space-y-4 border-t md:border-t-0 md:border-l border-gray-100 pt-8 md:pt-0 md:pl-10">
               <div className="flex items-center gap-2.5 text-xs font-black uppercase tracking-widest text-emerald-650">
                 <CheckCircle2 size={16} />
-                <span>Plateforme HAVEN</span>
+                <span>Avec Haven</span>
               </div>
               <ul className="space-y-3.5 text-sm text-gray-600 font-medium">
                 <li className="flex items-start gap-2">
                   <span className="text-emerald-600 font-extrabold mr-1 shrink-0">✓</span>
-                  <span>Baux individuels flexibles sans solidarité de loyer</span>
+                  <span>Une réservation par chambre et par locataire</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-emerald-600 font-extrabold mr-1 shrink-0">✓</span>
-                  <span>États des lieux numériques intégrés (impossible d'esquiver)</span>
+                  <span>États des lieux avec photos à chaque entrée et sortie</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-emerald-600 font-extrabold mr-1 shrink-0">✓</span>
-                  <span>Réservations de courte durée comblant toute l'année</span>
+                  <span>Séjours courts et réservations récurrentes toute l’année</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-emerald-600 font-extrabold mr-1 shrink-0">✓</span>
-                  <span>Encaissement automatisé et sécurisé Stripe en 24h</span>
+                  <span>Paiement encaissé par Haven, versé après chaque arrivée</span>
                 </li>
               </ul>
             </div>
@@ -155,10 +155,10 @@ export const BecomeOwner: React.FC = () => {
         <div className="bg-white rounded-[1.75rem] sm:rounded-[2.5rem] border border-gray-100 shadow-premium p-5 sm:p-12 mb-8 sm:mb-16">
           <div className="max-w-2xl mx-auto">
             <h3 className="font-heading font-black text-xl sm:text-2xl text-haven-navy mb-4 text-center">
-              Le Cahier des Charges HAVEN d'Excellence
+              Le cahier des charges Haven
             </h3>
             <p className="text-sm text-gray-500 text-center mb-8">
-              Pour assurer l'harmonie en colocation et un service de standing hôtelier professionnel, chaque logement répertorié sur HAVEN s'engage à respecter les obligations suivantes :
+              Pour garantir aux locataires une qualité constante, chaque propriétaire s’engage notamment à proposer :
             </p>
 
             <ul className="space-y-4">
@@ -177,10 +177,10 @@ export const BecomeOwner: React.FC = () => {
         {/* Call To Action Box */}
         <div className="bg-gray-950 rounded-[1.75rem] sm:rounded-[2.5rem] p-6 sm:p-12 text-white shadow-premium text-center">
           <h3 className="font-heading font-bold text-2xl sm:text-3xl mb-4">
-            Mettez votre bien en ligne dès aujourd'hui
+            Publiez votre annonce gratuitement
           </h3>
           <p className="text-sm text-gray-300 max-w-xl mx-auto mb-8 font-semibold">
-            Rejoignez notre réseau de propriétaires validés. Créez votre compte bailleur, téléversez vos baux et laissez l'application gérer vos réservations en toute autonomie.
+            Créez votre compte, faites-le vérifier, configurez vos versements avec Stripe, puis décrivez votre logement. Haven vérifie votre annonce avant sa mise en ligne.
           </p>
 
           <button

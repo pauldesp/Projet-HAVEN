@@ -13,29 +13,29 @@ export const HowItWorks: React.FC = () => {
       icon: Search,
       iconColor: 'text-indigo-600',
       bgColor: 'bg-indigo-50',
-      title: "1. Recherchez votre colocation active",
-      desc: "Explorez nos logements meublés et tout-équipés triés sur le volet. Filtrez par ville, budget, dates de séjour et découvrez les profils des colocataires déjà sur place."
+      title: "1. Trouvez votre chambre",
+      desc: "Recherchez par ville et par dates, pour un séjour unique ou pour plusieurs périodes réparties dans l’année. Chaque logement est vérifié par Haven, et sa fiche montre les colocataires déjà présents à vos dates."
     },
     {
       icon: Calendar,
       iconColor: 'text-amber-600',
       bgColor: 'bg-amber-50',
-      title: "2. Réservez en ligne de manière flexible",
-      desc: "Grâce à notre colocation court-séjour (flexible de 1 à 12 mois), choisissez vos dates, lisez le cahier des charges : votre paiement vaut acceptation d'un contrat de colocation tripartite."
+      title: "2. Faites vérifier votre compte, puis réservez",
+      desc: "Transmettez une fois votre pièce d’identité et un justificatif de domicile. Une fois votre compte vérifié, la réservation est instantanée : de quelques nuits à plusieurs mois, ou en série grâce à la réservation récurrente."
     },
     {
       icon: CreditCard,
       iconColor: 'text-emerald-600',
       bgColor: 'bg-emerald-50',
       title: "3. Payez en toute sécurité",
-      desc: "Réglez vos frais et virements via notre système Stripe hautement sécurisé de niveau professionnel. Vos fonds sont protégés jusqu'à votre emménagement."
+      desc: "Le prix affiché comprend tout : nuits, ménage et frais de service. Vous payez par carte sur la page sécurisée de Stripe, et Haven ne verse le propriétaire qu’après votre arrivée."
     },
     {
       icon: ShieldCheck,
       iconColor: 'text-teal-600',
       bgColor: 'bg-teal-50',
-      title: "4. Réalisez votre Check-in autonome",
-      desc: "Le jour de votre arrivée, complétez directement votre état des lieux numérique sur notre application. C'est l'élément juridique infalsifiable qui fait foi."
+      title: "4. Emménagez en autonomie",
+      desc: "Vos consignes d’accès arrivent 72 heures avant le séjour. Le jour J, vous réalisez l’état des lieux d’entrée en quelques photos depuis votre téléphone : il fait foi en cas de désaccord."
     }
   ];
 
@@ -45,28 +45,28 @@ export const HowItWorks: React.FC = () => {
       iconColor: 'text-haven-red',
       bgColor: 'bg-haven-red/5',
       title: "1. Publiez votre annonce gratuitement",
-      desc: "Décrivez votre logement meublé, ajoutez des photos, définissez les tarifs globaux et les caractéristiques des chambres disponibles dans votre appartement."
+      desc: "Décrivez votre logement et chacune de ses chambres, ajoutez vos photos, fixez le prix par nuit, le forfait ménage et le nombre minimum de nuits. Haven vérifie l’annonce avant sa mise en ligne."
     },
     {
       icon: FileText,
       iconColor: 'text-violet-600',
       bgColor: 'bg-violet-50',
-      title: "2. Acceptez le cahier des charges HAVEN",
-      desc: "Pour garantir un niveau de qualité professionnel et une colocation respectueuse, chaque propriétaire s'engage contractuellement à respecter notre charte d'équipement d'excellence."
+      title: "2. Respectez le cahier des charges Haven",
+      desc: "Logement propre et en bon état, chambres meublées, cuisine équipée, ménage des parties communes chaque semaine : ces engagements garantissent aux locataires une qualité constante."
     },
     {
       icon: ShieldCheck,
       iconColor: 'text-green-600',
       bgColor: 'bg-green-50',
-      title: "3. Validez l'état des lieux numérique",
-      desc: "Les états des lieux (check-in / check-out) sont réalisés via l'application par le locataire à son entrée et à sa sortie, et s'enregistrent instantanément dans votre espace propriétaire."
+      title: "3. Laissez les séjours se dérouler",
+      desc: "Les locataires vérifiés réservent directement vos dates libres. Haven leur transmet vos consignes d’accès, et les états des lieux d’entrée et de sortie, avec photos, arrivent dans votre espace."
     },
     {
       icon: Key,
       iconColor: 'text-cyan-600',
       bgColor: 'bg-cyan-50',
-      title: "4. Encaissez vos loyers en direct",
-      desc: "Les versements sont transférés directement et de manière automatisée sur votre compte bancaire. Vous pilotez tout depuis votre tableau de bord unifié."
+      title: "4. Recevez vos revenus après chaque arrivée",
+      desc: "Vous recevez l’intégralité du prix des nuits et du ménage, sans commission : les frais de service sont payés par le locataire. Le versement part automatiquement vers votre compte bancaire après l’arrivée du locataire."
     }
   ];
 
@@ -91,10 +91,10 @@ export const HowItWorks: React.FC = () => {
             Guide d'utilisation
           </span>
           <h1 className="text-[1.75rem] sm:text-5xl font-heading font-black text-haven-navy mt-3 sm:mt-4 mb-3 sm:mb-6 leading-tight">
-            Une colocation simple, <br className="hidden sm:inline" />flexible et professionnelle
+            Une colocation simple, <br className="hidden sm:inline" />flexible et vérifiée
           </h1>
           <p className="text-sm sm:text-lg text-gray-500 max-w-2xl mx-auto">
-            Découvrez la fluidité de la plateforme HAVEN, de la recherche du bien idéal en colocation jusqu'à la gestion autonome des états des lieux.
+            De la recherche jusqu’à l’état des lieux de sortie, voici comment se déroule un séjour sur Haven, côté locataire comme côté propriétaire.
           </p>
         </div>
 
@@ -161,8 +161,8 @@ export const HowItWorks: React.FC = () => {
             </h3>
             <p className="text-sm text-gray-300 leading-relaxed">
               {activeTab === 'TENANT'
-                ? "Bénéficiez de garanties solides, d'un processus clair et profitez d'une liberté de colocation de courte durée."
-                : "Déposez votre annonce, validez notre cahier des charges d'excellence, et laissez notre technologie gérer les visites et états des lieux."}
+                ? "Des logements vérifiés, des colocataires vérifiés, un prix tout compris et une réservation en quelques minutes."
+                : "Publiez votre annonce gratuitement : Haven s’occupe des réservations, des paiements, des consignes d’accès et des états des lieux."}
             </p>
             <div className="pt-4">
               <button

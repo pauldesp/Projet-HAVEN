@@ -2,9 +2,9 @@ import { Link } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, CalendarDays, CreditCard, MapPin, Repeat2, ShieldCheck } from 'lucide-react';
 
 const steps = [
-  { Icon: CalendarDays, title: 'Renseigne tous tes séjours', text: 'Choisis ta ville, puis les dates de ton premier séjour, du second et des suivants. Quelques jours chaque semaine ou des semaines espacées : tu construis ton propre planning.' },
-  { Icon: MapPin, title: 'Compare les logements', text: 'Repère les dates disponibles sur chaque annonce. Un logement peut correspondre à une partie de ton planning ; lorsqu’une autre solution existe à proximité pour compléter, Haven te la propose.' },
-  { Icon: ShieldCheck, title: 'Confirme tes réservations', text: 'Vérifie les dates, la chambre, le prix et les conditions avant de t’engager. Selon l’annonce, la réservation est immédiate ou soumise à l’accord du propriétaire.' },
+  { Icon: CalendarDays, title: 'Indiquez tous vos séjours', text: 'Choisissez votre ville, puis les dates de votre premier séjour, du deuxième et des suivants. Quelques jours chaque semaine ou des semaines espacées : vous construisez votre propre planning.' },
+  { Icon: MapPin, title: 'Comparez les logements', text: 'Repérez les dates disponibles sur chaque annonce. Un logement peut correspondre à une partie de votre planning ; lorsqu’une autre solution existe à proximité pour compléter, Haven vous la propose.' },
+  { Icon: ShieldCheck, title: 'Réservez en une fois', text: 'Vérifiez les dates, la chambre, le prix et les conditions avant de vous engager. La réservation est immédiate : vous payez le premier séjour, les suivants sont prélevés automatiquement.' },
 ];
 
 export function RecurringBookingGuide() {
@@ -13,9 +13,9 @@ export function RecurringBookingGuide() {
 
     <section className="mt-5 rounded-3xl bg-haven-navy px-6 py-9 text-white sm:p-12">
       <span className="inline-flex items-center gap-2 text-xs font-semibold tracking-wide text-white/75"><Repeat2 size={16} />LA RÉSERVATION RÉCURRENTE</span>
-      <h1 className="mt-4 max-w-2xl font-heading text-2xl font-bold leading-tight sm:text-5xl">Tu reviens souvent&nbsp;?<br />Prépare tous tes séjours.</h1>
-      <p className="mt-5 max-w-2xl text-base leading-relaxed text-white/85">Tes semaines de cours, ton alternance ou tes déplacements réguliers : retrouve une chambre en colocation qui s’adapte à ton planning.</p>
-      <p className="mt-5 text-sm leading-relaxed text-white/70">Pas besoin de revenir chaque semaine : choisis seulement les périodes dont tu as besoin.</p>
+      <h1 className="mt-4 max-w-2xl font-heading text-2xl font-bold leading-tight sm:text-5xl">Vous revenez souvent&nbsp;?<br />Préparez tous vos séjours.</h1>
+      <p className="mt-5 max-w-2xl text-base leading-relaxed text-white/85">Semaines de cours, alternance ou déplacements réguliers : retrouvez une chambre en colocation qui s’adapte à votre planning.</p>
+      <p className="mt-5 text-sm leading-relaxed text-white/70">Pas besoin de revenir chaque semaine : choisissez seulement les périodes dont vous avez besoin.</p>
     </section>
 
     <section className="mt-10" aria-labelledby="recurring-steps">
@@ -35,11 +35,11 @@ export function RecurringBookingGuide() {
       <div className="mt-5 rounded-2xl bg-haven-cream p-5 text-sm leading-relaxed">
         <h3 className="font-bold">Comment se passent les paiements</h3>
         <ul className="mt-2 list-disc space-y-2 pl-5 text-gray-600">
-          <li>Tu réserves tous tes séjours en une fois : les dates sont bloquées et chaque prix est fixé le jour de la réservation.</li>
-          <li>Le premier séjour est payé à la réservation. Ta carte est alors enregistrée de façon sécurisée par Stripe.</li>
-          <li>Chaque séjour suivant est prélevé automatiquement un mois avant son arrivée, ou juste après ta réservation si l’arrivée est à moins d’un mois. Tu reçois un rappel par e-mail 3 jours avant.</li>
-          <li>Si un prélèvement échoue, tu es prévenu par e-mail et tu as 5 jours pour payer ce séjour depuis ton espace. Une nouvelle tentative a lieu entre-temps. Sans paiement, seul ce séjour est annulé et ses dates sont libérées.</li>
-          <li>Tu peux aussi payer un séjour à l’avance depuis ton espace, par exemple si ta carte change.</li>
+          <li>Vous réservez tous vos séjours en une fois : les dates sont bloquées et chaque prix est fixé le jour de la réservation.</li>
+          <li>Le premier séjour est payé à la réservation. Votre carte est alors enregistrée de façon sécurisée par Stripe, et vous autorisez expressément les prélèvements suivants.</li>
+          <li>Chaque séjour suivant est prélevé automatiquement un mois avant son arrivée, ou juste après votre réservation si l’arrivée est à moins d’un mois. Vous recevez un rappel par e-mail 3 jours avant.</li>
+          <li>Si un prélèvement échoue, vous êtes prévenu par e-mail et vous avez 5 jours pour payer ce séjour depuis votre espace. Une nouvelle tentative a lieu entre-temps. Sans paiement, seul ce séjour est annulé et ses dates sont libérées.</li>
+          <li>Vous pouvez aussi payer un séjour à l’avance depuis votre espace, par exemple si votre carte change.</li>
         </ul>
       </div>
       <h3 className="mt-6 font-bold">Quels moyens de paiement ?</h3>
@@ -50,11 +50,11 @@ export function RecurringBookingGuide() {
       <h2 id="recurring-questions" className="font-heading text-2xl font-bold">Et si mon planning change ?</h2>
       <div className="mt-5 divide-y divide-gray-200 rounded-2xl border border-gray-200 bg-white px-5 sm:px-7">
         {[
-          { question: 'Puis-je annuler un séjour ?', answer: <><p>Les conditions et le remboursement éventuel se vérifient pour chaque réservation. Pour un séjour confirmé, les règles actuellement appliquées par Haven sont :</p><ul className="mt-3 list-disc space-y-2 pl-5"><li>Au moins 30 jours avant l’arrivée : remboursement intégral.</li><li>Entre 14 et 29 jours avant : remboursement de 50 %.</li><li>Moins de 14 jours avant : aucun remboursement.</li></ul><p className="mt-3">Dans une série, chaque séjour s’annule séparément et suit ces règles selon sa propre date d’arrivée. Un séjour pas encore prélevé s’annule sans frais. Vérifie le montant proposé avant de confirmer une annulation.</p></> },
-          { question: 'Puis-je modifier mes dates ?', answer: <p>Avant de réserver, ajoute, retire ou modifie librement tes séjours dans la recherche. Après réservation, une modification dépend des disponibilités et de l’accord du propriétaire ; elle peut changer le prix. Contacte le propriétaire via la messagerie ou l’équipe Haven avant d’annuler pour réserver d’autres dates. La modification automatique d’une réservation n’est pas encore disponible.</p> },
-          { question: 'Est-ce que je garde la même chambre ?', answer: <p>Quand c’est possible, l’annonce indique « Même chambre possible ». Cela reste à vérifier pour la chambre choisie avant de confirmer chaque séjour. Si une chambre différente est nécessaire, l’information apparaît dans les résultats. Tu peux aussi compléter les dates manquantes dans un autre logement disponible.</p> },
-          { question: 'Puis-je rester le week-end ou ajouter une période ?', answer: <p>Oui, tu peux rechercher un séjour qui inclut le week-end, ou ajouter une nouvelle période à ton planning. La réservation dépend des disponibilités et de la durée minimale fixée par le propriétaire. Le prix proposé est celui des dates sélectionnées : aucune réduction récurrente ou week-end n’est automatique à ce jour.</p> },
-          { question: 'Toutes mes dates sont-elles bloquées dès la recherche ?', answer: <p>Non. La recherche compare les disponibilités sans bloquer de chambre. Avec « Réserver mes séjours », toutes les dates disponibles sont réservées ensemble et restent bloquées dès que le premier séjour est payé. Sans ce paiement, elles sont libérées. Le statut de chaque séjour apparaît dans ton espace.</p> },
+          { question: 'Puis-je annuler un séjour ?', answer: <><p>Les conditions et le remboursement éventuel se vérifient pour chaque réservation. Pour un séjour confirmé, les règles actuellement appliquées par Haven sont :</p><ul className="mt-3 list-disc space-y-2 pl-5"><li>Au moins 30 jours avant l’arrivée : remboursement intégral.</li><li>Entre 14 et 29 jours avant : remboursement de 50 %.</li><li>Moins de 14 jours avant : aucun remboursement.</li></ul><p className="mt-3">Dans une série, chaque séjour s’annule séparément et suit ces règles selon sa propre date d’arrivée. Un séjour pas encore prélevé s’annule sans frais. Vérifiez le montant proposé avant de confirmer une annulation.</p></> },
+          { question: 'Puis-je modifier mes dates ?', answer: <p>Avant de réserver, ajoutez, retirez ou modifiez librement vos séjours dans la recherche. Après réservation, une modification dépend des disponibilités et de l’accord du propriétaire ; elle peut changer le prix. Contactez le propriétaire via la messagerie ou l’équipe Haven avant d’annuler pour réserver d’autres dates. La modification automatique d’une réservation n’est pas encore disponible.</p> },
+          { question: 'Est-ce que je garde la même chambre ?', answer: <p>Quand c’est possible, l’annonce indique « Même chambre possible ». Cela reste à vérifier pour la chambre choisie avant de confirmer chaque séjour. Si une chambre différente est nécessaire, l’information apparaît dans les résultats. Vous pouvez aussi compléter les dates manquantes dans un autre logement disponible.</p> },
+          { question: 'Puis-je rester le week-end ou ajouter une période ?', answer: <p>Oui, vous pouvez rechercher un séjour qui inclut le week-end, ou ajouter une nouvelle période à votre planning. La réservation dépend des disponibilités et de la durée minimale fixée par le propriétaire. Le prix proposé est celui des dates sélectionnées : aucune réduction récurrente ou week-end n’est automatique à ce jour.</p> },
+          { question: 'Toutes mes dates sont-elles bloquées dès la recherche ?', answer: <p>Non. La recherche compare les disponibilités sans bloquer de chambre. Avec « Réserver mes séjours », toutes les dates disponibles sont réservées ensemble et restent bloquées dès que le premier séjour est payé. Sans ce paiement, elles sont libérées. Le statut de chaque séjour apparaît dans votre espace.</p> },
         ].map(({ question, answer }) => <details key={question} className="group py-2">
           <summary className="cursor-pointer py-4 text-sm font-semibold leading-relaxed focus-visible:outline focus-visible:outline-2 focus-visible:outline-haven-red">{question}</summary>
           <div className="pb-5 text-sm leading-relaxed text-gray-600">{answer}</div>
@@ -63,7 +63,7 @@ export function RecurringBookingGuide() {
     </section>
 
     <div className="mt-8 flex flex-col items-start justify-between gap-5 rounded-2xl bg-white p-6 sm:flex-row sm:items-center">
-      <div><p className="font-bold">Un doute sur ton planning ?</p><Link to="/contact" className="mt-1 inline-flex min-h-[44px] items-center text-sm text-haven-red underline underline-offset-4">Contacter l’équipe Haven</Link></div>
+      <div><p className="font-bold">Un doute sur votre planning ?</p><Link to="/contact" className="mt-1 inline-flex min-h-[44px] items-center text-sm text-haven-red underline underline-offset-4">Contacter l’équipe Haven</Link></div>
       <Link to="/" className="inline-flex min-h-[48px] items-center justify-center gap-3 rounded-xl bg-haven-navy px-5 py-3 text-sm font-semibold text-white hover:bg-haven-red">Préparer mes séjours<ArrowRight size={17} /></Link>
     </div>
   </div>;

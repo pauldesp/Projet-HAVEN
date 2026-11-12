@@ -10,29 +10,29 @@ export const TrustAndSafetyPage: React.FC = () => {
       icon: Key,
       iconColor: 'text-amber-600',
       bgColor: 'bg-amber-50',
-      title: "Identités 100% Vérifiées",
-      desc: "Tous les locataires et propriétaires doivent justifier d'une pièce d'identité officielle en cours de validité. Les profils incompressibles évitent les pseudonymes frauduleux."
+      title: "Des membres vérifiés",
+      desc: "Avant de réserver ou de publier, chaque membre transmet une pièce d’identité et un justificatif de domicile, examinés un par un par l’équipe Haven. Un compte non vérifié ne peut ni réserver ni publier."
     },
     {
       icon: Lock,
       iconColor: 'text-indigo-650',
       bgColor: 'bg-indigo-50',
-      title: "Paiements Sécurisés (Stripe)",
-      desc: "L'ensemble des transferts de loyers, dépôts de garantie ainsi que les frais d'opération transitent par Stripe avec le protocole 3D Secure, garantissant un cloisonnement des fonds."
+      title: "Des paiements protégés",
+      desc: "Les paiements passent par Stripe, avec l’authentification 3D Secure demandée par votre banque. Haven ne voit jamais votre numéro de carte et ne verse le propriétaire qu’après votre arrivée."
     },
     {
       icon: Eye,
       iconColor: 'text-emerald-650',
       bgColor: 'bg-emerald-50',
-      title: "Annonces Contrôlées",
-      desc: "Chaque annonce publiée fait l'objet d'un examen rigoureux par notre équipe de modération. Nous vérifions le respect scrupuleux du cahier des charges de décence et de confort."
+      title: "Des annonces contrôlées",
+      desc: "Chaque annonce est examinée par l’équipe Haven avant sa mise en ligne, puis à nouveau dès que ses textes, ses photos ou son adresse changent, au regard du cahier des charges du logement."
     },
     {
       icon: Users2,
       iconColor: 'text-purple-600',
       bgColor: 'bg-purple-50',
-      title: "Charte de vie communautaire",
-      desc: "En colocation, le bien vivre-ensemble est essentiel. Notre charte d'engagement mutuel définit des règles élémentaires de discrétion, de respect du calme et de propreté."
+      title: "Des règles de vie communes",
+      desc: "Respect des colocataires et du voisinage, calme, propreté des parties communes : ces règles sont rappelées à chaque réservation, avec les règles propres à chaque logement."
     }
   ];
 
@@ -42,13 +42,13 @@ export const TrustAndSafetyPage: React.FC = () => {
         {/* Header */}
         <div className="text-center mb-8 sm:mb-16">
           <span className="px-4 py-1.5 bg-haven-navy/5 text-haven-navy rounded-full text-xs font-black uppercase tracking-widest">
-            Confiance & Sécurité
+            Confiance et sécurité
           </span>
           <h1 className="text-[1.75rem] sm:text-5xl font-heading font-black text-haven-navy mt-3 sm:mt-4 mb-3 sm:mb-6 leading-tight">
-            Créer un cadre de vie fiable <br className="hidden sm:inline" />pour chaque colocataire
+            Une colocation de confiance, <br className="hidden sm:inline" />pour chacun
           </h1>
           <p className="text-sm sm:text-lg text-gray-500 max-w-2xl mx-auto">
-            La confiance mutuelle est le moteur de HAVEN. Nous mettons en œuvre les protocoles de vérification les plus stricts pour vous garantir sérénité et confort.
+            Membres vérifiés, annonces contrôlées, paiements protégés et preuves à chaque séjour : voici ce que fait Haven pour que chacun vive sa colocation sereinement.
           </p>
         </div>
 
@@ -81,17 +81,17 @@ export const TrustAndSafetyPage: React.FC = () => {
           </div>
           <div className="max-w-2xl mx-auto text-center space-y-6 relative z-10">
             <h3 className="font-heading font-black text-xl sm:text-2xl text-haven-navy">
-              Médiation & Signalements Réactifs
+              Signalements et médiation
             </h3>
             <p className="text-sm text-gray-500 leading-relaxed">
-              En cas de comportement inapproprié, de dégradation ou de non-respect manifeste du cahier des charges contractuel, locataires et propriétaires disposent d'un outil de signalement dédié directement accessible depuis l'historique ou le backoffice. Nos modérateurs analysent chaque demande sous 24h ouvrées et appliquent des sanctions pouvant aller jusqu'à l'expulsion de la plateforme et l'annulation des réservations.
+              Un problème pendant le séjour, un comportement inapproprié ou une annonce trompeuse ? Signalez-le depuis « Mes séjours » ou avec le bouton « Signaler ». Le propriétaire est prévenu ; si la situation n’est pas résolue, l’équipe Haven intervient, peut suspendre un versement, rembourser le locataire, suspendre une annonce ou un compte.
             </p>
             <div className="pt-4">
               <button
                 onClick={() => navigate('/contact')}
                 className="inline-flex items-center gap-2 bg-haven-navy text-white font-extrabold px-6 py-3.5 rounded-xl hover:bg-slate-900 transition-all text-xs uppercase tracking-wider"
               >
-                <span>Contacter l'équipe de sécurité</span>
+                <span>Contacter l’équipe Haven</span>
               </button>
             </div>
           </div>
@@ -101,9 +101,9 @@ export const TrustAndSafetyPage: React.FC = () => {
         <div className="bg-gradient-to-tr from-haven-navy to-slate-900 rounded-[1.75rem] sm:rounded-[2.5rem] p-6 sm:p-10 text-white shadow-premium">
           <div className="max-w-xl mx-auto text-center space-y-5">
             <Sparkles className="text-haven-red mx-auto" size={32} />
-            <h4 className="font-heading font-bold text-xl">Notre promesse d'excellence</h4>
+            <h4 className="font-heading font-bold text-xl">Vos données sont protégées</h4>
             <p className="text-xs text-gray-300 leading-relaxed font-medium">
-              Nous croyons en une colocation flexible et moderne. Pour chaque compte inscrit, nous garantissons l'équité des droits, le cryptage intégral des documents d'identité archivés, et un soutien inestimable à l'insertion des jeunes actifs et étudiants.
+              Vos justificatifs ne sont visibles que par vous et l’équipe Haven, et ne figurent jamais sur votre profil public. Haven ne vend aucune donnée. Vous pouvez télécharger vos données ou supprimer votre compte à tout moment depuis « Mon compte ».
             </p>
           </div>
         </div>

@@ -53,3 +53,8 @@ body { margin: 0; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
+/* Legal documents: wide tables scroll sideways on phones instead of being cut. */
+.legal-table { overflow-x: auto; margin: 1rem 0 1.5rem; }
+.legal-table table { min-width: 28rem; border-collapse: collapse; font-size: .9em; }
+.legal-table :is(th, td) { border: 1px solid #e5e7eb; padding: .5rem .75rem; text-align: left; vertical-align: top; }
+.legal-table th { background: #f9fafb; }

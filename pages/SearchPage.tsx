@@ -83,7 +83,7 @@ export const SearchPage: React.FC = () => {
     }
     if (isRecurring) {
       const validated = parseRecurringPeriods(new URLSearchParams({ periods: JSON.stringify(editedPeriods) }));
-      if (validated.length !== editedPeriods.length) { setSearchError('Renseigne des séjours valides, sans chevauchement.'); return; }
+      if (validated.length !== editedPeriods.length) { setSearchError('Indiquez des séjours valides, sans chevauchement.'); return; }
       next.set('periods', JSON.stringify(validated));
       next.set('start', validated[0].start); next.set('end', validated[0].end);
     }

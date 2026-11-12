@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
-import { Building2, GraduationCap, ArrowRight, Check, Mail, Phone, MapPin } from 'lucide-react';
+import { Building2, GraduationCap, ArrowRight, Check } from 'lucide-react';
 import { toast } from 'sonner';
+import { apiService } from '../services/api';
+import { prepareContactRequest } from '../services/contactRequest';
 
 export const ForPartners: React.FC = () => {
   const [formData, setFormData] = useState({
@@ -13,31 +15,32 @@ export const ForPartners: React.FC = () => {
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.name || !formData.email || !formData.message) {
-      toast.error("Veuillez remplir les champs obligatoires (Nom, Email, Message)");
+    if (isSubmitting) return;
+    if (!formData.name || !formData.email || !formData.phone || !formData.message) {
+      toast.error('Veuillez remplir les champs obligatoires (nom, e-mail, téléphone, message).');
       return;
     }
-    
     setIsSubmitting(true);
-    // Simulate API registration
-    setTimeout(() => {
-      toast.success("Demande envoyée avec succès !", {
-        description: "Un conseiller partenariats prendra contact avec vous sous 24 heures ouvrées.",
-        duration: 5000
-      });
-      setFormData({
-        name: '',
-        organization: '',
-        orgType: 'SCHOOL',
-        email: '',
-        phone: '',
-        message: ''
-      });
+    try {
+      // Sent like any contact request: it appears in the back office, Contacts tab.
+      const type = { SCHOOL: 'Université / grande école', COMPANY: 'Entreprise / cabinet RH', ASSOCIATION: 'Association / autre' }[formData.orgType] || 'Autre';
+      const id = globalThis.crypto?.randomUUID?.() || `contact_${Date.now()}_${Math.random().toString(36).slice(2, 12)}`;
+      const request = prepareContactRequest({
+        name: formData.name, email: formData.email, phone: formData.phone, subject: 'Partenariat',
+        message: `Organisme : ${formData.organization || 'non précisé'} (${type})\n\n${formData.message}`,
+      }, id);
+      await apiService.contactRequests.create(request);
+      toast.success('Demande envoyée.', { description: 'L’équipe Haven vous répondra par e-mail.', duration: 5000 });
+      setFormData({ name: '', organization: '', orgType: 'SCHOOL', email: '', phone: '', message: '' });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'La demande n’a pas pu être envoyée. Réessayez.');
+    } finally {
       setIsSubmitting(false);
-    }, 1200);
+    }
   };
+
 
   return (
     <div className="bg-haven-cream min-h-screen py-8 sm:py-16 px-4 sm:px-6 lg:px-8 mt-4 sm:mt-12 animate-fade-in">
@@ -45,13 +48,13 @@ export const ForPartners: React.FC = () => {
         {/* Hero Banner */}
         <div className="text-center mb-8 sm:mb-16">
           <span className="px-4 py-1.5 bg-haven-navy/5 text-haven-navy rounded-full text-xs font-black uppercase tracking-widest">
-            Partenaires Établissements & RH
+            Écoles et entreprises
           </span>
           <h1 className="text-[1.75rem] sm:text-5xl font-heading font-black text-haven-navy mt-3 sm:mt-4 mb-3 sm:mb-6 leading-tight">
             Simplifiez le logement de vos <br className="hidden sm:inline" />étudiants et collaborateurs
           </h1>
           <p className="text-sm sm:text-lg text-gray-500 max-w-2xl mx-auto">
-            HAVEN s'associe avec les universités, les grandes écoles et les entreprises partenaires pour offrir des solutions de colocation clés en main, flexibles et sécurisées.
+            Stages, alternances, échanges, missions : Haven aide vos étudiants et collaborateurs à trouver une chambre vérifiée pour la durée exacte de leur séjour.
           </p>
         </div>
 
@@ -64,17 +67,17 @@ export const ForPartners: React.FC = () => {
                 <GraduationCap size={24} />
               </div>
               <h2 className="text-xl sm:text-2xl font-heading font-black text-haven-navy mb-4">
-                Écoles & Universités
+                Écoles et universités
               </h2>
               <p className="text-gray-550 text-sm leading-relaxed mb-6">
-                Facilitez la rentrée et le cursus de vos étudiants français et internationaux en leur réservant des logements certifiés et conformes à notre strict cahier des charges de colocation.
+                Orientez vos étudiants, français ou internationaux, vers des chambres en colocation vérifiées, réservables pour un semestre, un stage ou des périodes en alternance.
               </p>
               <ul className="space-y-3 mb-8">
                 {[
-                  "Accès prioritaire à notre catalogue de colocations équipées",
-                  "Étudiants internationaux acceptés sans garant locatif physique",
-                  "Garantie d'état des lieux numérique fluide à l'entrée et à la sortie",
-                  "Espace de communication d'école personnalisé"
+                  "Des chambres meublées dans des colocations vérifiées",
+                  "Pas de garant demandé : chaque séjour est payé à la réservation",
+                  "États des lieux avec photos à l’entrée et à la sortie",
+                  "Réservation de plusieurs périodes en une fois pour les alternants"
                 ].map((item, idx) => (
                   <li key={idx} className="flex gap-2 text-xs font-bold text-gray-650 items-start">
                     <Check size={14} className="text-indigo-600 shrink-0 mt-0.5" />
@@ -85,7 +88,7 @@ export const ForPartners: React.FC = () => {
             </div>
             <div className="border-t border-gray-55 pt-6 mt-2">
               <p className="text-[10px] font-black uppercase tracking-widest text-indigo-600">Recommandé pour</p>
-              <p className="text-xs text-gray-400 mt-1 font-medium">Bureaux des Élèves, Directions des Relations Internationales, Services Logements</p>
+              <p className="text-xs text-gray-400 mt-1 font-medium">Bureaux des élèves, relations internationales, services logement</p>
             </div>
           </div>
 
@@ -96,17 +99,17 @@ export const ForPartners: React.FC = () => {
                 <Building2 size={24} />
               </div>
               <h2 className="text-xl sm:text-2xl font-heading font-black text-haven-navy mb-4">
-                Entreprises & Recruteurs
+                Entreprises et recruteurs
               </h2>
               <p className="text-gray-550 text-sm leading-relaxed mb-6">
-                Accompagnez la mobilité de vos stagiaires, alternants ou collaborateurs en période d'essai ou mission temporaire longue durée. Offrez-leur un cadre de vie de premier plan.
+                Facilitez l’arrivée de vos stagiaires, alternants et collaborateurs en mission : une chambre meublée, prête à vivre, pour la durée exacte de leur présence.
               </p>
               <ul className="space-y-3 mb-8">
                 {[
-                  "Logements entièrement meublés prêt-à-vivre, Internet inclus",
-                  "Gestion d'inventaire et états des lieux numériques transparents",
-                  "Facturation mensuelle centralisée ou prise en charge directe par l'entreprise",
-                  "Durée flexible adaptée parfaitement aux périodes de stage ou d'alternance"
+                  "Des chambres meublées et prêtes à vivre, au prix tout compris",
+                  "États des lieux avec photos et suivi des incidents par Haven",
+                  "Un justificatif de paiement pour chaque séjour",
+                  "Une durée adaptée aux périodes de stage, d’alternance ou de mission"
                 ].map((item, idx) => (
                   <li key={idx} className="flex gap-2 text-xs font-bold text-gray-650 items-start">
                     <Check size={14} className="text-haven-red shrink-0 mt-0.5" />
@@ -116,33 +119,26 @@ export const ForPartners: React.FC = () => {
               </ul>
             </div>
             <div className="border-t border-gray-55 pt-6 mt-2">
-              <p className="text-[10px] font-black uppercase tracking-widest text-haven-red">Pour les DRH & Mobilité</p>
-              <p className="text-xs text-gray-400 mt-1 font-medium">Responsables Talent Acquisition, Services d'Onboarding, Gestionnaires de Mobilité Internationale</p>
+              <p className="text-[10px] font-black uppercase tracking-widest text-haven-red">Pour les RH et la mobilité</p>
+              <p className="text-xs text-gray-400 mt-1 font-medium">Recrutement, intégration, mobilité internationale</p>
             </div>
           </div>
         </div>
 
-        {/* Feature stats */}
+        {/* What Haven offers partners (facts only). */}
         <div className="bg-white rounded-[1.75rem] sm:rounded-[2.5rem] p-6 sm:p-10 border border-gray-100 shadow-premium mb-8 sm:mb-16">
           <h3 className="font-heading font-bold text-center text-xl text-haven-navy mb-8">
-            Pourquoi HAVEN est la solution de confiance partenaires ?
+            Ce que Haven apporte à vos étudiants et collaborateurs
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-8 text-center divide-y sm:divide-y-0 sm:divide-x divide-gray-100">
-            <div className="pt-4 sm:pt-0 sm:px-4 space-y-2">
-              <div className="text-2xl sm:text-3xl font-heading font-black text-haven-navy">98%</div>
-              <p className="text-xs font-black uppercase tracking-widest text-gray-400">Satisfaction Locataires</p>
-              <p className="text-xs text-gray-400 leading-relaxed">De jeunes professionnels et étudiants enchantés par leur accueil et l'autonomie</p>
-            </div>
-            <div className="pt-8 sm:pt-0 sm:px-4 space-y-2">
-              <div className="text-2xl sm:text-3xl font-heading font-black text-haven-navy">100%</div>
-              <p className="text-xs font-black uppercase tracking-widest text-gray-400">États des lieux validés</p>
-              <p className="text-xs text-gray-400 leading-relaxed">Une signature numérique sécurisée qui supprime tout contentieux à l'entrée ou sortie</p>
-            </div>
-            <div className="pt-8 sm:pt-0 sm:px-4 space-y-2">
-              <div className="text-2xl sm:text-3xl font-heading font-black text-haven-navy">&lt; 24h</div>
-              <p className="text-xs font-black uppercase tracking-widest text-gray-400">Délai moyen d'onboarding</p>
-              <p className="text-xs text-gray-400 leading-relaxed">Une contractualisation digitale et une validation de réservation ultra-rapide</p>
-            </div>
+            {[
+              ['Des logements vérifiés', 'Chaque annonce est contrôlée par Haven avant sa mise en ligne, au regard d’un cahier des charges commun.'],
+              ['Des séjours à la carte', 'De quelques nuits à plusieurs mois, ou plusieurs périodes dans l’année avec la réservation récurrente.'],
+              ['Des preuves à chaque séjour', 'États des lieux d’entrée et de sortie avec photos, et suivi des incidents par l’équipe Haven.'],
+            ].map(([title, text], index) => <div key={title} className={`${index ? 'pt-8' : 'pt-4'} sm:pt-0 sm:px-4 space-y-2`}>
+              <p className="font-heading text-lg font-black text-haven-navy">{title}</p>
+              <p className="text-xs text-gray-500 leading-relaxed">{text}</p>
+            </div>)}
           </div>
         </div>
 
@@ -151,31 +147,18 @@ export const ForPartners: React.FC = () => {
           {/* Details info */}
           <div className="lg:col-span-5 space-y-6">
             <div className="bg-haven-navy rounded-[1.75rem] sm:rounded-[2.5rem] p-5 sm:p-8 text-white shadow-premium space-y-6">
-              <h3 className="font-heading font-bold text-xl sm:text-2xl">Contact Direct</h3>
+              <h3 className="font-heading font-bold text-xl sm:text-2xl">Parlons-en</h3>
               <p className="text-sm text-gray-300 leading-relaxed">
-                Notre bureau des relations partenaires est à votre disposition pour imaginer ensemble la formule la plus adaptée à votre structure : allocations de chambres, baux collectifs ou codes de réduction de fidélité pour vos étudiants/collaborateurs.
+                Présentez-nous vos besoins (nombre de personnes, villes, périodes) : nous étudierons ensemble la meilleure façon d’accompagner vos étudiants ou collaborateurs.
               </p>
-              <div className="space-y-4 pt-4 border-t border-white/10 text-xs">
-                <div className="flex items-center gap-3">
-                  <Mail size={16} className="text-haven-red" />
-                  <span>partenariats@haven-coloc.com</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <Phone size={16} className="text-haven-red" />
-                  <span>+33 1 74 39 82 05</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <MapPin size={16} className="text-haven-red" />
-                  <span>75008 Paris, France</span>
-                </div>
-              </div>
+              <p className="pt-4 border-t border-white/10 text-xs text-gray-300">Remplissez le formulaire : votre demande arrive directement à l’équipe Haven, qui vous répond par e-mail.</p>
             </div>
           </div>
 
           {/* Partner register form */}
           <div className="lg:col-span-7 bg-white rounded-[1.75rem] sm:rounded-[2.5rem] p-5 sm:p-10 border border-gray-100 shadow-premium">
-            <h3 className="font-heading font-bold text-xl sm:text-2xl text-haven-navy mb-2">Devenir Établissement Partenaire</h3>
-            <p className="text-xs text-gray-400 mb-6 font-medium">Exprimez vos besoins de logement de courte durée et nos équipes vous contacteront rapidement.</p>
+            <h3 className="font-heading font-bold text-xl sm:text-2xl text-haven-navy mb-2">Nous contacter</h3>
+            <p className="text-xs text-gray-400 mb-6 font-medium">Décrivez vos besoins : l’équipe Haven vous répondra par e-mail.</p>
             
             <form onSubmit={handleSubmit} className="space-y-5">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -218,7 +201,7 @@ export const ForPartners: React.FC = () => {
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Email professionnel *</label>
+                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">E-mail professionnel *</label>
                   <input
                     type="email"
                     required
@@ -231,7 +214,7 @@ export const ForPartners: React.FC = () => {
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Numéro de téléphone</label>
+                <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Numéro de téléphone *</label>
                 <input
                   type="tel"
                   value={formData.phone}
@@ -242,7 +225,7 @@ export const ForPartners: React.FC = () => {
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Message & description du besoin *</label>
+                <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Votre besoin *</label>
                 <textarea
                   required
                   rows={4}
@@ -258,7 +241,7 @@ export const ForPartners: React.FC = () => {
                 disabled={isSubmitting}
                 className="w-full py-4 bg-haven-navy hover:bg-slate-900 text-white font-extrabold rounded-2xl transition-all shadow-md flex items-center justify-center gap-2"
               >
-                {isSubmitting ? "Envoi en cours..." : "Soumettre la candidature partenaire"}
+                {isSubmitting ? "Envoi en cours…" : "Envoyer ma demande"}
                 <ArrowRight size={18} />
               </button>
             </form>

@@ -52,6 +52,11 @@ Légende : **[Paul]** à faire par toi (comptes, contrats, décisions), **[Code]
 - [x] **[Code] Faire accepter explicitement le prélèvement automatique** au moment de réserver une série (case obligatoire ; texte, version et date conservés avec la série, 11 novembre).
 - [ ] **[Paul] Faire relire par un juriste** : conditions générales (locataires et propriétaires), accord tripartite, mentions légales, politique de confidentialité.
 - [x] **[Code] Brouillons de la politique de confidentialité et des mentions légales** (11 nov.) : `docs/juridique/`, rédigés d'après le fonctionnement réel du site.
+- [x] **[Code] Jeu juridique complet rédigé** (12 nov.) dans `docs/juridique/` : conditions générales d'utilisation, conditions de réservation, conditions propriétaires, cahier des charges révisé, confidentialité, mentions légales. Vérification et publication : `node scripts/legal-documents.mjs check | preview | publish` (la publication est refusée tant qu'il reste des crochets à compléter).
+- [ ] **[Paul] Trancher avec le juriste** les points encadrés « À valider » : qualification du contrat (location meublée, bail mobilité), loi Hoguet, mandat d'encaissement, TVA sur les frais de service, taxe de séjour, obligations DSA, pénalités d'annulation du propriétaire.
+- [ ] **[Paul] Décider** de la part reversée au propriétaire en cas d'annulation tardive du locataire (aujourd'hui rien) et d'une éventuelle empreinte bancaire.
+- [ ] **[Code] Faire accepter les Conditions propriétaires** à la publication d'une annonce, et le lien vers la politique de confidentialité à l'inscription, une fois publiées.
+- [ ] **[Code] Statut particulier ou professionnel du propriétaire** (affiché aux locataires) et collecte des informations fiscales DAC7, avec relevé annuel au 31 janvier.
 - [ ] **[Paul] Compléter ces brouillons** (société, SIREN, adresses, médiateur, région Firebase), les faire valider, puis les publier dans le back office (onglet Légal) ; **[Code]** ajouter alors le lien vers la politique sur l'inscription et en pied de page.
 - [ ] **[Paul] RGPD** : registre des traitements, durées de conservation à arbitrer (propositions dans le brouillon), contrats de sous-traitance (Firebase, Stripe, Resend, hébergeur).
 - [ ] **[Code] Supprimer automatiquement les données** au terme des durées de conservation retenues.
@@ -139,9 +144,10 @@ Légende : **[Paul]** à faire par toi (comptes, contrats, décisions), **[Code]
 
 ### Textes
 
-- [ ] **[Paul] Choisir tutoiement ou vouvoiement** pour tout le site ; **[Code]** uniformiser (l'accueil et la récurrence tutoient, les espaces personnels vouvoient).
+- [x] **Vouvoiement sur tout le site** (12 nov.) : accueil, recherche et guide de la récurrence convertis.
 - [x] **[Code] Corriger les majuscules et accents irréguliers** (11 nov.).
 - [x] **[Code] Retirer les codes techniques des messages** (11 nov.) : gardés en interne pour le classement des erreurs, jamais affichés.
+- [x] **[Code] Pages annexes réécrites** (12 nov.) d'après le fonctionnement réel : FAQ, centre d'aide, comment ça marche, devenir propriétaire, confiance et sécurité, partenaires (fausses statistiques et coordonnées inventées retirées, formulaire réellement envoyé).
 - [ ] **[Paul] Faire relire tous les textes** par une personne extérieure.
 
 ### Images et identité

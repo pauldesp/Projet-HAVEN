@@ -14,8 +14,8 @@ export const translations = {
     "nav.login": "Connexion",
 
     // Home Hero
-    "hero.title": "La colocation flexible pour ta vie mobile",
-    "hero.subtitle": "Réserve une fois quand tu es de passage, ou en récurrence quand tu reviens souvent. Une chambre en colocation, prête à vivre.",
+    "hero.title": "La colocation flexible pour votre vie mobile",
+    "hero.subtitle": "Réservez une fois quand vous êtes de passage, ou en récurrence quand vous revenez souvent. Une chambre en colocation, prête à vivre.",
     "search.placeholder_where": "Ville",
     "search.label_where": "Où ?",
     "search.label_when": "Quand ?",

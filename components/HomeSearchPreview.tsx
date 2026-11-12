@@ -66,7 +66,7 @@ export function HomeSearchPreview({ recurringRequest = 0 }: { recurringRequest?:
       <div className="home-search-modes" role="group" aria-label="Type de réservation">
         {([
           { value: 'single' as const, title: 'Réservation unique', description: 'Quelques nuits, une semaine ou plus', Icon: CalendarDays },
-          { value: 'recurring' as const, title: 'Récurrence', description: 'Réserve tous tes séjours à l’avance et paie au moment de chaque séjour.', Icon: Repeat2 },
+          { value: 'recurring' as const, title: 'Récurrence', description: 'Réservez tous vos séjours à l’avance et payez-les au fil de l’eau.', Icon: Repeat2 },
         ]).map(({ value, title, description, Icon }) => <div key={value} className={`home-search-mode ${mode === value ? 'is-active' : ''}`}>
           <button type="button" aria-pressed={mode === value} className="home-search-mode-select"
           onClick={() => { setMode(value); }}>

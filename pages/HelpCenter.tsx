@@ -20,69 +20,24 @@ export const HelpCenter: React.FC = () => {
   const categories = [
     { id: 'ALL', label: 'Tout voir', icon: BookOpen },
     { id: 'START', label: 'Premiers pas', icon: Compass },
-    { id: 'FLATMATE', label: 'Profil & Colocataires', icon: User },
-    { id: 'BOOKING', label: 'Réservation & Stripe', icon: CreditCard },
-    { id: 'CHECKIN', label: 'États des lieux', icon: ClipboardCheck },
+    { id: 'FLATMATE', label: 'Compte et colocation', icon: User },
+    { id: 'BOOKING', label: 'Réservation et paiement', icon: CreditCard },
+    { id: 'CHECKIN', label: 'Pendant le séjour', icon: ClipboardCheck },
     { id: 'OWNER', label: 'Espace propriétaire', icon: MapPin }
   ];
 
   const articles: HelpArticle[] = [
-    {
-      id: 'art-1',
-      category: 'START',
-      title: "Comment fonctionne globalement HAVEN ?",
-      excerpt: "Découvrez notre plateforme de colocation de moyenne et courte durée meublée et flexible.",
-      content: "HAVEN est une plateforme qui simplifie la colocation de courte durée (séjours de 1 à 12 mois). Les locataires peuvent parcourir des appartements meublés de standing, réserver en ligne via Stripe en validant les conditions et en effectuant leur paiement (ce qui vaut contrat tripartite exécutoire entre le locataire, le propriétaire et HAVEN), puis effectuer de manière autonome leur état des lieux d'entrée et de sortie sur leur smartphone."
-    },
-    {
-      id: 'art-2',
-      category: 'START',
-      title: "Puis-je louer pour seulement quelques mois ?",
-      excerpt: "Oui ! HAVEN est conçu spécialement pour les séjours flexibles destinés aux étudiants et jeunes actifs.",
-      content: "La durée de location est totalement modulable selon les besoins de votre stage, alternance ou mission professionnelle, généralement de 1 à 12 mois. Vous choisissez vos dates de début et de fin directement depuis l'annonce du logement."
-    },
-    {
-      id: 'art-3',
-      category: 'FLATMATE',
-      title: "Comment postuler à une colocation ?",
-      excerpt: "Remplissez votre profil en quelques minutes pour présenter votre candidature de manière authentique.",
-      content: "Il vous suffit de créer un compte locataire, d'indiquer votre situation actuelle (étudiant, stagiaire, jeune pro), de rédiger une brève présentation sympathique et de soumettre vos dates souhaitées. La réservation et le paiement valent contrat de colocation tripartite dès validation."
-    },
-    {
-      id: 'art-4',
-      category: 'FLATMATE',
-      title: "Les animaux de compagnie sont-ils acceptés ?",
-      excerpt: "Consultez le règlement de la colocation pour connaître les autorisations de chaque logement.",
-      content: "Chaque appartement dispose de son propre règlement d'usage défini par le propriétaire. Vous retrouverez cette mention dans la section 'Caractéristiques' de l'annonce ou dans le règlement intérieur joint au contrat."
-    },
-    {
-      id: 'art-5',
-      category: 'BOOKING',
-      title: "Quand s'effectue le prélèvement du premier loyer ?",
-      excerpt: "Comprendre le calendrier de paiement Stripe et la sécurité des fonds déposés en ligne.",
-      content: "Le premier mois de loyer et la commission de 15% ne sont prélevés que lorsque le propriétaire approuve officiellement votre demande de réservation. L'argent est conservé de manière sécurisée par Stripe et uniquement reversé après validation de l'état des lieux d'entrée."
-    },
-    {
-      id: 'art-6',
-      category: 'BOOKING',
-      title: "Comment fonctionne l’empreinte bancaire ?",
-      excerpt: "Le fonctionnement actuel et les informations à connaître.",
-      content: "Aucune empreinte bancaire de caution n’est actuellement demandée sur HAVEN. Si cette fonctionnalité est proposée à l’avenir, son montant et ses conditions vous seront présentés avant toute autorisation."
-    },
-    {
-      id: 'art-7',
-      category: 'CHECKIN',
-      title: "Qu'est-ce que l'état des lieux numérique autonome ?",
-      excerpt: "Apprenez à utiliser l'application pour réaliser vos check-in et check-out officiels de manière infalsifiable.",
-      content: "Il s'agit d'un formulaire juridique interactif accessible directement sur l'application HAVEN le jour d'entrée. Étape par étape, vous passez en revue les piéces du logement, déclarez l'état du mobilier et signez sur votre écran tactile. Ce document numérique infalsifiable fait juridiquement foi."
-    },
-    {
-      id: 'art-8',
-      category: 'OWNER',
-      title: "Combien cela coûte-t-il de publier une annonce ?",
-      excerpt: "La publication d'annonces est gratuite pour tous les propriétaires particuliers de la plateforme.",
-      content: "La création et la diffusion de votre annonce de colocation sont entièrement gratuites. HAVEN applique uniquement des frais de service de 15% sur les loyers collectés auprès du locataire pour l'utilisation et la mise en œuvre de l'accord tripartite, des outils d'état des lieux numériques."
-    }
+    { id: 'art-1', category: 'START', title: "Comment fonctionne Haven ?", excerpt: "Une plateforme de colocation vérifiée, pour quelques nuits comme pour plusieurs mois.", content: "Haven met en relation des propriétaires de chambres meublées en colocation et des locataires vérifiés : étudiants, stagiaires, alternants, jeunes actifs. Vous cherchez par ville et par dates, réservez et payez en ligne, recevez vos consignes d’accès 72 heures avant l’arrivée, puis réalisez l’état des lieux d’entrée depuis votre téléphone. Haven vérifie les membres et les annonces, encaisse le paiement et ne verse le propriétaire qu’après votre arrivée." },
+    { id: 'art-2', category: 'START', title: "Combien de temps puis-je rester ?", excerpt: "De quelques nuits à plusieurs mois, selon le minimum fixé par chaque logement.", content: "Chaque logement indique un nombre minimum de nuits. Il n’y a pas de durée maximale. Si vous avez besoin d’un logement à plusieurs périodes de l’année (stage, alternance, missions), utilisez la recherche récurrente : vous réservez toutes vos périodes en une fois, au même prix." },
+    { id: 'art-3', category: 'FLATMATE', title: "Comment faire vérifier mon compte ?", excerpt: "Une pièce d’identité et un justificatif de domicile, à transmettre une seule fois.", content: "Après votre inscription, ouvrez « Mon compte » : complétez vos informations, ajoutez une pièce d’identité et un justificatif de domicile, acceptez les conditions générales, puis envoyez votre dossier. L’équipe Haven le vérifie manuellement et vous prévient par e-mail. Une fois votre compte validé, vous pouvez réserver directement, sans attendre l’accord du propriétaire. Ces justificatifs ne figurent jamais sur votre profil public." },
+    { id: 'art-4', category: 'FLATMATE', title: "Les animaux, le tabac ou les invités sont-ils acceptés ?", excerpt: "Chaque logement a ses propres règles, indiquées sur sa fiche.", content: "Les règles de la maison (animaux, tabac, invités, horaires) sont fixées par le propriétaire et indiquées sur la fiche du logement. Vous les acceptez en réservant ; elles vous sont rappelées dans la confirmation. En cas de doute, posez la question au propriétaire depuis la messagerie avant de réserver." },
+    { id: 'art-5', category: 'BOOKING', title: "Quand suis-je débité ?", excerpt: "Au moment de la réservation, ou un mois avant chaque séjour pour une série.", content: "Pour un séjour simple, vous payez la totalité au moment de réserver : la réservation est confirmée dès que le paiement est accepté. Pour une réservation récurrente, seul le premier séjour est payé à la réservation ; les suivants sont prélevés automatiquement sur la même carte un mois avant chaque arrivée, après un rappel par e-mail trois jours avant. Haven conserve le paiement et ne verse le propriétaire qu’après votre arrivée." },
+    { id: 'art-6', category: 'BOOKING', title: "Une caution ou une empreinte bancaire est-elle demandée ?", excerpt: "Non, aucune caution n’est demandée aujourd’hui.", content: "Aucune caution ni empreinte bancaire n’est demandée sur Haven à ce jour. Si cela change, le montant et les conditions vous seront présentés avant toute réservation. Vous restez responsable des dégradations causées pendant votre séjour ; les états des lieux d’entrée et de sortie servent de référence." },
+    { id: 'art-9', category: 'BOOKING', title: "Comment annuler une réservation ?", excerpt: "Depuis « Mes séjours » : remboursement selon le délai avant l’arrivée.", content: "Ouvrez « Mes séjours » et choisissez « Annuler ce séjour ». Vous êtes remboursé à 100 % si vous annulez au moins 30 jours avant l’arrivée, à 50 % entre 14 et 29 jours, et pas en dessous. Un séjour d’une série pas encore prélevé s’annule sans frais. Le remboursement arrive sur votre carte sous 5 à 10 jours selon votre banque." },
+    { id: 'art-7', category: 'CHECKIN', title: "Comment réaliser l’état des lieux ?", excerpt: "Quelques photos et un constat, depuis votre téléphone, à l’arrivée et au départ.", content: "Le jour de votre arrivée, à partir de l’heure d’arrivée, ouvrez « Mes séjours » puis « État des lieux d’entrée » : vous passez en revue votre chambre et les parties communes, ajoutez des photos et signalez toute anomalie. Une fois validé, il ne peut plus être modifié et fait foi en cas de désaccord. Le jour du départ, vous faites de même avec l’état des lieux de sortie." },
+    { id: 'art-10', category: 'CHECKIN', title: "Un problème pendant le séjour ?", excerpt: "Signalez-le depuis « Mes séjours » : le propriétaire, puis Haven si besoin.", content: "Choisissez « Incident / signalement » sur votre séjour, décrivez le problème et ajoutez une photo si possible. Le propriétaire est prévenu et doit vous répondre rapidement. Si le problème n’est pas résolu, ou s’il est grave, vous pouvez demander l’intervention de Haven, qui peut proposer une solution, un remboursement ou une annulation." },
+    { id: 'art-8', category: 'OWNER', title: "Combien coûte la publication d’une annonce ?", excerpt: "La publication est gratuite et aucune commission n’est prise sur vos revenus.", content: "Publier une annonce est gratuit. Vous recevez l’intégralité du prix des nuits et du forfait ménage que vous fixez : les frais de service Haven (15 % du prix des nuits) sont payés par le locataire, et Haven prend en charge les frais bancaires. Votre part est versée après l’arrivée de chaque locataire, sur le compte bancaire enregistré dans votre espace de versement Stripe." },
+    { id: 'art-11', category: 'OWNER', title: "Comment publier mon logement ?", excerpt: "Compte vérifié, versements configurés, puis annonce vérifiée par Haven.", content: "Faites d’abord vérifier votre compte, puis configurez vos versements avec Stripe (identité et compte bancaire). Depuis votre espace propriétaire, choisissez « Ajouter un logement » : décrivez le logement et chaque chambre, ajoutez vos photos, fixez vos prix, votre forfait ménage, votre nombre minimum de nuits et vos consignes d’accès. Haven vérifie l’annonce avant sa mise en ligne, et à nouveau si vous modifiez ses textes, ses photos ou son adresse." },
   ];
 
   const filteredArticles = articles.filter(art => {
@@ -100,13 +55,13 @@ export const HelpCenter: React.FC = () => {
         {/* Header */}
         <div className="text-center mb-6 sm:mb-12">
           <span className="px-4 py-1.5 bg-haven-navy/5 text-haven-navy rounded-full text-xs font-black uppercase tracking-widest">
-            Centre d'aide & Documentation
+            Centre d’aide
           </span>
           <h1 className="text-[1.75rem] sm:text-4xl font-heading font-black text-haven-navy mt-4 mb-4">
             Comment pouvons-nous vous aider ?
           </h1>
           <p className="text-gray-500 text-sm max-w-xl mx-auto font-medium">
-            Entrez un mot-clé ou sélectionnez une thématique pour découvrir en quelques secondes nos guides d'utilisation pas-à-pas.
+            Cherchez un mot-clé ou choisissez un thème pour trouver nos guides pas à pas.
           </p>
         </div>
 
@@ -120,7 +75,7 @@ export const HelpCenter: React.FC = () => {
               setSearchQuery(e.target.value);
               setSelectedArticle(null); // clear article view on search
             }}
-            placeholder="Rechercher un article, un guide (ex: Stripe, bail, empreinte bancaire...)"
+            placeholder="Rechercher un guide (ex. : annulation, paiement, état des lieux…)"
             className="w-full text-sm font-bold text-haven-navy focus:outline-none placeholder-gray-400 bg-transparent"
           />
         </div>
@@ -242,9 +197,9 @@ export const HelpCenter: React.FC = () => {
               <div className="w-10 h-10 rounded-xl bg-violet-50 text-violet-600 flex items-center justify-center">
                 <MessageSquare size={20} />
               </div>
-              <h3 className="font-heading font-black text-lg text-haven-navy">Foire Aux Questions</h3>
+              <h3 className="font-heading font-black text-lg text-haven-navy">Questions fréquentes</h3>
               <p className="text-xs text-gray-400 leading-relaxed font-semibold">
-                Vous préférez consulter des informations ciblées sur l'état des lieux autonome, les clés sécurisées et les baux juridiques ? Rendez-vous sur notre FAQ complète.
+                D’autres questions sur la réservation, les paiements ou le séjour ? Consultez notre FAQ.
               </p>
             </div>
             <div className="pt-6">
@@ -263,9 +218,9 @@ export const HelpCenter: React.FC = () => {
               <div className="w-10 h-10 rounded-xl bg-haven-red/5 text-haven-red flex items-center justify-center">
                 <Mail size={20} />
               </div>
-              <h3 className="font-heading font-black text-lg text-haven-navy">Toujours bloqué ?</h3>
+              <h3 className="font-heading font-black text-lg text-haven-navy">Besoin d’aide ?</h3>
               <p className="text-xs text-gray-400 leading-relaxed font-semibold">
-                Notre équipe de support client HAVEN se tient à votre entière disposition 7j/7 pour lever tous vos doutes sur vos colocations ou l'état de l'application.
+                Écrivez à l’équipe Haven depuis la page Contact : nous vous répondons par e-mail dans les meilleurs délais.
               </p>
             </div>
             <div className="pt-6">
