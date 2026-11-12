@@ -164,7 +164,7 @@ export const HowItWorks: React.FC = () => {
             ))}
           </div>
           <p className="mt-4 text-center text-sm text-gray-500">
-            D’autres questions ? Consultez la <Link to="/faq" className="font-semibold text-haven-red underline underline-offset-4">FAQ</Link>
+            D’autres questions ? Consultez la <Link to="/help" className="font-semibold text-haven-red underline underline-offset-4">page d’aide</Link>
             {activeTab === 'TENANT' && <> ou le <Link to="/reservation-recurrente" className="font-semibold text-haven-red underline underline-offset-4">guide de la réservation récurrente</Link></>}.
           </p>
         </section>

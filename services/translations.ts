@@ -93,7 +93,7 @@ export const translations = {
     "footer.faq": "FAQ",
     "footer.admin": "Administration",
     "footer.support": "Support",
-    "footer.help": "Centre d'aide",
+    "footer.help": "Aide et questions fréquentes",
     "footer.contact": "Nous contacter",
     "footer.legal": "Légal",
     "footer.rights": "Tous droits réservés.",

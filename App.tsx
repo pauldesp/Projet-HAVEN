@@ -41,8 +41,7 @@ const HowItWorks = lazy(() => import('./pages/HowItWorks').then(module => ({ def
 const RecurringBookingGuide = lazy(() => import('./pages/RecurringBookingGuide').then(module => ({ default: module.RecurringBookingGuide })));
 const ForPartners = lazy(() => import('./pages/ForPartners').then(module => ({ default: module.ForPartners })));
 const BecomeOwner = lazy(() => import('./pages/BecomeOwner').then(module => ({ default: module.BecomeOwner })));
-const FaqPage = lazy(() => import('./pages/FaqPage').then(module => ({ default: module.FaqPage })));
-const HelpCenter = lazy(() => import('./pages/HelpCenter').then(module => ({ default: module.HelpCenter })));
+const HelpPage = lazy(() => import('./pages/HelpPage').then(module => ({ default: module.HelpPage })));
 const TrustAndSafetyPage = lazy(() => import('./pages/TrustAndSafetyPage').then(module => ({ default: module.TrustAndSafetyPage })));
 const CookiePolicyPage = lazy(() => import('./pages/CookiePolicyPage').then(module => ({ default: module.CookiePolicyPage })));
 
@@ -139,8 +138,9 @@ const AppContent: React.FC = () => {
           <Route path="/reservation-recurrente" element={<RecurringBookingGuide />} />
           <Route path="/partners" element={<ForPartners />} />
           <Route path="/become-owner" element={<BecomeOwner />} />
-          <Route path="/faq" element={<FaqPage />} />
-          <Route path="/help" element={<HelpCenter />} />
+          {/* Former FAQ and help centre, merged into one page. */}
+          <Route path="/faq" element={<Navigate to="/help" replace />} />
+          <Route path="/help" element={<HelpPage />} />
           <Route path="/trust-and-safety" element={<TrustAndSafetyPage />} />
           <Route path="/cookies" element={<CookiePolicyPage />} />
           <Route path="/debug/tests" element={<ProtectedRoute roles={[UserRole.ADMIN]}><TestDashboard /></ProtectedRoute>} />
