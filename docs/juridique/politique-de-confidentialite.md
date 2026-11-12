@@ -1,6 +1,6 @@
 # Politique de confidentialité de Haven
 
-> **BROUILLON du 11 novembre 2026 — à compléter et à faire valider par un juriste avant publication.**
+> **BROUILLON du 11 novembre 2026, complété le 12 novembre — à compléter et à faire valider par un juriste avant publication.**
 > Rédigé d'après le fonctionnement réel du site à cette date. Les passages entre crochets `[…]` sont à compléter ; les durées marquées « proposition » sont à arbitrer.
 > Une fois validé, le publier depuis le back office (onglet Légal) avec l'identifiant `politique-de-confidentialite`, puis ajouter le lien sur la page d'inscription.
 
@@ -24,6 +24,7 @@ Pour toute question sur vos données : **[adresse e-mail dédiée, par exemple c
 | Payer | Les données de carte sont saisies et conservées **uniquement par Stripe** ; Haven ne voit que la marque, les 4 derniers chiffres et le statut du paiement | Encaisser et rembourser | Exécution du contrat |
 | Publier une annonce (propriétaire) | Adresse du logement, photos, descriptions, disponibilités, consignes d'accès | Présenter le logement et organiser les arrivées | Exécution du contrat |
 | Recevoir vos revenus (propriétaire) | Identité et coordonnées bancaires, collectées et vérifiées **par Stripe** (Stripe Connect) | Vous verser votre part des séjours | Exécution du contrat ; obligations légales de Stripe |
+| Déclarations fiscales (propriétaire) | Identité, adresse, date de naissance, numéro fiscal, logements, montants perçus | Transmission annuelle obligatoire à l'administration fiscale | Obligation légale |
 | États des lieux | Photos, constats, signatures, dates | Prouver l'état du logement à l'arrivée et au départ | Exécution du contrat ; intérêt légitime (preuve en cas de litige) |
 | Messagerie, signalements, incidents | Contenu des messages, photos jointes, description du problème | Échanger entre membres, traiter les difficultés et litiges | Exécution du contrat ; intérêt légitime |
 | Avis | Note et commentaire | Informer les autres membres | Intérêt légitime |
@@ -50,7 +51,8 @@ Les champs obligatoires sont signalés dans les formulaires. Sans eux, le servic
 
 Les transferts hors de l'Union européenne sont encadrés par le cadre de protection des données UE–États-Unis (Data Privacy Framework) lorsque le prestataire y est certifié, et à défaut par les clauses contractuelles types de la Commission européenne. [À vérifier pour chaque prestataire.]
 
-- **Les autorités**, uniquement sur demande légale.
+- **L'administration fiscale**, pour les propriétaires : chaque année, l'identité, l'adresse, la date de naissance, le numéro fiscal, les références des logements et les revenus perçus via Haven (article 1649 ter A du Code général des impôts, directive européenne « DAC7 »). Le propriétaire reçoit une copie de ces informations.
+- **Les autres autorités**, uniquement sur demande légale.
 
 **Haven ne vend jamais vos données** et ne les utilise pas à des fins publicitaires.
 
