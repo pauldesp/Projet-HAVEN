@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { AlertTriangle, BadgeCheck, Ban, CreditCard, Flag, HomeIcon, KeyRound, Lock, MessageSquare, Phone, ShieldCheck, TriangleAlert, Users2 } from 'lucide-react';
+import { AlertTriangle, BadgeCheck, Ban, CreditCard, Flag, HomeIcon, KeyRound, Lock, MessageSquare, ShieldCheck, TriangleAlert, Users2 } from 'lucide-react';
 
 /** What Haven guarantees: one short line each, all true today. */
 const GUARANTEES = [
@@ -32,15 +32,6 @@ export const TrustAndSafetyPage: React.FC = () => (
         <h1 className="text-[1.75rem] sm:text-5xl font-heading font-black text-haven-navy mt-3 sm:mt-4 mb-3 sm:mb-6 leading-tight">Votre sécurité, avant tout</h1>
         <p className="text-sm sm:text-lg text-gray-500 max-w-2xl mx-auto">Ce que Haven fait pour vous protéger, les bons réflexes à garder, et que faire si quelque chose ne va pas.</p>
       </div>
-
-      {/* Emergency first: it must be found in a second. */}
-      <section className="flex flex-col gap-3 rounded-2xl border border-red-200 bg-red-50 p-5 sm:flex-row sm:items-center sm:gap-5" aria-labelledby="emergency-title">
-        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-haven-red text-white"><Phone size={22} aria-hidden="true" /></div>
-        <div>
-          <h2 id="emergency-title" className="font-heading text-lg font-black text-red-900">En cas de danger immédiat, appelez le 112</h2>
-          <p className="mt-1 text-sm text-red-900/80">Ou le 17 (police), le 18 (pompiers), le 15 (SAMU). Prévenez ensuite Haven depuis « Mes séjours ».</p>
-        </div>
-      </section>
 
       <section aria-labelledby="guarantees-title">
         <h2 id="guarantees-title" className="mb-4 font-heading text-xl sm:text-2xl font-black text-haven-navy">Nos garanties</h2>
