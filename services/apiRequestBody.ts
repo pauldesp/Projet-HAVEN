@@ -8,6 +8,9 @@ export function createApiRequestBodyParser() {
   router.use(['/api/users/me/identity-document', '/api/users/me/residence', '/api/stay-issues', '/api/listings/test-create', /^\/api\/bookings\/[^/]+\/inventory$/], express.json({ limit: '900kb' }));
   // Room identification photos are optimized and stored in separate private documents.
   router.use(/^\/api\/listings\/[^/]+\/access-instructions$/, express.json({ limit: '8mb' }));
+  // Blog: an optimized image (up to 900 KiB) and long article texts.
+  router.use('/api/admin/article-images', express.json({ limit: '1300kb' }));
+  router.use(/^\/api\/admin\/articles(?:\/[^/]+)?$/, express.json({ limit: '400kb' }));
   router.use(express.json({ limit: '100kb' }));
   const handleSizeError: ErrorRequestHandler = (error, req, res, next) => {
     if (error?.type !== 'entity.too.large') return next(error);

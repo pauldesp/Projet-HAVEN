@@ -158,7 +158,9 @@ Légende : **[Paul]** à faire par toi (comptes, contrats, décisions), **[Code]
 ### Référencement et partage
 
 - [ ] **[Code] Adresses sans `#`** (meilleur référencement Google).
-- [ ] **[Code] Description du site, aperçus de partage** (Open Graph), `robots.txt` et sitemap.
+- [x] **[Code] Articles et référencement** (13 nov.) : pages `/articles` rendues par le serveur (titre, description, adresse canonique, Open Graph, données structurées, fil d’Ariane), `sitemap.xml`, `robots.txt`, flux RSS ; rédaction sans code dans le back office (onglet Articles) avec aperçu Google et contrôle du référencement.
+- [ ] **[Paul] Déclarer le plan du site** (`/sitemap.xml`) dans Google Search Console une fois le domaine en ligne, et renseigner `APP_ORIGIN` avec l’adresse définitive (adresses canoniques).
+- [ ] **[Code] Description du site et aperçus de partage** (Open Graph) pour les pages de l’application elle-même.
 - [ ] **[Paul] Créer la fiche Google Search Console** une fois le domaine en ligne.
 
 ### Vérifications à la main, sur téléphone et ordinateur

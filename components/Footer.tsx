@@ -76,6 +76,10 @@ export const Footer: React.FC = () => {
                 </Link>
               </li>
               <li>
+                {/* Real page rendered by the server (crawlable), not a route of the application. */}
+                <a href="/articles" className="hover:text-haven-navy transition-colors">Articles et conseils</a>
+              </li>
+              <li>
                 <Link to="/trust-and-safety" className="hover:text-haven-navy transition-colors">
                   {t('footer.trust')}
                 </Link>

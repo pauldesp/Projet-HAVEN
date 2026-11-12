@@ -10,6 +10,9 @@ import { AdminFinanceError, createAdminFinances } from './services/adminFinances
 import { createAdminModeration } from './services/adminModerationServer';
 import { createErrorTracking } from './services/errorTrackingServer';
 import { createAnalytics } from './services/analyticsServer';
+import { ArticleError, createArticles, toSummary } from './services/articlesServer';
+import { renderArticle, renderArticleList, renderFeed, renderNotFound, renderRobots, renderSitemap } from './services/articlePages';
+import { ARTICLE_CATEGORIES } from './services/articles';
 import { parisDayAndHour } from './services/analytics';
 import { CONNECT_POLICY_VERSION, DEPOSIT_POLICY } from './services/stripeConnect';
 import { normalizePlatformFeedback } from './services/platformFeedback';
@@ -277,6 +280,7 @@ const recurringSeries = createRecurringSeries({
 const adminModeration = createAdminModeration({ db: adminDb, notifyMail: () => void deliverReservationMail() });
 // Local tests write to their own collection, never mixed with real visits.
 const analytics = createAnalytics({ db: adminDb, collection: process.env.NODE_ENV === 'production' ? 'analytics_daily' : 'analytics_daily_dev' });
+const articles = createArticles(adminDb);
 const errorTracking = createErrorTracking({ db: adminDb, notifyMail: () => void deliverReservationMail(), alertsEnabled: process.env.NODE_ENV === 'production' });
 const adminFinances = createAdminFinances({ db: adminDb, stripe: getStripe, sweepInstallments: () => recurringSeries.sweep() });
 
@@ -1263,6 +1267,25 @@ async function startServer() {
     return { from, to: today, previousFrom, previousTo, current, previous, paid };
   }));
 
+  // Articles management (admins): list, create, update, delete, upload an image.
+  const articleRoute = (handler: (admin: AdminActor, req: AuthenticatedRequest) => Promise<unknown>) => financeRoute(async (admin, req) => {
+    try { return await handler(admin, req); }
+    catch (error) { if (error instanceof ArticleError) throw new AdminFinanceError(error.message, error.status); throw error; }
+  });
+  app.get('/api/admin/articles', sensitiveApiLimiter, requireAuth, articleRoute(async () => ({ articles: await articles.all() })));
+  app.post('/api/admin/articles', sensitiveApiLimiter, requireAuth, articleRoute((admin, req) => articles.save(null, req.body, admin.name)));
+  app.put('/api/admin/articles/:articleId', sensitiveApiLimiter, requireAuth, articleRoute((admin, req) => {
+    const id = String(req.params.articleId);
+    if (!/^[a-zA-Z0-9_-]{6,64}$/.test(id)) throw new AdminFinanceError('Article invalide.', 422);
+    return articles.save(id, req.body, admin.name);
+  }));
+  app.delete('/api/admin/articles/:articleId', sensitiveApiLimiter, requireAuth, articleRoute(async (_admin, req) => {
+    const id = String(req.params.articleId);
+    if (!/^[a-zA-Z0-9_-]{6,64}$/.test(id)) throw new AdminFinanceError('Article invalide.', 422);
+    await articles.remove(id);
+  }));
+  app.post('/api/admin/article-images', sensitiveApiLimiter, requireAuth, articleRoute((_admin, req) => articles.saveImage(req.body?.dataUrl)));
+
   // Application errors grouped by fingerprint (browsers and server).
   app.get('/api/admin/errors', sensitiveApiLimiter, requireAuth, financeRoute(async () => ({ errors: await errorTracking.list() })));
   app.post('/api/admin/errors/:errorId/resolve', sensitiveApiLimiter, requireAuth, financeRoute(async (_admin, req) => {
@@ -1695,6 +1718,56 @@ async function startServer() {
 
   // The signed-in member's own profile over plain HTTPS: fallback when Firestore's live channel
   // is slow to open (seen in Safari after returning from Stripe).
+  // ---- Articles (blog): real, server-rendered pages for search engines, edited from the back office. ----
+  const siteOrigin = (req: Request) => (process.env.APP_ORIGIN?.replace(/\/$/, '') || `${req.protocol}://${req.get('host')}`);
+  const sendPage = (res: Response, html: string, status = 200) => res.status(status).type('html').set('Cache-Control', 'public, max-age=300').send(html);
+  const fontFiles: Record<string, string> = {
+    'inter.woff2': path.join(process.cwd(), 'node_modules/@fontsource-variable/inter/files/inter-latin-wght-normal.woff2'),
+    'dm-sans.woff2': path.join(process.cwd(), 'node_modules/@fontsource-variable/dm-sans/files/dm-sans-latin-opsz-normal.woff2'),
+  };
+  app.get('/fonts/:file', (req, res) => {
+    const file = fontFiles[String(req.params.file)];
+    if (!file) return res.status(404).end();
+    res.set('Cache-Control', 'public, max-age=31536000, immutable');
+    return res.sendFile(file);
+  });
+  app.get('/robots.txt', (req, res) => res.type('text/plain').set('Cache-Control', 'public, max-age=3600').send(renderRobots(siteOrigin(req))));
+  app.get('/sitemap.xml', async (req, res) => {
+    try { res.type('application/xml').set('Cache-Control', 'public, max-age=3600').send(renderSitemap(await articles.published(), siteOrigin(req))); }
+    catch { res.status(503).end(); }
+  });
+  app.get('/articles/feed.xml', async (req, res) => {
+    try { res.type('application/rss+xml').set('Cache-Control', 'public, max-age=1800').send(renderFeed(await articles.published(), siteOrigin(req))); }
+    catch { res.status(503).end(); }
+  });
+  app.get('/articles/images/:imageId', async (req, res) => {
+    try {
+      const image = await articles.image(String(req.params.imageId));
+      if (!image) return res.status(404).end();
+      return res.type(image.contentType).set('Cache-Control', 'public, max-age=31536000, immutable').send(image.bytes);
+    } catch { return res.status(503).end(); }
+  });
+  app.get('/articles', async (req, res) => {
+    try {
+      const list = (await articles.published()).map(toSummary);
+      const categories = ARTICLE_CATEGORIES.filter(category => list.some(article => article.category === category));
+      const requested = typeof req.query.categorie === 'string' ? req.query.categorie : '';
+      const category = (ARTICLE_CATEGORIES as readonly string[]).includes(requested) ? requested : undefined;
+      return sendPage(res, renderArticleList(list, siteOrigin(req), categories, category));
+    } catch { return res.status(503).send('Articles momentanément indisponibles.'); }
+  });
+  app.get('/articles/:slug', async (req, res) => {
+    try {
+      const slug = String(req.params.slug);
+      const article = await articles.bySlug(slug);
+      if (!article) return sendPage(res, renderNotFound(siteOrigin(req)), 404);
+      const others = (await articles.published()).filter(item => item.id !== article.id);
+      // Same category first, then the most recent ones: internal links help both readers and search engines.
+      const related = [...others.filter(item => item.category === article.category), ...others.filter(item => item.category !== article.category)].slice(0, 3).map(toSummary);
+      return sendPage(res, renderArticle(article, related, siteOrigin(req)));
+    } catch { return res.status(503).send('Article momentanément indisponible.'); }
+  });
+
   // Anonymous audience measurement (CNIL-exempt): a few events per visit, added up in memory, daily totals only.
   app.post('/api/analytics', rateLimit({ windowMs: 60_000, limit: 60, standardHeaders: true, legacyHeaders: false }), (req, res) => {
     analytics.record(req.body?.events);
