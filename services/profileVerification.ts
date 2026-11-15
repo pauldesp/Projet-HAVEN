@@ -27,7 +27,7 @@ export function hasCompleteVerificationDetails(profile: {
 type VerificationProfile = Parameters<typeof hasCompleteVerificationDetails>[0] & {
   emailVerified?: unknown;
   phoneVerified?: unknown;
-  documents?: { idCard?: unknown; proofOfAddress?: unknown } | null;
+  documents?: { idCard?: unknown; idCardBack?: unknown; idDocumentType?: unknown; proofOfAddress?: unknown } | null;
   residenceProvided?: unknown;
   verificationSubmittedAt?: unknown;
   identityVerified?: unknown;
@@ -36,11 +36,20 @@ type VerificationProfile = Parameters<typeof hasCompleteVerificationDetails>[0] 
   verificationException?: unknown;
 };
 
+/** Identity cards and residence permits have two sides; a passport only its photo page. */
+export const TWO_SIDED_IDENTITY_DOCUMENTS = ['ID_CARD', 'RESIDENCE_PERMIT'] as const;
+export const isTwoSidedIdentityDocument = (type: unknown) => (TWO_SIDED_IDENTITY_DOCUMENTS as readonly unknown[]).includes(type);
+
+/** Front present, and the back too for a two-sided document. Older accounts (no type recorded) keep their single file. */
+export function hasCompleteIdentityDocument(documents: VerificationProfile['documents']): boolean {
+  if (typeof documents?.idCard !== 'string' || documents.idCard.length === 0) return false;
+  return !isTwoSidedIdentityDocument(documents.idDocumentType) || documents.idCardBack === 'STORED';
+}
+
 export function isVerificationReadyToSubmit(profile: VerificationProfile): boolean {
   return hasCompleteVerificationDetails(profile) &&
     profile.emailVerified === true &&
-    typeof profile.documents?.idCard === 'string' &&
-    profile.documents.idCard.length > 0;
+    hasCompleteIdentityDocument(profile.documents);
 }
 
 export function isVerificationReadyForAdminReview(profile: VerificationProfile): boolean {

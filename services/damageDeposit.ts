@@ -8,6 +8,12 @@ import { localDateKey } from './stay';
  * du locataire) et peut alors prélever au plus le plafond, reversé au propriétaire.
  */
 export const DAMAGE_DEPOSIT_POLICY = { amountCents: 30_000, claimWindowDays: 7, version: 'haven-deposit-v1' } as const;
+/** The tenant is told by e-mail and has this long to answer before Haven may charge. */
+export const DAMAGE_RESPONSE_DAYS = 3;
+export const damageResponseDeadline = (claim: Pick<DamageClaim, 'createdAt'>) => new Date(Date.parse(claim.createdAt) + DAMAGE_RESPONSE_DAYS * 86400_000).toISOString();
+/** Charging waits for the tenant's answer or the end of the response period; refusing never has to wait. */
+export const canChargeDamageClaim = (claim: Pick<DamageClaim, 'createdAt' | 'tenantResponse'>, now = Date.now()) =>
+  Boolean(claim.tenantResponse) || now >= Date.parse(damageResponseDeadline(claim));
 
 export const DAMAGE_DEPOSIT_CONSENT_TEXT =
   `J’autorise Haven à conserver ma carte via Stripe et à la prélever de ${formatEuros(DAMAGE_DEPOSIT_POLICY.amountCents / 100)} au plus si le propriétaire déclare une dégradation dans les ${DAMAGE_DEPOSIT_POLICY.claimWindowDays} jours suivant mon départ et que Haven la valide après examen des états des lieux et de ma réponse. Rien n’est bloqué ni débité à la réservation.`;
@@ -68,12 +74,16 @@ export function validateDamageResponse(value: unknown) {
 }
 
 /** Amount Haven may charge: what the owner asked for, never more than the deposit ceiling. */
-export function validateDamageDecision(claim: Pick<DamageClaim, 'status' | 'requestedCents'>, body: { decision?: unknown; amountCents?: unknown; note?: unknown }) {
+export function validateDamageDecision(claim: Pick<DamageClaim, 'status' | 'requestedCents' | 'createdAt' | 'tenantResponse'>, body: { decision?: unknown; amountCents?: unknown; note?: unknown }, now = Date.now()) {
   if (claim.status !== 'SUBMITTED') throw new DamageClaimError('Cette déclaration a déjà été traitée.', 409);
   const note = typeof body.note === 'string' ? body.note.trim().slice(0, 1000) : '';
   if (note.length < 3) throw new DamageClaimError('Expliquez la décision (elle est montrée au propriétaire et au locataire).');
   if (body.decision === 'REJECT') return { decision: 'REJECT' as const, amountCents: 0, note };
   if (body.decision !== 'APPROVE') throw new DamageClaimError('Décision inconnue.');
+  if (!canChargeDamageClaim(claim, now)) {
+    const until = new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' }).format(new Date(damageResponseDeadline(claim)));
+    throw new DamageClaimError(`Le locataire peut répondre jusqu’au ${until}. Attendez sa réponse ou la fin de ce délai avant de prélever (un refus reste possible à tout moment).`, 409);
+  }
   const amountCents = parseEuroCents(body.amountCents);
   if (!(amountCents >= 100 && amountCents <= Math.min(claim.requestedCents, DAMAGE_DEPOSIT_POLICY.amountCents))) {
     throw new DamageClaimError(`Le montant retenu doit être compris entre 1 € et ${formatEuros(Math.min(claim.requestedCents, DAMAGE_DEPOSIT_POLICY.amountCents) / 100)}.`);

@@ -28,6 +28,6 @@ const KINDS: Record<string, string> = {
   ACCOUNT_APPROVED: 'Compte validé', ACCOUNT_CORRECTION: 'Dossier à corriger', CANCELLED: 'Réservation annulée', REVIEW_INVITE: 'Invitation à laisser un avis',
   SERIES_CONFIRMED: 'Série réservée', INSTALLMENT_UPCOMING: 'Prochain prélèvement', INSTALLMENT_FAILED: 'Prélèvement échoué', INSTALLMENT_UNPAID: 'Séjour annulé faute de paiement',
   OWNER_BOOKING: 'Propriétaire · nouvelle réservation', OWNER_SERIES: 'Propriétaire · série', OWNER_CANCELLED: 'Propriétaire · annulation', OWNER_INCIDENT: 'Propriétaire · signalement', OWNER_PAYOUT: 'Propriétaire · virement',
-  HAVEN_REPORT: 'Équipe · signalement', HAVEN_ALERT: 'Équipe · alerte technique',
+  HAVEN_REPORT: 'Équipe · signalement', HAVEN_ALERT: 'Équipe · alerte technique', DAMAGE_MAIL: 'Caution · dégradation',
 };
 export const mailKindLabel = (kind: string) => KINDS[kind] || kind;

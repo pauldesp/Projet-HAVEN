@@ -2,6 +2,7 @@ import type { Firestore } from 'firebase-admin/firestore';
 import type Stripe from 'stripe';
 import type { Booking, BookingSeries, DamageClaim } from '../types';
 import { CONNECT_POLICY_VERSION } from './stripeConnect';
+import { damageMailId, damageMailJob } from './damageMail';
 import { DamageClaimError, canDeclareDamage, damageClaimDeadline, validateDamageClaimInput, validateDamageDecision, validateDamageResponse } from './damageDeposit';
 
 export interface DamageDepositDependencies {
@@ -11,6 +12,8 @@ export interface DamageDepositDependencies {
   paymentMode: () => 'SIMULATION' | 'STRIPE';
   isTestMode: () => boolean;
   payoutAccount: (ownerId: string) => Promise<{ accountId: string; ready: boolean } | null>;
+  /** Wakes the mail outbox up after a message was queued. */
+  notifyMail?: () => void;
 }
 type Admin = { uid: string; name: string };
 
@@ -20,6 +23,7 @@ export function createDamageDeposit(deps: DamageDepositDependencies) {
   const claims = db.collection('damage_claims');
   const cards = db.collection('deposit_cards');
   const bookings = db.collection('bookings');
+  const outbox = db.collection('reservation_mail_outbox');
 
   /** After a single stay is paid: keeps the card Stripe saved for the deposit (series keep theirs on the series). */
   async function saveCard(booking: Booking, session: Pick<Stripe.Checkout.Session, 'payment_intent'>) {
@@ -60,8 +64,10 @@ export function createDamageDeposit(deps: DamageDepositDependencies) {
         ...(declaredBy ? { declaredBy } : {}),
       };
       transaction.create(claims.doc(bookingId), claim);
+      // The tenant is told at once, with the date until which they can answer; the team is alerted.
+      for (const event of ['CLAIM_OPENED', 'TEAM_NEW_CLAIM'] as const) transaction.create(outbox.doc(damageMailId(event, bookingId)), damageMailJob(event, bookingId, at));
       return claim;
-    });
+    }).then(claim => { deps.notifyMail?.(); return claim; });
   }
 
   async function respond(tenantId: string, bookingId: string, value: unknown) {
@@ -99,8 +105,10 @@ export function createDamageDeposit(deps: DamageDepositDependencies) {
         status: result.decision === 'REJECT' ? 'REJECTED' : 'CHARGING',
         decision: { amountCents: result.amountCents, note: result.note, at, adminId: admin.uid, adminName: admin.name },
       });
+      for (const event of ['DECISION_TENANT', 'DECISION_OWNER'] as const) transaction.set(outbox.doc(damageMailId(event, bookingId)), damageMailJob(event, bookingId, at));
       return result;
     });
+    deps.notifyMail?.();
     if (decision.decision === 'APPROVE') await charge(bookingId);
     return (await claims.doc(bookingId).get()).data() as DamageClaim;
   }

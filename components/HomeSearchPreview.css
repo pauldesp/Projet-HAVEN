@@ -104,6 +104,8 @@
   .home-search-week-grid { grid-template-columns: minmax(0, 1fr); max-height: 230px; }
   .home-search-week { font-size: 12px; }
   .home-search-recurrence-note { padding: 13px 15px; font-size: 11px; }
+  /* Breathing room between the dates and the search button on phones. */
+  .home-search-submit { margin-top: 18px; }
 }
 @media (max-width: 360px) {
   .home-search-dates { grid-template-columns: minmax(0, 1fr); gap: 6px; }

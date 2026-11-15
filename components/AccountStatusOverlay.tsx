@@ -9,7 +9,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { AlertCircle, Clock, XCircle, ShieldCheck, Upload, FileText, CheckCircle2 } from 'lucide-react';
 import { Button } from './Button';
 import { apiService } from '../services/api';
-import { UserRole, LegalDocument } from '../types';
+import { UserRole, LegalDocument, type IdentityDocumentType } from '../types';
 import ReactMarkdown from 'react-markdown';
 import { selectAccountTerms } from '../services/accountTerms';
 import { toast } from 'sonner';
@@ -17,10 +17,12 @@ import { reload } from 'firebase/auth';
 import { requestVerificationEmail } from '../services/authEmailApi';
 import { auth } from '../firebase';
 import { prepareVerificationDocument } from '../services/verificationDocument';
-import { hasCompleteVerificationDetails, hasRequiredPhoneNumber, isVerificationPending, isAccountVerificationComplete, isValidPastBirthDate, isVerificationReadyToSubmit } from '../services/profileVerification';
+import { hasCompleteVerificationDetails, hasRequiredPhoneNumber, isVerificationPending, isAccountVerificationComplete, isValidPastBirthDate, isVerificationReadyToSubmit, hasCompleteIdentityDocument, isTwoSidedIdentityDocument } from '../services/profileVerification';
 import { BirthDateInput } from './BirthDateInput';
 import { EMAIL_LIMIT_BACKOFF_MS, EMAIL_RESEND_DELAY_MS, emailRetrySeconds, finishAccountEmailVerification, requestAccountEmailVerification } from '../services/accountEmailVerification';
 import { isValidPhoneForVerification, normalizePhoneForVerification } from '../services/phoneVerification';
+
+const IDENTITY_TYPES: { id: IdentityDocumentType; label: string }[] = [{ id: 'ID_CARD', label: 'Carte d’identité' }, { id: 'RESIDENCE_PERMIT', label: 'Titre de séjour' }, { id: 'PASSPORT', label: 'Passeport' }];
 
 interface AccountStatusOverlayProps {
   isOpen?: boolean;
@@ -35,7 +37,8 @@ export const AccountStatusOverlay: React.FC<AccountStatusOverlayProps> = ({
 }) => {
   const { tr, language } = useLanguage();
   const { currentUser, accountRole, refreshUser } = useAuth();
-  const [isUploading, setIsUploading] = useState(false);
+  const [uploadingSide, setUploadingSide] = useState<'FRONT' | 'BACK' | null>(null);
+  const [identityType, setIdentityType] = useState<IdentityDocumentType>(currentUser?.documents?.idDocumentType || 'ID_CARD');
   const [firstName, setFirstName] = useState(currentUser?.firstName || '');
   const [lastName, setLastName] = useState(currentUser?.lastName || '');
   const [birthDate, setBirthDate] = useState(currentUser?.birthDate || '');
@@ -153,13 +156,14 @@ export const AccountStatusOverlay: React.FC<AccountStatusOverlayProps> = ({
   if (!currentUser || currentUser.role === 'ADMIN') return null;
   
   const verificationRole = accountRole ?? currentUser.role;
-  const requiredDocuments = [
-    { type: 'idCard' as const, label: tr("Pièce d’identité"), detail: tr("Carte nationale d’identité ou passeport en cours de validité.") },
-  ];
 
-  const isDocumentUploaded = (type: keyof NonNullable<typeof currentUser.documents>) =>
-    Boolean(currentUser.documents?.[type]);
-  const isComplete = requiredDocuments.every(document => isDocumentUploaded(document.type));
+  // A document of another type counts as missing once the member switches type (e.g. from passport to ID card).
+  const sameType = (currentUser.documents?.idDocumentType || 'ID_CARD') === identityType;
+  const identitySides = [
+    { side: 'FRONT' as const, label: isTwoSidedIdentityDocument(identityType) ? 'Recto' : 'Page avec la photo', uploaded: sameType && Boolean(currentUser.documents?.idCard) },
+    ...(isTwoSidedIdentityDocument(identityType) ? [{ side: 'BACK' as const, label: 'Verso', uploaded: sameType && currentUser.documents?.idCardBack === 'STORED' }] : []),
+  ];
+  const isComplete = hasCompleteIdentityDocument(currentUser.documents);
   const isVerifiedForCurrentRole = isAccountVerificationComplete(currentUser);
   const hasSavedDetails = hasCompleteVerificationDetails(currentUser);
   const isSubmittedForReview = isVerificationPending(currentUser);
@@ -188,6 +192,8 @@ export const AccountStatusOverlay: React.FC<AccountStatusOverlayProps> = ({
       if (await savePersonalDetails()) {
         await refreshUser();
         toast.success(tr("Informations enregistrées."));
+        // Saved: leave the profile form (when it can be closed) and return to the page.
+        onClose?.();
       }
     } catch (error) {
       console.error('Saving verification details failed', error);
@@ -288,25 +294,25 @@ export const AccountStatusOverlay: React.FC<AccountStatusOverlayProps> = ({
     </div>
   );
 
-  const handleUploadDocument = (type: (typeof requiredDocuments)[number]['type']) => {
+  const handleUploadIdentity = (side: 'FRONT' | 'BACK') => {
     void pickFile('image/*,application/pdf').then(file => {
       if (!file) return;
       if (file.size > 10 * 1024 * 1024) {
         toast.error(tr("Le fichier dépasse la taille autorisée de 10 Mo."));
         return;
       }
-      setIsUploading(true);
+      setUploadingSide(side);
       void (async () => {
         try {
           const documentDataUrl = await prepareVerificationDocument(file);
-          await apiService.users.uploadDocument(currentUser.id, type, documentDataUrl);
+          await apiService.users.uploadDocument(currentUser.id, 'idCard', documentDataUrl, { side, documentType: identityType });
           await refreshUser();
-          toast.success(tr("Pièce d’identité ajoutée."));
+          toast.success(side === 'BACK' ? tr("Verso ajouté.") : isTwoSidedIdentityDocument(identityType) ? tr("Recto ajouté.") : tr("Pièce d’identité ajoutée."));
         } catch (error) {
           console.error("Erreur lors de l'envoi du justificatif", error);
           toast.error(error instanceof Error ? error.message : tr("Impossible d’enregistrer le justificatif. Réessayez plus tard."));
         } finally {
-          setIsUploading(false);
+          setUploadingSide(null);
         }
       })();
     });
@@ -365,9 +371,20 @@ export const AccountStatusOverlay: React.FC<AccountStatusOverlayProps> = ({
               </section>
 
               <section className="flex flex-col rounded-2xl border border-gray-200 p-4 sm:p-5">
-                <div className="mb-4 flex items-start gap-3"><div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-haven-navy/5 text-haven-navy"><FileText size={20} /></div><div><h3 className="font-bold text-haven-navy">{tr("Justificatif d’identité")}</h3><p className="mt-1 text-xs leading-relaxed text-gray-500">{tr("Carte nationale d’identité ou passeport en cours de validité.")}</p></div></div>
-                <div className="flex flex-1 flex-col justify-between gap-4 rounded-xl border border-dashed border-gray-300 bg-gray-50/70 p-4"><div><p className="text-sm font-semibold text-gray-700">{tr("Un document suffit")}</p><p className="mt-1 text-xs leading-relaxed text-gray-500">{tr("Photos jusqu’à 10 Mo avant optimisation. PDF limités à 600 Ko.")}</p></div>
-                  {requiredDocuments.map(document => { const uploaded = isDocumentUploaded(document.type); return <div key={document.type} className="rounded-xl border border-gray-200 bg-white p-3.5"><div className="flex items-center justify-between gap-3"><div><p className="text-sm font-bold text-haven-navy">{document.label}</p><p className="mt-1 text-xs text-gray-500">{uploaded ? tr("Document reçu · validation manuelle à venir") : tr("PNG, JPG ou PDF")}</p></div>{uploaded && <CheckCircle2 className="shrink-0 text-green-600" size={20} />}</div><Button variant={uploaded ? 'outline' : 'primary'} fullWidth onClick={() => handleUploadDocument(document.type)} disabled={isUploading} className="mt-3 flex items-center justify-center gap-2 rounded-xl">{isUploading ? <Clock className="animate-spin" size={18} /> : <Upload size={18} />}{uploaded ? tr("Remplacer le document") : tr("Choisir un document")}</Button></div>; })}
+                <div className="mb-4 flex items-start gap-3"><div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-haven-navy/5 text-haven-navy"><FileText size={20} /></div><div><h3 className="font-bold text-haven-navy">{tr("Justificatif d’identité")}</h3><p className="mt-1 text-xs leading-relaxed text-gray-500">{tr("Carte d’identité, titre de séjour ou passeport en cours de validité.")}</p></div></div>
+                <div className="flex flex-1 flex-col gap-4 rounded-xl border border-dashed border-gray-300 bg-gray-50/70 p-4">
+                  <div>
+                    <p className="text-sm font-semibold text-gray-700">{tr("Quel document transmettez-vous ?")}</p>
+                    <div className="mt-2 grid grid-cols-3 gap-2" role="radiogroup" aria-label={tr("Type de pièce d’identité")}>
+                      {IDENTITY_TYPES.map(item => <button key={item.id} type="button" role="radio" aria-checked={identityType === item.id} onClick={() => setIdentityType(item.id)}
+                        className={`min-h-11 rounded-xl border px-2 text-xs font-semibold ${identityType === item.id ? 'border-haven-navy bg-haven-navy text-white' : 'border-gray-200 bg-white text-haven-navy'}`}>{tr(item.label)}</button>)}
+                    </div>
+                    <p className="mt-2 text-xs leading-relaxed text-gray-500">{isTwoSidedIdentityDocument(identityType) ? tr("Ajoutez le recto puis le verso. Photos jusqu’à 10 Mo avant optimisation ; PDF limités à 600 Ko.") : tr("Ajoutez la page avec votre photo. Photos jusqu’à 10 Mo avant optimisation ; PDF limités à 600 Ko.")}</p>
+                  </div>
+                  {identitySides.map(slot => <div key={slot.side} className="rounded-xl border border-gray-200 bg-white p-3.5">
+                    <div className="flex items-center justify-between gap-3"><div><p className="text-sm font-bold text-haven-navy">{tr(slot.label)}</p><p className="mt-1 text-xs text-gray-500">{slot.uploaded ? tr("Document reçu · validation manuelle à venir") : tr("PNG, JPG ou PDF")}</p></div>{slot.uploaded && <CheckCircle2 className="shrink-0 text-green-600" size={20} />}</div>
+                    <Button variant={slot.uploaded ? 'outline' : 'primary'} fullWidth onClick={() => handleUploadIdentity(slot.side)} disabled={uploadingSide !== null} className="mt-3 flex items-center justify-center gap-2 rounded-xl">{uploadingSide === slot.side ? <Clock className="animate-spin" size={18} /> : <Upload size={18} />}{slot.uploaded ? tr("Remplacer") : tr(slot.side === 'BACK' ? "Ajouter le verso" : isTwoSidedIdentityDocument(identityType) ? "Ajouter le recto" : "Ajouter la page photo")}</Button>
+                  </div>)}
                 </div>
               </section>
             </div>}

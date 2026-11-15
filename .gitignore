@@ -34,3 +34,6 @@ output/pdf/
 
 # Local previews of the legal documents (scripts/legal-documents.mjs preview)
 docs/juridique/apercu/
+
+# Dated screenshots proving the home page price comparison (kept private)
+preuves-comparaison/

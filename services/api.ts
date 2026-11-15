@@ -8,6 +8,7 @@ import { hasVerificationException } from './verificationException';
 import { routeStayIssue } from './stayIssueRouting';
 import { db, auth } from '../firebase';
 import { collection, getDocs, getDoc, doc, setDoc, updateDoc, query, where, deleteField, onSnapshot } from 'firebase/firestore';
+import type { IdentityDocumentType } from '../types';
 import { Listing, User, Booking, BookingAvailability, ListingStatus, UserStatus, Message, ContactRequest, Report, Incident, Payment, OwnerPayout, InventoryReport, AppDocument, HousematePreview, AdminAuditEntry } from '../types';
 import { authenticatedFetch } from './serverApi';
 import { needsNewReview } from './listingChanges';
@@ -187,13 +188,13 @@ export const apiService = {
         handleFirestoreError(e, 'TOGGLE_FAVORITE', `users/${userId}`);
       }
     },
-    async uploadDocument(userId: string, type: 'idCard' | 'proofOfAddress' | 'proofOfOwnership' | 'proofOfIncome' | 'studentCard', url: string) {
+    async uploadDocument(userId: string, type: 'idCard' | 'proofOfAddress' | 'proofOfOwnership' | 'proofOfIncome' | 'studentCard', url: string, identity?: { side: 'FRONT' | 'BACK'; documentType: IdentityDocumentType }) {
       try {
         if (type !== 'idCard') throw new Error('Seule la pièce d’identité est demandée pour le moment.');
         if (auth.currentUser?.uid !== userId) throw new Error('Vous ne pouvez transmettre que votre propre pièce d’identité.');
         const response = await authenticatedFetch('/api/users/me/identity-document', {
           method: 'POST',
-          body: JSON.stringify({ documentDataUrl: url })
+          body: JSON.stringify({ documentDataUrl: url, ...(identity || {}) })
         });
         if (!response.ok) {
           const payload = await response.json().catch(() => ({}));

@@ -4,7 +4,7 @@ import { toast } from 'sonner';
 import type { DamageClaim } from '../types';
 import { authenticatedFetch } from '../services/serverApi';
 import { formatEuros } from '../services/money';
-import { DAMAGE_DEPOSIT_POLICY, DAMAGE_STATUS_LABELS } from '../services/damageDeposit';
+import { DAMAGE_DEPOSIT_POLICY, DAMAGE_STATUS_LABELS, canChargeDamageClaim, damageResponseDeadline } from '../services/damageDeposit';
 
 const call = async (path: string, body?: unknown) => {
   const response = await authenticatedFetch(path, body === undefined ? undefined : { method: 'POST', body: JSON.stringify(body) });
@@ -45,7 +45,7 @@ export function AdminDamageClaims({ name }: { name: (uid: string) => string }) {
   const amountCents = deciding ? Math.round(Number(deciding.amount.replace(',', '.')) * 100) : 0;
 
   return <div className="space-y-4">
-    <p className="text-sm text-gray-500">Le propriétaire déclare dans les {DAMAGE_DEPOSIT_POLICY.claimWindowDays} jours suivant le départ. Comparez avec les états des lieux et lisez la réponse du locataire avant de décider. Rien n’est prélevé sans votre décision ; plafond {formatEuros(DAMAGE_DEPOSIT_POLICY.amountCents / 100)}.</p>
+    <p className="text-sm text-gray-500">Le propriétaire déclare dans les {DAMAGE_DEPOSIT_POLICY.claimWindowDays} jours suivant le départ ; le locataire est prévenu par e-mail et a 3 jours pour répondre avant tout prélèvement. Comparez avec les états des lieux et lisez la réponse du locataire avant de décider. Rien n’est prélevé sans votre décision ; plafond {formatEuros(DAMAGE_DEPOSIT_POLICY.amountCents / 100)}.</p>
     <ul className="divide-y divide-gray-100 rounded-2xl border border-gray-100">
       {claims.map(claim => <li key={claim.id} className="space-y-3 p-4 text-sm">
         <div className="flex flex-col gap-1 lg:flex-row lg:items-center lg:justify-between">
@@ -55,13 +55,13 @@ export function AdminDamageClaims({ name }: { name: (uid: string) => string }) {
         <p className="text-xs text-gray-500">Propriétaire : {name(claim.ownerId)} · Locataire : {name(claim.tenantId)} · départ le {shortDate(claim.stayEndDate)} · déclarée le {shortDate(claim.createdAt)} · {claim.bookingId}</p>
         <p className="whitespace-pre-line rounded-xl bg-gray-50 p-3 text-gray-700">{claim.description}</p>
         <div className="flex flex-wrap gap-2">{claim.photos.map((photo, index) => <a key={index} href={photo} target="_blank" rel="noreferrer"><img src={photo} alt={`Pièce ${index + 1}`} className="h-20 w-20 rounded-xl object-cover" /></a>)}</div>
-        <p className="text-gray-700"><span className="font-semibold text-haven-navy">Réponse du locataire : </span>{claim.tenantResponse ? claim.tenantResponse.text : 'pas encore de réponse.'}</p>
+        <p className="text-gray-700"><span className="font-semibold text-haven-navy">Réponse du locataire : </span>{claim.tenantResponse ? claim.tenantResponse.text : `pas encore de réponse (délai jusqu’au ${new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' }).format(new Date(damageResponseDeadline(claim)))}).`}</p>
         {claim.decision && <p className="text-gray-700"><span className="font-semibold text-haven-navy">Décision ({claim.decision.adminName}, {shortDate(claim.decision.at)}) : </span>{claim.status === 'REJECTED' ? 'refusée' : `${formatEuros(claim.decision.amountCents / 100)} retenus`} · {claim.decision.note}</p>}
         {claim.charge?.error && claim.status === 'CHARGE_FAILED' && <p className="text-haven-red">{claim.charge.error} ({claim.charge.attempts} tentative{claim.charge.attempts > 1 ? 's' : ''})</p>}
         {claim.status === 'CHARGED' && claim.transfer && <p className="text-xs text-gray-500">Versement : {TRANSFER_LABELS[claim.transfer.status]}{claim.transfer.error ? ` · ${claim.transfer.error}` : ''}</p>}
         <div className="flex flex-wrap gap-2">
           {claim.status === 'SUBMITTED' && <>
-            <button type="button" onClick={() => setDeciding({ claim, decision: 'APPROVE', amount: String(Math.min(claim.requestedCents, DAMAGE_DEPOSIT_POLICY.amountCents) / 100), note: '' })} className="min-h-11 rounded-xl bg-haven-navy px-3 font-semibold text-white">Retenir et prélever</button>
+            <button type="button" disabled={!canChargeDamageClaim(claim)} title={canChargeDamageClaim(claim) ? undefined : 'Possible après la réponse du locataire ou la fin de son délai'} onClick={() => setDeciding({ claim, decision: 'APPROVE', amount: String(Math.min(claim.requestedCents, DAMAGE_DEPOSIT_POLICY.amountCents) / 100), note: '' })} className="min-h-11 rounded-xl bg-haven-navy px-3 font-semibold text-white disabled:opacity-40">Retenir et prélever</button>
             <button type="button" onClick={() => setDeciding({ claim, decision: 'REJECT', amount: '', note: '' })} className="min-h-11 rounded-xl border border-gray-200 px-3 font-semibold text-haven-navy">Refuser</button>
           </>}
           {(claim.status === 'CHARGE_FAILED' || (claim.status === 'CHARGED' && (claim.transfer?.status === 'FAILED' || claim.transfer?.status === 'WAITING_ACCOUNT'))) &&

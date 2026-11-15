@@ -5,12 +5,12 @@ import { isRoomAvailableForStay } from '../services/availability';
 import { countNights, isBookableStay, localDateKey } from '../services/stay';
 import { createRandomId } from '../services/randomId';
 import { isRoomBookableForStay } from '../services/gapStay';
-import { AUTO_CHARGE_CONSENT_TEXT, AUTO_CHARGE_CONSENT_VERSION, installmentDueDates } from '../services/recurringInstallments';
+import { AUTO_CHARGE_CONSENT_VERSION, installmentDueDates } from '../services/recurringInstallments';
 
 import React, { useState, useRef, useEffect } from 'react';
 import { Room, Listing, Booking, LegalDocument } from '../types';
 import { Button } from './Button';
-import { X, FileText, Shield, ArrowLeft, ArrowRight, CheckCircle, XCircle } from 'lucide-react';
+import { X, Shield, XCircle } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { apiService } from '../services/api';
 import { userFacingErrorMessage } from '../services/errorHandling';
@@ -68,18 +68,14 @@ export const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose, lis
     } catch (error) { setRoomAvailable(false); setAvailabilityError(error instanceof Error ? error.message : 'Disponibilité impossible à vérifier.'); return false; }
     finally { setCheckingAvailability(false); }
   };
-  const [step, setStep] = useState(1);
   const [cleaningAccepted, setCleaningAccepted] = useState(false);
-  const [autoChargeAccepted, setAutoChargeAccepted] = useState(false);
   const [depositAccepted, setDepositAccepted] = useState(false);
-  const [isSigned, setIsSigned] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Legal states
   const [isLegalModalOpen, setIsLegalModalOpen] = useState(false);
   const [legalDoc, setLegalDoc] = useState<LegalDocument | null>(null);
-  const [legalScrolled, setLegalScrolled] = useState(false);
   const modalScrollRef = useRef<HTMLDivElement>(null);
   const [isLoadingLegal, setIsLoadingLegal] = useState(false);
 
@@ -87,10 +83,8 @@ export const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose, lis
 
   useEffect(() => {
     if (!isOpen) return;
-    setStep(1);
     setCleaningAccepted(false);
-    setAutoChargeAccepted(false);
-    setIsSigned(false);
+    setDepositAccepted(false);
     setError(null);
     document.body.style.overflow = 'hidden';
     return () => {
@@ -98,11 +92,6 @@ export const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose, lis
     };
   }, [isOpen]);
 
-  useEffect(() => {
-    if (step === 2 && !legalDoc) {
-      loadLegalDoc();
-    }
-  }, [step]);
 
   const loadLegalDoc = async () => {
     setIsLoadingLegal(true);
@@ -133,14 +122,6 @@ export const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose, lis
     setIsLoadingLegal(true);
     await loadLegalDoc();
     setIsLegalModalOpen(true);
-    setLegalScrolled(false);
-  };
-
-  const handleLegalScroll = (e: React.UIEvent<HTMLDivElement>) => {
-    const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
-    if (scrollTop + clientHeight >= scrollHeight - 50) {
-      setLegalScrolled(true);
-    }
   };
 
   if (!isOpen) return null;
@@ -160,15 +141,6 @@ export const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose, lis
   const money = (value: number) => new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(value);
   const shortDate = (value: string) => new Date(`${value}T12:00:00Z`).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
 
-  const handleNext = async () => {
-    if (!await checkAvailability()) return;
-    if (isSeries) { setError(null); setStep(s => s + 1); return; }
-    if (!isBookableStay(startDate, endDate)) { setError('La date d’arrivée doit être aujourd’hui ou ultérieure.'); return; }
-    if (!roomAvailable) { setError("Choisissez un départ après l’arrivée et respectez le séjour minimum en nuits."); return; }
-    setError(null);
-    setStep(s => s + 1);
-  };
-
   const handlePayment = async () => {
     if (!cleaningAccepted) { setError('Confirmez les engagements de ménage avant de continuer.'); return; }
     if (!depositAccepted) { setError('Acceptez la caution avant de continuer.'); return; }
@@ -178,7 +150,6 @@ export const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose, lis
       return;
     }
     if (isSeries) {
-      if (!autoChargeAccepted) { setError('Autorisez le prélèvement automatique des séjours suivants avant de continuer.'); return; }
       setIsProcessing(true); setError(null);
       try {
         const result = await apiService.bookings.createSeries({
@@ -245,6 +216,33 @@ export const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose, lis
     }
   };
 
+  // One screen, like the big booking sites: the essentials in a few lines, the full terms one tap away,
+  // and the payment button itself records the agreement (versions and texts are kept with the booking).
+  const payAmount = isSeries ? firstAmount : total;
+  const confirmBlock = <div className="space-y-4">
+    <ul className="divide-y divide-gray-100 rounded-xl border border-gray-100 text-sm text-gray-700">
+      <li className="p-3"><span className="font-semibold text-haven-navy">Annulation</span> · remboursement intégral jusqu’à 30 jours avant l’arrivée, 50 % jusqu’à 14 jours, rien ensuite.</li>
+      {isSeries && <li className="p-3"><span className="font-semibold text-haven-navy">Séjours suivants</span> · prélevés automatiquement un mois avant chaque arrivée, avec un rappel par e-mail.</li>}
+    </ul>
+    <button type="button" onClick={() => void handleOpenLegal()} disabled={isLoadingLegal} className="text-sm font-semibold text-haven-navy underline underline-offset-4">Consulter les conditions complètes</button>
+    {/* Cleaning and deposit stay explicit commitments, each with its own box. */}
+    <CleaningPolicyNotice />
+    <label className="flex items-start gap-3 rounded-xl border border-gray-200 p-4 text-sm leading-relaxed text-gray-700"><input type="checkbox" checked={cleaningAccepted} onChange={event => setCleaningAccepted(event.target.checked)} className="mt-1" />Je comprends que le forfait finance le ménage hebdomadaire organisé par le propriétaire et que je dois nettoyer et ranger avant mon départ.</label>
+    <div className="rounded-xl border border-gray-200 p-4 text-sm leading-relaxed text-gray-700">
+      <p className="font-bold text-haven-navy">Caution de {DAMAGE_DEPOSIT_POLICY.amountCents / 100} € · rien n’est débité</p>
+      <p className="mt-1 text-gray-600">Votre carte est conservée de façon sécurisée par Stripe. Elle n’est prélevée que si le propriétaire déclare une dégradation dans les {DAMAGE_DEPOSIT_POLICY.claimWindowDays} jours suivant votre départ et que Haven la valide, après avoir lu votre réponse.</p>
+      <label className="mt-3 flex items-start gap-3"><input type="checkbox" checked={depositAccepted} onChange={event => setDepositAccepted(event.target.checked)} className="mt-1" />{DAMAGE_DEPOSIT_CONSENT_TEXT}</label>
+    </div>
+    {error && <p role="alert" className="rounded-lg border border-red-100 bg-red-50 p-3 text-sm text-red-600">{error}</p>}
+    <Button fullWidth size="lg" disabled={isProcessing || checkingAvailability || !roomAvailable || !cleaningAccepted || !depositAccepted} onClick={() => void handlePayment()} className="py-4">
+      {isProcessing ? 'Ouverture du paiement…' : checkingAvailability ? 'Vérification…' : !roomAvailable ? (isSeries ? 'Séjour indisponible' : 'Chambre indisponible') : `Confirmer et payer · ${money(payAmount)}`}
+    </Button>
+    <p className="text-center text-xs leading-relaxed text-gray-500">
+      En sélectionnant ce bouton, j’accepte les <button type="button" onClick={() => void handleOpenLegal()} className="inline !min-h-0 underline underline-offset-2">conditions de réservation</button>{isSeries ? ' et le prélèvement automatique des séjours suivants' : ''}.
+      {isSeries ? ' Vos séjours sont confirmés après le paiement du premier.' : ' Votre réservation est confirmée après le paiement.'}
+    </p>
+  </div>;
+
   return (
     <>
       <div role="dialog" aria-modal="true" aria-label="Réserver ce logement" className="fixed inset-0 z-[60] flex items-end justify-center md:items-center md:p-4">
@@ -255,37 +253,17 @@ export const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose, lis
           {/* Header */}
           <div className="flex justify-between items-center px-4 py-4 md:p-6 border-b border-gray-100 sticky top-0 bg-white z-10">
             <div className="flex items-center gap-2">
-              {step > 1 && (
-                <button onClick={() => setStep(current => Math.max(1, current - 1))} aria-label="Étape précédente" className="rounded-full p-2 hover:bg-gray-100">
-                  <ArrowLeft size={20} />
-                </button>
-              )}
-              <div>
-                <h2 className="font-heading font-bold text-lg md:text-xl text-haven-navy">
-                  {step === 1 ? 'Votre séjour' : 'Votre accord et paiement'}
-                </h2>
-                <p className="text-xs text-gray-400">Étape {step} sur 2</p>
-              </div>
+              <h2 className="font-heading font-bold text-lg md:text-xl text-haven-navy">Confirmer et payer</h2>
             </div>
             <button onClick={onClose} aria-label="Fermer la réservation" className="haven-touch-action p-2 hover:bg-gray-100 rounded-full text-gray-500">
               <X size={20} />
             </button>
           </div>
 
-          {/* Progress Bar */}
-          {step < 5 && (
-            <div className="w-full bg-gray-100 h-1.5">
-              <div
-                className="bg-haven-red h-1.5 transition-all duration-500 ease-out"
-                style={{ width: `${(step / 3) * 100}%` }}
-              ></div>
-            </div>
-          )}
-
           <div className="p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] md:p-8">
             {availabilityError && <p role="alert" className="mb-5 rounded-xl border border-red-100 bg-red-50 p-4 text-sm text-red-700">{availabilityError}</p>}
             {/* STEP 1: RECAP */}
-            {step === 1 && isSeries && (
+            {isSeries && (
               <div className="space-y-5">
                 <div className="flex gap-4 rounded-xl border border-gray-100 bg-haven-cream p-4">
                   <img src={room.photoUrl} alt="" className="h-16 w-16 rounded-lg object-cover" />
@@ -313,10 +291,10 @@ export const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose, lis
                   <div className="flex justify-between gap-3 text-gray-600"><dt>Total de la série, prix fixés aujourd’hui</dt><dd>{money(seriesTotal)}</dd></div>
                 </dl>
                 <p className="text-xs leading-relaxed text-gray-500">Votre carte est enregistrée de façon sécurisée par Stripe au premier paiement. Chaque séjour suivant est prélevé un mois avant son arrivée, avec un rappel par e-mail 3 jours avant. En cas d’échec, vous avez 5 jours pour payer ; sans paiement, seul ce séjour est annulé.</p>
-                <Button fullWidth disabled={checkingAvailability || !roomAvailable} onClick={handleNext}>{checkingAvailability ? 'Vérification…' : roomAvailable ? 'Valider et continuer' : 'Séjour indisponible'}</Button>
+                {confirmBlock}
               </div>
             )}
-            {step === 1 && !isSeries && (
+            {!isSeries && (
               <div className="space-y-6">
                   <div className="flex gap-4 p-4 bg-haven-cream rounded-xl border border-gray-100">
                     <img src={room.photoUrl} alt="" className="w-20 h-20 object-cover rounded-lg" />
@@ -337,74 +315,10 @@ export const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose, lis
                   </div>
                 </div>
 
-                <Button fullWidth disabled={checkingAvailability || !roomAvailable} onClick={handleNext}>{checkingAvailability ? 'Vérification…' : roomAvailable ? 'Valider et continuer' : 'Chambre indisponible'}</Button>
+                {confirmBlock}
               </div>
             )}
 
-            {/* STEP 2: LEGAL & CONDITIONS - Pattern Login */}
-            {step === 2 && (
-              <div className="space-y-6 py-2 md:space-y-8 md:py-4">
-                <div className="text-center space-y-4">
-                  <div className="w-16 h-16 bg-haven-red/10 rounded-2xl flex items-center justify-center text-haven-red mx-auto">
-                    <Shield size={32} />
-                  </div>
-                  <h3 className="text-xl font-heading font-bold text-haven-navy">Conditions générales & Accord Tripartite</h3>
-                  <p className="text-sm text-haven-stone">Veuillez lire et accepter les conditions générales de réservation. Votre validation et votre paiement vaudront signature de l’accord tripartite (locataire, propriétaire et Haven), qui tient lieu de contrat.</p>
-                </div>
-
-                <div className="rounded-2xl border border-blue-100 bg-blue-50/60 p-4 text-sm text-gray-600">
-                  <p className="font-bold text-haven-navy">Conditions d’annulation</p>
-                  <p className="mt-1 leading-relaxed">Après confirmation, l’annulation est remboursée intégralement au moins 30 jours avant l’arrivée, à 50 % entre 14 et 29 jours, puis sans remboursement. Le propriétaire ne peut annuler qu’au moins 30 jours avant l’arrivée, avec un remboursement intégral.</p>
-                  {isSeries && <p className="mt-2 leading-relaxed">Pour une série, chaque séjour suit ces conditions selon sa propre date d’arrivée. Un séjour pas encore prélevé s’annule sans frais.</p>}
-                </div>
-
-                <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4 text-sm text-gray-700">
-                  <p className="font-bold text-haven-navy">Horaires du séjour</p>
-                  <p className="mt-1">Arrivée à partir de <strong>{listing.checkInTime || '15:00'}</strong> · départ avant <strong>{listing.checkOutTime || '11:00'}</strong>.</p>
-                  <p className="mt-1 text-xs text-gray-500">Ces horaires sont ceux définis par le propriétaire et seront joints à votre demande.</p>
-                </div>
-
-                <div className={`p-4 md:p-6 rounded-2xl md:rounded-[2rem] border transition-all ${isSigned ? 'bg-green-50 border-green-200' : 'bg-white border-gray-100 shadow-premium'}`}>
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-3">
-                      <FileText className="text-haven-red" size={24} />
-                      <span className="font-bold text-haven-navy">
-                        {legalDoc ? legalDoc.title : "Conditions générales"}
-                      </span>
-                    </div>
-                    {isSigned && <CheckCircle className="text-green-600" size={24} />}
-                  </div>
-                  <Button
-                    fullWidth
-                    variant={isSigned ? "outline" : "primary"}
-                    onClick={handleOpenLegal}
-                    className="rounded-xl"
-                    disabled={isLoadingLegal}
-                  >
-                    {isSigned ? "Relire le document" : "Lire et valider"}
-                  </Button>
-                </div>
-
-                {error && (
-                  <div className="p-3 bg-red-50 text-red-600 text-xs rounded-lg border border-red-100">
-                    {error}
-                  </div>
-                )}
-
-                <CleaningPolicyNotice />
-                <label className="flex items-start gap-3 rounded-xl border border-gray-200 p-4 text-sm leading-relaxed text-gray-700"><input type="checkbox" checked={cleaningAccepted} onChange={event => setCleaningAccepted(event.target.checked)} className="mt-1" />Je comprends que le forfait finance le ménage hebdomadaire organisé par le propriétaire et que je dois nettoyer et ranger avant mon départ.</label>
-                <div className="rounded-xl border border-gray-200 p-4 text-sm leading-relaxed text-gray-700">
-                  <p className="font-bold text-haven-navy">Caution de {DAMAGE_DEPOSIT_POLICY.amountCents / 100} € · rien n’est débité</p>
-                  <p className="mt-1 text-gray-600">Votre carte est conservée de façon sécurisée par Stripe. Elle n’est prélevée que si le propriétaire déclare une dégradation dans les {DAMAGE_DEPOSIT_POLICY.claimWindowDays} jours suivant votre départ et que Haven la valide, après avoir lu votre réponse.</p>
-                  <label className="mt-3 flex items-start gap-3"><input type="checkbox" checked={depositAccepted} onChange={event => setDepositAccepted(event.target.checked)} className="mt-1" />{DAMAGE_DEPOSIT_CONSENT_TEXT}</label>
-                </div>
-                {isSeries && <label className="flex items-start gap-3 rounded-xl border border-gray-200 p-4 text-sm leading-relaxed text-gray-700"><input type="checkbox" checked={autoChargeAccepted} onChange={event => setAutoChargeAccepted(event.target.checked)} className="mt-1" />{AUTO_CHARGE_CONSENT_TEXT}</label>}
-                <Button fullWidth size="lg" disabled={!cleaningAccepted || !depositAccepted || (isSeries && !autoChargeAccepted) || !isSigned || isProcessing || checkingAvailability || !roomAvailable} onClick={handlePayment} className="py-4 shadow-xl shadow-haven-red/10">
-                  {isProcessing ? 'Ouverture du paiement…' : isSeries ? `Réserver mes ${stays.length} séjours · ${money(firstAmount)} maintenant` : `Continuer vers le paiement · ${total} €`}
-                </Button>
-                <p className="text-xs text-center text-gray-500">{isSeries ? 'Vos séjours seront confirmés après le paiement du premier. Sans paiement, toutes les dates sont libérées.' : 'Votre réservation sera confirmée après le paiement.'}</p>
-              </div>
-            )}
           </div>
         </div>
       </div>
@@ -429,7 +343,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose, lis
               </button>
             </div>
 
-            <div ref={modalScrollRef} onScroll={handleLegalScroll} className="min-h-0 min-w-0 flex-grow overflow-y-auto overflow-x-hidden p-5 sm:p-8 md:p-16 bg-white scroll-smooth leading-relaxed">
+            <div ref={modalScrollRef} className="min-h-0 min-w-0 flex-grow overflow-y-auto overflow-x-hidden p-5 sm:p-8 md:p-16 bg-white scroll-smooth leading-relaxed">
               <div className="w-full min-w-0 max-w-3xl mx-auto">
                 <div className="haven-booking-terms prose prose-sm sm:prose-base prose-slate max-w-none
                   prose-headings:font-heading prose-headings:text-haven-navy prose-headings:font-bold
@@ -444,40 +358,8 @@ export const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose, lis
               </div>
             </div>
 
-            <div className="haven-dialog-footer shrink-0 px-4 py-3 sm:px-8 sm:py-8 border-t border-gray-100 bg-gray-50/50 backdrop-blur-sm flex flex-col md:flex-row items-center justify-between gap-3 md:gap-6">
-              <div className="flex flex-col gap-1">
-                {!legalScrolled ? (
-                  <div className="flex items-center gap-3 text-haven-red font-bold text-xs sm:text-sm animate-pulse">
-                    <div className="w-8 h-8 rounded-full bg-haven-red/10 flex items-center justify-center">
-                      <ArrowRight size={16} className="rotate-90" />
-                    </div>
-                    Veuillez faire défiler jusqu'en bas pour activer la validation
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-3 text-green-600 font-bold text-xs sm:text-sm">
-                    <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center">
-                      <CheckCircle size={16} />
-                    </div>
-                    Lecture terminée, vous pouvez maintenant accepter
-                  </div>
-                )}
-              </div>
-
-              <div className="flex gap-2 md:gap-4 w-full md:w-auto">
-                <Button variant="ghost" onClick={() => setIsLegalModalOpen(false)} className="px-3 md:px-8 py-3 md:py-4 font-bold">
-                  Fermer
-                </Button>
-                <Button
-                  disabled={!legalScrolled}
-                  onClick={() => {
-                    setIsSigned(true);
-                    setIsLegalModalOpen(false);
-                  }}
-                  className="flex-1 px-3 md:px-12 py-3 md:py-4 font-bold min-w-0 md:min-w-[240px] shadow-xl shadow-haven-red/20"
-                >
-                  J'accepte et je valide
-                </Button>
-              </div>
+            <div className="haven-dialog-footer shrink-0 border-t border-gray-100 bg-gray-50/50 px-4 py-3 sm:px-8 sm:py-6">
+              <Button fullWidth onClick={() => setIsLegalModalOpen(false)} className="font-bold">Fermer</Button>
             </div>
           </div>
         </div>

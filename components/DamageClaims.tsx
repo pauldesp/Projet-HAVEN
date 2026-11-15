@@ -6,7 +6,7 @@ import type { Booking, DamageClaim } from '../types';
 import { authenticatedFetch } from '../services/serverApi';
 import { formatEuros } from '../services/money';
 import { prepareImageForStorage } from '../services/images';
-import { DAMAGE_DEPOSIT_POLICY, DAMAGE_DESCRIPTION_MIN, DAMAGE_MAX_PHOTOS, DAMAGE_STATUS_LABELS, canDeclareDamage, damageClaimDeadline } from '../services/damageDeposit';
+import { damageResponseDeadline, DAMAGE_DEPOSIT_POLICY, DAMAGE_DESCRIPTION_MIN, DAMAGE_MAX_PHOTOS, DAMAGE_STATUS_LABELS, canDeclareDamage, damageClaimDeadline } from '../services/damageDeposit';
 
 const call = async (path: string, body?: unknown) => {
   const response = await authenticatedFetch(path, body === undefined ? undefined : { method: 'POST', body: JSON.stringify(body) });
@@ -120,6 +120,7 @@ export function TenantDamageClaims({ claims, tenantId, onChanged }: { claims: Da
       <p className="mb-3 mt-1 text-xs text-gray-500">Séjour terminé le {day(claim.stayEndDate)} · déclarée le {day(claim.createdAt)}</p>
       <ClaimSummary claim={claim} viewer="TENANT" />
       {claim.status === 'SUBMITTED' && !claim.tenantResponse && <div className="mt-4 space-y-2">
+        <p className="text-sm text-amber-900">Répondez avant le <strong>{new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' }).format(new Date(damageResponseDeadline(claim)))}</strong> : passé ce délai, Haven décide avec les éléments dont il dispose.</p>
         <label className="block text-sm font-semibold text-haven-navy">Votre réponse, lue par Haven avant toute décision<textarea value={texts[claim.id] || ''} onChange={event => setTexts(current => ({ ...current, [claim.id]: event.target.value }))} rows={4} maxLength={2000} placeholder="Votre version des faits, et ce qui figurait déjà à l’état des lieux d’entrée." className="mt-1 w-full rounded-xl border border-gray-200 bg-white p-3 font-normal" /></label>
         <button type="button" disabled={(texts[claim.id] || '').trim().length < 5 || busy === claim.id} onClick={() => void respond(claim)} className="flex min-h-11 items-center gap-2 rounded-xl bg-haven-navy px-4 text-sm font-bold text-white disabled:opacity-40">{busy === claim.id && <Loader2 size={16} className="animate-spin" />}Envoyer ma réponse</button>
       </div>}

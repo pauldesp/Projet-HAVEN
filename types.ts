@@ -75,7 +75,11 @@ export interface User {
   reviewsCount?: number;
   favorites?: string[]; // Array of listing IDs
   documents?: {
+    /** Front of the identity document (or the photo page of a passport). */
     idCard?: string;
+    /** 'STORED' when the back is kept in `identity_documents` (server only, too large for the profile). */
+    idCardBack?: string;
+    idDocumentType?: IdentityDocumentType;
     proofOfAddress?: string;
     proofOfOwnership?: string;
     proofOfIncome?: string;
@@ -84,6 +88,8 @@ export interface User {
 }
 
 // Type de chambre
+export type IdentityDocumentType = 'ID_CARD' | 'RESIDENCE_PERMIT' | 'PASSPORT';
+
 export interface Room {
   id: string;
   name: string;

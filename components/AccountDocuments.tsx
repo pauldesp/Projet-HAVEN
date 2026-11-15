@@ -9,6 +9,14 @@ import type { AppDocument, Booking } from '../types';
 import { inventoryDocumentHtml } from '../services/inventoryDocument';
 import { ReservationInformation, downloadPaymentReceipt } from './ReservationInformation';
 import { toast } from 'sonner';
+import { isTwoSidedIdentityDocument } from '../services/profileVerification';
+
+/** Browsers refuse to open a data: address in a new tab: open the file through a temporary blob address. */
+async function openDataUrl(dataUrl: string) {
+  const url = URL.createObjectURL(await (await fetch(dataUrl)).blob());
+  window.open(url, '_blank', 'noopener');
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
+}
 
 export function AccountDocuments({ onManageIdentity }: { onManageIdentity: () => void }) {
   const { tr, locale } = useLanguage();
@@ -50,13 +58,15 @@ export function AccountDocuments({ onManageIdentity }: { onManageIdentity: () =>
       const link = document.createElement('a'); link.href = doc.url; link.download = `${doc.title}.pdf`; link.target = '_blank'; link.rel = 'noopener noreferrer'; document.body.appendChild(link); link.click(); link.remove();
     } catch { toast.error(tr("Impossible de télécharger ce document.")); }
   };
+  const twoSided = isTwoSidedIdentityDocument(currentUser?.documents?.idDocumentType);
   return <section id="documents" className="scroll-mt-24 rounded-3xl border border-gray-100 bg-white p-6 shadow-soft md:p-8">
     <h2 className="font-heading text-xl font-bold text-haven-navy">{tr("Mes documents")}</h2>
     <div className="mt-6 rounded-2xl border border-gray-100 p-5">
       <h3 className="flex items-center gap-2 font-bold text-haven-navy"><ShieldCheck size={20} />{tr("Pièce d’identité")}</h3>
-      <p className="mt-2 text-sm text-gray-500">{currentUser?.documents?.idCard ? currentUser.identityVerified ? tr("Identité vérifiée") : tr("Document transmis") : tr("Aucun document transmis")}</p>
+      <p className="mt-2 text-sm text-gray-500">{!currentUser?.documents?.idCard ? tr("Aucun document transmis") : currentUser.identityVerified ? tr("Identité vérifiée") : twoSided && currentUser.documents.idCardBack !== 'STORED' ? tr("Recto transmis · verso manquant") : tr("Document transmis")}</p>
       <div className="mt-4 flex flex-wrap gap-3">
-        {currentUser?.documents?.idCard && <button type="button" onClick={() => window.open(currentUser.documents!.idCard, '_blank', 'noopener,noreferrer')} className="rounded-xl border px-4 py-2 text-sm font-bold text-haven-navy">{tr("Voir")}</button>}
+        {currentUser?.documents?.idCard && <button type="button" onClick={() => openDataUrl(currentUser.documents!.idCard!)} className="rounded-xl border px-4 py-2 text-sm font-bold text-haven-navy">{twoSided ? tr("Voir le recto") : tr("Voir")}</button>}
+        {twoSided && currentUser?.documents?.idCardBack === 'STORED' && <button type="button" onClick={() => void authenticatedFetch(`/api/users/${currentUser.id}/identity-document-back`).then(async response => { if (!response.ok) throw new Error(); openDataUrl((await response.json()).dataUrl); }).catch(() => toast.error(tr("Verso indisponible.")))} className="rounded-xl border px-4 py-2 text-sm font-bold text-haven-navy">{tr("Voir le verso")}</button>}
         <button type="button" onClick={onManageIdentity} className="rounded-xl border px-4 py-2 text-sm font-bold text-haven-navy">{currentUser?.documents?.idCard ? tr("Gérer mon justificatif") : tr("Ajouter ma pièce d’identité")}</button>
       </div>
     </div>

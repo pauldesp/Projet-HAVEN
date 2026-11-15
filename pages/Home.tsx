@@ -1,3 +1,4 @@
+import { PRICE_COMPARISON, comparisonNotice, comparisonStayLabel, havenIsCheapest } from '../services/priceComparison';
 
 import React, { useRef, useState } from 'react';
 import { Reveal } from '../components/Reveal';
@@ -185,7 +186,7 @@ export const Home: React.FC = () => {
                 <Info size={14} className="text-haven-navy" />
               </div>
               <p className="text-xs font-medium opacity-80">
-                Séjour de 5 nuits à La Rochelle, du dimanche 12 au vendredi 17 juillet
+                {comparisonStayLabel()}
               </p>
             </div>
           </div>
@@ -193,13 +194,13 @@ export const Home: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 items-stretch max-w-6xl mx-auto pt-3 sm:pt-4">
             {/* Hotel Card */}
             <Reveal className="bg-gray-50/50 rounded-[1.75rem] sm:rounded-[2rem] p-5 sm:p-8 border border-gray-100 flex flex-col items-center justify-center space-y-2 sm:space-y-6 h-full">
-              <h3 className="text-lg sm:text-xl font-black text-haven-navy tracking-tight">Hôtel low cost</h3>
+              <h3 className="text-lg sm:text-xl font-black text-haven-navy tracking-tight">{PRICE_COMPARISON.hotel.label}</h3>
               <div className="space-y-1">
-                <div className="text-3xl sm:text-5xl font-black text-haven-navy tracking-tighter">260 €</div>
+                <div className="text-3xl sm:text-5xl font-black text-haven-navy tracking-tighter">{PRICE_COMPARISON.hotel.priceEuros} €</div>
               </div>
               <div className="space-y-1 sm:pt-2">
-                <p className="text-[10px] font-bold text-haven-stone uppercase tracking-widest">Ex. : hôtel Première Classe</p>
-                <p className="text-[10px] font-medium text-gray-400">WC + SDB sur le palier</p>
+                <p className="text-[10px] font-bold text-haven-stone uppercase tracking-widest">Ex. : {PRICE_COMPARISON.hotel.example}</p>
+                <p className="text-[11px] font-medium text-gray-500">{PRICE_COMPARISON.hotel.description}</p>
               </div>
             </Reveal>
 
@@ -208,31 +209,36 @@ export const Home: React.FC = () => {
               <h3 className="text-lg sm:text-xl font-black text-haven-navy tracking-tight">Airbnb</h3>
               <div className="w-full grid grid-cols-2 gap-3 sm:block sm:space-y-4">
                 <div className="space-y-0.5">
-                  <div className="text-2xl sm:text-3xl font-black text-haven-navy tracking-tighter">280 €</div>
-                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-tight sm:leading-none">studio seul</p>
+                  <div className="text-2xl sm:text-3xl font-black text-haven-navy tracking-tighter">{PRICE_COMPARISON.airbnbStudio.priceEuros} €</div>
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-tight sm:leading-none">{PRICE_COMPARISON.airbnbStudio.label}</p>
+                  <p className="pt-1 text-[11px] font-medium text-gray-500">{PRICE_COMPARISON.airbnbStudio.description}</p>
                 </div>
                 <div className="hidden sm:block h-px w-8 bg-gray-200 mx-auto"></div>
                 <div className="space-y-0.5">
-                  <div className="text-2xl sm:text-3xl font-black text-haven-navy tracking-tighter">230 €</div>
-                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-tight sm:leading-none">chambre chez l’habitant</p>
+                  <div className="text-2xl sm:text-3xl font-black text-haven-navy tracking-tighter">{PRICE_COMPARISON.airbnbRoom.priceEuros} €</div>
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-tight sm:leading-none">{PRICE_COMPARISON.airbnbRoom.label}</p>
+                  <p className="pt-1 text-[11px] font-medium text-gray-500">{PRICE_COMPARISON.airbnbRoom.description}</p>
                 </div>
               </div>
             </Reveal>
 
             {/* Haven Card */}
             <Reveal className="relative rounded-[2rem] bg-white border-2 border-haven-red p-0.5 shadow-2xl flex flex-col items-center h-full group" from="scale">
-              <div className="absolute -top-3.5 bg-haven-red text-white text-[10px] font-black uppercase tracking-[0.15em] px-5 py-1.5 rounded-full shadow-lg z-10 translate-y-0 group-hover:-translate-y-1 transition-transform">
-                Le plus avantageux
-              </div>
+              {havenIsCheapest() &&               <div className="absolute -top-3.5 bg-haven-red text-white text-[10px] font-black uppercase tracking-[0.15em] px-5 py-1.5 rounded-full shadow-lg z-10 translate-y-0 group-hover:-translate-y-1 transition-transform">
+                Le moins cher dans cet exemple
+              </div>}
               <div className="flex-1 w-full bg-white rounded-[1.9rem] px-5 pt-6 pb-5 sm:p-8 flex flex-col items-center justify-center space-y-2 sm:space-y-6">
                 <Logo className="h-7 sm:h-9" />
                 <div className="space-y-1">
-                  <div className="text-4xl sm:text-6xl font-black text-haven-red tracking-tighter">175 €</div>
+                  <div className="text-4xl sm:text-6xl font-black text-haven-red tracking-tighter">{PRICE_COMPARISON.haven.priceEuros === null ? '—' : `${PRICE_COMPARISON.haven.priceEuros} €`}</div>
                   <p className="text-[11px] font-black text-haven-navy uppercase tracking-[0.2em]">POUR CE SÉJOUR</p>
+                  <p className="pt-1 text-[11px] font-medium text-gray-500">{PRICE_COMPARISON.haven.description}</p>
                 </div>
               </div>
             </Reveal>
           </div>
+          {/* Comparative advertising: survey date, scope of prices and sources must be stated (Code de la consommation L122-1 s.). */}
+          <p className="mx-auto mt-6 max-w-4xl text-[11px] leading-relaxed text-gray-500 sm:mt-8">{comparisonNotice()}</p>
         </div>
       </section>
 

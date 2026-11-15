@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import type { Booking } from '../types';
-import { DAMAGE_DEPOSIT_POLICY, DamageClaimError, assertDamageDepositAccepted, canDeclareDamage, damageClaimDeadline, validateDamageClaimInput, validateDamageDecision, validateDamageResponse } from './damageDeposit';
+import { DAMAGE_DEPOSIT_POLICY, DamageClaimError, canChargeDamageClaim, damageResponseDeadline, assertDamageDepositAccepted, canDeclareDamage, damageClaimDeadline, validateDamageClaimInput, validateDamageDecision, validateDamageResponse } from './damageDeposit';
 
 const photo = `data:image/webp;base64,${'A'.repeat(400)}`;
 const booking = (changes: Partial<Booking> = {}) => ({
@@ -46,7 +46,7 @@ test('the owner asks for at most the deposit, with a description and at least on
 });
 
 test('Haven never charges more than requested nor more than the deposit, and always explains', () => {
-  const claim = { status: 'SUBMITTED' as const, requestedCents: 8500 };
+  const claim = { status: 'SUBMITTED' as const, requestedCents: 8500, createdAt: '2026-12-11T10:00:00.000Z', tenantResponse: { text: 'Ce n’est pas moi.', at: '2026-12-11T12:00:00.000Z' } };
   assert.deepEqual(validateDamageDecision(claim, { decision: 'APPROVE', amountCents: 6000, note: 'Usure partielle déduite.' }), { decision: 'APPROVE', amountCents: 6000, note: 'Usure partielle déduite.' });
   assert.throws(() => validateDamageDecision(claim, { decision: 'APPROVE', amountCents: 9000, note: 'Trop' }), /compris entre/);
   assert.throws(() => validateDamageDecision(claim, { decision: 'APPROVE', amountCents: 6000, note: '' }), /Expliquez/);
@@ -57,4 +57,15 @@ test('Haven never charges more than requested nor more than the deposit, and alw
 test('the tenant answer is a short text', () => {
   assert.equal(validateDamageResponse('  La rayure était déjà là.  '), 'La rayure était déjà là.');
   assert.throws(() => validateDamageResponse('non'), DamageClaimError);
+});
+
+test('Haven charges only after the tenant answered or three days passed, but may refuse at any time', () => {
+  const claim = { status: 'SUBMITTED' as const, requestedCents: 8500, createdAt: '2026-12-11T10:00:00.000Z' };
+  const decision = { decision: 'APPROVE', amountCents: 5000, note: 'Devis vérifié.' };
+  assert.equal(damageResponseDeadline(claim), '2026-12-14T10:00:00.000Z');
+  assert.equal(canChargeDamageClaim(claim, Date.parse('2026-12-14T09:59:00.000Z')), false);
+  assert.throws(() => validateDamageDecision(claim, decision, Date.parse('2026-12-12T10:00:00.000Z')), /peut répondre jusqu’au 14 décembre/);
+  assert.equal(validateDamageDecision(claim, decision, Date.parse('2026-12-14T10:00:00.000Z')).amountCents, 5000);
+  assert.equal(validateDamageDecision({ ...claim, tenantResponse: { text: 'Je conteste.', at: '2026-12-11T11:00:00.000Z' } }, decision, Date.parse('2026-12-11T12:00:00.000Z')).amountCents, 5000);
+  assert.equal(validateDamageDecision(claim, { decision: 'REJECT', note: 'Usure normale.' }, Date.parse('2026-12-11T11:00:00.000Z')).decision, 'REJECT');
 });

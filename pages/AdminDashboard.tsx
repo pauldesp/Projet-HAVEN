@@ -2092,7 +2092,8 @@ export const AdminDashboard: React.FC = () => {
                     </h4>
                     <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">
                       {[
-                        { key: 'idCard', label: 'Pièce d\'identité' },
+                        { key: 'idCard', label: `${({ ID_CARD: 'Carte d’identité', RESIDENCE_PERMIT: 'Titre de séjour', PASSPORT: 'Passeport' } as Record<string, string>)[userDetailModal.user?.documents?.idDocumentType || ''] || 'Pièce d\'identité'}${userDetailModal.user?.documents?.idDocumentType === 'PASSPORT' ? '' : ' · recto'}` },
+                        ...(userDetailModal.user?.documents?.idDocumentType && userDetailModal.user.documents.idDocumentType !== 'PASSPORT' ? [{ key: 'idCardBack', label: 'Verso' }] : []),
                         { key: 'proofOfAddress', label: 'Justificatif de domicile' },
                       ].map(doc => {
                         const url = userDetailModal.user?.documents?.[doc.key as keyof typeof userDetailModal.user.documents];
@@ -2102,7 +2103,9 @@ export const AdminDashboard: React.FC = () => {
                             <p className="text-xs font-bold text-haven-navy mb-2">{doc.label}</p>
                             {url ? (
                               <Button variant="outline" size="sm" onClick={() => {
-                                if (doc.key === 'proofOfAddress') {
+                                if (doc.key === 'idCardBack') {
+                                  void authenticatedFetch(`/api/users/${userDetailModal.user!.id}/identity-document-back`).then(async response => { if (!response.ok) throw new Error('Verso indisponible.'); const data = await response.json(); setDocPreviewModal({ isOpen: true, title: 'Pièce d’identité · verso', url: data.dataUrl }); }).catch(() => toast.error('Impossible de charger le verso.'));
+                                } else if (doc.key === 'proofOfAddress') {
                                   void authenticatedFetch(`/api/users/${userDetailModal.user!.id}/proof-of-address`).then(async response => { if (!response.ok) throw new Error('Justificatif indisponible.'); const data = await response.json(); setResidenceDocumentOpened(true); setDocPreviewModal({ isOpen: true, title: doc.label, url: data.dataUrl }); }).catch(() => toast.error('Impossible de charger le justificatif de domicile.'));
                                 } else { setIdentityDocumentOpened(true); setDocPreviewModal({ isOpen: true, title: doc.label, url }); }
                               }}>

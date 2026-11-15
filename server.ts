@@ -59,6 +59,7 @@ import express from "express";
 import path from "path";
 import { describeProductionConfiguration } from './services/productionConfiguration';
 import { createDamageDeposit } from './services/damageDepositServer';
+import { damageMailContent, damageMailDisposition, isDamageMailJob, type DamageMailJob } from './services/damageMail';
 import { caseGuidance, pickPreviousStay, type CaseMember, type CaseSettlement, type ReportCase } from './services/reportCase';
 import { DAMAGE_DEPOSIT_CONSENT_TEXT, DAMAGE_DEPOSIT_POLICY, DamageClaimError, assertDamageDepositAccepted } from './services/damageDeposit';
 import { Resend } from "resend";
@@ -286,6 +287,7 @@ const damageDeposit = createDamageDeposit({
   paymentMode: () => getPaymentMode(),
   isTestMode: () => connectConfiguration().isTest,
   payoutAccount: ownerId => ownerConnect.payoutAccount(ownerId),
+  notifyMail: () => void deliverReservationMail(),
 });
 
 const adminModeration = createAdminModeration({ db: adminDb, notifyMail: () => void deliverReservationMail() });
@@ -554,6 +556,23 @@ async function deliverReservationMail() {
             await item.ref.update({ status: resolved.disposition === 'WAIT' ? 'PENDING' : resolved.disposition, nextAttemptAt: resolved.disposition === 'WAIT' ? new Date(Date.now() + 60_000).toISOString() : FieldValue.delete() }); continue;
           }
           mail = resolved.mail!; recipient = resolved.to!; selectedTemplate = resolved.selectedTemplate;
+        } else if (isDamageMailJob(job)) {
+          const claim = (await adminDb.collection('damage_claims').doc(String(job.claimId)).get()).data() as import('./types').DamageClaim | undefined;
+          const disposition = damageMailDisposition(job as DamageMailJob, claim);
+          if (disposition !== 'SEND') {
+            await item.ref.update({ status: disposition, nextAttemptAt: FieldValue.delete() }); continue;
+          }
+          const event = (job as DamageMailJob).event;
+          if (event === 'TEAM_NEW_CLAIM') {
+            recipient = teamMailRecipient(process.env);
+            if (!recipient) { await item.ref.update({ status: 'CANCELLED', nextAttemptAt: FieldValue.delete() }); continue; }
+            mail = damageMailContent(event, claim!, '', process.env.APP_ORIGIN);
+          } else {
+            const person = (await adminDb.collection('users').doc(event === 'DECISION_OWNER' ? claim!.ownerId : claim!.tenantId).get()).data();
+            if (!person?.email) { await item.ref.update({ status: 'CANCELLED', lastError: 'Adresse e-mail manquante.', nextAttemptAt: FieldValue.delete() }); continue; }
+            recipient = String(person.email);
+            mail = damageMailContent(event, claim!, String(person.firstName || ''), process.env.APP_ORIGIN);
+          }
         } else {
           const [bookingSnap, receiptSnap] = await Promise.all([
             adminDb.collection('bookings').doc(job.bookingId).get(),
@@ -1494,14 +1513,15 @@ async function startServer() {
   };
   const exportMemberData = async (id: string) => {
     const by = (collection: string, field: string, op: FirebaseFirestore.WhereFilterOp = '==') => adminDb.collection(collection).where(field, op, id).get().then(snap => snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    const [profile, residence, tb, ob, tp, op, payouts, reports, incidents, reviews, messages, documents, inventoryT, inventoryO, listings] = await Promise.all([
+    const [profile, residence, identityBack, tb, ob, tp, op, payouts, reports, incidents, reviews, messages, documents, inventoryT, inventoryO, listings] = await Promise.all([
       adminDb.collection('users').doc(id).get().then(doc => doc.data() || null),
       adminDb.collection('user_residences').doc(id).get().then(doc => doc.data() || null),
+      adminDb.collection('identity_documents').doc(id).get().then(doc => doc.data() || null),
       by('bookings', 'tenantId'), by('bookings', 'ownerId'), by('payments', 'tenantId'), by('payments', 'ownerId'), by('owner_payouts', 'ownerId'),
       by('reports', 'reporterId'), by('incidents', 'reporterId'), by('reviews', 'authorId'), by('messages', 'participants', 'array-contains'),
       by('documents', 'userId'), by('inventory', 'tenantId'), by('inventory', 'ownerId'), by('listings', 'ownerId'),
     ]);
-    return { exportedAt: new Date().toISOString(), profile, residence, listings, bookings: { asTenant: tb, asOwner: ob }, payments: [...tp, ...op], payouts, reports, incidents, reviews, messages, documents, inventory: [...inventoryT, ...inventoryO] };
+    return { exportedAt: new Date().toISOString(), profile, identityDocumentBack: identityBack, residence, listings, bookings: { asTenant: tb, asOwner: ob }, payments: [...tp, ...op], payouts, reports, incidents, reviews, messages, documents, inventory: [...inventoryT, ...inventoryO] };
   };
   /** Refuses while stays are under way or listings online; then anonymises the profile, deletes personal documents and the login. */
   const eraseMember = async (id: string, self: boolean) => {
@@ -1527,6 +1547,7 @@ async function startServer() {
       ...personal.docs.map(doc => doc.ref.delete()),
       adminDb.collection('user_residences').doc(id).delete(),
       adminDb.collection('residence_documents').doc(id).delete(),
+      adminDb.collection('identity_documents').doc(id).delete(),
     ]);
     await adminAuth.deleteUser(id).catch(error => { if ((error as { code?: string }).code !== 'auth/user-not-found') throw error; });
   };
@@ -1951,6 +1972,17 @@ async function startServer() {
       return res.json(snapshot.data() || {});
     } catch { return sendApiError(res, 500, 'Impossible de charger le domicile.'); }
   });
+  app.get('/api/users/:userId/identity-document-back', sensitiveApiLimiter, requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      const id = String(req.params.userId);
+      if (!/^[a-zA-Z0-9_-]{1,128}$/.test(id)) return sendApiError(res, 404, 'Document introuvable.');
+      if (id !== req.user!.uid && !await requireAdmin(req, res)) return;
+      const snapshot = await adminDb.collection('identity_documents').doc(id).get();
+      if (!snapshot.exists) return sendApiError(res, 404, 'Document introuvable.');
+      res.setHeader('Cache-Control', 'no-store');
+      return res.json({ dataUrl: snapshot.data()!.back });
+    } catch { return sendApiError(res, 500, 'Impossible de charger le verso.'); }
+  });
   app.get('/api/users/:userId/proof-of-address', sensitiveApiLimiter, requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
       const id = String(req.params.userId);
@@ -2152,13 +2184,25 @@ async function startServer() {
       if (Buffer.byteLength(dataUrl, "utf8") > 850 * 1024) {
         return sendApiError(res, 413, "Le fichier optimisé dépasse la taille autorisée");
       }
+      const side = req.body?.side === 'BACK' ? 'BACK' : 'FRONT';
+      const documentType = ['ID_CARD', 'RESIDENCE_PERMIT', 'PASSPORT'].includes(req.body?.documentType) ? req.body.documentType as string : 'ID_CARD';
+      if (side === 'BACK' && documentType === 'PASSPORT') return sendApiError(res, 422, "Un passeport ne demande que la page avec la photo");
       const userRef = adminDb.collection("users").doc(req.user!.uid);
       const userSnap = await userRef.get();
       if (!userSnap.exists) return sendApiError(res, 404, "Profil introuvable");
       if (userSnap.data()?.role === "ADMIN") return sendApiError(res, 403, "Un compte administrateur ne peut pas transmettre de dossier de membre");
 
+      // The back is kept apart: two photos would not fit in the profile (1 MiB per Firestore document).
+      const backRef = adminDb.collection('identity_documents').doc(req.user!.uid);
+      const documentFields = side === 'BACK'
+        ? { "documents.idCardBack": 'STORED', "documents.idDocumentType": documentType }
+        : documentType === 'PASSPORT'
+          ? { "documents.idCard": dataUrl, "documents.idDocumentType": documentType, "documents.idCardBack": FieldValue.delete() }
+          : { "documents.idCard": dataUrl, "documents.idDocumentType": documentType };
+      if (side === 'BACK') await backRef.set({ back: dataUrl, documentType, updatedAt: new Date().toISOString() });
+      else if (documentType === 'PASSPORT') await backRef.delete();
       await userRef.update({
-        "documents.idCard": dataUrl,
+        ...documentFields,
         status: "PENDING",
         identityVerified: false,
         verificationException: null,
