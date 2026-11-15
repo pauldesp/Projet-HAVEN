@@ -42,7 +42,7 @@ export function AdminFinances({ bookings, listings, users }: { bookings: Booking
   }, []);
   useEffect(() => { void load(); }, [load]);
 
-  const name = (id: string) => { const user = users.find(item => item.id === id); return user ? `${user.firstName} ${user.lastName}` : `Compte ${id.slice(0, 8)}`; };
+  const name = (id?: string) => { if (!id) return 'Inconnu'; const user = users.find(item => item.id === id); return user ? `${user.firstName} ${user.lastName}` : `Compte ${id.slice(0, 8)}`; };
   const title = (booking: Booking) => booking.listingTitle || listings.find(item => item.id === booking.listingId)?.title || 'Logement';
   const settlementOf = (id: string) => data?.settlements.find(item => item.bookingId === id);
   const isTest = (booking: Booking) => booking.paymentIsTest === true || booking.paymentProvider === 'SIMULATION';

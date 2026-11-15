@@ -39,7 +39,8 @@ export function AdminBookings({ bookings, listings, users, onOpenCase }: { booki
     finally { setSending(false); }
   };
   const today = localDateKey(new Date());
-  const name = (id: string) => { const user = users.find(item => item.id === id); return user ? `${user.firstName} ${user.lastName}` : `Compte ${id.slice(0, 8)}`; };
+  // Old test bookings may lack a tenant or owner: never let one record break the whole tab.
+  const name = (id?: string) => { if (!id) return 'Inconnu'; const user = users.find(item => item.id === id); return user ? `${user.firstName} ${user.lastName}` : `Compte ${id.slice(0, 8)}`; };
   const title = (booking: Booking) => booking.listingTitle || listings.find(item => item.id === booking.listingId)?.title || 'Logement';
 
   // A stay counts as held once paid, or reserved in a series (charged later).

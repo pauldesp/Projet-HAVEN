@@ -167,7 +167,7 @@ export function AdminReportCase({ reportId, bookingId, onClose, onOpenMember, on
               {file.previousStay ? <StayBlock stay={file.previousStay} label="Séjour précédent" /> : <p className="text-sm text-gray-500">Aucun séjour Haven avant celui-ci dans cette chambre.</p>}
               {file.previousStay?.damageClaim && <p className="text-xs text-gray-600">Caution du locataire précédent : {DAMAGE_STATUS_LABELS[file.previousStay.damageClaim.status]} ({formatEuros(file.previousStay.damageClaim.requestedCents / 100)} demandés).</p>}
               {file.stay && <StayBlock stay={file.stay} label={report ? 'Séjour signalé' : 'Ce séjour'} />}
-              {file.settlement && <p className="text-xs text-gray-600">Versement au propriétaire : {settlementLabel(file.settlement.state)} · {formatEuros(file.settlement.amountCents / 100)}{file.settlement.adminHold ? ` · bloqué (${file.settlement.holdReason || 'sans motif'})` : ''}</p>}
+              {file.settlement && <p className="text-xs text-gray-600">Versement au propriétaire : {settlementLabel(file.settlement.state).replace('votre solde', 'son solde').replace('Compte Stripe à compléter', 'Son compte Stripe est à compléter')} · {formatEuros(file.settlement.amountCents / 100)}{file.settlement.adminHold ? ` · bloqué (${file.settlement.holdReason || 'sans motif'})` : ''}</p>}
             </div>
           </Section>
 

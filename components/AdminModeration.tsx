@@ -24,7 +24,7 @@ export function AdminModeration({ listings, users }: { listings: Listing[]; user
   }, []);
   useEffect(() => { if (!reviews) void loadReviews().catch(() => toast.error('Avis indisponibles.')); }, [reviews, loadReviews]);
 
-  const name = (id: string) => { const user = users.find(item => item.id === id); return user ? `${user.firstName} ${user.lastName}` : `Compte ${id.slice(0, 8)}`; };
+  const name = (id?: string) => { if (!id) return 'Inconnu'; const user = users.find(item => item.id === id); return user ? `${user.firstName} ${user.lastName}` : `Compte ${id.slice(0, 8)}`; };
   const matches = (value: string) => !search.trim() || value.toLocaleLowerCase('fr').includes(search.trim().toLocaleLowerCase('fr'));
   const shownReviews = (reviews || []).filter(review => matches(`${review.comment} ${review.authorName || ''} ${listings.find(item => item.id === review.targetId)?.title || ''}`));
 
