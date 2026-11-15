@@ -1,3 +1,4 @@
+import { pickFile } from '../services/filePicker';
 import { CleaningPolicyNotice } from '../components/CleaningPolicyNotice';
 import { CLEANING_POLICY_VERSION } from '../services/cleaningPolicy';
 import { OwnerStayGuideButton } from '../components/OwnerStayGuideButton';
@@ -397,11 +398,7 @@ export const PublishListing: React.FC = () => {
       return;
     }
 
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'image/*';
-    input.onchange = (e: Event) => {
-      const file = (e.target as HTMLInputElement).files?.[0];
+    void pickFile('image/*').then(file => {
       if (!file) return;
       if (file.size > MAX_IMAGE_UPLOAD_BYTES) {
         toast.error("L'image est trop volumineuse (max 1,2 Mo).");
@@ -415,8 +412,7 @@ export const PublishListing: React.FC = () => {
         });
         toast.success('Photo des parties communes ajoutée.');
       }).catch(() => toast.error('Impossible de préparer cette image.'));
-    };
-    input.click();
+    });
   };
 
   const toggleRoomPhoto = (roomId: string, photoIndex: number) => {
@@ -438,11 +434,7 @@ export const PublishListing: React.FC = () => {
       return;
     }
 
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'image/*';
-    input.onchange = (e: Event) => {
-      const file = (e.target as HTMLInputElement).files?.[0];
+    void pickFile('image/*').then(file => {
       if (!file) return;
       if (file.size > MAX_IMAGE_UPLOAD_BYTES) {
         toast.error("L'image de la chambre est trop volumineuse (max 1,2 Mo).");
@@ -457,8 +449,7 @@ export const PublishListing: React.FC = () => {
         }));
         toast.success('Photo de la chambre ajoutée.');
       }).catch(() => toast.error('Impossible de préparer cette image.'));
-    };
-    input.click();
+    });
   };
 
   const handleSuggestRoomNames = () => {

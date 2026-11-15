@@ -406,7 +406,7 @@ export const apiService = {
         }
         const response = await authenticatedFetch('/api/bookings', {
           method: 'POST',
-          body: JSON.stringify({ id: booking.id, listingId: booking.listingId, roomId: booking.roomId, startDate: booking.startDate, endDate: booking.endDate, cleaningPolicyVersion: booking.cleaningPolicyVersion })
+          body: JSON.stringify({ id: booking.id, listingId: booking.listingId, roomId: booking.roomId, startDate: booking.startDate, endDate: booking.endDate, cleaningPolicyVersion: booking.cleaningPolicyVersion, depositPolicyVersion: booking.depositConsent?.version })
         });
         const payload = await response.json().catch(() => ({}));
         if (!response.ok) throw httpError(payload.error || 'Impossible de créer la réservation', response.status);
@@ -416,7 +416,7 @@ export const apiService = {
       }
     },
     /** Reserves every stay of a recurring search at once; only the first stay is paid now. */
-    async createSeries(input: { seriesId: string; listingId: string; stays: { id: string; roomId: string; startDate: string; endDate: string }[]; cleaningPolicyVersion: string; autoChargeConsentVersion: string }) {
+    async createSeries(input: { seriesId: string; listingId: string; stays: { id: string; roomId: string; startDate: string; endDate: string }[]; cleaningPolicyVersion: string; autoChargeConsentVersion: string; depositPolicyVersion: string }) {
       if (!auth.currentUser) throw new HavenError('Vous devez être connecté pour réserver.', '401');
       const response = await authenticatedFetch('/api/booking-series', { method: 'POST', body: JSON.stringify(input) });
       const payload = await response.json().catch(() => ({}));

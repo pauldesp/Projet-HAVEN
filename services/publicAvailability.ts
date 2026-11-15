@@ -19,7 +19,8 @@ export function listenAvailability(listingId: string | undefined, callback: (ite
     finally { running = false; }
   };
   void refresh();
-  const timer = setInterval(() => { if (document.visibilityState === 'visible') void refresh(); }, 15_000);
+  // Refreshed every minute while visible, and at once when the visitor comes back to the page.
+  const timer = setInterval(() => { if (document.visibilityState === 'visible') void refresh(); }, 60_000);
   const onVisible = () => { if (document.visibilityState === 'visible') void refresh(); };
   window.addEventListener('focus', onVisible);
   document.addEventListener('visibilitychange', onVisible);

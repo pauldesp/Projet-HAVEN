@@ -1,3 +1,4 @@
+import { pickFile } from '../services/filePicker';
 import { CHECKIN_VERSION, CHECKIN_AREAS, CHECKIN_QUESTIONS, emptyCheckinAssessments, checkinHasIssue as assessmentHasIssue, type CheckinArea, type CheckinField, type CheckinAssessment } from '../services/checkinAssessment';
 import { CleaningPolicyNotice } from './CleaningPolicyNotice';
 import { CLEANING_POLICY_VERSION, CHECKOUT_ROOM_TASKS, CHECKOUT_COMMON_TASKS, CHECKOUT_TASK_LABELS } from '../services/cleaningPolicy';
@@ -26,17 +27,8 @@ type CheckoutChecklistKey = keyof typeof CHECKOUT_TASK_LABELS;
 const checkoutChecklistLabels = CHECKOUT_TASK_LABELS;
 
 async function selectInventoryPhoto(): Promise<string | null> {
-  return new Promise((resolve, reject) => {
-    const input = document.createElement('input');
-    input.type = 'file'; input.accept = 'image/*';
-    input.oncancel = () => resolve(null);
-    input.onchange = async () => {
-      const file = input.files?.[0];
-      if (!file) return resolve(null);
-      try { resolve(await prepareImageForStorage(file, 10 * 1024 * 1024)); } catch (error) { reject(error); }
-    };
-    input.click();
-  });
+  const file = await pickFile('image/*');
+  return file ? prepareImageForStorage(file, 10 * 1024 * 1024) : null;
 }
 
 export const InventoryModal: React.FC<InventoryModalProps> = ({

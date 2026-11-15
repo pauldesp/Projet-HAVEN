@@ -1,6 +1,7 @@
 import { formatEuros } from '../services/money';
 import { trackStep } from '../services/analyticsClient';
 import { ScrollableRow } from '../components/ScrollableRow';
+import { TenantDamageClaims, useDamageClaims } from '../components/DamageClaims';
 import { installmentDateLabel, installmentDeadlineLabel, installmentState } from '../services/recurringInstallments';
 import { useLanguage } from '../contexts/LanguageContext';
 import { compactCheckinComments } from '../services/inventoryPayload';
@@ -30,7 +31,7 @@ import { AccountStatusOverlay } from '../components/AccountStatusOverlay';
 import { CancellationModal } from '../components/CancellationModal';
 import { toast } from 'sonner';
 import { stayReviewDeadline } from '../services/reviewPolicy';
-import { formatScheduledMoment, getInventoryTiming } from '../services/inventoryTiming';
+import { formatScheduledMoment, getInventoryTiming, stayLocalDate } from '../services/inventoryTiming';
 
 export const TenantDashboard: React.FC = () => {
   const paymentReturnId = useRef(new URLSearchParams(window.location.search).get('booking') === 'pending' ? new URLSearchParams(window.location.search).get('id') : null);
@@ -39,6 +40,7 @@ export const TenantDashboard: React.FC = () => {
   const { currentUser } = useAuth();
   const { listings: allListings } = useListings();
   const [activeTab, setActiveTab] = useState<'UPCOMING' | 'HISTORY' | 'FAVORITES' | 'INCIDENTS'>('UPCOMING');
+  const damageClaims = useDamageClaims(Boolean(currentUser?.id));
   const [clockNow, setClockNow] = useState(() => new Date());
   useEffect(() => {
     const refresh = () => setClockNow(new Date());
@@ -353,6 +355,8 @@ export const TenantDashboard: React.FC = () => {
           </div>
         )}
 
+        {currentUser && <TenantDamageClaims claims={damageClaims.claims} tenantId={currentUser.id} onChanged={() => void damageClaims.reload()} />}
+
         <section aria-label="Vos séjours" className="mt-6 grid grid-cols-2 gap-3 sm:mt-8 sm:gap-4">
           <button type="button" onClick={() => setActiveTab('UPCOMING')} className="min-w-0 rounded-2xl border border-gray-200 p-4 text-left transition-shadow hover:shadow-md sm:p-6">
             <p className="font-bold text-haven-navy">{nextStay && bookingCategory(nextStay, clockNow) === 'CURRENT' ? 'Séjour en cours' : 'Prochain séjour'}</p>
@@ -478,7 +482,17 @@ export const TenantDashboard: React.FC = () => {
                               disabled={!getInventoryTiming(booking, booking.listing, 'IN', clockNow).isAvailable || booking.paymentStatus !== 'PAID'}
                               onClick={() => handleOpenInventory(booking, 'IN')}
                             >
-                              <ClipboardCheck size={16} /> {getInventoryTiming(booking, booking.listing, 'IN', clockNow).isExpired ? 'Entrée : délai dépassé' : 'État des lieux entrée'}
+                              <ClipboardCheck size={16} /> {(() => {
+                                const timing = getInventoryTiming(booking, booking.listing, 'IN', clockNow);
+                                if (timing.isExpired) return 'Entrée : délai dépassé';
+                                // Before the arrival time the button stays closed: say when it opens.
+                                if (!timing.isAvailable && clockNow < timing.scheduledAt) {
+                                  const sameDay = booking.startDate.slice(0, 10) === stayLocalDate(clockNow, timing.timeZone);
+                                  const day = new Date(`${booking.startDate.slice(0, 10)}T12:00:00Z`).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+                                  return sameDay ? `Entrée dès ${timing.scheduledTime}` : `Entrée le ${day} dès ${timing.scheduledTime}`;
+                                }
+                                return 'État des lieux entrée';
+                              })()}
                             </Button>
                           )}
 

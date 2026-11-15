@@ -3,6 +3,7 @@ import type { Firestore, Transaction } from 'firebase-admin/firestore';
 import type { Booking, BookingAvailability, BookingSeries, Listing, Room } from '../types';
 import { isRoomAvailableForStay } from './availability';
 import { CLEANING_POLICY_VERSION } from './cleaningPolicy';
+import { DAMAGE_DEPOSIT_CONSENT_TEXT, DAMAGE_DEPOSIT_POLICY } from './damageDeposit';
 import { requiredNightsForStay } from './gapStay';
 import { countNights, localDateKey } from './stay';
 import { CONNECT_POLICY_VERSION } from './stripeConnect';
@@ -90,6 +91,7 @@ export function createRecurringSeries(deps: RecurringSeriesDependencies) {
           timeZone, id: stay.id, listingId, listingTitle: listing.title, roomId: room.id, roomName: room.name || 'Chambre', tenantId, ownerId: listing.ownerId,
           startDate: stay.startDate, endDate: stay.endDate, status: 'PENDING', basePrice, cleaningFee, platformFee, totalPrice: basePrice + cleaningFee + platformFee,
           createdAt, paymentStatus: 'PENDING', bookingMode: 'INSTANT', cleaningPolicyVersion: CLEANING_POLICY_VERSION, cleaningPolicyAcceptedAt: createdAt,
+          depositConsent: { version: DAMAGE_DEPOSIT_POLICY.version, text: DAMAGE_DEPOSIT_CONSENT_TEXT, amountCents: DAMAGE_DEPOSIT_POLICY.amountCents, acceptedAt: createdAt },
           checkInTime: listing.checkInTime || '15:00', checkOutTime: listing.checkOutTime || '11:00',
           seriesId, seriesIndex: index, seriesCount: sorted.length, installmentDueDate: dueDates[index], installmentAttempts: 0,
         };

@@ -1,0 +1,24 @@
+# Secrets never enter the image: they are given by Cloud Run (Secret Manager).
+.env
+.env.*
+*.pem
+*.crt
+.stripe-local/
+service-account*.json
+
+# Rebuilt inside the image or useless on the server
+node_modules
+dist
+android
+ios
+output
+tmp
+docs
+tests
+.git
+.github
+.vscode
+.idea
+.claude
+*.log
+.DS_Store

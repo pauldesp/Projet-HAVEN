@@ -1,3 +1,4 @@
+import { pickFile } from '../services/filePicker';
 import { CleaningPolicyNotice } from '../components/CleaningPolicyNotice';
 import { CLEANING_POLICY_VERSION } from '../services/cleaningPolicy';
 import { ListingPublicInfoFields } from '../components/ListingPublicInfoFields';
@@ -215,19 +216,14 @@ export const EditListing: React.FC = () => {
   };
 
   const selectImage = (onLoad: (photo: string) => void, errorMessage: string) => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'image/*';
-    input.onchange = (event: Event) => {
-      const file = (event.target as HTMLInputElement).files?.[0];
+    void pickFile('image/*').then(file => {
       if (!file) return;
       if (file.size > MAX_IMAGE_UPLOAD_BYTES) {
         toast.error(errorMessage);
         return;
       }
       prepareImageForStorage(file).then(onLoad).catch(() => toast.error('Impossible de préparer cette image.'));
-    };
-    input.click();
+    });
   };
 
   const addGalleryPhoto = () => {

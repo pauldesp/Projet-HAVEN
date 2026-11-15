@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Loader2, Search, Star } from 'lucide-react';
 import { collection, getDocs } from 'firebase/firestore';
@@ -13,9 +13,8 @@ const post = async (path: string, body: unknown) => {
   if (!response.ok) throw new Error(data.error || 'Action impossible.');
 };
 
-/** Suspend or restore listings, correct them, hide or restore reviews. */
+/** Hide or restore abusive reviews. Listings are moderated from the Listings tab (ListingModerationActions). */
 export function AdminModeration({ listings, users }: { listings: Listing[]; users: User[] }) {
-  const [section, setSection] = useState<'LISTINGS' | 'REVIEWS'>('LISTINGS');
   const [search, setSearch] = useState('');
   const [reviews, setReviews] = useState<Review[] | null>(null);
   const [busy, setBusy] = useState('');
@@ -23,11 +22,10 @@ export function AdminModeration({ listings, users }: { listings: Listing[]; user
     const snapshot = await getDocs(collection(db, 'reviews'));
     setReviews(snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }) as Review).sort((a, b) => b.createdAt.localeCompare(a.createdAt)));
   }, []);
-  useEffect(() => { if (section === 'REVIEWS' && !reviews) void loadReviews().catch(() => toast.error('Avis indisponibles.')); }, [section, reviews, loadReviews]);
+  useEffect(() => { if (!reviews) void loadReviews().catch(() => toast.error('Avis indisponibles.')); }, [reviews, loadReviews]);
 
   const name = (id: string) => { const user = users.find(item => item.id === id); return user ? `${user.firstName} ${user.lastName}` : `Compte ${id.slice(0, 8)}`; };
   const matches = (value: string) => !search.trim() || value.toLocaleLowerCase('fr').includes(search.trim().toLocaleLowerCase('fr'));
-  const shown = useMemo(() => listings.filter(listing => (listing.status === 'APPROVED' || listing.suspendedByHaven) && matches(`${listing.title} ${listing.city} ${name(listing.ownerId)}`)), [listings, search, users]);
   const shownReviews = (reviews || []).filter(review => matches(`${review.comment} ${review.authorName || ''} ${listings.find(item => item.id === review.targetId)?.title || ''}`));
 
   const act = async (key: string, path: string, body: unknown, success: string, after?: () => Promise<void>) => {
@@ -40,38 +38,18 @@ export function AdminModeration({ listings, users }: { listings: Listing[]; user
 
   return <section className="space-y-5">
     <div>
-      <h2 className="text-xl font-bold text-haven-navy">Modération</h2>
-      <p className="mt-1 text-sm text-gray-500">Suspendre une annonce sans la supprimer, la corriger, masquer un avis abusif. Chaque action est inscrite au journal.</p>
+      <h2 className="text-xl font-bold text-haven-navy">Avis publiés</h2>
+      <p className="mt-1 text-sm text-gray-500">Masquer un avis abusif (insulte, hors sujet, données personnelles) ou le rendre de nouveau visible. Chaque action est inscrite au journal.</p>
     </div>
     <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-      <div className="flex gap-2">
-        {(['LISTINGS', 'REVIEWS'] as const).map(value => <button key={value} type="button" aria-pressed={section === value} onClick={() => setSection(value)} className={`min-h-11 rounded-full border px-4 text-sm font-semibold ${section === value ? 'border-haven-navy bg-haven-navy text-white' : 'border-gray-200 text-haven-navy'}`}>{value === 'LISTINGS' ? 'Annonces en ligne' : 'Avis'}</button>)}
-      </div>
       <label className="relative block flex-1">
         <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" aria-hidden="true" />
         <span className="sr-only">Rechercher</span>
-        <input value={search} onChange={event => setSearch(event.target.value)} placeholder="Rechercher…" className="h-11 w-full rounded-xl border border-gray-200 pl-9 pr-3 text-sm" />
+        <input value={search} onChange={event => setSearch(event.target.value)} placeholder="Rechercher un avis, un auteur, un logement…" className="h-11 w-full rounded-xl border border-gray-200 pl-9 pr-3 text-sm" />
       </label>
     </div>
 
-    {section === 'LISTINGS' && <ul className="divide-y divide-gray-100 rounded-2xl border border-gray-100">
-      {shown.map(listing => <li key={listing.id} className="flex flex-col gap-3 p-4 text-sm sm:flex-row sm:items-center sm:justify-between">
-        <div className="min-w-0">
-          <p className="font-semibold text-haven-navy">{listing.title} · {listing.city}</p>
-          <p className="text-xs text-gray-500">Propriétaire : {name(listing.ownerId)} · {listing.suspendedByHaven ? <span className="text-haven-red">suspendue</span> : 'en ligne'}</p>
-        </div>
-        <div className="flex shrink-0 flex-wrap gap-2">
-          <Link to={`/listing/${listing.id}`} className="flex min-h-11 items-center rounded-xl border border-gray-200 px-3 font-semibold text-haven-navy">Voir</Link>
-          <Link to={`/owner/edit/${listing.id}`} className="flex min-h-11 items-center rounded-xl border border-gray-200 px-3 font-semibold text-haven-navy">Corriger</Link>
-          {listing.suspendedByHaven
-            ? <button type="button" disabled={busy === listing.id} onClick={() => void act(listing.id, `/api/admin/listings/${listing.id}/suspend`, { suspend: false }, 'Annonce remise en ligne.')} className="min-h-11 rounded-xl border border-green-200 px-3 font-semibold text-green-700">Remettre en ligne</button>
-            : <button type="button" disabled={busy === listing.id} onClick={() => { const reason = askReason('Motif de la suspension (visible par le propriétaire)'); if (reason) void act(listing.id, `/api/admin/listings/${listing.id}/suspend`, { suspend: true, reason }, 'Annonce suspendue.'); }} className="min-h-11 rounded-xl border border-red-100 px-3 font-semibold text-haven-red">Suspendre</button>}
-        </div>
-      </li>)}
-      {!shown.length && <li className="p-8 text-center text-sm text-gray-500">Aucune annonce.</li>}
-    </ul>}
-
-    {section === 'REVIEWS' && (!reviews ? <p className="flex items-center gap-2 text-sm text-gray-500"><Loader2 size={16} className="animate-spin" /> Chargement des avis…</p> : <ul className="divide-y divide-gray-100 rounded-2xl border border-gray-100">
+    {(!reviews ? <p className="flex items-center gap-2 text-sm text-gray-500"><Loader2 size={16} className="animate-spin" /> Chargement des avis…</p> : <ul className="divide-y divide-gray-100 rounded-2xl border border-gray-100">
       {shownReviews.map(review => <li key={review.id} className="flex flex-col gap-3 p-4 text-sm sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           <p className="flex items-center gap-1 font-semibold text-haven-navy"><Star size={14} className="fill-haven-red text-haven-red" aria-hidden="true" />{review.rating}/5 · {review.targetType === 'LISTING' ? listings.find(item => item.id === review.targetId)?.title || 'Logement' : name(review.targetId)}{review.hiddenByHaven && <span className="ml-1 text-haven-red">· masqué</span>}</p>
@@ -85,4 +63,24 @@ export function AdminModeration({ listings, users }: { listings: Listing[]; user
       {!shownReviews.length && <li className="p-8 text-center text-sm text-gray-500">Aucun avis.</li>}
     </ul>)}
   </section>;
+}
+
+/** Listings tab: view, correct, suspend or restore a published listing. */
+export function ListingModerationActions({ listing }: { listing: Listing }) {
+  const [busy, setBusy] = useState(false);
+  if (listing.status !== 'APPROVED' && !listing.suspendedByHaven) return null;
+  const act = async (body: unknown, success: string) => {
+    setBusy(true);
+    try { await post(`/api/admin/listings/${listing.id}/suspend`, body); toast.success(success); }
+    catch (cause) { toast.error(cause instanceof Error ? cause.message : 'Action impossible.'); }
+    finally { setBusy(false); }
+  };
+  const buttonClass = 'flex min-h-9 items-center whitespace-nowrap rounded-lg border px-2.5 text-xs font-semibold';
+  return <>
+    <Link to={`/listing/${listing.id}`} className={`${buttonClass} border-gray-200 text-haven-navy`}>Voir</Link>
+    <Link to={`/owner/edit/${listing.id}`} className={`${buttonClass} border-gray-200 text-haven-navy`}>Corriger</Link>
+    {listing.suspendedByHaven
+      ? <button type="button" disabled={busy} onClick={() => void act({ suspend: false }, 'Annonce remise en ligne.')} className={`${buttonClass} border-green-200 text-green-700`}>Remettre en ligne</button>
+      : <button type="button" disabled={busy} onClick={() => { const reason = window.prompt('Motif de la suspension (visible par le propriétaire)'); if (reason && reason.trim().length >= 3) void act({ suspend: true, reason: reason.trim() }, 'Annonce suspendue.'); }} className={`${buttonClass} border-red-100 text-haven-red`}>Suspendre</button>}
+  </>;
 }

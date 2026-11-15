@@ -24,8 +24,8 @@ function fixture() {
   });
   const collection = (name: string, filters: any[] = []): any => ({
     doc: (id: string) => reference(`${name}/${id}`),
-    where: (key: string, _op: string, value: unknown) => collection(name, [...filters, [key, value]]),
-    get: async () => ({ docs: await Promise.all([...records].filter(([path, data]) => path.startsWith(`${name}/`) && filters.every(([key, value]) => data[key] === value)).map(([path]) => reference(path).get())) }),
+    where: (key: string, op: string, value: unknown) => collection(name, [...filters, [key, op === 'in' ? { in: value } : value]]),
+    get: async () => ({ docs: await Promise.all([...records].filter(([path, data]) => path.startsWith(`${name}/`) && filters.every(([key, value]) => value && typeof value === 'object' && 'in' in value ? (value.in as unknown[]).includes(data[key]) : data[key] === value)).map(([path]) => reference(path).get())) }),
   });
   const db = { collection, runTransaction: async (callback: any) => callback({
     get: (ref: any) => ref.get(), update: (ref: any, data: any) => patch(ref.path, data),

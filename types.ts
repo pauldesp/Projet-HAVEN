@@ -227,6 +227,30 @@ export interface Booking {
   unpaidCancelledAt?: string;
   /** Refunds decided by Haven without cancelling the stay (goodwill gestures, settled disputes). */
   havenRefunds?: HavenRefund[];
+  /** Caution : accord du locataire pour un prélèvement plafonné en cas de dégradation validée par Haven. */
+  depositConsent?: { version: string; text: string; amountCents: number; acceptedAt: string };
+}
+
+/** Déclaration de dégradation d'un propriétaire après un séjour (collection serveur `damage_claims`, id = réservation). */
+export interface DamageClaim {
+  id: string;
+  bookingId: string;
+  listingId: string;
+  listingTitle: string;
+  ownerId: string;
+  tenantId: string;
+  stayEndDate: string;
+  requestedCents: number;
+  description: string;
+  photos: string[];
+  createdAt: string;
+  status: 'SUBMITTED' | 'REJECTED' | 'CHARGING' | 'CHARGED' | 'CHARGE_FAILED';
+  tenantResponse?: { text: string; at: string };
+  decision?: { amountCents: number; note: string; at: string; adminId: string; adminName: string };
+  charge?: { provider: 'STRIPE' | 'SIMULATION'; paymentIntentId?: string; attempts: number; error?: string; at: string; isTest: boolean };
+  transfer?: { status: 'DONE' | 'WAITING_ACCOUNT' | 'FAILED' | 'SIMULATED'; transferId?: string; error?: string; at: string };
+  /** Opened by Haven for the owner, for example after the next tenant's report. */
+  declaredBy?: { adminId: string; adminName: string; reportId?: string };
 }
 
 export interface HavenRefund { id: string; amountCents: number; reason: string; at: string; adminId: string; adminName: string; status: 'COMPLETED' | 'PENDING' | 'SIMULATED' }

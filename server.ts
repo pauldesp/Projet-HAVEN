@@ -56,8 +56,11 @@ import { MemberApprovalError, prepareMemberApproval, prepareMemberModeration } f
 import { buildHousematePreviews, eligibleHousemateBookings, canViewBookingHousemates } from './services/housemates';
 import type { HousemateProfile } from './services/housemates';
 import express from "express";
-import { createServer as createViteServer } from "vite";
 import path from "path";
+import { describeProductionConfiguration } from './services/productionConfiguration';
+import { createDamageDeposit } from './services/damageDepositServer';
+import { caseGuidance, pickPreviousStay, type CaseMember, type CaseSettlement, type ReportCase } from './services/reportCase';
+import { DAMAGE_DEPOSIT_CONSENT_TEXT, DAMAGE_DEPOSIT_POLICY, DamageClaimError, assertDamageDepositAccepted } from './services/damageDeposit';
 import { Resend } from "resend";
 import Stripe from "stripe";
 import { applicationDefault, getApps, initializeApp } from "firebase-admin/app";
@@ -277,6 +280,14 @@ const recurringSeries = createRecurringSeries({
   notifyMail: () => void deliverReservationMail(),
 });
 
+const damageDeposit = createDamageDeposit({
+  db: adminDb,
+  stripe: getStripe,
+  paymentMode: () => getPaymentMode(),
+  isTestMode: () => connectConfiguration().isTest,
+  payoutAccount: ownerId => ownerConnect.payoutAccount(ownerId),
+});
+
 const adminModeration = createAdminModeration({ db: adminDb, notifyMail: () => void deliverReservationMail() });
 // Local tests write to their own collection, never mixed with real visits.
 const analytics = createAnalytics({ db: adminDb, collection: process.env.NODE_ENV === 'production' ? 'analytics_daily' : 'analytics_daily_dev' });
@@ -296,6 +307,7 @@ async function synchronizeCheckout(session: Stripe.Checkout.Session) {
   } else {
     await ownerConnect.registerPayment(result.booking as Booking, session);
     await recurringSeries.savePaymentMethod(result.booking as Booking, session);
+    await damageDeposit.saveCard(result.booking as Booking, session);
   }
 }
 
@@ -322,11 +334,12 @@ async function reconcileStripe() {
   try {
     // Rebuild missing settlement records even if a webhook was lost after a crash.
     const bookings = await adminDb.collection('bookings').where('paymentProvider', '==', 'STRIPE').get();
+    const settled = new Set((await adminDb.collection('owner_settlements').select().get()).docs.map(doc => doc.id));
     for (const doc of bookings.docs) {
       const data = doc.data(), sessionId = data.checkoutSessionId || data.stripeSessionId;
       if (!sessionId || data.paymentIsTest === !connectConfiguration().isTest) continue;
       if (data.cancellation?.refundId?.startsWith('re_')) try { await synchronizeRefund(data.cancellation.refundId); } catch { console.error('Stripe refund reconciliation requires a retry.'); }
-      if (data.paymentStatus === 'PAID' && (await adminDb.collection('owner_settlements').doc(doc.id).get()).exists) continue;
+      if (data.paymentStatus === 'PAID' && settled.has(doc.id)) continue;
       try {
         if (String(sessionId).startsWith('pi_')) await recurringSeries.synchronizeIntent(await getStripe().paymentIntents.retrieve(sessionId));
         else await synchronizeCheckout(await getStripe().checkout.sessions.retrieve(sessionId));
@@ -334,6 +347,7 @@ async function reconcileStripe() {
       catch { console.error('Stripe checkout reconciliation requires a retry.'); }
     }
     await ownerConnect.reconcileAll();
+    await damageDeposit.sweep();
     await systemHealth.success('STRIPE_RECONCILIATION');
   } catch (error) { console.error('Stripe reconciliation unavailable; retry scheduled.'); await systemHealth.failure('STRIPE_RECONCILIATION', error); }
   finally { checkoutReconciliationRunning = false; }
@@ -625,10 +639,17 @@ async function expireBooking(bookingId: string) {
   if (expired?.seriesId && expired.seriesIndex === 0) await recurringSeries.releaseInactive(expired.seriesId);
   if (expired?.unpaidCancelledAt || (expired && isLaterSeriesStay(expired) && expired.seriesActivatedAt)) void deliverReservationMail();
 }
+// Unpaid holds last 30 minutes: the minute run only reads bookings created in the last two hours.
+// Series stays waiting for their installment expire on their own deadline: a full pass every 15 minutes covers them.
+let lastFullExpiryPass = 0;
 async function expireBookings() {
   try {
-    const pending = await adminDb.collection('bookings').where('status', 'in', ['PENDING', 'APPROVED']).get();
-    await Promise.all(pending.docs.filter(item => isBookingExpired(item.data() as Booking)).map(item => expireBooking(item.id)));
+    const full = Date.now() - lastFullExpiryPass >= 15 * 60_000;
+    const pending = full
+      ? await adminDb.collection('bookings').where('status', 'in', ['PENDING', 'APPROVED']).get()
+      : await adminDb.collection('bookings').where('createdAt', '>=', new Date(Date.now() - 2 * 3600_000).toISOString()).get();
+    if (full) lastFullExpiryPass = Date.now();
+    await Promise.all(pending.docs.filter(item => ['PENDING', 'APPROVED'].includes(item.data().status) && isBookingExpired(item.data() as Booking)).map(item => expireBooking(item.id)));
     await systemHealth.success('BOOKING_EXPIRY');
   } catch (error) { console.error('Booking expiration unavailable', error); await systemHealth.failure('BOOKING_EXPIRY', error); }
 }
@@ -658,7 +679,16 @@ async function getHousematesForStay(listingId: string, stay: { viewerId: string;
 async function startServer() {
   console.log("Starting server...");
   const app = express();
-  const PORT = 3000;
+  // The host (Cloud Run) chooses the port; 3000 stays the local default.
+  const PORT = Number(process.env.PORT) || 3000;
+  // Behind the host's proxy, the visitor's address and HTTPS come from X-Forwarded-* headers.
+  // Without this, every visitor would share one rate-limit counter (the proxy's address).
+  if (isProduction) app.set('trust proxy', 1);
+  if (isProduction) {
+    const { missing, warnings } = describeProductionConfiguration(process.env);
+    for (const item of missing) console.error(`Production configuration missing: ${item}`);
+    for (const item of warnings) console.warn(`Production configuration: ${item}`);
+  }
 
   // Tailwind is compiled and the page has no inline script: the built site runs under a CSP.
   // Vite's development server injects an inline preamble, so CSP stays off while developing.
@@ -719,16 +749,35 @@ async function startServer() {
   });
 
   // Public calendar only: never expose booking participants, contact data or payment details.
+  // Every open search or listing page asks for the calendars every minute. The server keeps a live copy of the
+  // current calendars: Firestore sends only the changes, so these requests cost no reads at all.
+  const availabilityMirror = new Map<string, Record<string, unknown>>();
+  let availabilityMirrorReady = false;
+  const startAvailabilityMirror = () => {
+    const since = new Date(Date.now() - 2 * 86400_000).toISOString().slice(0, 10);
+    adminDb.collection('booking_availability').where('endDate', '>=', since).onSnapshot(snapshot => {
+      for (const change of snapshot.docChanges()) {
+        if (change.type === 'removed') availabilityMirror.delete(change.doc.id);
+        else availabilityMirror.set(change.doc.id, change.doc.data());
+      }
+      availabilityMirrorReady = true;
+    }, () => {
+      // Listener stopped (network, quota): answer from Firestore directly and try again in a minute.
+      availabilityMirrorReady = false; availabilityMirror.clear();
+      setTimeout(startAvailabilityMirror, 60_000).unref();
+    });
+  };
+  startAvailabilityMirror();
   app.get('/api/availability', rateLimit({ windowMs: 60_000, limit: 240, standardHeaders: true, legacyHeaders: false }), async (req, res) => {
     try {
       const listingId = req.query.listingId;
       if (listingId !== undefined && (typeof listingId !== 'string' || !/^[a-zA-Z0-9_-]{1,128}$/.test(listingId))) return sendApiError(res, 422, 'Logement invalide.');
       const cutoff = new Date(Date.now() - 24 * 3600_000).toISOString().slice(0, 10);
-      const query = listingId ? adminDb.collection('booking_availability').where('listingId', '==', listingId) : adminDb.collection('booking_availability').where('endDate', '>=', cutoff);
-      const snapshot = await query.get();
-      const availability = snapshot.docs.flatMap(item => {
-        const value = item.data();
-        const calendar = publicAvailabilityItem(item.id, value);
+      const entries: [string, Record<string, unknown>][] = availabilityMirrorReady
+        ? [...availabilityMirror].filter(([, value]) => !listingId || value.listingId === listingId)
+        : (await (listingId ? adminDb.collection('booking_availability').where('listingId', '==', listingId) : adminDb.collection('booking_availability').where('endDate', '>=', cutoff)).get()).docs.map(item => [item.id, item.data()]);
+      const availability = entries.flatMap(([id, value]) => {
+        const calendar = publicAvailabilityItem(id, value);
         return calendar && calendar.endDate >= cutoff ? [calendar] : [];
       });
       res.setHeader('Cache-Control', 'no-store');
@@ -743,7 +792,7 @@ async function startServer() {
           typeof startDate !== 'string' || typeof endDate !== 'string' || !isBookableStay(startDate, endDate)) {
         return sendApiError(res, 422, 'Les informations ou les dates du séjour sont invalides');
       }
-      try { assertCleaningPolicyAccepted(req.body?.cleaningPolicyVersion); } catch (error) { return sendApiError(res, 422, (error as Error).message); }
+      try { assertCleaningPolicyAccepted(req.body?.cleaningPolicyVersion); assertDamageDepositAccepted(req.body?.depositPolicyVersion); } catch (error) { return sendApiError(res, 422, (error as Error).message); }
       const userRef = adminDb.collection('users').doc(req.user!.uid);
       const listingRef = adminDb.collection('listings').doc(listingId);
       const bookingRef = adminDb.collection('bookings').doc(id);
@@ -789,6 +838,7 @@ async function startServer() {
           ownerId: listing.ownerId, startDate, endDate, status: 'PENDING', basePrice, cleaningFee,
           platformFee, totalPrice: basePrice + cleaningFee + platformFee, createdAt,
           paymentStatus: 'PENDING', bookingMode: 'INSTANT', cleaningPolicyVersion: CLEANING_POLICY_VERSION, cleaningPolicyAcceptedAt: createdAt,
+          depositConsent: { version: DAMAGE_DEPOSIT_POLICY.version, text: DAMAGE_DEPOSIT_CONSENT_TEXT, amountCents: DAMAGE_DEPOSIT_POLICY.amountCents, acceptedAt: createdAt },
           checkInTime: listing.checkInTime || '15:00', checkOutTime: listing.checkOutTime || '11:00',
         };
         transaction.set(roomLockRef, { updatedAt: createdAt });
@@ -813,7 +863,7 @@ async function startServer() {
 
   app.post('/api/booking-series', sensitiveApiLimiter, requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
-      try { assertCleaningPolicyAccepted(req.body?.cleaningPolicyVersion); } catch (error) { return sendApiError(res, 422, (error as Error).message); }
+      try { assertCleaningPolicyAccepted(req.body?.cleaningPolicyVersion); assertDamageDepositAccepted(req.body?.depositPolicyVersion); } catch (error) { return sendApiError(res, 422, (error as Error).message); }
       const created = await recurringSeries.create(req.user!.uid, req.body || {});
       return res.status(201).json(created);
     } catch (error) {
@@ -1180,6 +1230,67 @@ async function startServer() {
     }
   });
 
+  // Case file: the stay, the people, the listing, the previous stay in the same room and its check-out.
+  // Opened from a report (with the report) or from a booking in the Reservations tab (without).
+  async function buildCaseFile(report: import('./types').Report | null, bookingId?: string): Promise<ReportCase> {
+    const safeId = (value: unknown) => typeof value === 'string' && /^[a-zA-Z0-9_-]{1,200}$/.test(value) ? value : null;
+    const read = async <T,>(collection: string, docId: unknown) => { const key = safeId(docId); if (!key) return null; const snap = await adminDb.collection(collection).doc(key).get(); return snap.exists ? { ...snap.data(), id: snap.id } as T : null; };
+    const member = async (uid: unknown): Promise<CaseMember | null> => {
+      const user = await read<Record<string, unknown>>('users', uid);
+      return user ? { id: String(user.id), firstName: String(user.firstName || ''), lastName: String(user.lastName || ''), email: String(user.email || ''), phone: String(user.phone || ''), role: String(user.role || ''), status: String(user.status || '') } : null;
+    };
+    const booking = await read<Booking>('bookings', report?.bookingId || bookingId);
+    const listingId = report?.listingId || booking?.listingId || (report?.targetType === 'LISTING' ? report.targetId : undefined);
+    const listing = await read<Listing>('listings', listingId);
+    const stayOf = async (item: Booking) => ({ booking: item, tenant: await member(item.tenantId),
+      checkIn: await read<import('./types').InventoryReport>('inventory', item.checkInReportId), checkOut: await read<import('./types').InventoryReport>('inventory', item.checkOutReportId) });
+    const stay = booking ? await stayOf(booking) : null;
+    let previousStay: ReportCase['previousStay'] = null;
+    if (booking) {
+      const roomBookings = (await adminDb.collection('bookings').where('listingId', '==', booking.listingId).get()).docs.map(doc => ({ ...doc.data(), id: doc.id }) as Booking);
+      const previous = pickPreviousStay(roomBookings, booking);
+      if (previous) previousStay = { ...await stayOf(previous), damageClaim: await read<import('./types').DamageClaim>('damage_claims', previous.id) };
+    }
+    const settlementData = booking ? await read<Record<string, unknown>>('owner_settlements', booking.id) : null;
+    const settlement: CaseSettlement | null = settlementData ? { state: String(settlementData.state || ''), amountCents: Number(settlementData.amountCents || 0), adminHold: settlementData.adminHold === true, holdReason: typeof settlementData.holdReason === 'string' ? settlementData.holdReason : undefined } : null;
+    const related: ReportCase['related'] = [];
+    if (booking) {
+      const [otherReports, incidents] = await Promise.all([adminDb.collection('reports').where('bookingId', '==', booking.id).get(), adminDb.collection('incidents').where('bookingId', '==', booking.id).get()]);
+      for (const doc of otherReports.docs) if (doc.id !== report?.id) related.push({ id: doc.id, kind: 'REPORT', title: String(doc.data().supportCategory || doc.data().reason || 'Signalement'), status: String(doc.data().status || ''), createdAt: String(doc.data().timestamp || '') });
+      for (const doc of incidents.docs) related.push({ id: doc.id, kind: 'INCIDENT', title: String(doc.data().title || 'Incident'), status: String(doc.data().status || ''), createdAt: String(doc.data().createdAt || '') });
+    }
+    const room = listing?.rooms?.find(item => item.id === booking?.roomId);
+    const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+    return {
+      report, reporter: report ? await member(report.reporterId) : null, owner: await member(report?.ownerId || booking?.ownerId || listing?.ownerId),
+      listing: listing ? { id: listing.id, title: listing.title, city: listing.city, address: [listing.address, listing.postalCode, listing.city].filter(Boolean).join(', '), status: String(listing.status || ''), roomName: room?.name || booking?.roomName || '' } : null,
+      stay, settlement, previousStay, related,
+      guidance: caseGuidance({ report, stay, previousStay, settlement, today }),
+    };
+  }
+  const caseRoute = (load: (id: string) => Promise<ReportCase | null>) => async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const actor = await requireAdmin(req, res); if (!actor) return;
+      const id = String(req.params.id);
+      if (!/^[a-zA-Z0-9_-]{1,200}$/.test(id)) return sendApiError(res, 422, 'Référence invalide.');
+      const file = await load(id);
+      if (!file) return sendApiError(res, 404, 'Dossier introuvable.');
+      res.setHeader('Cache-Control', 'no-store');
+      return res.json(file);
+    } catch (error) {
+      console.error('Case file unavailable', error);
+      return sendApiError(res, 503, 'Le dossier est momentanément indisponible.');
+    }
+  };
+  app.get('/api/admin/reports/:id/case', sensitiveApiLimiter, requireAuth, caseRoute(async id => {
+    const snap = await adminDb.collection('reports').doc(id).get();
+    return snap.exists ? buildCaseFile({ ...snap.data(), id } as import('./types').Report) : null;
+  }));
+  app.get('/api/admin/bookings/:id/case', sensitiveApiLimiter, requireAuth, caseRoute(async id => {
+    const snap = await adminDb.collection('bookings').doc(id).get();
+    return snap.exists ? buildCaseFile(null, id) : null;
+  }));
+
   app.post('/api/admin/reports/:reportId/status', sensitiveApiLimiter, requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
       const actor = await requireAdmin(req, res); if (!actor) return;
@@ -1224,11 +1335,51 @@ async function startServer() {
       res.setHeader('Cache-Control', 'no-store');
       return res.json(await handler(admin, req) ?? { success: true });
     } catch (error) {
-      if (error instanceof AdminFinanceError) return sendApiError(res, error.status, error.message);
+      if (error instanceof AdminFinanceError || error instanceof DamageClaimError) return sendApiError(res, error.status, error.message);
       console.error('Admin finance action failed', error);
       return sendApiError(res, 503, 'L’action n’a pas pu aboutir. Réessayez dans quelques instants.');
     }
   };
+  const damageRoute = (handler: (req: AuthenticatedRequest) => Promise<unknown>, status = 200) => async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      if (!/^[a-zA-Z0-9_-]{1,128}$/.test(String(req.params.bookingId ?? 'list'))) return sendApiError(res, 422, 'Réservation invalide.');
+      res.setHeader('Cache-Control', 'no-store');
+      return res.status(status).json(await handler(req) ?? { success: true });
+    } catch (error) {
+      if (error instanceof DamageClaimError) return sendApiError(res, error.status, error.message);
+      console.error('Damage claim action failed', error);
+      return sendApiError(res, 503, 'L’action n’a pas pu aboutir. Réessayez dans quelques instants.');
+    }
+  };
+  // Caution: the owner declares damage, the tenant answers, Haven decides and charges.
+  app.get('/api/me/damage-claims', sensitiveApiLimiter, requireAuth, damageRoute(async req => ({ claims: await damageDeposit.listForMember(req.user!.uid) })));
+  app.post('/api/bookings/:bookingId/damage-claim', sensitiveApiLimiter, requireAuth, damageRoute(async req => ({ claim: await damageDeposit.declare(req.user!.uid, String(req.params.bookingId), req.body || {}) }), 201));
+  app.post('/api/bookings/:bookingId/damage-claim/response', sensitiveApiLimiter, requireAuth, damageRoute(async req => ({ claim: await damageDeposit.respond(req.user!.uid, String(req.params.bookingId), req.body?.text) })));
+  app.get('/api/admin/damage-claims', sensitiveApiLimiter, requireAuth, financeRoute(async () => ({ claims: await damageDeposit.listAll() })));
+  app.post('/api/admin/damage-claims/:bookingId/decision', sensitiveApiLimiter, requireAuth, financeRoute(async (admin, req) => {
+    const id = String(req.params.bookingId);
+    const claim = await damageDeposit.decide(admin, id, req.body || {});
+    await writeAdminAudit(admin, { action: claim.status === 'REJECTED' ? 'DAMAGE_CLAIM_REJECTED' : 'DAMAGE_CLAIM_APPROVED', category: 'FINANCE', targetType: 'BOOKING', targetId: id,
+      summary: claim.status === 'REJECTED' ? `Dégradation refusée : ${claim.decision?.note}` : `Dégradation retenue (${(claim.decision!.amountCents / 100).toFixed(2)} €) : ${claim.decision?.note}` });
+    return { claim };
+  }));
+  app.post('/api/admin/damage-claims/:bookingId/retry', sensitiveApiLimiter, requireAuth, financeRoute(async (admin, req) => {
+    const claim = await damageDeposit.retry(String(req.params.bookingId));
+    await writeAdminAudit(admin, { action: 'DAMAGE_CLAIM_RETRIED', category: 'FINANCE', targetType: 'BOOKING', targetId: String(req.params.bookingId), summary: 'Prélèvement ou versement de caution relancé.' });
+    return { claim };
+  }));
+  // Haven opens a claim on a stay's deposit for its owner (e.g. the next tenant found the room dirty).
+  app.post('/api/admin/bookings/:bookingId/damage-claim', sensitiveApiLimiter, requireAuth, financeRoute(async (admin, req) => {
+    const bookingId = String(req.params.bookingId);
+    if (!/^[a-zA-Z0-9_-]{1,128}$/.test(bookingId)) throw new DamageClaimError('Réservation invalide.');
+    const booking = (await adminDb.collection('bookings').doc(bookingId).get()).data() as Booking | undefined;
+    if (!booking) throw new DamageClaimError('Réservation introuvable.', 404);
+    const reportId = typeof req.body?.reportId === 'string' && /^[a-zA-Z0-9_-]{1,200}$/.test(req.body.reportId) ? req.body.reportId : undefined;
+    const claim = await damageDeposit.declare(booking.ownerId, bookingId, req.body || {}, { adminId: admin.uid, adminName: admin.name, ...(reportId ? { reportId } : {}) });
+    await writeAdminAudit(admin, { action: 'DAMAGE_CLAIM_OPENED', category: 'FINANCE', targetType: 'BOOKING', targetId: bookingId, summary: `Demande sur la caution ouverte par Haven (${(claim.requestedCents / 100).toFixed(2)} €)${reportId ? ` après le signalement ${reportId}` : ''}.` });
+    return { claim };
+  }));
+
   app.get('/api/admin/finances', sensitiveApiLimiter, requireAuth, financeRoute(() => adminFinances.overview()));
   app.post('/api/admin/bookings/:bookingId/refund', sensitiveApiLimiter, requireAuth, financeRoute((admin, req) => adminFinances.refund(admin, String(req.params.bookingId), req.body?.amountCents, req.body?.reason)));
   app.post('/api/admin/settlements/:bookingId/hold', sensitiveApiLimiter, requireAuth, financeRoute((admin, req) => adminFinances.hold(admin, String(req.params.bookingId), req.body?.hold, req.body?.reason)));
@@ -2381,12 +2532,13 @@ async function startServer() {
         // Stable across retries with the same idempotency key. The checkout starts within the initial 30-minute hold.
         expires_at: laterStay ? Math.floor(Date.now() / 1000) + 60 * 60 : Math.floor(Date.parse(booking.createdAt) / 1000) + 60 * 60,
         // The first stay of a series saves the card so the next installments are charged automatically.
-        ...(booking.seriesId ? laterStay && series?.stripeCustomerId ? { customer: series.stripeCustomerId } : { customer_creation: 'always' as const } : {}),
+        // A single stay with a deposit keeps the card too, for a damage charge validated by Haven.
+        ...(booking.seriesId ? laterStay && series?.stripeCustomerId ? { customer: series.stripeCustomerId } : { customer_creation: 'always' as const } : booking.depositConsent ? { customer_creation: 'always' as const } : {}),
         // A saved Stripe customer already carries its e-mail; Stripe refuses both at once.
         ...(tenantEmail && !(laterStay && series?.stripeCustomerId) ? { customer_email: tenantEmail } : {}),
         line_items: [{ quantity: 1, price_data: { currency: 'eur', unit_amount: Math.round(booking.totalPrice * 100), product_data: { name: String(booking.listingTitle || listing?.title || 'Séjour HAVEN').slice(0, 200), description: `${booking.roomName || 'Chambre'} · ${booking.startDate} → ${booking.endDate}` } } }],
         success_url: successUrl, cancel_url: cancelUrl,
-        payment_intent_data: { transfer_group: `haven_${bookingId}`, ...(booking.seriesId ? { setup_future_usage: 'off_session' as const } : {}), metadata: { bookingId, connectPolicy: CONNECT_POLICY_VERSION, ownerAccountId } },
+        payment_intent_data: { transfer_group: `haven_${bookingId}`, ...(booking.seriesId || booking.depositConsent ? { setup_future_usage: 'off_session' as const } : {}), metadata: { bookingId, connectPolicy: CONNECT_POLICY_VERSION, ownerAccountId } },
         metadata: { bookingId, listingId: booking.listingId, tenantId: booking.tenantId, connectPolicy: CONNECT_POLICY_VERSION, ownerAccountId }
       }, { idempotencyKey: checkoutAttempt ? `checkout-${bookingId}-${checkoutAttempt}` : `checkout-${bookingId}` });
       await adminDb.runTransaction(async transaction => {
@@ -2420,15 +2572,20 @@ async function startServer() {
   // Run a catch-up sweep at startup and hourly. The authenticated history read
   // also triggers the same idempotent sweep so downtime never loses a rating.
   void reconcileStripe();
-  const connectSweep = setInterval(() => void reconcileStripe(), 5 * 60_000);
+  // Webhooks carry payments as they happen; this rebuild is a safety net for lost events.
+  const connectSweep = setInterval(() => void reconcileStripe(), 30 * 60_000);
   connectSweep.unref();
-  const arrivalSweep = setInterval(() => void systemHealth.track('OWNER_TRANSFERS', () => ownerConnect.releaseArrivedBookings()), 30_000);
+  const arrivalSweep = setInterval(() => void systemHealth.track('OWNER_TRANSFERS', () => ownerConnect.releaseArrivedBookings()), 2 * 60_000);
   arrivalSweep.unref();
   void queueTeamReportMails().then(() => deliverReservationMail());
-  const reservationMailSweep = setInterval(() => void queueTeamReportMails().then(() => deliverReservationMail()), 30_000);
+  const reservationMailSweep = setInterval(() => void deliverReservationMail(), 30_000);
   reservationMailSweep.unref();
+  // New reports are announced to the team within two minutes.
+  const teamAlertSweep = setInterval(() => void queueTeamReportMails().then(() => deliverReservationMail()), 2 * 60_000);
+  teamAlertSweep.unref();
   void systemHealth.track('INSTALLMENTS', () => recurringSeries.sweep());
-  const installmentSweep = setInterval(() => void systemHealth.track('INSTALLMENTS', () => recurringSeries.sweep()), 60_000);
+  // Installments are due by the day: every five minutes is plenty.
+  const installmentSweep = setInterval(() => void systemHealth.track('INSTALLMENTS', () => recurringSeries.sweep()), 5 * 60_000);
   installmentSweep.unref();
   void expireBookings();
   const bookingSweep = setInterval(() => void expireBookings(), 60_000);
@@ -2447,6 +2604,8 @@ async function startServer() {
   if (process.env.NODE_ENV !== "production") {
     console.log("Initializing Vite middleware...");
     try {
+      // Loaded only while developing: the production image installs no development tools.
+      const { createServer: createViteServer } = await import("vite");
       const vite = await createViteServer({
         server: { 
           middlewareMode: true,
@@ -2462,9 +2621,13 @@ async function startServer() {
     }
   } else {
     const distPath = path.join(process.cwd(), 'dist');
-    app.use(express.static(distPath));
+    // File names under /assets change with their content: browsers may keep them a year.
+    app.use('/assets', express.static(path.join(distPath, 'assets'), { immutable: true, maxAge: '1y', index: false }));
+    // Everything else (index.html, images of public/) is checked again so a release shows at once.
+    app.use(express.static(distPath, { index: false, setHeaders: res => res.setHeader('Cache-Control', 'no-cache') }));
+    app.all('/api/*all', (_req, res) => sendApiError(res, 404, 'Adresse inconnue.'));
     app.get('*all', (_req, res) => {
-      res.sendFile(path.join(distPath, 'index.html'));
+      res.set('Cache-Control', 'no-cache').sendFile(path.join(distPath, 'index.html'));
     });
   }
 }

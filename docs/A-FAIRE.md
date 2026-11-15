@@ -18,8 +18,9 @@ Légende : **[Paul]** à faire par toi (comptes, contrats, décisions), **[Code]
 
 ### Hébergement
 
-- [ ] **[Paul] Choisir l'hébergeur.** Le serveur doit rester allumé en continu (prélèvements, expirations, mails, rapprochement Stripe toutes les minutes) : par exemple Cloud Run avec une instance toujours active, ou un petit serveur. Pas d'hébergement qui se met en veille.
-- [ ] **[Code] Ajouter le démarrage de production** (script `start`, configuration de l'hébergeur, variables d'environnement).
+- [x] **[Paul] Choisir l'hébergeur** : Google Cloud Run (choix du 11 novembre). Le serveur doit rester allumé en continu (prélèvements, expirations, mails, rapprochement Stripe toutes les minutes) : par exemple Cloud Run avec une instance toujours active, ou un petit serveur. Pas d'hébergement qui se met en veille.
+- [x] **[Code] Ajouter le démarrage de production** : `npm start`, `Dockerfile`, vérification des réglages au démarrage. Notice pas à pas dans `docs/MISE-EN-PRODUCTION.md`.
+- [ ] **[Paul] Déployer sur Cloud Run** en suivant `docs/MISE-EN-PRODUCTION.md` (instance toujours active, processeur toujours alloué, une seule instance).
 - [ ] **[Paul] Acheter et relier le nom de domaine** en HTTPS.
 - [ ] **[Code] Renseigner `APP_ORIGIN`** avec l'adresse publique et vérifier tous les liens des e-mails.
 - [ ] **[Paul] Saisir les secrets de production** chez l'hébergeur (jamais dans Git ni dans une conversation).
@@ -54,7 +55,7 @@ Légende : **[Paul]** à faire par toi (comptes, contrats, décisions), **[Code]
 - [x] **[Code] Brouillons de la politique de confidentialité et des mentions légales** (11 nov.) : `docs/juridique/`, rédigés d'après le fonctionnement réel du site.
 - [x] **[Code] Jeu juridique complet rédigé** (12 nov.) dans `docs/juridique/` : conditions générales d'utilisation, conditions de réservation, conditions propriétaires, cahier des charges révisé, confidentialité, mentions légales. Vérification et publication : `node scripts/legal-documents.mjs check | preview | publish` (la publication est refusée tant qu'il reste des crochets à compléter).
 - [ ] **[Paul] Trancher avec le juriste** les points encadrés « À valider » : qualification du contrat (location meublée, bail mobilité), loi Hoguet, mandat d'encaissement, TVA sur les frais de service, taxe de séjour, obligations DSA, pénalités d'annulation du propriétaire.
-- [ ] **[Paul] Décider** de la part reversée au propriétaire en cas d'annulation tardive du locataire (aujourd'hui rien) et d'une éventuelle empreinte bancaire.
+- [ ] **[Paul] Décider** de la part reversée au propriétaire en cas d'annulation tardive du locataire (aujourd'hui rien).
 - [ ] **[Code] Faire accepter les Conditions propriétaires** à la publication d'une annonce, et le lien vers la politique de confidentialité à l'inscription, une fois publiées.
 - [ ] **[Code] Statut particulier ou professionnel du propriétaire** (affiché aux locataires) et collecte des informations fiscales DAC7, avec relevé annuel au 31 janvier.
 - [ ] **[Paul] Compléter ces brouillons** (société, SIREN, adresses, médiateur, région Firebase), les faire valider, puis les publier dans le back office (onglet Légal) ; **[Code]** ajouter alors le lien vers la politique sur l'inscription et en pied de page.
@@ -77,6 +78,8 @@ Légende : **[Paul]** à faire par toi (comptes, contrats, décisions), **[Code]
 - [x] **[Code] Compiler Tailwind dans le projet** au lieu du CDN, puis **activer la politique de sécurité des contenus (CSP)** en production (7 novembre ; rendu identique vérifié sur 6 pages, aucune violation sur les pages publiques).
 - [ ] **[Test] Vérifier la CSP sur les pages connectées** une fois en ligne : connexion Google, messagerie, paiement Stripe, publication d'annonce.
 - [x] **[Code] Suivi des erreurs** (11 nov.) : erreurs imprévues du site et du serveur regroupées dans Surveillance (« Erreurs de l’application »), sans donnée personnelle ; en ligne, une alerte à l’équipe à la première apparition (10 par heure au plus).
+- [x] **[Code] Réduire les lectures Firestore** (15 novembre) : disponibilités servies depuis une copie tenue à jour par le serveur, tâches périodiques ralenties et ciblées. Le quota gratuit (50 000 lectures/jour) avait été épuisé le 14 au soir.
+- [ ] **[Paul] Passer la base Firestore sur une formule payante** (paiement à l'usage) avant l'ouverture : la base actuelle est plafonnée au quota gratuit, même avec une carte bancaire ; à ce plafond, le site entier cesse de fonctionner jusqu'au lendemain 9 h.
 - [ ] **[Code] Revoir les limites de requêtes** (connexion, paiement, signalements) une fois le trafic réel connu.
 - [x] **[Code] Mettre à jour les dépendances** et lancer un audit de sécurité (`npm audit`) : 29 failles → 17, dont plus aucune critique ; React Router mis à jour, `showdown` (inutilisé) retiré.
 - [ ] **[Code] Suivre la mise à jour de Firebase** : les 4 failles « élevées » restantes viennent de son module gRPC interne, sans correction compatible pour l'instant.
@@ -96,7 +99,10 @@ Légende : **[Paul]** à faire par toi (comptes, contrats, décisions), **[Code]
 - [ ] **[Code] Page « Mon séjour »** qui regroupe consignes, état des lieux, messages et paiements.
 - [ ] **[Code] Historique des paiements d'une série** et remplacement de la carte sans payer un séjour.
 - [ ] **[Code] Modification des dates** après réservation (aujourd'hui : annuler puis réserver à nouveau).
-- [ ] **[Paul] Décider de la caution par empreinte bancaire** (montant, moment, conditions), puis **[Code]** l'activer.
+- [x] **Caution** (13 novembre) : carte gardée par Stripe, rien de bloqué ni débité ; le propriétaire déclare une dégradation dans les 7 jours suivant le départ, le locataire répond, Haven décide dans Finances › Cautions et prélève au plus 300 €, reversés au propriétaire (`services/damageDeposit*.ts`, `components/DamageClaims.tsx`, `AdminDamageClaims.tsx`). Montant modifiable dans `DAMAGE_DEPOSIT_POLICY`.
+- [ ] **[Code] Mails de la caution** : prévenir le locataire d'une déclaration (pour qu'il réponde), les deux parties de la décision, et l'équipe d'une nouvelle déclaration. Aujourd'hui, c'est visible dans les espaces et le back office seulement.
+- [ ] **[Test] Tester la caution en mode test** : réservation, carte gardée, déclaration, réponse, prélèvement, versement au propriétaire, carte refusée (`4000 0000 0000 0341`).
+- [ ] **[Paul] Faire valider la caution par le juriste** (bail mobilité, mandat d'encaissement) et mentionner la conservation de la carte dans la politique de confidentialité.
 - [ ] **[Code] Photos des chambres en plein écran** (un clic sélectionne la chambre aujourd'hui).
 
 ### Parcours propriétaire

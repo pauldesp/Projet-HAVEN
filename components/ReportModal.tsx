@@ -1,5 +1,6 @@
+import { pickFile } from '../services/filePicker';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { X, AlertTriangle, CheckCircle2, Loader2, Camera } from 'lucide-react';
 import { Button } from './Button';
 import { apiService } from '../services/api';
@@ -17,6 +18,13 @@ interface ReportModalProps {
   listingId?: string; // Optional, for incidents
   bookingId?: string; // Optional, for incidents
   ownerId?: string; // Optional, for incidents
+}
+
+function StepSummary({ label, value, onChange }: { label: string; value: string; onChange: () => void }) {
+  return <div className="flex items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50/40 px-4 py-3">
+    <p className="min-w-0 text-sm"><span className="text-gray-500">{label} : </span><span className="font-bold text-haven-navy">{value}</span></p>
+    <button type="button" onClick={onChange} className="shrink-0 rounded-lg px-2 py-1 text-xs font-bold text-amber-700 underline underline-offset-2">Modifier</button>
+  </div>;
 }
 
 export const ReportModal: React.FC<ReportModalProps> = ({
@@ -39,6 +47,9 @@ export const ReportModal: React.FC<ReportModalProps> = ({
 
   // State for Incident (if technical/property)
   const [isIncident, setIsIncident] = useState(targetType === 'TECHNICAL');
+  // Each answer reveals the next step right below it: bring it into view (the form scrolls inside the dialog on phones).
+  const nextStepRef = useRef<HTMLDivElement>(null);
+  const revealNextStep = () => window.setTimeout(() => nextStepRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60);
   const [priority, setPriority] = useState<'LOW' | 'MEDIUM' | 'HIGH'>('MEDIUM');
 
   const [incidentReport, setIncidentReport] = useState<{ category: string, subCategory: string, description: string, photo: string }>({
@@ -119,16 +130,13 @@ export const ReportModal: React.FC<ReportModalProps> = ({
   };
 
   const handleAddPhoto = () => {
-    const input = document.createElement('input');
-    input.type = 'file'; input.accept = 'image/*';
-    input.onchange = async () => {
-      const file = input.files?.[0]; if (!file) return;
+    void pickFile('image/*').then(async file => {
+      if (!file) return;
       try {
         const photo = await prepareVerificationDocument(file);
         setIncidentReport(previous => ({ ...previous, photo }));
       } catch (error) { toast.error(error instanceof Error ? error.message : 'Impossible de charger la photo.'); }
-    };
-    input.click();
+    });
   };
 
   if (isSuccess) {
@@ -182,90 +190,75 @@ export const ReportModal: React.FC<ReportModalProps> = ({
             <Button variant={isIncident ? 'primary' : 'outline'} disabled={isSubmitting} onClick={() => setIsIncident(true)}>Incident au propriétaire</Button>
             <Button variant={!isIncident ? 'primary' : 'outline'} disabled={isSubmitting} onClick={() => setIsIncident(false)}>Signalement à Haven</Button>
           </div>}
-          {isIncident && incidentReport.subCategory && <p className="rounded-xl bg-blue-50 p-4 text-sm text-haven-navy">{destination === 'OWNER' ? 'Destinataire : le propriétaire du logement.' : 'Cette situation nécessite l’intervention de Haven et sera ajoutée aux signalements.'}</p>}
           {isIncident ? (
-            <div className="space-y-8 animate-fade-in">
-              {/* Incident Workflow */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                {INCIDENT_CATEGORIES.map(cat => (
-                  <button
-                    key={cat.id}
-                    onClick={() => setIncidentReport(prev => ({ ...prev, category: cat.title, subCategory: '' }))}
-                    className={`p-5 rounded-2xl border-2 text-left transition-all group ${incidentReport.category === cat.title ? 'border-amber-500 bg-amber-50/30' : 'border-gray-50 bg-gray-50 group-hover:border-gray-200'}`}
-                  >
-                    <span className="font-black text-[10px] text-amber-600 opacity-50 block mb-1 group-hover:opacity-100">{cat.id}</span>
-                    <span className="font-bold text-xs text-haven-navy">{cat.title}</span>
-                  </button>
-                ))}
-              </div>
-
-              {incidentReport.category && (
-                <div className="space-y-6 animate-fade-in-up pt-4 border-t border-gray-100">
-                  <label className="block text-[10px] font-black text-amber-700 uppercase tracking-widest">Détails de l'incident</label>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                    {(INCIDENT_CATEGORIES.find(c => c.title === incidentReport.category)?.items || []).map(item => (
-                      <button
-                        key={item}
-                        onClick={() => setIncidentReport(prev => ({ ...prev, subCategory: item }))}
-                        className={`p-3 rounded-xl border text-left text-[10px] font-bold transition-all ${incidentReport.subCategory === item ? 'bg-amber-600 border-amber-600 text-white' : 'bg-white border-gray-100 text-amber-800 hover:border-amber-200'}`}
-                      >
-                        {item}
-                      </button>
-                    ))}
-                  </div>
-
-                  {incidentReport.subCategory && (
-                    <div className="space-y-6 pt-4 animate-fade-in-up">
-                      <div className="space-y-3">
-                        <label className="block text-xs font-bold text-haven-navy">Description précise</label>
-                        <textarea
-                          rows={4} maxLength={4999}
-                          className="w-full bg-gray-50 border border-gray-200 p-5 rounded-2xl outline-none focus:border-amber-500 transition-colors text-sm"
-                          placeholder="Décrivez le problème et les éléments utiles à sa prise en charge..."
-                          value={incidentReport.description}
-                          onChange={e => setIncidentReport({...incidentReport, description: e.target.value})}
-                        />
-                      </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-3">
-                           <label className="block text-xs font-bold text-haven-navy">Priorité</label>
-                           <div className="flex gap-2">
-                              {['LOW', 'MEDIUM', 'HIGH'].map((p) => (
-                                <button
-                                  key={p}
-                                  type="button"
-                                  onClick={() => setPriority(p as any)}
-                                  className={`flex-1 py-3 rounded-xl border text-[10px] font-bold uppercase tracking-widest transition-all ${priority === p ? (p === 'HIGH' ? 'bg-red-600 border-red-600 text-white' : 'bg-haven-navy border-haven-navy text-white') : 'border-gray-200 text-gray-400'}`}
-                                >
-                                  {p === 'LOW' ? 'Basse' : p === 'MEDIUM' ? 'Moyenne' : 'Urgente'}
-                                </button>
-                              ))}
-                           </div>
-                        </div>
-
-                        <div className="space-y-3">
-                          <label className="block text-xs font-bold text-haven-navy">Photo (conseillé)</label>
-                          {incidentReport.photo ? (
-                            <div className="relative aspect-video rounded-2xl overflow-hidden border border-gray-200">
-                               <img src={incidentReport.photo} className="w-full h-full object-cover" alt="" />
-                               <button onClick={() => setIncidentReport({...incidentReport, photo: ''})} className="absolute top-2 right-2 bg-white/90 p-2 rounded-full text-haven-red shadow-sm transform hover:scale-110"><X size={14}/></button>
-                            </div>
-                          ) : (
-                            <button
-                              onClick={handleAddPhoto}
-                              className="w-full py-12 border-2 border-dashed border-gray-200 rounded-2xl flex flex-col items-center justify-center gap-2 text-gray-400 hover:border-amber-300 hover:text-amber-600 hover:bg-amber-50/30 transition-all font-bold"
-                            >
-                              <Camera size={24} />
-                              <span className="text-[10px] uppercase tracking-widest">Prendre une photo</span>
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  )}
+            <div className="space-y-4 animate-fade-in">
+              {/* Step 1: theme. Once chosen, the list folds into one line that can be reopened. */}
+              {!incidentReport.category ? <>
+                <p className="text-sm font-bold text-haven-navy">1. Quel est le thème du problème ?</p>
+                <div className="grid grid-cols-1 gap-2 md:grid-cols-2 lg:grid-cols-3">
+                  {INCIDENT_CATEGORIES.map(cat => (
+                    <button key={cat.id} type="button" onClick={() => { setIncidentReport(prev => ({ ...prev, category: cat.title, subCategory: '' })); revealNextStep(); }}
+                      className="flex min-h-14 items-center gap-3 rounded-2xl border-2 border-gray-50 bg-gray-50 p-4 text-left transition-all hover:border-amber-200">
+                      <span className="text-[10px] font-black text-amber-600">{cat.id}</span>
+                      <span className="text-sm font-bold text-haven-navy">{cat.title}</span>
+                    </button>
+                  ))}
                 </div>
-              )}
+              </> : <StepSummary label="Thème" value={incidentReport.category} onChange={() => setIncidentReport(prev => ({ ...prev, category: '', subCategory: '' }))} />}
+
+              {/* Step 2: precise problem within the theme. */}
+              {incidentReport.category && (!incidentReport.subCategory ? <div ref={nextStepRef} className="space-y-3 animate-fade-in-up">
+                <p className="text-sm font-bold text-haven-navy">2. Quel est le problème exactement ?</p>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  {(INCIDENT_CATEGORIES.find(c => c.title === incidentReport.category)?.items || []).map(item => (
+                    <button key={item} type="button" onClick={() => { setIncidentReport(prev => ({ ...prev, subCategory: item })); revealNextStep(); }}
+                      className="min-h-12 rounded-xl border border-amber-100 bg-white p-3 text-left text-sm font-semibold text-amber-900 transition-all hover:border-amber-300 hover:bg-amber-50/40">
+                      {item}
+                    </button>
+                  ))}
+                </div>
+              </div> : <StepSummary label="Problème" value={incidentReport.subCategory} onChange={() => setIncidentReport(prev => ({ ...prev, subCategory: '' }))} />)}
+
+              {/* Step 3: details, adapted to who will handle it. */}
+              {incidentReport.subCategory && <div ref={nextStepRef} className="space-y-5 animate-fade-in-up">
+                <p className="rounded-xl bg-blue-50 p-4 text-sm text-haven-navy">{destination === 'OWNER' ? 'Ce problème est transmis au propriétaire, qui le prend en charge. Haven peut intervenir s’il n’est pas résolu.' : 'Cette situation nécessite l’intervention de Haven : elle est transmise directement à l’équipe.'}</p>
+                <div className="space-y-2">
+                  <label htmlFor="incident-description" className="block text-sm font-bold text-haven-navy">3. Décrivez ce que vous constatez</label>
+                  <textarea id="incident-description" rows={4} maxLength={4999}
+                    className="w-full rounded-2xl border border-gray-200 bg-gray-50 p-4 text-sm outline-none transition-colors focus:border-amber-500"
+                    placeholder="Où, depuis quand, ce qui ne fonctionne pas ou n’est pas conforme…"
+                    value={incidentReport.description}
+                    onChange={e => setIncidentReport({ ...incidentReport, description: e.target.value })} />
+                </div>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <p className="text-sm font-bold text-haven-navy">Urgence</p>
+                    <div className="flex gap-2">
+                      {(['LOW', 'MEDIUM', 'HIGH'] as const).map(p => (
+                        <button key={p} type="button" aria-pressed={priority === p} onClick={() => setPriority(p)}
+                          className={`min-h-11 flex-1 rounded-xl border text-xs font-bold transition-all ${priority === p ? (p === 'HIGH' ? 'border-red-600 bg-red-600 text-white' : 'border-haven-navy bg-haven-navy text-white') : 'border-gray-200 text-gray-500'}`}>
+                          {p === 'LOW' ? 'Peut attendre' : p === 'MEDIUM' ? 'Gênant' : 'Urgent'}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <p className="text-sm font-bold text-haven-navy">Photo (conseillé)</p>
+                    {incidentReport.photo ? (
+                      <div className="relative aspect-video overflow-hidden rounded-2xl border border-gray-200">
+                        <img src={incidentReport.photo} className="h-full w-full object-cover" alt="Photo jointe" />
+                        <button type="button" aria-label="Retirer la photo" onClick={() => setIncidentReport({ ...incidentReport, photo: '' })} className="absolute right-2 top-2 rounded-full bg-white/90 p-2 text-haven-red shadow-sm"><X size={14} /></button>
+                      </div>
+                    ) : (
+                      <button type="button" onClick={handleAddPhoto}
+                        className="flex min-h-24 w-full flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-gray-200 font-bold text-gray-500 transition-all hover:border-amber-300 hover:bg-amber-50/30 hover:text-amber-600">
+                        <Camera size={22} />
+                        <span className="text-xs">Prendre ou choisir une photo</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>}
             </div>
           ) : (
             <form onSubmit={handleSubmitReport} className="space-y-8 animate-fade-in">

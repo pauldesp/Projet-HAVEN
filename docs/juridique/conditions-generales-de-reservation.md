@@ -127,7 +127,9 @@ Haven conserve le paiement jusqu'à l'arrivée du locataire. La part du proprié
 
 Le locataire est responsable des dégradations causées pendant son séjour par lui-même ou ses invités, hors usure normale. Le propriétaire signale toute dégradation depuis son espace, avec photos et, si possible, devis ou facture, en s'appuyant sur les états des lieux d'entrée et de sortie. Haven examine le dossier et recherche une solution amiable entre les parties. À défaut, le propriétaire peut exercer les recours prévus par la loi.
 
-Aucun dépôt de garantie ni empreinte bancaire n'est demandé à ce jour. [**À décider :** mise en place d'une empreinte bancaire ; ce document devra alors être complété.]
+**Caution.** À la réservation, le locataire autorise Haven à conserver sa carte bancaire par l'intermédiaire de Stripe. Aucune somme n'est bloquée ni débitée à ce titre. Le propriétaire peut déclarer une dégradation jusqu'au septième jour suivant le départ inclus. Le locataire en est informé dans son espace et peut y répondre. Haven examine le dossier au regard des états des lieux d'entrée et de sortie et de la réponse du locataire, puis rend une décision motivée. Si la dégradation est retenue, Haven prélève le montant retenu sur la carte du locataire, dans la limite de **300 €**, et le reverse au propriétaire. Au-delà de ce montant, le propriétaire conserve les recours prévus par la loi.
+
+[**À valider :** compatibilité de ce mécanisme avec la qualification du contrat (le bail mobilité interdit tout dépôt de garantie), mandat d'encaissement pour le compte du propriétaire, information préalable du locataire avant prélèvement.]
 
 Le locataire est invité à disposer d'une **assurance responsabilité civile** couvrant son séjour. [**À valider :** obligation d'assurance habitation selon la qualification du contrat.]
 

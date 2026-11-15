@@ -75,7 +75,7 @@ Une annulation injustifiée ou répétée peut entraîner l'affichage d'une ment
 
 **6.2 États des lieux.** Le locataire réalise un état des lieux d'entrée le jour de son arrivée et un état des lieux de sortie à son départ, avec photos. Ces documents sont accessibles au propriétaire et servent de référence en cas de litige.
 
-**6.3 Dégradations.** Le propriétaire signale toute dégradation depuis son espace, avec photos, devis ou facture. Haven examine le dossier et recherche une solution amiable avec le locataire ; Haven n'est pas tenu de prendre en charge les dommages. Aucun dépôt de garantie n'est demandé aux locataires à ce jour.
+**6.3 Dégradations.** Le propriétaire signale toute dégradation depuis son espace, avec photos, devis ou facture. Pour être couverte par la caution, la déclaration est faite au plus tard 7 jours après le départ. Haven examine le dossier et la réponse du locataire ; s'il retient la dégradation, il prélève le montant retenu sur la carte du locataire, dans la limite de 300 €, et le reverse au propriétaire. Au-delà, ou à défaut de prélèvement possible, Haven recherche une solution amiable ; Haven n'est pas tenu de prendre en charge les dommages.
 
 **6.4 Assurance.** Le propriétaire dispose d'une assurance habitation couvrant le logement et la location proposée (y compris en tant que propriétaire non occupant, le cas échéant), et en justifie à la demande de Haven.
 

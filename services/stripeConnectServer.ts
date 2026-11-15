@@ -125,10 +125,11 @@ export function createStripeConnect(db: Firestore, stripe: () => Stripe, configu
     if (releasing || !configuration().enabled) return;
     releasing = true;
     try {
-      const jobs = await db.collection('owner_settlements').where('mode', '==', mode()).get();
+      // Only jobs still waiting: transferred or cancelled ones are never read again here.
+      const jobs = await db.collection('owner_settlements').where('state', 'in', ['WAITING_ARRIVAL', 'WAITING_ACCOUNT', 'RETRY', 'CREATING']).get();
       for (const job of jobs.docs) {
         const saved = job.data();
-        if (!['WAITING_ARRIVAL', 'WAITING_ACCOUNT', 'RETRY', 'CREATING'].includes(saved.state) || (saved.retryAt && Date.parse(saved.retryAt) > Date.now())) continue;
+        if (saved.mode !== mode() || (saved.retryAt && Date.parse(saved.retryAt) > Date.now())) continue;
         // Haven may hold a payout during a dispute; nothing is transferred until it is released.
         if (saved.adminHold === true) continue;
         const bookingSnapshot = await db.collection('bookings').doc(job.id).get();
@@ -289,7 +290,13 @@ export function createStripeConnect(db: Firestore, stripe: () => Stripe, configu
       const accounts = await db.collection('owner_stripe_accounts').where('mode', '==', mode()).get();
       for (const account of accounts.docs) try { await reconcileOwner(account.data().ownerId); } catch { console.error('Stripe Connect account reconciliation unavailable.'); }
       const settlements = await db.collection('owner_settlements').where('mode', '==', mode()).get();
-      for (const job of settlements.docs) try { await reconcileSettlement(job); } catch { console.error('Stripe settlement reconciliation unavailable.'); }
+      for (const job of settlements.docs) {
+        // A settled job (transferred, cancelled) is checked again at most once a day for late refunds or disputes.
+        const saved = job.data();
+        const final = ['TRANSFERRED', 'CANCELLED', 'REVERSED', 'PARTIALLY_REVERSED'].includes(saved.state);
+        if (final && saved.checkedAt && Date.now() - Date.parse(saved.checkedAt) < 24 * 3600_000) continue;
+        try { await reconcileSettlement(job); } catch { console.error('Stripe settlement reconciliation unavailable.'); }
+      }
       await releaseArrivedBookings();
     } finally { reconciling = false; }
   }

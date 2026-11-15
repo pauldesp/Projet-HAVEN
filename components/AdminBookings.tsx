@@ -1,19 +1,27 @@
 import { useMemo, useState } from 'react';
-import { Loader2, Search } from 'lucide-react';
+import { ArrowDown, ArrowUp, ClipboardCheck, Loader2, Search } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Booking, Listing, User } from '../types';
 import { apiService } from '../services/api';
 import { getCancellationTerms } from '../services/cancellationPolicy';
 import { formatEuros } from '../services/money';
-import { localDateKey } from '../services/stay';
+import { countNights, localDateKey } from '../services/stay';
 import { userFacingErrorMessage } from '../services/errorHandling';
 import { authenticatedFetch } from '../services/serverApi';
 
 const shortDate = (value: string) => new Date(`${value.slice(0, 10)}T12:00:00Z`).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
 
-/** Upcoming reserved stays, with a cancellation on behalf of Haven for exceptional cases. */
-export function AdminBookings({ bookings, listings, users }: { bookings: Booking[]; listings: Listing[]; users: User[] }) {
+type View = 'CURRENT' | 'UPCOMING' | 'PAST' | 'CANCELLED' | 'ALL';
+type SortKey = 'startDate' | 'endDate' | 'listing' | 'tenant' | 'owner' | 'amount' | 'nights';
+const VIEWS: [View, string][] = [['CURRENT', 'En cours'], ['UPCOMING', 'À venir'], ['PAST', 'Terminés'], ['CANCELLED', 'Annulés'], ['ALL', 'Tous']];
+
+/** Every stay: current, upcoming, past or cancelled, sortable, with the stay file and Haven's exceptional actions. */
+export function AdminBookings({ bookings, listings, users, onOpenCase }: { bookings: Booking[]; listings: Listing[]; users: User[]; onOpenCase: (bookingId: string) => void }) {
   const [search, setSearch] = useState('');
+  const [view, setView] = useState<View>('CURRENT');
+  const [listingFilter, setListingFilter] = useState('');
+  const [includeTests, setIncludeTests] = useState(true);
+  const [sort, setSort] = useState<{ key: SortKey; ascending: boolean }>({ key: 'startDate', ascending: true });
   const [cancelling, setCancelling] = useState<Booking | null>(null);
   const [reason, setReason] = useState('');
   const [sending, setSending] = useState(false);
@@ -34,10 +42,46 @@ export function AdminBookings({ bookings, listings, users }: { bookings: Booking
   const name = (id: string) => { const user = users.find(item => item.id === id); return user ? `${user.firstName} ${user.lastName}` : `Compte ${id.slice(0, 8)}`; };
   const title = (booking: Booking) => booking.listingTitle || listings.find(item => item.id === booking.listingId)?.title || 'Logement';
 
-  const upcoming = useMemo(() => bookings
-    .filter(booking => booking.endDate.slice(0, 10) >= today && (booking.status === 'CONFIRMED' || (booking.status === 'PENDING' && booking.seriesScheduled)))
+  // A stay counts as held once paid, or reserved in a series (charged later).
+  const held = (booking: Booking) => booking.status === 'CONFIRMED' || booking.status === 'COMPLETED' || (booking.status === 'PENDING' && Boolean(booking.seriesScheduled));
+  const viewOf = (booking: Booking): View | null => {
+    if (booking.status === 'CANCELLED') return 'CANCELLED';
+    if (!held(booking)) return null; // Abandoned or unpaid checkouts are not stays.
+    if (booking.status === 'COMPLETED' || booking.endDate.slice(0, 10) < today) return 'PAST';
+    return booking.startDate.slice(0, 10) <= today ? 'CURRENT' : 'UPCOMING';
+  };
+  const counts = useMemo(() => {
+    const result: Record<View, number> = { CURRENT: 0, UPCOMING: 0, PAST: 0, CANCELLED: 0, ALL: 0 };
+    for (const booking of bookings) { if (!includeTests && booking.paymentIsTest) continue; const value = viewOf(booking); if (value) { result[value] += 1; result.ALL += 1; } }
+    return result;
+  }, [bookings, today, includeTests]);
+  const sortValue = (booking: Booking): string | number => ({
+    startDate: booking.startDate, endDate: booking.endDate, listing: `${title(booking)} ${booking.roomName || ''}`.toLocaleLowerCase('fr'),
+    tenant: name(booking.tenantId).toLocaleLowerCase('fr'), owner: name(booking.ownerId).toLocaleLowerCase('fr'), amount: booking.totalPrice, nights: countNights(booking.startDate, booking.endDate),
+  })[sort.key];
+  const shown = useMemo(() => bookings
+    .filter(booking => { const value = viewOf(booking); return value !== null && (view === 'ALL' || value === view); })
+    .filter(booking => includeTests || !booking.paymentIsTest)
+    .filter(booking => !listingFilter || booking.listingId === listingFilter)
     .filter(booking => !search.trim() || `${title(booking)} ${booking.roomName} ${name(booking.tenantId)} ${name(booking.ownerId)} ${booking.id}`.toLocaleLowerCase('fr').includes(search.trim().toLocaleLowerCase('fr')))
-    .sort((a, b) => a.startDate.localeCompare(b.startDate)), [bookings, search, today, users, listings]);
+    .sort((a, b) => { const x = sortValue(a), y = sortValue(b); const order = x < y ? -1 : x > y ? 1 : 0; return sort.ascending ? order : -order; }),
+  [bookings, search, today, users, listings, view, listingFilter, includeTests, sort]);
+  const chooseView = (value: View) => { setView(value); setSort({ key: 'startDate', ascending: value === 'UPCOMING' || value === 'CURRENT' }); };
+  const sortBy = (key: SortKey) => setSort(current => ({ key, ascending: current.key === key ? !current.ascending : key !== 'amount' }));
+  const SortHeader = ({ label, sortKey }: { label: string; sortKey: SortKey }) => <th className="p-3 text-left">
+    <button type="button" onClick={() => sortBy(sortKey)} className="flex items-center gap-1 text-[11px] font-bold uppercase tracking-wide text-gray-500 hover:text-haven-navy">
+      {label}{sort.key === sortKey && (sort.ascending ? <ArrowUp size={12} /> : <ArrowDown size={12} />)}
+    </button>
+  </th>;
+  const stayState = (booking: Booking) => {
+    if (booking.status === 'CANCELLED') return { label: 'Annulé', tone: 'bg-gray-100 text-gray-600' };
+    if (booking.status === 'PENDING') return { label: 'Prélèvement à venir', tone: 'bg-amber-50 text-amber-700' };
+    const value = viewOf(booking);
+    if (value === 'PAST') return booking.checkOutReportId ? { label: 'Terminé', tone: 'bg-green-50 text-green-700' } : { label: 'Terminé sans sortie', tone: 'bg-amber-50 text-amber-700' };
+    if (value === 'CURRENT') return booking.checkInReportId ? { label: 'En cours', tone: 'bg-blue-50 text-blue-700' } : { label: 'Entrée non faite', tone: 'bg-amber-50 text-amber-700' };
+    return { label: 'Confirmé', tone: 'bg-green-50 text-green-700' };
+  };
+  const ownedListings = useMemo(() => [...listings].sort((a, b) => a.title.localeCompare(b.title, 'fr')), [listings]);
 
   const terms = cancelling ? getCancellationTerms(cancelling, 'HAVEN') : null;
   const confirm = async () => {
@@ -53,30 +97,83 @@ export function AdminBookings({ bookings, listings, users }: { bookings: Booking
 
   return <section className="space-y-5">
     <div>
-      <h2 className="text-xl font-bold text-haven-navy">Réservations à venir</h2>
-      <p className="mt-1 text-sm text-gray-500">Séjours confirmés ou réservés dans une série. Haven peut annuler un séjour jusqu’au jour d’arrivée, par exemple à la demande d’un propriétaire à moins de 30 jours : le locataire est alors remboursé intégralement.</p>
+      <h2 className="text-xl font-bold text-haven-navy">Réservations</h2>
+      <p className="mt-1 text-sm text-gray-500">Cliquez sur un séjour pour ouvrir son dossier : personnes, états des lieux, séjour précédent dans la chambre, signalements et versement. Haven peut déplacer un séjour avant l’entrée ou l’annuler jusqu’au jour d’arrivée (locataire remboursé intégralement).</p>
     </div>
-    <label className="relative block max-w-md">
-      <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" aria-hidden="true" />
-      <span className="sr-only">Rechercher une réservation</span>
-      <input value={search} onChange={event => setSearch(event.target.value)} placeholder="Logement, locataire, propriétaire, référence…" className="h-11 w-full rounded-xl border border-gray-200 pl-9 pr-3 text-sm" />
-    </label>
-    <ul className="divide-y divide-gray-100 rounded-2xl border border-gray-100">
-      {upcoming.map(booking => (
-        <li key={booking.id} className="flex flex-col gap-3 p-4 text-sm sm:flex-row sm:items-center sm:justify-between">
-          <div className="min-w-0">
-            <p className="font-semibold text-haven-navy">{title(booking)}{booking.roomName ? ` · ${booking.roomName}` : ''}</p>
-            <p className="text-gray-500">{shortDate(booking.startDate)} → {shortDate(booking.endDate)} · {formatEuros(booking.totalPrice)}{booking.paymentStatus !== 'PAID' ? ' · pas encore prélevé' : ''}{booking.paymentIsTest ? ' · test' : ''}</p>
-            <p className="text-xs text-gray-400">Locataire : {name(booking.tenantId)} · Propriétaire : {name(booking.ownerId)} · {booking.id}</p>
-          </div>
-          <div className="flex shrink-0 flex-wrap gap-2">
-            {!booking.checkInReportId && <button type="button" onClick={() => setMoving({ booking, startDate: booking.startDate, endDate: booking.endDate, roomId: booking.roomId, reason: '' })} className="min-h-11 rounded-xl border border-gray-200 px-4 font-semibold text-haven-navy">Déplacer</button>}
-            <button type="button" onClick={() => { setCancelling(booking); setReason(''); }} className="min-h-11 rounded-xl border border-red-100 px-4 font-semibold text-haven-red hover:bg-red-50">Annuler par Haven</button>
-          </div>
-        </li>
-      ))}
-      {!upcoming.length && <li className="p-8 text-center text-sm text-gray-500">Aucune réservation à venir{search ? ' pour cette recherche' : ''}.</li>}
-    </ul>
+    <nav className="flex flex-wrap gap-2" aria-label="Période des séjours">
+      {VIEWS.map(([id, label]) => <button key={id} type="button" aria-pressed={view === id} onClick={() => chooseView(id)} className={`min-h-11 rounded-full border px-4 text-sm font-semibold ${view === id ? 'border-haven-navy bg-haven-navy text-white' : 'border-gray-200 text-haven-navy'}`}>{label} <span className={view === id ? 'text-white/70' : 'text-gray-400'}>{counts[id]}</span></button>)}
+    </nav>
+    <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+      <label className="relative block flex-1">
+        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" aria-hidden="true" />
+        <span className="sr-only">Rechercher une réservation</span>
+        <input value={search} onChange={event => setSearch(event.target.value)} placeholder="Logement, locataire, propriétaire, référence…" className="h-11 w-full rounded-xl border border-gray-200 pl-9 pr-3 text-sm" />
+      </label>
+      <label className="text-sm"><span className="sr-only">Logement</span>
+        <select value={listingFilter} onChange={event => setListingFilter(event.target.value)} className="h-11 w-full rounded-xl border border-gray-200 px-3 lg:w-64">
+          <option value="">Tous les logements</option>
+          {ownedListings.map(listing => <option key={listing.id} value={listing.id}>{listing.title}</option>)}
+        </select>
+      </label>
+      {/* On phones the column headers are hidden: sorting goes through this list. */}
+      <label className="text-sm md:hidden"><span className="sr-only">Trier</span>
+        <select value={`${sort.key}:${sort.ascending ? 'asc' : 'desc'}`} onChange={event => { const [key, direction] = event.target.value.split(':'); setSort({ key: key as SortKey, ascending: direction === 'asc' }); }} className="h-11 w-full rounded-xl border border-gray-200 px-3">
+          <option value="startDate:asc">Arrivée, la plus proche d’abord</option>
+          <option value="startDate:desc">Arrivée, la plus récente d’abord</option>
+          <option value="endDate:asc">Départ, le plus proche d’abord</option>
+          <option value="endDate:desc">Départ, le plus récent d’abord</option>
+          <option value="amount:desc">Montant décroissant</option>
+          <option value="listing:asc">Logement (A → Z)</option>
+          <option value="tenant:asc">Locataire (A → Z)</option>
+        </select>
+      </label>
+      <label className="flex items-center gap-2 text-sm text-gray-600"><input type="checkbox" checked={includeTests} onChange={event => setIncludeTests(event.target.checked)} />Inclure les tests</label>
+    </div>
+
+    <div className="overflow-x-auto rounded-2xl border border-gray-100">
+      <table className="haven-table w-full text-sm">
+        <thead className="bg-gray-50">
+          <tr>
+            <SortHeader label="Logement" sortKey="listing" />
+            <SortHeader label="Arrivée" sortKey="startDate" />
+            <SortHeader label="Départ" sortKey="endDate" />
+            <SortHeader label="Nuits" sortKey="nights" />
+            <SortHeader label="Locataire" sortKey="tenant" />
+            <SortHeader label="Propriétaire" sortKey="owner" />
+            <SortHeader label="Montant" sortKey="amount" />
+            <th className="p-3 text-left text-[11px] font-bold uppercase tracking-wide text-gray-500">État</th>
+            <th className="p-3"><span className="sr-only">Actions</span></th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-gray-100">
+          {shown.map(booking => {
+            const state = stayState(booking);
+            const upcoming = booking.status !== 'CANCELLED' && booking.endDate.slice(0, 10) >= today && booking.status !== 'COMPLETED';
+            return <tr key={booking.id} onClick={() => onOpenCase(booking.id)} className="cursor-pointer align-top hover:bg-gray-50">
+              <td data-label="Logement" className="p-3"><p className="font-semibold text-haven-navy">{title(booking)}</p><p className="text-xs text-gray-500">{booking.roomName || 'Chambre'}{booking.seriesId ? ` · série ${(booking.seriesIndex ?? 0) + 1}/${booking.seriesCount}` : ''}{booking.paymentIsTest ? ' · test' : ''}</p></td>
+              <td data-label="Arrivée" className="whitespace-nowrap p-3">{shortDate(booking.startDate)}</td>
+              <td data-label="Départ" className="whitespace-nowrap p-3">{shortDate(booking.endDate)}</td>
+              <td data-label="Nuits" className="p-3">{countNights(booking.startDate, booking.endDate)}</td>
+              <td data-label="Locataire" className="p-3">{name(booking.tenantId)}</td>
+              <td data-label="Propriétaire" className="p-3">{name(booking.ownerId)}</td>
+              <td data-label="Montant" className="whitespace-nowrap p-3 font-semibold">{formatEuros(booking.totalPrice)}</td>
+              <td data-label="État" className="p-3">
+                <span className={`inline-block whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold ${state.tone}`}>{state.label}</span>
+                {booking.status !== 'CANCELLED' && <p className="mt-1 flex items-center gap-1 text-[11px] text-gray-500"><ClipboardCheck size={12} />Entrée {booking.checkInReportId ? '✓' : '—'} · Sortie {booking.checkOutReportId ? '✓' : '—'}</p>}
+              </td>
+              <td data-label="Actions" className="p-3" onClick={event => event.stopPropagation()}>
+                <div className="flex flex-wrap justify-end gap-2">
+                  <button type="button" onClick={() => onOpenCase(booking.id)} className="min-h-9 whitespace-nowrap rounded-lg bg-haven-navy px-3 text-xs font-bold text-white">Dossier</button>
+                  {upcoming && !booking.checkInReportId && <button type="button" onClick={() => setMoving({ booking, startDate: booking.startDate, endDate: booking.endDate, roomId: booking.roomId, reason: '' })} className="min-h-9 rounded-lg border border-gray-200 px-3 text-xs font-semibold text-haven-navy">Déplacer</button>}
+                  {upcoming && <button type="button" onClick={() => { setCancelling(booking); setReason(''); }} className="min-h-9 whitespace-nowrap rounded-lg border border-red-100 px-3 text-xs font-semibold text-haven-red hover:bg-red-50">Annuler</button>}
+                </div>
+              </td>
+            </tr>;
+          })}
+          {!shown.length && <tr><td colSpan={9} className="p-8 text-center text-sm text-gray-500">Aucun séjour dans cette catégorie{search || listingFilter ? ' pour ces filtres' : ''}.</td></tr>}
+        </tbody>
+      </table>
+    </div>
 
     {moving && <div className="fixed inset-0 z-[120] flex items-center justify-center bg-haven-navy/60 p-4">
       <section role="dialog" aria-modal="true" aria-labelledby="move-title" className="haven-dialog-panel w-full max-w-lg space-y-4 rounded-3xl bg-white p-6">

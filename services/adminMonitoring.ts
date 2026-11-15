@@ -2,8 +2,9 @@ import { ALERT_AFTER_FAILURES, type SystemTask, type TaskHealth } from './system
 
 /** Normal interval of each task; the webhook has none (it depends on Stripe activity). */
 const EXPECTED_EVERY_MS: Partial<Record<SystemTask, number>> = {
-  INSTALLMENTS: 60_000, BOOKING_EXPIRY: 60_000, MAIL_DELIVERY: 30_000, TEAM_ALERTS: 30_000, OWNER_TRANSFERS: 30_000,
-  STRIPE_RECONCILIATION: 5 * 60_000, REVIEW_CLOSING: 60 * 60_000,
+  // Same rhythms as the server sweeps (kept low to stay within the Firestore read budget).
+  INSTALLMENTS: 5 * 60_000, BOOKING_EXPIRY: 60_000, MAIL_DELIVERY: 30_000, TEAM_ALERTS: 2 * 60_000, OWNER_TRANSFERS: 2 * 60_000,
+  STRIPE_RECONCILIATION: 30 * 60_000, REVIEW_CLOSING: 60 * 60_000,
 };
 
 export function taskStatus(task: SystemTask, health: TaskHealth | undefined, now = Date.now()): { tone: 'ok' | 'warning' | 'error' | 'idle'; label: string } {

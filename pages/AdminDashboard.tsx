@@ -14,7 +14,8 @@ import { AdminBookings } from '../components/AdminBookings';
 import { AdminFinances } from '../components/AdminFinances';
 import { AdminMonitoring } from '../components/AdminMonitoring';
 import { AdminMemberFile } from '../components/AdminMemberFile';
-import { AdminModeration } from '../components/AdminModeration';
+import { AdminReportCase } from '../components/AdminReportCase';
+import { AdminModeration, ListingModerationActions } from '../components/AdminModeration';
 import { AdminKpis } from '../components/AdminKpis';
 import { AdminAudience } from '../components/AdminAudience';
 import { AdminArticles } from '../components/AdminArticles';
@@ -43,6 +44,8 @@ export const AdminDashboard: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
   const [contactRequests, setContactRequests] = useState<ContactRequest[]>([]);
   const [reports, setReports] = useState<Report[]>([]);
+  const [caseReportId, setCaseReportId] = useState<string | null>(null);
+  const [caseBookingId, setCaseBookingId] = useState<string | null>(null);
   const [incidents, setIncidents] = useState<Incident[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [auditEntries, setAuditEntries] = useState<AdminAuditEntry[]>([]);
@@ -671,7 +674,7 @@ export const AdminDashboard: React.FC = () => {
              { id: 'AUDIENCE', label: 'Audience', icon: BarChart3 },
              { id: 'ARTICLES', label: 'Articles', icon: Newspaper },
              { id: 'MONITORING', label: 'Surveillance', icon: AlertCircle },
-             { id: 'MODERATION', label: 'Modération', icon: Shield },
+             { id: 'MODERATION', label: 'Avis publiés', icon: Shield },
              { id: 'INCIDENTS', label: 'Incidents', icon: AlertTriangle },
              { id: 'REPORTS', label: 'Signalements', icon: Flag, count: reports.filter(r => r.status === 'NEW').length },
              { id: 'CONTACTS', label: 'Contacts', icon: Mail, count: pendingContacts.length },
@@ -848,9 +851,10 @@ export const AdminDashboard: React.FC = () => {
                             }`}>
                               {listing.status === 'DRAFT' ? 'À compléter' : listing.status === 'PENDING' ? 'À examiner' : listing.status === 'APPROVED' ? 'Validée' : 'Refusée'}
                             </span>
+                            {listing.suspendedByHaven && <span className="mt-1 block text-[11px] font-semibold text-haven-red">Suspendue par Haven</span>}
                           </td>
                           <td data-label="Actions" className="p-6">
-                            <div className="flex items-center gap-2">
+                            <div className="flex flex-wrap items-center gap-2">
                               <button 
                                 onClick={() => { setError(null); setListingReview(listing); }}
                                 className="p-2 text-gray-400 hover:text-haven-navy hover:bg-gray-100 rounded-lg transition-all"
@@ -858,7 +862,7 @@ export const AdminDashboard: React.FC = () => {
                               >
                                 <Eye size={16} />
                               </button>
-
+                              <ListingModerationActions listing={listing} />
                             </div>
                           </td>
                         </tr>
@@ -1157,6 +1161,7 @@ export const AdminDashboard: React.FC = () => {
                             </div>
                           </div>
                           <div className="flex flex-col gap-2 lg:w-48">
+                            <Button size="sm" onClick={() => setCaseReportId(report.id)}>Ouvrir le dossier</Button>
                             {report.incidentId && !['RESOLVED', 'DISMISSED'].includes(report.status) && <Button variant="outline" size="sm" disabled={processingId === report.id} onClick={() => setWaitingReport(report)}>{report.status === 'WAITING_OWNER' ? 'Ajuster l’attente' : 'Laisser le propriétaire gérer'}</Button>}
                             {(report.status === 'NEW' || report.status === 'WAITING_OWNER') && (
                               <Button 
@@ -1298,7 +1303,7 @@ export const AdminDashboard: React.FC = () => {
 
           {activeTab === 'BOOKINGS' && (
             <div className="rounded-3xl border border-gray-100 bg-white p-6 shadow-card sm:p-8">
-              <AdminBookings bookings={bookings} listings={listings} users={users} />
+              <AdminBookings bookings={bookings} listings={listings} users={users} onOpenCase={setCaseBookingId} />
             </div>
           )}
 
@@ -1918,6 +1923,11 @@ export const AdminDashboard: React.FC = () => {
       )}
 
       {/* User Detail Modal */}
+      {caseReportId && <AdminReportCase reportId={caseReportId} onClose={() => setCaseReportId(null)} onOpenMember={userId => void openUserDetailModal(userId)}
+        onStatus={async (status, note) => { await apiService.reports.updateStatus(caseReportId, status, note || undefined); }}
+        onOpenFinances={() => { setCaseReportId(null); setActiveTab('FINANCES'); }} />}
+      {caseBookingId && <AdminReportCase bookingId={caseBookingId} onClose={() => setCaseBookingId(null)} onOpenMember={userId => void openUserDetailModal(userId)}
+        onOpenFinances={() => { setCaseBookingId(null); setActiveTab('FINANCES'); }} />}
       {userDetailModal.isOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-haven-navy/60 backdrop-blur-sm animate-fade-in">
           <div className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-4xl max-h-[90dvh] overflow-hidden flex flex-col animate-scale-in">

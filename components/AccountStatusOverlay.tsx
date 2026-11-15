@@ -1,3 +1,4 @@
+import { pickFile } from '../services/filePicker';
 import { useLanguage } from '../contexts/LanguageContext';
 import { Link } from 'react-router-dom';
 import { hasRequiredResidence } from '../services/residence';
@@ -288,11 +289,7 @@ export const AccountStatusOverlay: React.FC<AccountStatusOverlayProps> = ({
   );
 
   const handleUploadDocument = (type: (typeof requiredDocuments)[number]['type']) => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'image/*,application/pdf';
-    input.onchange = async () => {
-      const file = input.files?.[0];
+    void pickFile('image/*,application/pdf').then(file => {
       if (!file) return;
       if (file.size > 10 * 1024 * 1024) {
         toast.error(tr("Le fichier dépasse la taille autorisée de 10 Mo."));
@@ -312,8 +309,7 @@ export const AccountStatusOverlay: React.FC<AccountStatusOverlayProps> = ({
           setIsUploading(false);
         }
       })();
-    };
-    input.click();
+    });
   };
 
   const verificationSteps = [

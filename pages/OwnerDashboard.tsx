@@ -1,6 +1,7 @@
 import { OwnerPayoutSettings } from '../components/OwnerPayoutSettings';
 import { ScrollableRow } from '../components/ScrollableRow';
 import { OwnerBookingActions } from '../components/OwnerBookingActions';
+import { OwnerDamageClaimButton, useDamageClaims } from '../components/DamageClaims';
 import { BookingCountdown } from '../components/BookingCountdown';
 import { bookingCategory } from '../services/bookingLifecycle';
 import { hasVerificationException } from '../services/verificationException';
@@ -33,6 +34,7 @@ export const OwnerDashboard: React.FC = () => {
   const { listings } = useListings();
   const [activeTab, setActiveTab] = useState<'LISTINGS' | 'BOOKINGS' | 'FINANCES' | 'DOCUMENTS' | 'INCIDENTS'>(searchParams.has('stripe') ? 'FINANCES' : 'LISTINGS');
   const [ownerBookings, setOwnerBookings] = useState<BookingWithTenant[]>([]);
+  const damageClaims = useDamageClaims(Boolean(currentUser?.id));
   const [ownerIncidents, setOwnerIncidents] = useState<Incident[]>([]);
   const [selectedIncidentId, setSelectedIncidentId] = useState<string | null>(null);
   const [incidentError, setIncidentError] = useState('');
@@ -375,6 +377,7 @@ export const OwnerDashboard: React.FC = () => {
                                     Annuler le séjour
                                   </Button>
                                 ) : bookingCategory(booking) === 'UPCOMING' && <span className="self-center text-[11px] text-gray-500">Annulation via Haven (moins de 30 j)</span>)}
+                                <OwnerDamageClaimButton booking={booking} claim={damageClaims.claims.find(claim => claim.bookingId === booking.id)} onChanged={() => void damageClaims.reload()} />
                                 <OwnerBookingActions booking={booking} listing={listings.find(item => item.id === booking.listingId)} tenant={booking.tenant} onCancel={() => setCancellationBooking(booking)} />
                               </div>
                           </td>

@@ -8,10 +8,11 @@ import { settlementLabel } from '../services/stripeConnect';
 import { installmentDateLabel, installmentState } from '../services/recurringInstallments';
 import { goodwillLimits, havenRefundedCents } from '../services/adminFinances';
 import { localDateKey } from '../services/stay';
+import { AdminDamageClaims } from './AdminDamageClaims';
 
 type Settlement = { bookingId: string; state: string; amountCents: number; stripeFeeCents?: number | null; havenRefundedCents?: number; adminHold?: boolean; holdReason?: string; error?: string; isTest?: boolean };
 type Data = { payments: Payment[]; settlements: Settlement[]; payouts: OwnerPayout[]; series: BookingSeries[] };
-type Section = 'MONTH' | 'PAYMENTS' | 'INSTALLMENTS' | 'PAYOUTS';
+type Section = 'MONTH' | 'PAYMENTS' | 'INSTALLMENTS' | 'PAYOUTS' | 'DAMAGES';
 
 const call = async (path: string, body?: unknown) => {
   const response = await authenticatedFetch(path, body === undefined ? undefined : { method: 'POST', body: JSON.stringify(body) });
@@ -102,7 +103,7 @@ export function AdminFinances({ bookings, listings, users }: { bookings: Booking
     </div>
 
     <nav className="flex flex-wrap gap-2" aria-label="Rubriques financières">
-      {([['MONTH', 'Le mois'], ['PAYMENTS', `Paiements (${paid.length})`], ['INSTALLMENTS', `Échéances (${installments.length})`], ['PAYOUTS', `Virements (${payouts.length})`]] as [Section, string][]).map(([id, label]) => (
+      {([['MONTH', 'Le mois'], ['PAYMENTS', `Paiements (${paid.length})`], ['INSTALLMENTS', `Échéances (${installments.length})`], ['PAYOUTS', `Virements (${payouts.length})`], ['DAMAGES', 'Cautions']] as [Section, string][]).map(([id, label]) => (
         <button key={id} type="button" aria-pressed={section === id} onClick={() => setSection(id)} className={`min-h-11 rounded-full border px-4 text-sm font-semibold ${section === id ? 'border-haven-navy bg-haven-navy text-white' : 'border-gray-200 text-haven-navy'}`}>{label}</button>
       ))}
     </nav>
@@ -161,6 +162,8 @@ export function AdminFinances({ bookings, listings, users }: { bookings: Booking
       })}
       {!installments.length && <li className="p-8 text-center text-sm text-gray-500">Aucune échéance en attente.</li>}
     </ul>}
+
+    {section === 'DAMAGES' && <AdminDamageClaims name={name} />}
 
     {section === 'PAYOUTS' && <ul className="divide-y divide-gray-100 rounded-2xl border border-gray-100">
       {payouts.map(payout => <li key={payout.id} className="flex flex-wrap items-center justify-between gap-2 p-4 text-sm">
