@@ -15,6 +15,17 @@ Légende : **[Paul]** à faire par toi (comptes, contrats, décisions), **[Code]
 - [x] **[Code] Faire revalider une annonce modifiée** : un propriétaire peut aujourd'hui changer photos, textes et prix d'une annonce validée sans nouveau contrôle.
 - [ ] **[Paul] Activer la double authentification** sur les comptes Google/Firebase, Stripe, Resend, GitHub et l'hébergeur.
 - [ ] **[Paul] Vérifier qui a accès** à Firebase, Stripe et Resend ; retirer les accès inutiles.
+- [ ] **[Paul] Passer le dépôt GitHub en privé** (Settings › General › Danger Zone › Change visibility). Aucune clé n'y figure (vérifié le 16 novembre), mais tout le fonctionnement du site, les règles de sécurité et les documents juridiques en cours sont lisibles par n'importe qui.
+- [ ] **[Paul] Ranger les secrets dans un gestionnaire de mots de passe** (fichier `.env`, accès Stripe, Resend, Firebase, Render, codes de secours de la double authentification) : aujourd'hui ils ne sont que sur le Mac.
+
+### Environnements et mises en ligne
+
+Constat du 17 novembre : le développement local travaille sur la vraie base Firebase (voir `MISE-EN-PRODUCTION.md`), chaque envoi sur `main` pourra partir directement en ligne une fois Render branché, et les tests (362) ne tournent que si on pense à les lancer, alors que le code est modifié depuis plusieurs outils (Codex, Claude Code, claude.ai).
+
+- [ ] **[Paul + Code] Séparer développement et production** avant l'ouverture : un second projet Firebase (par exemple « haven-dev ») pour le Mac, avec ses propres comptes et données de démonstration ; la base actuelle devient celle de la production, utilisée seulement par Render. Sinon un essai ou un script lancé en local touche les vrais locataires, paiements et pièces d'identité.
+- [ ] **[Code] Mettre la configuration Firebase dans le dépôt** : `firebase.json`, `firestore.indexes.json` (exporter les index existants avec `firebase firestore:indexes`), `firestore.rules`, puis `storage.rules`, publiés par une commande. Indispensable pour recréer un projet identique (développement, ou reprise après incident) : sans les index, certaines recherches échouent dans une base neuve.
+- [ ] **[Code] Vérification automatique sur GitHub** : une action GitHub qui lance `npm run check` (types, tests, compilation) à chaque envoi, avec le résultat visible sur GitHub. Gratuit pour ce volume.
+- [ ] **[Code] Une branche réservée à la production** : Render ne déploie que la branche `production` ; le travail se fait sur `main` et passe en production seulement quand la vérification automatique est verte et que le parcours principal a été essayé. Documenter la marche à suivre pour Paul (comment publier, comment revenir à la version précédente sur Render).
 
 ### Hébergement
 
@@ -38,6 +49,7 @@ Légende : **[Paul]** à faire par toi (comptes, contrats, décisions), **[Code]
 - [ ] **[Test] Faire un parcours complet en mode test** : paiement d'un séjour, état des lieux d'entrée, transfert au propriétaire après l'arrivée, virement, annulation et remboursement.
 - [ ] **[Test] Tester la récurrence en mode test** : série réservée, carte enregistrée, séjour prélevé juste après (arrivée à moins d'un mois), carte refusée (`4000 0000 0000 0341`), authentification demandée (`4000 0027 6000 3184`), relance, annulation après 5 jours.
 - [ ] **[Test] Faire un premier paiement réel de faible montant**, puis le rembourser.
+- [ ] **[Code] Calculer « aujourd'hui » à l'heure de Paris pour les annulations** : `getCancellationTerms` (`services/cancellationPolicy.ts`) prend par défaut la date UTC (`toISOString().slice(0, 10)`). Entre minuit et 1 h (2 h en été), la veille est utilisée : un jour de plus avant l'arrivée, donc parfois le mauvais palier de remboursement (100 %, 50 % ou 0 %). Ajouter une fonction commune « date du jour à Paris » (`Intl.DateTimeFormat` avec `timeZone: 'Europe/Paris'`), l'utiliser ici, côté serveur comme navigateur, avec un test à 00 h 30 ; vérifier au passage `services/profileVerification.ts` et `server.ts` (ligne de `today` vers la suppression de compte). Les autres calculs de dates utilisent déjà midi UTC et sont corrects.
 
 ### E-mails Resend
 
@@ -103,6 +115,7 @@ Constat du 16 novembre : il n'y a aucun stockage de fichiers. Photos et document
 - [ ] **[Code] Compresser ce que le serveur envoie** : Express n'active aucune compression ; le code du site part en brut (environ 1 Mo pour la page d'accueil, environ 300 Ko une fois compressé). Ajouter le module `compression` (ou vérifier que Render compresse déjà) et contrôler l'en-tête `Content-Encoding` une fois en ligne.
 - [ ] **[Code] Suspendre les rafraîchissements quand l'onglet est caché** : `pages/OwnerDashboard.tsx` (virements), `components/ReservationInformation.tsx` et `components/OwnerPayoutSettings.tsx` interrogent le serveur toutes les 30 s même onglet en arrière-plan ; un onglet oublié une nuit = près de 3 000 appels. Reprendre le principe déjà utilisé dans `components/ReservationHousemates.tsx` (`document.visibilityState`), avec un rafraîchissement au retour sur l'onglet.
 - [ ] **[Code] Back office : ne plus écouter tous les profils en direct** : `pages/AdminDashboard.tsx` écoute en temps réel toute la collection `users`, pièces d'identité et justificatifs compris, et toute la collection `bookings`. Le navigateur de l'administrateur télécharge tous les documents de tous les membres, et de nouveau à chaque changement. Charger une liste réduite (nom, rôle, statut) par le serveur, et les documents seulement à l'ouverture d'un dossier. Résolu en grande partie par le passage sur Storage. Même remarque, plus légère, pour `contexts/AuthContext.tsx` qui écoute le profil complet de chaque membre connecté (ses propres documents compris) sur toutes les pages.
+- [ ] **[Code] Une lecture Firestore de moins par appel** : `requireAuth` (`server.ts`) relit le profil complet du membre à chaque requête authentifiée pour vérifier qu'il n'est pas banni. Avec les rafraîchissements toutes les 30 s, cela fait autant de lectures que d'appels, profil et documents compris. Garder le statut en mémoire une minute environ (vidé lors d'un bannissement), ou utiliser une « custom claim » Firebase.
 - [ ] **[Code] Ne plus compiler le serveur à chaque démarrage** (confort) : la production lance `server.ts` via `tsx`, qui traduit le TypeScript à chaque démarrage (pic de mémoire d'environ 250 Mo, redémarrage plus lent). Le compiler une fois lors du déploiement.
 
 ### Disponibilité
@@ -230,6 +243,7 @@ Choix retenu (11 nov.) : **Capacitor**, qui emballe le site mobile actuel (même
 - [ ] **[Code] Alerte « Prévenez-moi »** : un locataire qui ne trouve rien reçoit un e-mail dès qu'une chambre se libère dans sa ville à ses dates.
 - [ ] **[Code] Avis des locataires sur l'accueil**, dès les premiers séjours, pour rassurer les nouveaux visiteurs.
 - [ ] **[Paul] Décider d'un parrainage** (locataires ou propriétaires), puis **[Code]** le mettre en place avec un lien personnel et son suivi dans le back office.
+- [ ] **[Code] Découper les fichiers géants, au fil de l'eau** : `server.ts` (2 700 lignes) et `pages/AdminDashboard.tsx` (2 300 lignes) concentrent une grande partie du site ; plus ils grossissent, plus chaque modification risque d'en casser une autre, y compris pour les assistants de code. Pas avant l'ouverture : à chaque évolution d'un domaine (paiements, e-mails, back office…), le sortir dans son propre fichier, tests compris.
 - [ ] **[Paul] Écrire les premiers articles** (au moins 600 mots, deux ou trois intertitres, un mot-clé précis dans le titre) depuis l'onglet Articles du back office.
 
 ## Références
