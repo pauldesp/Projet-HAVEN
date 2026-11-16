@@ -1,17 +1,21 @@
 import type { Firestore } from 'firebase-admin/firestore';
-import { mergeErrorGroup, prepareErrorReport, shouldAlert, type ErrorGroup, type ErrorReportInput } from './errorTracking';
+import { createRateGuard, mergeErrorGroup, prepareErrorReport, shouldAlert, type ErrorGroup, type ErrorReportInput } from './errorTracking';
+
+/** Database writes for error reports per minute; enough to see any real problem, too few to loop. */
+export const ERROR_RECORDS_PER_MINUTE = 20;
 
 /** alertsEnabled: false in development, where the shared database must not mail the team for local errors. */
 export function createErrorTracking(deps: { db: Firestore; notifyMail: () => void; alertsEnabled: boolean }) {
   const groups = deps.db.collection('error_reports');
   const outbox = deps.db.collection('reservation_mail_outbox');
   const alertTimes: number[] = [];
+  const writes = createRateGuard(ERROR_RECORDS_PER_MINUTE, 60_000);
 
   /** Records one occurrence; never throws (error tracking must not create errors). */
   async function record(input: Partial<ErrorReportInput>) {
     try {
       const report = prepareErrorReport(input);
-      if (!report) return;
+      if (!report || !writes.allow()) return;
       const at = new Date().toISOString();
       const hourAgo = Date.now() - 3600_000;
       while (alertTimes.length && alertTimes[0] < hourAgo) alertTimes.shift();

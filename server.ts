@@ -9,6 +9,7 @@ import { buildMemberFile } from './services/memberFile';
 import { AdminFinanceError, createAdminFinances } from './services/adminFinancesServer';
 import { createAdminModeration } from './services/adminModerationServer';
 import { createErrorTracking } from './services/errorTrackingServer';
+import { createRateGuard } from './services/errorTracking';
 import { createAnalytics } from './services/analyticsServer';
 import { ArticleError, createArticles, toSummary } from './services/articlesServer';
 import { renderArticle, renderArticleList, renderFeed, renderNotFound, renderRobots, renderSitemap } from './services/articlePages';
@@ -2678,9 +2679,14 @@ async function startServer() {
 
 // A brief network loss (Wi-Fi switch, sleep) makes background Firestore/Stripe calls fail.
 // Every sweep retries on its next run, so log the failure instead of stopping the whole server.
+// The log is capped too: when Firestore is unreachable, thousands of identical lines would hide everything else.
+const backgroundFailureLog = createRateGuard(20, 60_000);
 process.on('unhandledRejection', reason => {
   const error = reason as { code?: unknown; message?: unknown; stack?: unknown } | undefined;
-  console.error('Background task failed; it will be retried.', error?.code ?? '', typeof error?.message === 'string' ? error.message.slice(0, 200) : '');
+  if (backgroundFailureLog.allow()) {
+    const hidden = backgroundFailureLog.takeSkipped();
+    console.error('Background task failed; it will be retried.', error?.code ?? '', typeof error?.message === 'string' ? error.message.slice(0, 200) : '', hidden ? `(${hidden} similar failures not shown)` : '');
+  }
   // Network losses are filtered out by the tracker; anything else is shown in the back office.
   void errorTracking.record({ source: 'SERVER', message: typeof error?.message === 'string' ? error.message : String(reason), stack: typeof error?.stack === 'string' ? error.stack : '', context: 'Tâche de fond' });
 });

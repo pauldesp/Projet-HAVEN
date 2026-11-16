@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { fingerprint, mergeErrorGroup, prepareErrorReport, scrub, shouldAlert } from './errorTracking';
+import type { Firestore } from 'firebase-admin/firestore';
+import { createRateGuard, fingerprint, mergeErrorGroup, prepareErrorReport, scrub, shouldAlert } from './errorTracking';
+import { createErrorTracking, ERROR_RECORDS_PER_MINUTE } from './errorTrackingServer';
 
 test('aucune donnée personnelle ni secret n’est conservé', () => {
   const cleaned = scrub('Échec pour paul@example.com avec sk_test_abc123 sur /#/payment/b-1?token=xyz et carte 4242424242424242');
@@ -37,4 +39,27 @@ test('une erreur est comptée, et une erreur résolue qui revient est rouverte e
   assert.equal(back.group.status, 'OPEN');
   assert.equal(back.group.resolvedAt, undefined);
   assert.equal(shouldAlert(true, 10), false, 'au plus 10 alertes par heure');
+});
+
+test('le garde-fou laisse passer un nombre limité d’événements par minute, puis rouvre', () => {
+  const guard = createRateGuard(3, 60_000);
+  assert.deepEqual([0, 1, 2, 3, 4].map(second => guard.allow(second * 1000)), [true, true, true, false, false]);
+  assert.equal(guard.takeSkipped(), 2);
+  assert.equal(guard.takeSkipped(), 0, 'le compteur repart à zéro');
+  assert.equal(guard.allow(60_001), true, 'une minute plus tard, la place est libérée');
+});
+
+test('base injoignable : les erreurs ne s’enregistrent pas en boucle jusqu’à saturer la mémoire', async () => {
+  let attempts = 0;
+  const unreachable = {
+    collection: () => ({ doc: () => ({}) }),
+    runTransaction: async () => { attempts++; throw Object.assign(new Error('Could not load the default credentials.'), { code: 'NO_CREDENTIALS' }); },
+  } as unknown as Firestore;
+  const tracking = createErrorTracking({ db: unreachable, notifyMail: () => undefined, alertsEnabled: true });
+  const originalError = console.error;
+  console.error = () => undefined;
+  try {
+    await Promise.all(Array.from({ length: 1000 }, () => tracking.record({ source: 'SERVER', message: 'Could not load the default credentials.' })));
+  } finally { console.error = originalError; }
+  assert.equal(attempts, ERROR_RECORDS_PER_MINUTE);
 });

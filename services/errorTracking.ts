@@ -68,6 +68,26 @@ export function mergeErrorGroup(existing: ErrorGroup | undefined, report: ErrorR
   return { group, isNew: reopened };
 }
 
+/**
+ * Lets through at most `limit` events per `windowMs` and counts the others.
+ * Recording an error can itself fail (database unreachable, expired credentials) and raise a new
+ * error: without this cap the two feed each other until the server runs out of memory.
+ */
+export function createRateGuard(limit: number, windowMs: number) {
+  const times: number[] = [];
+  let skipped = 0;
+  return {
+    allow(now = Date.now()) {
+      while (times.length && times[0] <= now - windowMs) times.shift();
+      if (times.length >= limit) { skipped++; return false; }
+      times.push(now);
+      return true;
+    },
+    /** How many events were refused since the previous call. */
+    takeSkipped() { const count = skipped; skipped = 0; return count; },
+  };
+}
+
 /** At most one alert per group, and no more than 10 alerts an hour overall. */
 export function shouldAlert(isNew: boolean, recentAlerts: number) {
   return isNew && recentAlerts < 10;
