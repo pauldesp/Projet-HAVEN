@@ -1,5 +1,7 @@
 # Mise en production sur Google Cloud Run
 
+> **16 novembre 2026 : l'hébergeur retenu est désormais Render** (environ 7 $/mois au lieu d'environ 47 $/mois ici). Voir `A-FAIRE.md`, section Hébergement. Cette notice reste valable comme alternative.
+
 Ce qui est prêt dans le code (13 novembre 2026) :
 
 - `npm start` lance le serveur en production (`NODE_ENV=production`), sur le port donné par l'hébergeur (`PORT`, 3000 par défaut).

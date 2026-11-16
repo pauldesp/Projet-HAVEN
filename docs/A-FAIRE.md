@@ -1,6 +1,6 @@
 # Ce qu'il reste à faire pour un Haven opérationnel et professionnel
 
-Liste établie le 6 novembre 2026, mise à jour le 11 novembre, à partir d'une revue du code, de la configuration et de [la checklist de mise en ligne](AVANT-MISE-EN-LIGNE.md), qu'elle reprend et complète. Cocher au fur et à mesure.
+Liste établie le 6 novembre 2026, mise à jour le 17 novembre, à partir d'une revue du code, de la configuration et de [la checklist de mise en ligne](AVANT-MISE-EN-LIGNE.md), qu'elle reprend et complète. Cocher au fur et à mesure.
 
 Légende : **[Paul]** à faire par toi (comptes, contrats, décisions), **[Code]** développement, **[Test]** vérification à la main.
 
@@ -18,9 +18,11 @@ Légende : **[Paul]** à faire par toi (comptes, contrats, décisions), **[Code]
 
 ### Hébergement
 
-- [x] **[Paul] Choisir l'hébergeur** : Google Cloud Run (choix du 11 novembre). Le serveur doit rester allumé en continu (prélèvements, expirations, mails, rapprochement Stripe toutes les minutes) : par exemple Cloud Run avec une instance toujours active, ou un petit serveur. Pas d'hébergement qui se met en veille.
-- [x] **[Code] Ajouter le démarrage de production** : `npm start`, `Dockerfile`, vérification des réglages au démarrage. Notice pas à pas dans `docs/MISE-EN-PRODUCTION.md`.
-- [ ] **[Paul] Déployer sur Cloud Run** en suivant `docs/MISE-EN-PRODUCTION.md` (instance toujours active, processeur toujours alloué, une seule instance).
+- [x] **[Paul] Choisir l'hébergeur** : **Render** (décision du 16 novembre, remplace Cloud Run choisi le 11). Raison : le serveur doit rester allumé en continu (prélèvements, expirations, mails, rapprochement Stripe), et une instance Cloud Run toujours active coûte environ 47 $/mois (simulateur Google, Paris, 1 vCPU, 1 Gio), contre 7 $/mois chez Render (0,5 processeur, 512 Mo, espace Hobby gratuit). Mémoire mesurée le 16 novembre en mode production : 165-180 Mo en fonctionnement, 235-255 Mo au démarrage, donc 512 Mo suffisent. Passer à l'instance 2 Go (25 $/mois) seulement si besoin. Vercel écarté : il ne garde pas de serveur allumé. **Firebase est conservé** pour les comptes et les données (décision du 16 novembre).
+- [x] **[Code] Ajouter le démarrage de production** : `npm start`, `Dockerfile`, vérification des réglages au démarrage. Notice Cloud Run dans `docs/MISE-EN-PRODUCTION.md`, à adapter à Render (tâche suivante).
+- [ ] **[Code] Préparer le déploiement sur Render** : fichier `render.yaml` (service web Node, une seule instance toujours active, `npm ci && npm run build` puis `npm start`, `TZ=Europe/Paris`, région Frankfurt, en Europe comme la base), contrôle de santé sur `/api/health`, et nouvelle notice pas à pas `docs/MISE-EN-PRODUCTION-RENDER.md` écrite pour Paul (non développeur). Point clé : Render n'est pas chez Google, il n'y a donc pas d'identifiants automatiques. Firebase Admin doit lire une clé de compte de service déposée comme « Secret File » Render (par exemple `/etc/secrets/firebase-admin.json`, pointée par `GOOGLE_APPLICATION_CREDENTIALS`). Vérifier que Firestore, Firebase Auth et la sauvegarde fonctionnent avec cette clé, et que `trust proxy` reste correct derrière le proxy de Render. Garder la notice Cloud Run comme alternative.
+- [ ] **[Paul] Créer la clé Firebase pour Render** : console Firebase › Paramètres du projet › Comptes de service › Générer une nouvelle clé privée. La déposer directement dans Render (Secret File), jamais dans Git ni dans une conversation, puis supprimer le fichier téléchargé.
+- [ ] **[Paul] Déployer sur Render** en suivant la nouvelle notice.
 - [ ] **[Paul] Acheter et relier le nom de domaine** en HTTPS.
 - [ ] **[Code] Renseigner `APP_ORIGIN`** avec l'adresse publique et vérifier tous les liens des e-mails.
 - [ ] **[Paul] Saisir les secrets de production** chez l'hébergeur (jamais dans Git ni dans une conversation).
@@ -66,6 +68,17 @@ Légende : **[Paul]** à faire par toi (comptes, contrats, décisions), **[Code]
 - [ ] **[Code] Bandeau cookies conforme** (refus aussi simple que l'acceptation) **seulement** si des cookies non essentiels sont ajoutés un jour ; inutile aujourd'hui.
 - [ ] **[Paul] Statut et fiscalité de Haven** : TVA sur les frais de service, factures aux locataires, obligations de déclaration des revenus des propriétaires par la plateforme.
 
+### Fichiers et photos : passer sur Firebase Storage
+
+Constat du 16 novembre : il n'y a aucun stockage de fichiers. Photos et documents sont compressés puis rangés en base64 **à l'intérieur** des fiches Firestore (photos d'annonce 960 px et 45 Ko maximum par `services/images.ts`, justificatifs 600 Ko maximum par `services/verificationDocument.ts`). Conséquences : une fiche Firestore ne peut pas dépasser 1 Mio (le verso de la pièce d'identité a déjà dû être déplacé dans `identity_documents` pour cette raison ; pièce d'identité + justificatif de revenus sur le même profil dépassent la limite) ; un état des lieux photographié ne tiendrait pas dans une fiche ; la recherche télécharge les photos de toutes les annonces ; la qualité des photos est faible pour un site premium. Principe retenu : les fichiers vont dans Firebase Storage (même projet), Firestore ne garde que leur chemin.
+
+- [ ] **[Paul] Activer Firebase Storage** : console Firebase › Storage › Commencer, emplacement en Europe proche de Firestore. Nécessite la formule à l'usage, déjà prévue plus bas (« Passer la base Firestore sur une formule payante »).
+- [ ] **[Code] Règles `storage.rules`, refus par défaut**, publiées avec le reste de la configuration Firebase. Photos d'annonces : lecture publique, écriture par le propriétaire de l'annonce ou par le serveur. Documents privés (identité, justificatifs, états des lieux) : jamais lisibles publiquement ; accès limité au titulaire, aux administrateurs et, pour un état des lieux, au propriétaire du logement de la réservation. **Attention : les liens « download URL » de Firebase sont des liens publics permanents**, à ne jamais utiliser pour un document privé ; servir ces fichiers par le serveur ou par des liens signés de courte durée. Tester les règles (un inconnu, un autre locataire et un propriétaire étranger à la réservation doivent être refusés).
+- [ ] **[Code] Photos de l'état des lieux** (à faire en premier, rien à migrer) : le bouton « Ajouter une photo » de `pages/EntryInventory.tsx` n'est qu'un emplacement visuel, il n'envoie rien. Le brancher sur Storage : plusieurs photos par élément, compression raisonnable (environ 1600 px, 300 Ko), aperçu et suppression avant validation, photos reprises dans le récapitulatif et le PDF éventuel, aussi pour l'état des lieux de sortie.
+- [ ] **[Code] Pièces d'identité et justificatifs** : déplacer `idCard`, le verso (`identity_documents`), `proofOfAddress`, `proofOfOwnership`, `proofOfIncome` vers Storage ; le profil ne garde que le chemin et l'état de vérification. Lever la limite de 600 Ko (PDF jusqu'à 10 Mo). Script de migration des documents existants, à tester d'abord en lecture seule, puis suppression des anciennes valeurs base64. Vérifier l'affichage dans le back office (`pages/AdminDashboard.tsx`, aperçu des documents).
+- [ ] **[Code] Photos des annonces et des chambres** : déplacer `mainPhotoUrl`, `galleryUrls` et `roomPhotos` vers Storage, en deux tailles (miniature d'environ 480 px pour les cartes de recherche, grande d'environ 1600 px pour la fiche), WebP conservé. Remonter la qualité (aujourd'hui 960 px / 45 Ko). Script de migration des annonces existantes. Les images des articles (`components/AdminArticles.tsx`, `services/articlesServer.ts`) peuvent suivre le même chemin, moins urgent.
+- [ ] **[Test] Parcours fichiers de bout en bout** : publier une annonce avec photos, déposer pièce d'identité recto verso et justificatif PDF, faire un état des lieux d'entrée et de sortie avec photos, vérifier l'accès refusé depuis un autre compte et depuis une fenêtre non connectée.
+
 ### Données
 
 - [ ] **[Code] Nettoyer la base avant l'ouverture** : réservations « Simulation », comptes, annonces et paiements de test.
@@ -78,6 +91,7 @@ Légende : **[Paul]** à faire par toi (comptes, contrats, décisions), **[Code]
 - [x] **[Code] Compiler Tailwind dans le projet** au lieu du CDN, puis **activer la politique de sécurité des contenus (CSP)** en production (7 novembre ; rendu identique vérifié sur 6 pages, aucune violation sur les pages publiques).
 - [ ] **[Test] Vérifier la CSP sur les pages connectées** une fois en ligne : connexion Google, messagerie, paiement Stripe, publication d'annonce.
 - [x] **[Code] Suivi des erreurs** (11 nov.) : erreurs imprévues du site et du serveur regroupées dans Surveillance (« Erreurs de l’application »), sans donnée personnelle ; en ligne, une alerte à l’équipe à la première apparition (10 par heure au plus).
+- [x] **[Code] Boucle d'erreurs qui faisait tomber le serveur** (16 novembre) : sans accès à Firestore (clé expirée, panne), chaque erreur était enregistrée dans Firestore, ce qui en créait une nouvelle (240 000 en 50 s, 2 Go de mémoire, arrêt du serveur). Enregistrements d'erreurs et lignes de journal plafonnés à 20 par minute (`createRateGuard`, tests associés) ; serveur vérifié stable à 177 Mo dans la même situation.
 - [x] **[Code] Réduire les lectures Firestore** (15 novembre) : disponibilités servies depuis une copie tenue à jour par le serveur, tâches périodiques ralenties et ciblées. Le quota gratuit (50 000 lectures/jour) avait été épuisé le 14 au soir.
 - [ ] **[Paul] Passer la base Firestore sur une formule payante** (paiement à l'usage) avant l'ouverture : la base actuelle est plafonnée au quota gratuit, même avec une carte bancaire ; à ce plafond, le site entier cesse de fonctionner jusqu'au lendemain 9 h.
 - [ ] **[Code] Revoir les limites de requêtes** (connexion, paiement, signalements) une fois le trafic réel connu.
@@ -91,6 +105,7 @@ Légende : **[Paul]** à faire par toi (comptes, contrats, décisions), **[Code]
 ### Performance
 
 - [x] **[Code] Découper le fichier principal** (11 nov.) : animations de l’accueil en CSS (−120 Ko), Firebase et React dans des fichiers séparés mis en cache, données de démonstration chargées à la demande.
+- [ ] **[Code] Ne charger que le nécessaire dans la recherche** (après le passage des photos sur Storage) : aujourd'hui `services/api.ts` (`getAll`) lit toute la collection `listings`, photos comprises, puis trie dans le navigateur. Filtrer par ville côté base, charger les résultats par paquets d'environ 12 (suite au défilement), n'afficher que la miniature sur les cartes, les autres photos seulement à l'ouverture ou au balayage du carrousel, images en `loading="lazy"`. Vérifier que la recherche récurrente et les filtres donnent les mêmes résultats qu'avant.
 - [x] **[Code] Optimiser les images** (11 nov.) : photo d’accueil en AVIF (79 Ko au lieu de 400 Ko, 42 Ko sur téléphone), logo allégé (34 Ko au lieu de 117 Ko, aussi dans les PDF), photos des annonces en WebP quand le navigateur le permet.
 
 ### Parcours locataire
