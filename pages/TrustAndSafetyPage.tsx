@@ -28,13 +28,13 @@ export const TrustAndSafetyPage: React.FC = () => (
   <div className="bg-haven-cream min-h-screen py-8 sm:py-16 px-4 sm:px-6 lg:px-8 mt-4 sm:mt-12 animate-fade-in">
     <div className="max-w-4xl mx-auto space-y-6 sm:space-y-10">
       <div className="text-center">
-        <span className="px-4 py-1.5 bg-haven-navy/5 text-haven-navy rounded-full text-xs font-black uppercase tracking-widest">Confiance et sécurité</span>
-        <h1 className="text-[1.75rem] sm:text-5xl font-heading font-black text-haven-navy mt-3 sm:mt-4 mb-3 sm:mb-6 leading-tight">Votre sécurité, avant tout</h1>
+        <span className="px-4 py-1.5 bg-haven-navy/5 text-haven-navy rounded-full text-xs font-bold uppercase tracking-widest">Confiance et sécurité</span>
+        <h1 className="text-[1.75rem] sm:text-5xl font-heading font-bold text-haven-navy mt-3 sm:mt-4 mb-3 sm:mb-6 leading-tight">Votre sécurité, avant tout</h1>
         <p className="text-sm sm:text-lg text-gray-500 max-w-2xl mx-auto">Ce que Haven fait pour vous protéger, les bons réflexes à garder, et que faire si quelque chose ne va pas.</p>
       </div>
 
       <section aria-labelledby="guarantees-title">
-        <h2 id="guarantees-title" className="mb-4 font-heading text-xl sm:text-2xl font-black text-haven-navy">Nos garanties</h2>
+        <h2 id="guarantees-title" className="mb-4 font-heading text-xl sm:text-2xl font-bold text-haven-navy">Nos garanties</h2>
         <div className="grid gap-3 sm:grid-cols-2">
           {GUARANTEES.map(({ icon: Icon, title, text }) => (
             <div key={title} className="flex gap-4 rounded-2xl border border-gray-100 bg-white p-5 shadow-card">
@@ -45,8 +45,8 @@ export const TrustAndSafetyPage: React.FC = () => (
         </div>
       </section>
 
-      <section className="rounded-[1.75rem] sm:rounded-[2.5rem] border border-gray-100 bg-white p-6 sm:p-10 shadow-premium" aria-labelledby="tips-title">
-        <h2 id="tips-title" className="flex items-center gap-2 font-heading text-xl sm:text-2xl font-black text-haven-navy"><AlertTriangle size={22} className="text-amber-600" aria-hidden="true" />Évitez les arnaques</h2>
+      <section className="rounded-[1.75rem] sm:rounded-[2rem] border border-gray-100 bg-white p-6 sm:p-10 shadow-premium" aria-labelledby="tips-title">
+        <h2 id="tips-title" className="flex items-center gap-2 font-heading text-xl sm:text-2xl font-bold text-haven-navy"><AlertTriangle size={22} className="text-amber-600" aria-hidden="true" />Évitez les arnaques</h2>
         <ul className="mt-5 grid gap-5 sm:grid-cols-2">
           {TIPS.map(({ icon: Icon, title, text }) => (
             <li key={title} className="flex gap-3">
@@ -57,13 +57,13 @@ export const TrustAndSafetyPage: React.FC = () => (
         </ul>
       </section>
 
-      <section className="rounded-[1.75rem] sm:rounded-[2.5rem] border border-gray-100 bg-white p-6 sm:p-10 shadow-premium" aria-labelledby="problem-title">
-        <h2 id="problem-title" className="flex items-center gap-2 font-heading text-xl sm:text-2xl font-black text-haven-navy"><Flag size={22} className="text-haven-red" aria-hidden="true" />En cas de problème</h2>
+      <section className="rounded-[1.75rem] sm:rounded-[2rem] border border-gray-100 bg-white p-6 sm:p-10 shadow-premium" aria-labelledby="problem-title">
+        <h2 id="problem-title" className="flex items-center gap-2 font-heading text-xl sm:text-2xl font-bold text-haven-navy"><Flag size={22} className="text-haven-red" aria-hidden="true" />En cas de problème</h2>
         <ol className="mt-6 grid gap-6 sm:grid-cols-3">
           {STEPS.map(({ title, text }, index) => (
             <li key={title}>
               <span className="flex h-9 w-9 items-center justify-center rounded-full bg-haven-navy text-sm font-bold text-white">{index + 1}</span>
-              <p className="mt-3 font-heading text-lg font-black text-haven-navy">{title}</p>
+              <p className="mt-3 font-heading text-lg font-bold text-haven-navy">{title}</p>
               <p className="mt-1 text-sm leading-relaxed text-gray-600">{text}</p>
             </li>
           ))}
@@ -71,7 +71,7 @@ export const TrustAndSafetyPage: React.FC = () => (
         <p className="mt-6 text-sm text-gray-500">Une question qui ne concerne pas un séjour ? <Link to="/contact" className="font-semibold text-haven-red underline underline-offset-4">Contactez l’équipe Haven</Link>.</p>
       </section>
 
-      <section className="flex flex-col gap-4 rounded-[1.75rem] sm:rounded-[2.5rem] bg-haven-navy p-6 sm:p-8 text-white sm:flex-row sm:items-center" aria-labelledby="data-title">
+      <section className="flex flex-col gap-4 rounded-[1.75rem] sm:rounded-[2rem] bg-haven-navy p-6 sm:p-8 text-white sm:flex-row sm:items-center" aria-labelledby="data-title">
         <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/10"><Lock size={22} aria-hidden="true" /></div>
         <div>
           <h2 id="data-title" className="flex items-center gap-2 font-heading text-lg font-bold"><ShieldCheck size={18} className="text-haven-red" aria-hidden="true" />Vos données sont protégées</h2>

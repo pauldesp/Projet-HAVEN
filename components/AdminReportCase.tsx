@@ -1,3 +1,4 @@
+import { askText } from './HavenDialogs';
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { AlertTriangle, ClipboardCheck, Home, Info, Loader2, Mail, Phone, UserRound, X, Zap } from 'lucide-react';
@@ -102,8 +103,8 @@ export function AdminReportCase({ reportId, bookingId, onClose, onOpenMember, on
     finally { setBusy(''); }
   };
   const close = (status: ReportStatus) => run(status, async () => onStatus?.(status, conclusion.trim()), status === 'RESOLVED' ? 'Signalement résolu.' : status === 'DISMISSED' ? 'Signalement classé.' : 'Examen en cours.');
-  const hold = () => {
-    const reason = window.prompt('Motif du blocage du versement', `Signalement à l’arrivée : ${file?.report.supportCategory || 'examen en cours'}`);
+  const hold = async () => {
+    const reason = await askText({ title: 'Bloquer le versement', message: 'Le propriétaire ne sera pas payé tant que le blocage reste en place.', label: 'Motif', defaultValue: `Signalement à l’arrivée : ${file?.report?.supportCategory || 'examen en cours'}`, minLength: 3, multiline: true, confirmLabel: 'Bloquer', danger: true });
     if (reason && file?.stay) void run('hold', () => call(`/api/admin/settlements/${file.stay!.booking.id}/hold`, { hold: true, reason }), 'Versement bloqué.');
   };
   const openClaim = () => {

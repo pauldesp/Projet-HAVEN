@@ -180,7 +180,7 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({ startDate, end
       <div className="w-full">
         <div className="grid grid-cols-7 text-center mb-1">
           {['L', 'M', 'M', 'J', 'V', 'S', 'D'].map((day, idx) => (
-            <div key={`${day}-${idx}`} className="h-5 flex items-center justify-center text-[9px] font-bold text-haven-stone/60 uppercase tracking-widest">{day}</div>
+            <div key={`${day}-${idx}`} className="h-5 flex items-center justify-center text-[11px] font-bold text-haven-stone/60 uppercase tracking-widest">{day}</div>
           ))}
         </div>
         <div className="grid grid-cols-7 text-center">

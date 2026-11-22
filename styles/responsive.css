@@ -5,7 +5,14 @@ body { margin: 0; }
 :where(main, section, article, aside, form, fieldset, .min-w-0) { min-width: 0; }
 :where(img, video, canvas, iframe) { max-width: 100%; }
 :where(button, a, input, select, textarea, summary) { touch-action: manipulation; }
-:where(button, a, input, select, textarea, summary):focus-visible { outline: 2px solid #A34343; outline-offset: 3px; }
+/* Feedback on the press itself, not on release (Apple: respond on pointer-down). The `scale` property composes
+   with any transform already on the element, and the short transition keeps it immediate. */
+:where(button, a[href], [role="button"], summary) { transition-property: scale, background-color, border-color, color, opacity, box-shadow; transition-duration: 120ms; transition-timing-function: ease-out; }
+:where(button, a[href], [role="button"], summary):active:not(:disabled):not([aria-disabled="true"]) { scale: .97; }
+@media (prefers-reduced-motion: reduce) {
+  :where(button, a[href], [role="button"], summary):active:not(:disabled) { scale: none; opacity: .75; }
+}
+:where(button, a, input, select, textarea, summary):focus-visible { outline: 2px solid #9A073C; outline-offset: 3px; }
 :where(input, select, textarea) { max-width: 100%; }
 :where(.flex, .grid) > :where(div, section, article, form) { min-width: 0; }
 :where(button, a, label) > svg { flex-shrink: 0; }
@@ -16,6 +23,8 @@ body { margin: 0; }
 .haven-dialog-scroll { min-height: 0; overflow-y: auto; overscroll-behavior-y: contain; }
 .haven-mobile-nav { padding-bottom: max(.5rem, env(safe-area-inset-bottom)); }
 .haven-mobile-nav-spacer { height: calc(5rem + env(safe-area-inset-bottom)); }
+/* Under the dark footer, the space kept for the bottom bar takes the footer's colour (no white band). */
+.haven-footer + div > .haven-mobile-nav-spacer { background: #0B245B; }
 .haven-bottom-actions { padding-bottom: max(1rem, env(safe-area-inset-bottom)); }
 /* No scroll snapping: it hid the first tab's padding; ScrollableRow shows what is hidden instead. */
 .haven-tabs > button { flex-shrink: 0; }
@@ -39,7 +48,7 @@ body { margin: 0; }
   .haven-table > tbody { display: grid; gap: 1rem; }
   .haven-table > tbody > tr { display: block; min-width: 0; border: 1px solid #e5e7eb; border-radius: 1rem; padding: .75rem; }
   .haven-table > tbody > tr > td { display: block; width: auto; min-width: 0; max-width: none; padding: .5rem; text-align: left; white-space: normal; overflow-wrap: anywhere; }
-  .haven-table td[data-label]::before { content: attr(data-label); display: block; margin-bottom: .3rem; font-size: 11px; font-weight: 700; color: #78716c; }
+  .haven-table td[data-label]::before { content: attr(data-label); display: block; margin-bottom: .3rem; font-size: 11px; font-weight: 700; color: #626878; }
   .haven-table td > .flex { flex-wrap: wrap; justify-content: flex-start; }
   .haven-table td[colspan] { padding: .75rem; }
   .haven-chat { height: calc(var(--haven-viewport-height, 100dvh) - 4rem); }
@@ -67,4 +76,23 @@ select:not([multiple]):not([size]) {
   background-position: right .9rem center;
   background-size: 16px;
   padding-right: 2.5rem;
+}
+
+/* Dialogs: they arrive from where they will leave (bottom on phones, a short rise elsewhere). See components/useSheet.ts. */
+@keyframes haven-dialog-in { from { opacity: 0; transform: translateY(8px) scale(.98); } }
+@keyframes haven-sheet-in { from { transform: translateY(100%); } }
+@keyframes haven-backdrop-in { from { opacity: 0; } }
+.haven-sheet { animation: haven-dialog-in 220ms cubic-bezier(0.32, 0.72, 0, 1); }
+.haven-backdrop { animation: haven-backdrop-in 220ms ease-out; }
+@media (max-width: 767px) { .haven-sheet { animation: haven-sheet-in 360ms cubic-bezier(0.32, 0.72, 0, 1); } }
+/* Animations used by several screens and never defined until now. */
+@keyframes haven-scale-in { from { opacity: 0; transform: scale(.97); } }
+.animate-scale-in { animation: haven-scale-in 220ms cubic-bezier(0.32, 0.72, 0, 1); }
+@keyframes haven-shake { 0%, 100% { transform: translateX(0); } 20%, 60% { transform: translateX(-6px); } 40%, 80% { transform: translateX(6px); } }
+.animate-shake { animation: haven-shake 360ms ease-in-out; }
+
+/* "Reduce transparency": header and tab bar become solid, without blur. */
+@media (prefers-reduced-transparency: reduce) {
+  .haven-header { background-color: #F9FAF5; backdrop-filter: none; -webkit-backdrop-filter: none; }
+  .haven-mobile-nav { background-color: #fff; backdrop-filter: none; -webkit-backdrop-filter: none; }
 }

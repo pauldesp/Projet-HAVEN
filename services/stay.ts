@@ -5,6 +5,13 @@ const parseCalendarDate = (value: string) => {
   return Number.isFinite(time) && new Date(time).toISOString().slice(0, 10) === value ? time : NaN;
 };
 
+/**
+ * Today's date in Paris (YYYY-MM-DD), whatever the clock of the server or browser: between midnight and
+ * 1 am (2 am in summer) the UTC date is still yesterday, which shifted cancellation tiers by a day.
+ */
+export const parisDateKey = (now = new Date()) =>
+  new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris', year: 'numeric', month: '2-digit', day: '2-digit' }).format(now);
+
 export const localDateKey = (now = new Date()) =>
   `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 

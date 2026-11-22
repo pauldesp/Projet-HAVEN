@@ -4,7 +4,7 @@ import type { ReservationConfirmation } from './reservationFulfillment';
 import { countNights } from './stay';
 
 const logoPath = fileURLToPath(new URL('../public/logo.png', import.meta.url));
-const C = { navy: '#1E293B', wine: '#9D1645', stone: '#64748B', cream: '#F8F6F3', line: '#E6E8EB', white: '#FFFFFF' };
+const C = { navy: '#0B245B', wine: '#9A073C', stone: '#64748B', cream: '#F8F6F3', line: '#E6E8EB', white: '#FFFFFF' };
 
 /** A payment receipt, never presented as a tax invoice or a real payment in test mode. */
 export async function paymentReceiptPdf(receipt: ReservationConfirmation): Promise<Buffer> {

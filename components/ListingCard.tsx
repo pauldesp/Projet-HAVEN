@@ -49,11 +49,11 @@ export const ListingCard: React.FC<ListingCardProps> = ({ listing, stayOverride,
           alt={listing.title} 
           className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
         /></Link>
-        <div className="pointer-events-none absolute top-3 left-3 bg-white/95 backdrop-blur-sm px-3 py-1 rounded-full text-[10px] font-bold text-haven-navy uppercase tracking-wider shadow-sm">
+        <div className="pointer-events-none absolute top-3 left-3 bg-white/95 backdrop-blur-sm px-3 py-1 rounded-full text-[11px] font-bold text-haven-navy uppercase tracking-wider shadow-sm">
           {listing.type === 'HOUSE' ? 'Maison' : 'Appartement'}
         </div>
         {stayOverride?.label && (
-          <div className="pointer-events-none absolute top-12 left-3 bg-haven-navy/95 px-3 py-1.5 rounded-full text-[10px] font-bold text-white shadow-sm">
+          <div className="pointer-events-none absolute top-12 left-3 bg-haven-navy/95 px-3 py-1.5 rounded-full text-[11px] font-bold text-white shadow-sm">
             {stayOverride.label}
           </div>
         )}
@@ -92,7 +92,7 @@ export const ListingCard: React.FC<ListingCardProps> = ({ listing, stayOverride,
                 <span className="text-[11px] text-gray-500">En moyenne · frais inclus</span>
               </>}
             </> : quote ? <>
-              <span className="text-[10px] text-gray-400 uppercase font-black tracking-widest">{t('card.from')}</span>
+              <span className="text-[11px] text-gray-400 uppercase font-bold tracking-widest">{t('card.from')}</span>
               <span className="font-heading font-bold text-xl text-haven-navy">{money(quote.total)} <span className="text-sm font-medium">{tr('au total')}</span></span>
               <span className="mt-1 text-xs text-gray-500">{quote.nights} {tr(quote.nights === 1 ? 'nuit · frais inclus' : 'nuits · frais inclus')}</span>
             </> : <span className="text-sm font-semibold text-haven-navy">{tr(dates.start && dates.end ? availability ? 'Indisponible pour ces dates' : 'Vérification du prix…' : 'Choisissez vos dates pour voir le prix du séjour')}</span>}

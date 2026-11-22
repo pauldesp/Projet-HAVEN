@@ -1,3 +1,4 @@
+import { askText } from './HavenDialogs';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Download, Loader2, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
@@ -137,7 +138,7 @@ export function AdminFinances({ bookings, listings, users }: { bookings: Booking
             {booking.status !== 'CANCELLED' && <button type="button" onClick={() => { setRefunding(booking); setAmount(''); setReason(''); }} className="min-h-11 rounded-xl border border-gray-200 px-3 font-semibold text-haven-navy">Rembourser</button>}
             {settlement && !['TRANSFERRED', 'REVERSED', 'PARTIALLY_REVERSED', 'CANCELLED'].includes(settlement.state) && (settlement.adminHold
               ? <button type="button" disabled={busy === `hold-${booking.id}`} onClick={() => void act(`hold-${booking.id}`, `/api/admin/settlements/${booking.id}/hold`, { hold: false }, 'Versement débloqué.')} className="min-h-11 rounded-xl border border-green-200 px-3 font-semibold text-green-700">Débloquer le versement</button>
-              : <button type="button" disabled={busy === `hold-${booking.id}`} onClick={() => { const motive = window.prompt('Motif du blocage du versement (litige, suspicion de fraude…)'); if (motive) void act(`hold-${booking.id}`, `/api/admin/settlements/${booking.id}/hold`, { hold: true, reason: motive }, 'Versement bloqué.'); }} className="min-h-11 rounded-xl border border-red-100 px-3 font-semibold text-haven-red">Bloquer le versement</button>)}
+              : <button type="button" disabled={busy === `hold-${booking.id}`} onClick={async () => { const motive = await askText({ title: 'Bloquer le versement', message: 'Le propriétaire ne sera pas payé tant que le blocage reste en place.', label: 'Motif (litige, suspicion de fraude…)', minLength: 3, multiline: true, confirmLabel: 'Bloquer', danger: true }); if (motive) void act(`hold-${booking.id}`, `/api/admin/settlements/${booking.id}/hold`, { hold: true, reason: motive }, 'Versement bloqué.'); }} className="min-h-11 rounded-xl border border-red-100 px-3 font-semibold text-haven-red">Bloquer le versement</button>)}
             {settlement?.state === 'REVIEW_REQUIRED' && <button type="button" disabled={busy === `retry-${booking.id}`} onClick={() => void act(`retry-${booking.id}`, `/api/admin/settlements/${booking.id}/retry`, {}, 'Transfert relancé.')} className="min-h-11 rounded-xl border border-gray-200 px-3 font-semibold text-haven-navy">Relancer le transfert</button>}
           </div>
         </li>;

@@ -1,3 +1,4 @@
+import { askText } from './HavenDialogs';
 import { useCallback, useEffect, useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -50,7 +51,7 @@ export function AdminMemberFile({ userId }: { userId: string }) {
     } catch (cause) { toast.error(cause instanceof Error ? cause.message : 'Export impossible.'); }
   };
   const erase = async () => {
-    const confirm = window.prompt('Effacement définitif : le compte sera anonymisé et ne pourra plus se connecter. Tapez EFFACER pour confirmer.');
+    const confirm = await askText({ title: 'Effacer ce compte ?', message: 'Effacement définitif : le compte sera anonymisé et ne pourra plus se connecter.', label: 'Tapez EFFACER pour confirmer', mustEqual: 'EFFACER', confirmLabel: 'Effacer', danger: true });
     if (confirm !== 'EFFACER') return;
     try {
       const response = await authenticatedFetch(`/api/admin/users/${encodeURIComponent(userId)}/erase`, { method: 'POST', body: JSON.stringify({ confirm }) });

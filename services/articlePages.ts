@@ -13,7 +13,7 @@ const jsonLd = (data: unknown) => `<script type="application/ld+json">${JSON.str
 const STYLE = `
 @font-face{font-family:'Inter Variable';font-style:normal;font-display:swap;font-weight:100 900;src:url(/fonts/inter.woff2) format('woff2')}
 @font-face{font-family:'DM Sans Variable';font-style:normal;font-display:swap;font-weight:100 1000;src:url(/fonts/dm-sans.woff2) format('woff2')}
-:root{--navy:#1E293B;--red:#A34343;--cream:#FDFCFB;--muted:#64748B;--line:#E5E7EB}
+:root{--navy:#0B245B;--red:#9A073C;--cream:#F9FAF5;--muted:#64748B;--line:#E5E7EB}
 *{box-sizing:border-box}html{-webkit-text-size-adjust:100%}
 body{margin:0;background:var(--cream);color:var(--navy);font:16px/1.7 'Inter Variable',system-ui,sans-serif}
 a{color:var(--red)}img{max-width:100%;height:auto}
@@ -33,20 +33,20 @@ h1,h2,h3,h4{font-family:'DM Sans Variable',system-ui,sans-serif;line-height:1.2;
 .chips a[aria-current]{background:var(--navy);border-color:var(--navy);color:#fff}
 .grid{display:grid;gap:22px;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));padding:8px 0 56px}
 .card{background:#fff;border:1px solid var(--line);border-radius:20px;overflow:hidden;display:flex;flex-direction:column;text-decoration:none;color:inherit;transition:box-shadow .2s}
-.card:hover{box-shadow:0 12px 30px -12px rgba(30,41,59,.25)}
-.card img,.card .nocover{display:block;aspect-ratio:16/9;object-fit:cover;width:100%;background:linear-gradient(135deg,#1E293B,#A34343)}
+.card:hover{box-shadow:0 12px 30px -12px rgba(11,36,91,.25)}
+.card img,.card .nocover{display:block;aspect-ratio:16/9;object-fit:cover;width:100%;background:linear-gradient(135deg,#0B245B,#9A073C)}
 .card div{padding:18px 20px 22px}.card h2{font-size:20px;margin:6px 0 8px}.card p{margin:0;color:var(--muted);font-size:15px}
 .meta{font-size:13px;color:var(--muted)}.cat{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--red)}
 article.post{max-width:740px;margin:0 auto;padding:0 0 40px}
-article.post .cover{width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:22px;margin:8px 0 28px;background:#F1F5F9}
+article.post .cover{width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:22px;margin:8px 0 28px;background:#EEEDEA}
 .body{font-size:18px}.body h2{font-size:28px;margin:44px 0 12px}.body h3{font-size:22px;margin:32px 0 8px}
 .body p,.body ul,.body ol{margin:0 0 20px}.body li{margin:6px 0}
 .body blockquote{margin:28px 0;padding:6px 22px;border-left:4px solid var(--red);background:#fff;border-radius:0 14px 14px 0;color:#334155}
 .body figure{margin:28px 0}.body figure img{border-radius:16px}.body figcaption{font-size:14px;color:var(--muted);text-align:center;margin-top:8px}
 .body .table{overflow-x:auto;margin:0 0 24px}.body table{border-collapse:collapse;min-width:100%;font-size:15px}
 .body th,.body td{border:1px solid var(--line);padding:9px 12px;text-align:left}.body th{background:#F8FAFC}
-.body hr{border:0;border-top:1px solid var(--line);margin:36px 0}.body code{background:#F1F5F9;padding:2px 6px;border-radius:6px;font-size:.9em}
-.tags{display:flex;flex-wrap:wrap;gap:8px;margin:32px 0 0;padding:0;list-style:none}.tags li{background:#F1F5F9;border-radius:999px;padding:4px 12px;font-size:13px}
+.body hr{border:0;border-top:1px solid var(--line);margin:36px 0}.body code{background:#EEEDEA;padding:2px 6px;border-radius:6px;font-size:.9em}
+.tags{display:flex;flex-wrap:wrap;gap:8px;margin:32px 0 0;padding:0;list-style:none}.tags li{background:#EEEDEA;border-radius:999px;padding:4px 12px;font-size:13px}
 .cta-box{background:var(--navy);color:#fff;border-radius:22px;padding:30px;margin:44px 0;text-align:center}
 .cta-box h2{color:#fff;margin:0 0 8px;font-size:24px}.cta-box p{color:#CBD5E1;margin:0 0 18px}
 .cta-box a{display:inline-block;background:#fff;color:var(--navy);font-weight:700;text-decoration:none;padding:12px 22px;border-radius:14px}
@@ -75,7 +75,7 @@ function layout(options: { title: string; description: string; canonical: string
 <meta property="og:url" content="${e(options.canonical)}">
 <meta property="og:image" content="${e(options.image)}">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="theme-color" content="#1E293B">
+<meta name="theme-color" content="#0B245B">
 <link rel="icon" type="image/png" href="/logo.png">
 <link rel="alternate" type="application/rss+xml" title="Articles Haven" href="/articles/feed.xml">
 <link rel="preload" href="/fonts/inter.woff2" as="font" type="font/woff2" crossorigin>

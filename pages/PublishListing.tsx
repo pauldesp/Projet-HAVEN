@@ -1,3 +1,4 @@
+import { askConfirm } from '../components/HavenDialogs';
 import { pickFile } from '../services/filePicker';
 import { CleaningPolicyNotice } from '../components/CleaningPolicyNotice';
 import { CLEANING_POLICY_VERSION } from '../services/cleaningPolicy';
@@ -19,7 +20,7 @@ import { resolveCityCoordinates } from '../services/proximity';
 import { Listing, Room, LegalDocument } from '../types';
 import { toast } from 'sonner';
 import { hasMissingRoomPhoto, MAX_LISTING_PHOTOS, MAX_ROOM_PHOTOS, normalizeRoomPhotos } from '../services/media';
-import { MAX_IMAGE_UPLOAD_BYTES, prepareImageForStorage } from '../services/images';
+import { prepareImageForStorage } from '../services/images';
 import { limitListingDescription, MAX_LISTING_DESCRIPTION_LENGTH } from '../services/listingDescription';
 import { hasIncompleteRoom, hasRoomWithoutOption, roomHasAtLeastOneOption } from '../services/roomValidation';
 import { apiService } from '../services/api';
@@ -284,8 +285,8 @@ export const PublishListing: React.FC = () => {
     setShowResumePrompt(false);
   };
 
-  const handleRestart = () => {
-    if (window.confirm("Voulez-vous vraiment effacer ce brouillon et recommencer ?")) {
+  const handleRestart = async () => {
+    if (await askConfirm({ title: 'Recommencer l’annonce ?', message: 'Le brouillon en cours sera effacé.', confirmLabel: 'Effacer et recommencer', danger: true })) {
       localStorage.removeItem(STORAGE_KEY);
       window.location.reload();
     }
@@ -400,10 +401,6 @@ export const PublishListing: React.FC = () => {
 
     void pickFile('image/*').then(file => {
       if (!file) return;
-      if (file.size > MAX_IMAGE_UPLOAD_BYTES) {
-        toast.error("L'image est trop volumineuse (max 1,2 Mo).");
-        return;
-      }
       prepareImageForStorage(file).then(photo => {
         setFormData(prev => {
           const newGallery = [...prev.galleryUrls];
@@ -411,7 +408,7 @@ export const PublishListing: React.FC = () => {
           return { ...prev, galleryUrls: newGallery };
         });
         toast.success('Photo des parties communes ajoutée.');
-      }).catch(() => toast.error('Impossible de préparer cette image.'));
+      }).catch((error: unknown) => toast.error(error instanceof Error ? error.message : 'Impossible de préparer cette image.'));
     });
   };
 
@@ -436,10 +433,6 @@ export const PublishListing: React.FC = () => {
 
     void pickFile('image/*').then(file => {
       if (!file) return;
-      if (file.size > MAX_IMAGE_UPLOAD_BYTES) {
-        toast.error("L'image de la chambre est trop volumineuse (max 1,2 Mo).");
-        return;
-      }
       prepareImageForStorage(file).then(photo => {
         setFormData(prev => ({
           ...prev,
@@ -448,7 +441,7 @@ export const PublishListing: React.FC = () => {
             : r)
         }));
         toast.success('Photo de la chambre ajoutée.');
-      }).catch(() => toast.error('Impossible de préparer cette image.'));
+      }).catch((error: unknown) => toast.error(error instanceof Error ? error.message : 'Impossible de préparer cette image.'));
     });
   };
 
@@ -566,7 +559,7 @@ export const PublishListing: React.FC = () => {
   if (showResumePrompt) {
     return (
       <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-haven-navy/40 backdrop-blur-sm animate-fade-in">
-        <div className="bg-white rounded-[1.75rem] sm:rounded-[2.5rem] shadow-premium max-w-lg w-full p-5 sm:p-10 text-center space-y-8 animate-fade-in-up">
+        <div className="bg-white rounded-[1.75rem] sm:rounded-[2rem] shadow-premium max-w-lg w-full p-5 sm:p-10 text-center space-y-8 animate-fade-in-up">
           <div className="w-20 h-20 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto shadow-inner"><RotateCcw size={36} /></div>
           <div className="space-y-3">
             <h1 className="text-2xl sm:text-3xl font-heading font-bold text-haven-navy">Reprendre là où vous vous étiez arrêté ?</h1>
@@ -611,7 +604,7 @@ export const PublishListing: React.FC = () => {
           <div className="h-6 w-px bg-gray-200" />
           <div className="flex flex-col">
             <span className="font-heading font-bold text-sm md:text-lg text-haven-navy leading-tight">Publier mon logement</span>
-            <div className={`flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest transition-opacity duration-500 ${isSaving ? 'text-blue-500' : 'text-green-500 opacity-60'}`}>
+            <div className={`flex items-center gap-1 text-[11px] font-bold uppercase tracking-widest transition-opacity duration-500 ${isSaving ? 'text-blue-500' : 'text-green-500 opacity-60'}`}>
               <Cloud size={12} /> {isSaving ? 'Sauvegarde...' : 'Brouillon enregistré'}
             </div>
           </div>
@@ -621,7 +614,7 @@ export const PublishListing: React.FC = () => {
             <div key={step.id} className={`h-2 w-8 rounded-full transition-all duration-500 ${STEPS.findIndex(s => s.id === currentStep) >= idx ? 'bg-haven-navy' : 'bg-gray-200'}`} />
           ))}
         </div>
-        <button onClick={handleRestart} className="text-[10px] font-black uppercase tracking-widest text-haven-stone hover:text-haven-red flex items-center gap-1.5 transition-colors"><RotateCcw size={12} /> Recommencer</button>
+        <button onClick={handleRestart} className="text-[11px] font-bold uppercase tracking-widest text-haven-stone hover:text-haven-red flex items-center gap-1.5 transition-colors"><RotateCcw size={12} /> Recommencer</button>
       </div>
 
       <div className="flex-1 max-w-5xl mx-auto w-full px-4 sm:px-6 py-8 sm:py-12 pb-32">
@@ -652,7 +645,7 @@ export const PublishListing: React.FC = () => {
             </div>
             <div className="space-y-8">
               <div className="bg-white p-4 sm:p-8 rounded-3xl border border-gray-100 shadow-soft">
-                <label className="block text-[10px] font-black text-haven-stone uppercase tracking-widest mb-4">Recherchez votre adresse exacte</label>
+                <label className="block text-[11px] font-bold text-haven-stone uppercase tracking-widest mb-4">Recherchez votre adresse exacte</label>
                 <CityAutocomplete 
                   value={formData.address} 
                   onChange={handleAddressChange}
@@ -707,7 +700,7 @@ export const PublishListing: React.FC = () => {
             </div>
             <div className="bg-white p-4 sm:p-8 rounded-3xl border border-gray-100 shadow-soft space-y-4">
               <ListingPublicInfoFields value={formData} onChange={updates => setFormData(prev => ({ ...prev, ...updates }))} />
-              <label className="block text-[10px] font-black text-haven-stone uppercase tracking-widest">Nom de la colocation</label>
+              <label className="block text-[11px] font-bold text-haven-stone uppercase tracking-widest">Nom de la colocation</label>
               <input 
                 type="text" 
                 value={formData.title || ''} 
@@ -718,12 +711,12 @@ export const PublishListing: React.FC = () => {
             </div>
             <div className="grid md:grid-cols-4 gap-4">
               <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-soft">
-                <label className="block text-[10px] font-black text-haven-stone uppercase tracking-widest mb-4">Surface (m²)</label>
+                <label className="block text-[11px] font-bold text-haven-stone uppercase tracking-widest mb-4">Surface (m²)</label>
                 <input type="number" value={formData.surface || 0} onChange={(e) => setFormData({...formData, surface: parseInt(e.target.value) || 0})} className="text-2xl font-bold text-haven-navy outline-none w-full bg-white" />
               </div>
               
               <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-soft">
-                <label className="block text-[10px] font-black text-haven-stone uppercase tracking-widest mb-4">Nombre de chambres</label>
+                <label className="block text-[11px] font-bold text-haven-stone uppercase tracking-widest mb-4">Nombre de chambres</label>
                 <div className="flex items-center gap-4 mt-2">
                   <button 
                     onClick={() => handleTotalRoomsChange(Math.max(1, formData.totalRooms - 1))}
@@ -742,7 +735,7 @@ export const PublishListing: React.FC = () => {
               </div>
 
               <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-soft">
-                <label className="block text-[10px] font-black text-haven-stone uppercase tracking-widest mb-4">Salles de bain</label>
+                <label className="block text-[11px] font-bold text-haven-stone uppercase tracking-widest mb-4">Salles de bain</label>
                 <div className="flex items-center gap-4 mt-2">
                   <button 
                     onClick={() => setFormData(prev => ({ ...prev, bathrooms: Math.max(1, prev.bathrooms - 1) }))}
@@ -770,15 +763,15 @@ export const PublishListing: React.FC = () => {
                 </label>
                 <div className="grid grid-cols-2 gap-4 mb-6">
                   <div>
-                    <label className="block text-[10px] font-black text-haven-stone uppercase tracking-widest mb-2">Heure d’arrivée</label>
+                    <label className="block text-[11px] font-bold text-haven-stone uppercase tracking-widest mb-2">Heure d’arrivée</label>
                     <input type="time" value={formData.checkInTime} onChange={event => setFormData(prev => ({ ...prev, checkInTime: event.target.value }))} className="w-full rounded-xl border border-gray-200 p-3" />
                   </div>
                   <div>
-                    <label className="block text-[10px] font-black text-haven-stone uppercase tracking-widest mb-2">Heure de départ</label>
+                    <label className="block text-[11px] font-bold text-haven-stone uppercase tracking-widest mb-2">Heure de départ</label>
                     <input type="time" value={formData.checkOutTime} onChange={event => setFormData(prev => ({ ...prev, checkOutTime: event.target.value }))} className="w-full rounded-xl border border-gray-200 p-3" />
                   </div>
                 </div>
-                <label className="block text-[10px] font-black text-haven-stone uppercase tracking-widest mb-4">Forfait ménage (€ par location)</label>
+                <label className="block text-[11px] font-bold text-haven-stone uppercase tracking-widest mb-4">Forfait ménage (€ par location)</label>
                 <div className="flex items-center gap-4 mt-2">
                   <button 
                     onClick={() => setFormData(prev => ({ ...prev, cleaningFee: Math.max(0, prev.cleaningFee - 5) }))}
@@ -810,7 +803,7 @@ export const PublishListing: React.FC = () => {
               <h1 className="text-2xl sm:text-3xl md:text-4xl font-heading font-bold text-haven-navy">Présentez votre logement</h1>
               <p className="mt-2 text-haven-stone">Décrivez simplement les espaces, l’ambiance et les équipements importants.</p>
             </div>
-            <div className="bg-white p-4 sm:p-8 rounded-[1.75rem] sm:rounded-[2.5rem] border border-gray-100 shadow-premium">
+            <div className="bg-white p-4 sm:p-8 rounded-[1.75rem] sm:rounded-[2rem] border border-gray-100 shadow-premium">
               <textarea 
                 rows={10} 
                 value={formData.description || ''} 
@@ -862,16 +855,16 @@ export const PublishListing: React.FC = () => {
             {hasRoomWithoutOption(formData.rooms) && <p className={`text-sm font-semibold ${showRoomOptionComplianceError ? 'text-haven-red' : 'text-haven-stone'}`}>{showRoomOptionComplianceError ? 'Une chambre sans option n’est pas conforme au cahier des charges HAVEN.' : 'Cochez les options de la chambre.'}</p>}
             <div className="space-y-12">
               {formData.rooms.map(room => (
-                <div key={room.id} className="bg-white rounded-[1.75rem] sm:rounded-[2.5rem] border border-gray-100 shadow-premium overflow-hidden flex flex-col lg:flex-row">
+                <div key={room.id} className="bg-white rounded-[1.75rem] sm:rounded-[2rem] border border-gray-100 shadow-premium overflow-hidden flex flex-col lg:flex-row">
                   {/* Form Part */}
                   <div className="flex-1 p-4 sm:p-8 md:p-10 space-y-10 border-r border-gray-50">
                     <div className="flex items-center justify-between border-b border-gray-100 pb-4">
                       <div className="space-y-1">
-                        <label className="text-[10px] font-black text-haven-stone uppercase tracking-widest">Nom de la chambre</label>
+                        <label className="text-[11px] font-bold text-haven-stone uppercase tracking-widest">Nom de la chambre</label>
                         <input type="text" required placeholder="Ex. Chambre Horizon" value={room.name || ''} onChange={(e) => updateRoom(room.id, { name: e.target.value })} className={`block w-full text-2xl font-bold text-haven-navy bg-white outline-none placeholder:text-gray-300 ${!room.name.trim() ? 'border-b-2 border-haven-red/50' : ''}`} />
                       </div>
                       <div className="text-right">
-                        <span className="text-[10px] font-black text-haven-stone uppercase tracking-widest block mb-1">Prix / Nuit</span>
+                        <span className="text-[11px] font-bold text-haven-stone uppercase tracking-widest block mb-1">Prix / Nuit</span>
                         <div className="flex items-center gap-1">
                           <input type="number" required min="0.01" step="0.01" placeholder="0" value={room.pricePerDay || ''} onChange={(e) => updateRoom(room.id, { pricePerDay: parseFloat(e.target.value) || 0 })} className={`w-20 text-2xl font-bold text-haven-navy text-right bg-white outline-none placeholder:text-gray-300 ${room.pricePerDay <= 0 ? 'border-b-2 border-haven-red/50' : ''}`} />
                           <span className="text-xl font-bold text-haven-navy">€</span>
@@ -882,7 +875,7 @@ export const PublishListing: React.FC = () => {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                       {/* Dimension */}
                       <div className="space-y-2">
-                        <label className="text-[10px] font-black text-haven-stone uppercase tracking-widest">Surface (m²)</label>
+                        <label className="text-[11px] font-bold text-haven-stone uppercase tracking-widest">Surface (m²)</label>
                         <div className="flex items-center gap-2 border-b border-gray-100 pb-2">
                           <Maximize2 size={18} className="text-gray-300"/>
                           <input type="number" required min="1" step="1" placeholder="0" value={room.size || ''} onChange={(e) => updateRoom(room.id, { size: parseInt(e.target.value) || 0 })} className={`w-full text-lg font-bold text-haven-navy bg-white outline-none placeholder:text-gray-300 ${room.size <= 0 ? 'border-b-2 border-haven-red/50' : ''}`} />
@@ -891,7 +884,7 @@ export const PublishListing: React.FC = () => {
 
                       {/* Type de lit */}
                       <div className="space-y-2">
-                        <label className="text-[10px] font-black text-haven-stone uppercase tracking-widest">Type de lit</label>
+                        <label className="text-[11px] font-bold text-haven-stone uppercase tracking-widest">Type de lit</label>
                         <div className="flex bg-gray-50 p-1 rounded-xl">
                           <button onClick={() => updateRoom(room.id, { bedSize: 'Single' })} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${room.bedSize === 'Single' ? 'bg-white text-haven-navy shadow-sm' : 'text-haven-stone hover:text-haven-navy'}`}>Simple</button>
                           <button onClick={() => updateRoom(room.id, { bedSize: 'Double' })} className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${room.bedSize === 'Double' ? 'bg-white text-haven-navy shadow-sm' : 'text-haven-stone hover:text-haven-navy'}`}>Double</button>
@@ -903,19 +896,19 @@ export const PublishListing: React.FC = () => {
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                       <button onClick={() => updateRoom(room.id, { hasPrivateBath: !room.hasPrivateBath })} className={`p-4 rounded-2xl border-2 transition-all flex flex-col items-center gap-3 ${room.hasPrivateBath ? 'border-haven-navy bg-haven-navy/5 text-haven-navy' : 'border-gray-50 text-haven-stone'}`}>
                         <Bath size={20} />
-                        <span className="text-[10px] font-black uppercase text-center">SDB Privée</span>
+                        <span className="text-[11px] font-bold uppercase text-center">SDB Privée</span>
                       </button>
                       <button onClick={() => updateRoom(room.id, { hasDesk: !room.hasDesk })} className={`p-4 rounded-2xl border-2 transition-all flex flex-col items-center gap-3 ${room.hasDesk ? 'border-haven-navy bg-haven-navy/5 text-haven-navy' : 'border-gray-50 text-haven-stone'}`}>
                         <Maximize2 size={20} />
-                        <span className="text-[10px] font-black uppercase text-center">Bureau</span>
+                        <span className="text-[11px] font-bold uppercase text-center">Bureau</span>
                       </button>
                       <button onClick={() => updateRoom(room.id, { hasLock: !room.hasLock })} className={`p-4 rounded-2xl border-2 transition-all flex flex-col items-center gap-3 ${room.hasLock ? 'border-haven-navy bg-haven-navy/5 text-haven-navy' : 'border-gray-50 text-haven-stone'}`}>
                         <Lock size={20} />
-                        <span className="text-[10px] font-black uppercase text-center">Verrou porte</span>
+                        <span className="text-[11px] font-bold uppercase text-center">Verrou porte</span>
                       </button>
                       <button onClick={() => updateRoom(room.id, { hasWardrobe: !room.hasWardrobe })} className={`p-4 rounded-2xl border-2 transition-all flex flex-col items-center gap-3 ${room.hasWardrobe ? 'border-haven-navy bg-haven-navy/5 text-haven-navy' : 'border-gray-50 text-haven-stone'}`}>
                         <WardrobeIcon size={20} />
-                        <span className="text-[10px] font-black uppercase text-center">Armoire/dressing</span>
+                        <span className="text-[11px] font-bold uppercase text-center">Armoire/dressing</span>
                       </button>
                     </div>
                     {!roomHasAtLeastOneOption(room) && <p className={`text-sm font-semibold ${showRoomOptionComplianceError ? 'text-haven-red' : 'text-haven-stone'}`}>{showRoomOptionComplianceError ? 'Cette chambre ne dispose d’aucune option et n’est pas conforme au cahier des charges HAVEN.' : 'Cochez les options de la chambre.'}</p>}
@@ -923,7 +916,7 @@ export const PublishListing: React.FC = () => {
 
                   {/* Photos Part */}
                   <div className="w-full lg:w-72 bg-gray-50/50 p-4 sm:p-8 flex flex-col gap-4">
-                    <label className="text-[10px] font-black text-haven-stone uppercase tracking-widest mb-1 flex items-center gap-2">
+                    <label className="text-[11px] font-bold text-haven-stone uppercase tracking-widest mb-1 flex items-center gap-2">
                       <Camera size={14}/> Photo de la chambre
                     </label>
                     <div className="grid grid-cols-1 gap-4">
@@ -943,7 +936,7 @@ export const PublishListing: React.FC = () => {
                           ) : (
                             <>
                               <Upload size={20} className="text-gray-300 group-hover:text-haven-navy" />
-                              <span className="text-[9px] font-bold text-gray-400 mt-2 uppercase">Slot {i+1}</span>
+                              <span className="text-[11px] font-bold text-gray-400 mt-2 uppercase">Slot {i+1}</span>
                             </>
                           )}
                         </div>
@@ -989,7 +982,7 @@ export const PublishListing: React.FC = () => {
                       <div className="w-10 h-10 bg-gray-50 rounded-full flex items-center justify-center text-gray-300 group-hover:text-haven-navy group-hover:bg-white transition-all">
                         <Upload size={20} />
                       </div>
-                      <span className="text-[10px] font-black text-gray-400 mt-3 uppercase tracking-widest">Photo {i+1}</span>
+                      <span className="text-[11px] font-bold text-gray-400 mt-3 uppercase tracking-widest">Photo {i+1}</span>
                     </>
                   )}
                 </div>
@@ -1043,11 +1036,11 @@ export const PublishListing: React.FC = () => {
                     <h3 className="font-heading font-bold text-xl">Informations générales</h3>
                   </div>
                   <div className="grid md:grid-cols-2 gap-y-4 gap-x-12">
-                    <div><span className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-1">Titre de l'annonce</span><span className="font-bold text-haven-navy">{formData.title}</span></div>
-                    <div><span className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-1">Type de bien</span><span className="font-bold text-haven-navy">{formData.type === 'APARTMENT' ? 'Appartement' : 'Maison'}</span></div>
-                    <div><span className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-1">Adresse</span><span className="font-bold text-haven-navy">{formData.address}, {formData.city}</span></div>
-                    <div><span className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-1">Surface Totale</span><span className="font-bold text-haven-navy">{formData.surface}m²</span></div>
-                    <div><span className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-1">Salles de bain</span><span className="font-bold text-haven-navy">{formData.bathrooms}</span></div>
+                    <div><span className="text-[11px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Titre de l'annonce</span><span className="font-bold text-haven-navy">{formData.title}</span></div>
+                    <div><span className="text-[11px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Type de bien</span><span className="font-bold text-haven-navy">{formData.type === 'APARTMENT' ? 'Appartement' : 'Maison'}</span></div>
+                    <div><span className="text-[11px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Adresse</span><span className="font-bold text-haven-navy">{formData.address}, {formData.city}</span></div>
+                    <div><span className="text-[11px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Surface Totale</span><span className="font-bold text-haven-navy">{formData.surface}m²</span></div>
+                    <div><span className="text-[11px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Salles de bain</span><span className="font-bold text-haven-navy">{formData.bathrooms}</span></div>
                   </div>
                 </div>
 
@@ -1074,8 +1067,8 @@ export const PublishListing: React.FC = () => {
                           </div>
                         </div>
                         <div className="text-right">
-                          <span className="font-black text-haven-navy">{room.pricePerDay}€</span>
-                          <span className="text-[10px] text-gray-400 uppercase block">/ nuit</span>
+                          <span className="font-bold text-haven-navy">{room.pricePerDay}€</span>
+                          <span className="text-[11px] text-gray-400 uppercase block">/ nuit</span>
                         </div>
                       </div>
                     ))}
@@ -1120,10 +1113,10 @@ export const PublishListing: React.FC = () => {
                 </div>
                 
                 {/* Simulated Listing Card */}
-                <div className="bg-white rounded-[1.75rem] sm:rounded-[2.5rem] shadow-premium overflow-hidden border border-gray-100 group transition-all p-3 hover:shadow-2xl hover:-translate-y-1">
+                <div className="bg-white rounded-[1.75rem] sm:rounded-[2rem] shadow-premium overflow-hidden border border-gray-100 group transition-all p-3 hover:shadow-2xl hover:-translate-y-1">
                   <div className="relative aspect-[16/10] bg-gray-200 overflow-hidden rounded-2xl">
                     <img src={formData.galleryUrls[0] || "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?ixlib=rb-4.0.3&auto=format&fit=crop&w=1600&q=80"} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" alt="" />
-                    <div className="absolute top-4 left-4 bg-white/95 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest text-haven-navy shadow-sm">{formData.type === 'HOUSE' ? 'Maison' : 'Appartement'}</div>
+                    <div className="absolute top-4 left-4 bg-white/95 px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-widest text-haven-navy shadow-sm">{formData.type === 'HOUSE' ? 'Maison' : 'Appartement'}</div>
                   </div>
                   <div className="p-5 space-y-4">
                     <div className="flex justify-between items-start">
@@ -1138,7 +1131,7 @@ export const PublishListing: React.FC = () => {
                     </div>
                     <div className="pt-6 border-t border-gray-100 flex justify-between items-center">
                        <div>
-                         <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest block">À partir de</span>
+                         <span className="text-[11px] font-bold text-gray-400 uppercase tracking-widest block">À partir de</span>
                          <span className="font-heading font-bold text-2xl text-haven-navy">{minPrice}€</span>
                          <span className="text-gray-400 text-xs font-bold"> / nuit</span>
                        </div>
@@ -1172,19 +1165,19 @@ export const PublishListing: React.FC = () => {
 
             <div className="grid md:grid-cols-2 gap-8">
               {/* Cahier des charges Card */}
-              <div className={`relative bg-white rounded-[2.5rem] p-5 sm:p-10 border transition-all duration-500 flex flex-col h-full ${
+              <div className={`relative bg-white rounded-[2rem] p-5 sm:p-10 border transition-all duration-500 flex flex-col h-full ${
                 legalReadStatus.specifications.validated 
                   ? 'border-green-200 shadow-sm' 
                   : 'border-gray-100 shadow-premium hover:shadow-2xl hover:-translate-y-1'
               }`}>
                 <div className="flex items-start justify-between mb-8">
-                  <div className={`w-16 h-16 rounded-[1.5rem] flex items-center justify-center transition-colors ${
+                  <div className={`w-16 h-16 rounded-[1.75rem] flex items-center justify-center transition-colors ${
                     legalReadStatus.specifications.validated ? 'bg-green-100 text-green-600' : 'bg-haven-red/10 text-haven-red'
                   }`}>
                     <FileText size={32} />
                   </div>
                   {legalReadStatus.specifications.validated && (
-                    <div className="bg-green-100 text-green-700 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5">
+                    <div className="bg-green-100 text-green-700 px-4 py-1.5 rounded-full text-[11px] font-bold uppercase tracking-widest flex items-center gap-1.5">
                       <Check size={14} /> Validé
                     </div>
                   )}
@@ -1209,19 +1202,19 @@ export const PublishListing: React.FC = () => {
               </div>
 
               {/* General terms card */}
-              <div className={`relative bg-white rounded-[2.5rem] p-5 sm:p-10 border transition-all duration-500 flex flex-col h-full ${
+              <div className={`relative bg-white rounded-[2rem] p-5 sm:p-10 border transition-all duration-500 flex flex-col h-full ${
                 legalReadStatus.terms.validated 
                   ? 'border-green-200 shadow-sm' 
                   : 'border-gray-100 shadow-premium hover:shadow-2xl hover:-translate-y-1'
               }`}>
                 <div className="flex items-start justify-between mb-8">
-                  <div className={`w-16 h-16 rounded-[1.5rem] flex items-center justify-center transition-colors ${
+                  <div className={`w-16 h-16 rounded-[1.75rem] flex items-center justify-center transition-colors ${
                     legalReadStatus.terms.validated ? 'bg-green-100 text-green-600' : 'bg-haven-red/10 text-haven-red'
                   }`}>
                     <Shield size={32} />
                   </div>
                   {legalReadStatus.terms.validated && (
-                    <div className="bg-green-100 text-green-700 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5">
+                    <div className="bg-green-100 text-green-700 px-4 py-1.5 rounded-full text-[11px] font-bold uppercase tracking-widest flex items-center gap-1.5">
                       <Check size={14} /> Validé
                     </div>
                   )}
@@ -1246,7 +1239,7 @@ export const PublishListing: React.FC = () => {
               </div>
             </div>
 
-            <div className="bg-haven-navy/5 p-4 sm:p-8 rounded-[1.75rem] sm:rounded-[2.5rem] border border-haven-navy/10 flex items-start gap-4">
+            <div className="bg-haven-navy/5 p-4 sm:p-8 rounded-[1.75rem] sm:rounded-[2rem] border border-haven-navy/10 flex items-start gap-4">
               <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-haven-navy shadow-sm shrink-0">
                 <Info size={20} />
               </div>
@@ -1262,7 +1255,7 @@ export const PublishListing: React.FC = () => {
       {isLegalModalOpen && activeLegalDoc && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-0 md:p-8">
           <div className="absolute inset-0 bg-haven-navy/80 backdrop-blur-md animate-fade-in" onClick={closeLegalModal} />
-          <div className="relative bg-white w-full max-w-5xl h-full md:h-[90dvh] md:rounded-[3rem] shadow-2xl flex flex-col overflow-hidden animate-fade-in-up">
+          <div className="relative bg-white w-full max-w-5xl h-full md:h-[90dvh] md:rounded-[2rem] shadow-2xl flex flex-col overflow-hidden animate-fade-in-up">
             {/* Modal Header */}
             <div className="shrink-0 px-4 py-4 sm:px-8 sm:py-6 border-b border-gray-100 flex items-center justify-between bg-white sticky top-0 z-10">
               <div className="flex items-center gap-4">
@@ -1271,12 +1264,12 @@ export const PublishListing: React.FC = () => {
                 </div>
                 <div>
                   <h3 className="font-heading font-bold text-lg sm:text-xl text-haven-navy leading-tight mb-1">{activeLegalDoc.title}</h3>
-                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Document officiel HAVEN</p>
+                  <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">Document officiel HAVEN</p>
                 </div>
               </div>
               <button 
                 onClick={closeLegalModal}
-                className="w-12 h-12 rounded-2xl hover:bg-gray-100 flex items-center justify-center text-haven-stone transition-all hover:rotate-90"
+                className="w-12 h-12 rounded-2xl hover:bg-gray-100 flex items-center justify-center text-haven-stone transition-all"
               >
                 <XCircle size={28} />
               </button>

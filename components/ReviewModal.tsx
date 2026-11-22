@@ -1,3 +1,4 @@
+import { useSheet } from './useSheet';
 
 import React, { useState, useEffect } from 'react';
 import { X, Star, Loader2, MessageSquare } from 'lucide-react';
@@ -33,6 +34,7 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({
   const [platformComment, setPlatformComment] = useState('');
   useEffect(() => { if (isOpen) { setRating(5); setComment(''); setPlatformRating(0); setPlatformComment(''); } }, [isOpen, bookingId]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const sheet = useSheet(onClose, { sheetBelow: 640 });
 
   useEffect(() => {
     if (!isOpen) return;
@@ -64,11 +66,12 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-[100] flex items-end justify-center p-0 sm:items-center sm:p-4">
-      <div className="absolute inset-0 bg-haven-navy/40 backdrop-blur-md" onClick={onClose}></div>
+      <div ref={sheet.backdropRef} className="haven-backdrop absolute inset-0 bg-haven-navy/40 backdrop-blur-md" onClick={sheet.requestClose}></div>
       
-      <div role="dialog" aria-modal="true" aria-label="Noter votre expérience" className="haven-dialog-panel relative bg-white rounded-[2.5rem] w-full max-w-lg max-h-[90dvh] overflow-y-auto shadow-2xl flex flex-col animate-fade-in-up">
-        <div className="haven-dialog-footer p-4 pt-8 sm:p-8 text-center">
-          <button onClick={onClose} aria-label="Fermer les avis" className="haven-touch-action absolute top-2 right-2 p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-400">
+      <div ref={sheet.panelRef} role="dialog" aria-modal="true" aria-label="Noter votre expérience" className="haven-sheet haven-dialog-panel relative bg-white rounded-t-[2rem] sm:rounded-[2rem] w-full max-w-lg max-h-[90dvh] overflow-y-auto shadow-2xl flex flex-col">
+        <div {...sheet.dragProps} className="shrink-0 pb-1 pt-2 sm:hidden"><div className="mx-auto h-1.5 w-12 rounded-full bg-gray-200" aria-hidden="true" /></div>
+        <div className="haven-dialog-footer p-4 pt-6 sm:p-8 text-center">
+          <button onClick={sheet.requestClose} aria-label="Fermer les avis" className="haven-touch-action absolute top-2 right-2 p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-400">
             <X size={20} />
           </button>
           
@@ -98,7 +101,7 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({
             </div>
 
             <div className="text-left space-y-2">
-              <label className="text-[10px] font-black text-haven-stone uppercase tracking-widest">Votre commentaire</label>
+              <label className="text-[11px] font-bold text-haven-stone uppercase tracking-widest">Votre commentaire</label>
               <textarea 
                 rows={4}
                 value={comment}

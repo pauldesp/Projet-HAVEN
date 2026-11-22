@@ -16,13 +16,14 @@ export const Button: React.FC<ButtonProps> = ({
   className = '',
   ...props
 }) => {
-  const baseStyles = "inline-flex min-h-11 min-w-0 items-center justify-center gap-2 font-bold transition-all duration-300 rounded-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-haven-red disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]";
+  // Press feedback (scale on :active) comes from styles/responsive.css, in 120 ms: never a 300 ms lag after the tap.
+  const baseStyles = "inline-flex min-h-11 min-w-0 items-center justify-center gap-2 font-bold rounded-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-haven-red disabled:opacity-50 disabled:cursor-not-allowed";
   
   const variants = {
-    primary: "bg-haven-navy text-white hover:bg-slate-900 shadow-sm",
-    secondary: "bg-haven-red text-white hover:bg-[#8e3939] shadow-sm",
-    outline: "border border-slate-200 text-haven-navy hover:bg-slate-50",
-    ghost: "text-haven-navy hover:bg-slate-50"
+    primary: "bg-haven-navy text-white hover:bg-haven-navy-deep shadow-sm",
+    secondary: "bg-haven-red text-white hover:bg-haven-red-deep shadow-sm",
+    outline: "border border-gray-200 text-haven-navy hover:bg-gray-50",
+    ghost: "text-haven-navy hover:bg-gray-50"
   };
 
   const sizes = {

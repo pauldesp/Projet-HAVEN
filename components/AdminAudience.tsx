@@ -9,7 +9,7 @@ type Paid = { date: string; amount: number; commission: number; isTest: boolean 
 type Payload = { from: string; to: string; previousFrom: string; previousTo: string; current: AnalyticsDay[]; previous: AnalyticsDay[]; paid: Paid[] };
 
 // Single-series marks use Haven navy; the three device categories use a validated categorical trio.
-const NAVY = '#1E293B';
+const NAVY = '#0B245B';
 const DEVICE_COLORS: Record<string, string> = { mobile: '#2a78d6', desktop: '#eb6834', tablet: '#1baf7a' };
 const DEVICE_LABELS: Record<string, string> = { mobile: 'Téléphone', desktop: 'Ordinateur', tablet: 'Tablette' };
 const SOURCE_LABELS: Record<string, string> = { direct: 'Accès direct', google: 'Google', bing: 'Bing', instagram: 'Instagram', facebook: 'Facebook', linkedin: 'LinkedIn', x: 'X (Twitter)', tiktok: 'TikTok', whatsapp: 'WhatsApp' };

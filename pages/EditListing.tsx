@@ -1,3 +1,4 @@
+import { askConfirm } from '../components/HavenDialogs';
 import { pickFile } from '../services/filePicker';
 import { CleaningPolicyNotice } from '../components/CleaningPolicyNotice';
 import { CLEANING_POLICY_VERSION } from '../services/cleaningPolicy';
@@ -15,7 +16,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { Listing, Room } from '../types';
 import { toast } from 'sonner';
 import { hasMissingRoomPhoto, MAX_LISTING_PHOTOS, normalizeListingPhotos } from '../services/media';
-import { MAX_IMAGE_UPLOAD_BYTES, optimizeListingImages, prepareImageForStorage } from '../services/images';
+import { optimizeListingImages, prepareImageForStorage } from '../services/images';
 import { MAX_LISTING_DESCRIPTION_LENGTH } from '../services/listingDescription';
 import { hasIncompleteRoom, hasRoomWithoutOption, roomHasAtLeastOneOption } from '../services/roomValidation';
 import { AMENITIES_LIST } from '../services/amenities';
@@ -125,7 +126,7 @@ export const EditListing: React.FC = () => {
     const saved = savedListing.current;
     // Only an owner's own changes go back to review; an administrator's correction does not.
     const reviewAgain = Boolean(saved && needsNewReview(saved, listing)) && listing.ownerId === currentUser?.id;
-    if (reviewAgain && !window.confirm('Vous modifiez les textes, les photos ou l’adresse : Haven vérifiera de nouveau l’annonce. Elle sera masquée des recherches jusqu’à validation. Les réservations existantes ne sont pas concernées. Continuer ?')) return;
+    if (reviewAgain && !await askConfirm({ title: 'Nouvelle vérification de l’annonce', message: 'Vous modifiez les textes, les photos ou l’adresse : Haven vérifiera de nouveau l’annonce. Elle sera masquée des recherches jusqu’à validation. Les réservations existantes ne sont pas concernées.', confirmLabel: 'Enregistrer' })) return;
     setIsSaving(true);
     try {
       const optimizedListing = await optimizeListingImages(normalizeListingPhotos(listing));
@@ -183,14 +184,14 @@ export const EditListing: React.FC = () => {
     });
   };
 
-  const removeRoom = (roomId: string) => {
+  const removeRoom = async (roomId: string) => {
     if (listing.rooms.length <= 1) {
       toast.error("Il doit y avoir au moins une chambre.");
       return;
     }
     const roomToRemove = listing.rooms.find(room => room.id === roomId);
     if (!roomToRemove) return;
-    if (!window.confirm(`Supprimer définitivement « ${roomToRemove.name || 'cette chambre'} » ?`)) return;
+    if (!await askConfirm({ title: 'Supprimer cette chambre ?', message: `« ${roomToRemove.name || 'Cette chambre'} » sera retirée de l’annonce.`, confirmLabel: 'Supprimer', danger: true })) return;
     const remainingRooms = listing.rooms.filter(room => room.id !== roomId);
     setListing({
       ...listing,
@@ -215,14 +216,10 @@ export const EditListing: React.FC = () => {
     setListing({ ...listing, galleryUrls, mainPhotoUrl: selectedPhoto });
   };
 
-  const selectImage = (onLoad: (photo: string) => void, errorMessage: string) => {
+  const selectImage = (onLoad: (photo: string) => void) => {
     void pickFile('image/*').then(file => {
       if (!file) return;
-      if (file.size > MAX_IMAGE_UPLOAD_BYTES) {
-        toast.error(errorMessage);
-        return;
-      }
-      prepareImageForStorage(file).then(onLoad).catch(() => toast.error('Impossible de préparer cette image.'));
+      prepareImageForStorage(file).then(onLoad).catch((error: unknown) => toast.error(error instanceof Error ? error.message : 'Impossible de préparer cette image.'));
     });
   };
 
@@ -231,7 +228,7 @@ export const EditListing: React.FC = () => {
     selectImage(photo => {
       setListing(current => current ? { ...current, galleryUrls: [...current.galleryUrls, photo], mainPhotoUrl: current.mainPhotoUrl || photo } : current);
       toast.success('Photo des parties communes ajoutée.');
-    }, "L'image est trop volumineuse (max 1,2 Mo).");
+    });
   };
 
   const toggleRoomPhoto = (roomId: string) => {
@@ -243,7 +240,7 @@ export const EditListing: React.FC = () => {
     selectImage(photo => {
       setListing(current => current ? { ...current, rooms: current.rooms.map(item => item.id === roomId ? { ...item, photoUrl: photo, roomPhotos: [photo] } : item) } : current);
       toast.success('Photo de la chambre ajoutée.');
-    }, "L'image de la chambre est trop volumineuse (max 1,2 Mo).");
+    });
   };
 
   return (
@@ -279,7 +276,7 @@ export const EditListing: React.FC = () => {
 
         {/* Tabs */}
         {/* Two by two on phones so every tab, including Disponibilités, is visible without scrolling. */}
-        <div role="tablist" aria-label="Sections de l’annonce" className="mb-8 grid max-w-2xl grid-cols-2 gap-1 rounded-[1.5rem] border border-gray-100 bg-white/50 p-1.5 backdrop-blur-sm sm:flex sm:rounded-[2rem]">
+        <div role="tablist" aria-label="Sections de l’annonce" className="mb-8 grid max-w-2xl grid-cols-2 gap-1 rounded-[1.75rem] border border-gray-100 bg-white/50 p-1.5 backdrop-blur-sm sm:flex sm:rounded-[2rem]">
            {[
              { id: 'GENERAL', label: 'Informations', icon: Info },
              { id: 'ROOMS', label: 'Chambres', icon: Bed },
@@ -292,7 +289,7 @@ export const EditListing: React.FC = () => {
                 role="tab"
                 aria-selected={activeTab === tab.id}
                 onClick={() => setActiveTab(tab.id as any)}
-                className={`flex-1 shrink-0 whitespace-nowrap px-3 flex items-center justify-center gap-2 py-3 rounded-[1.25rem] sm:rounded-[1.5rem] text-sm font-bold transition-all ${activeTab === tab.id ? 'bg-white text-haven-navy shadow-premium' : 'text-haven-stone hover:text-haven-navy/70'}`}
+                className={`flex-1 shrink-0 whitespace-nowrap px-3 flex items-center justify-center gap-2 py-3 rounded-[1.75rem] sm:rounded-[1.75rem] text-sm font-bold transition-all ${activeTab === tab.id ? 'bg-white text-haven-navy shadow-premium' : 'text-haven-stone hover:text-haven-navy/70'}`}
              >
                 <tab.icon size={16} />
                 {tab.label}
@@ -300,7 +297,7 @@ export const EditListing: React.FC = () => {
            ))}
         </div>
 
-        <div className="bg-white rounded-[1.75rem] sm:rounded-[2.5rem] shadow-premium p-4 sm:p-8 md:p-12 border border-gray-100 animate-fade-in">
+        <div className="bg-white rounded-[1.75rem] sm:rounded-[2rem] shadow-premium p-4 sm:p-8 md:p-12 border border-gray-100 animate-fade-in">
           
           {activeTab === 'AVAILABILITY' && (
             <AvailabilityBlocker listing={listing} onSaved={(target, dates) => setListing(previous => previous && (target === 'LISTING'
@@ -312,7 +309,7 @@ export const EditListing: React.FC = () => {
             <div className="space-y-10">
                <div className="grid md:grid-cols-2 gap-8">
                   <div className="space-y-3">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-haven-stone">Nom du logement</label>
+                    <label className="text-[11px] font-bold uppercase tracking-widest text-haven-stone">Nom du logement</label>
                     <input 
                       type="text" 
                       value={listing.title || ''}
@@ -321,7 +318,7 @@ export const EditListing: React.FC = () => {
                     />
                   </div>
                   <div className="space-y-3">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-haven-stone">Type de bien</label>
+                    <label className="text-[11px] font-bold uppercase tracking-widest text-haven-stone">Type de bien</label>
                     <div className="flex bg-gray-50 p-1.5 rounded-2xl">
                       <button onClick={() => setListing({...listing, type: 'APARTMENT'})} className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition-all ${listing.type === 'APARTMENT' ? 'bg-white text-haven-navy shadow-sm' : 'text-haven-stone'}`}>
                         <Building size={16} /> Appartement
@@ -332,7 +329,7 @@ export const EditListing: React.FC = () => {
                     </div>
                   </div>
                   <div className="space-y-3">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-haven-stone">Forfait ménage (€ par location)</label>
+                    <label className="text-[11px] font-bold uppercase tracking-widest text-haven-stone">Forfait ménage (€ par location)</label>
                     <input 
                       type="number" 
                       value={listing.cleaningFee || 0}
@@ -341,7 +338,7 @@ export const EditListing: React.FC = () => {
                     />
                   </div>
                   <div className="space-y-3">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-haven-stone">Salles de bain</label>
+                    <label className="text-[11px] font-bold uppercase tracking-widest text-haven-stone">Salles de bain</label>
                     <input
                       type="number"
                       min="1"
@@ -357,18 +354,18 @@ export const EditListing: React.FC = () => {
                <ListingPublicInfoFields value={listing} onChange={updates => setListing({ ...listing, ...updates })} />
                <div className="grid md:grid-cols-2 gap-8">
                   <div className="space-y-3">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-haven-stone">Heure d’arrivée</label>
+                    <label className="text-[11px] font-bold uppercase tracking-widest text-haven-stone">Heure d’arrivée</label>
                     <input type="time" value={listing.checkInTime || '15:00'} onChange={(e) => setListing({ ...listing, checkInTime: e.target.value })} className="w-full bg-gray-50 border-none rounded-2xl px-5 py-4 text-haven-navy font-bold focus:ring-2 focus:ring-haven-navy/20 outline-none transition-all" />
                   </div>
                   <div className="space-y-3">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-haven-stone">Heure de départ</label>
+                    <label className="text-[11px] font-bold uppercase tracking-widest text-haven-stone">Heure de départ</label>
                     <input type="time" value={listing.checkOutTime || '11:00'} onChange={(e) => setListing({ ...listing, checkOutTime: e.target.value })} className="w-full bg-gray-50 border-none rounded-2xl px-5 py-4 text-haven-navy font-bold focus:ring-2 focus:ring-haven-navy/20 outline-none transition-all" />
                   </div>
                </div>
 
                <div className="space-y-3">
                   <div>
-                    <label className="text-[10px] font-black uppercase tracking-widest text-haven-stone">Description détaillée</label>
+                    <label className="text-[11px] font-bold uppercase tracking-widest text-haven-stone">Description détaillée</label>
                     <p className="mt-1 text-sm text-haven-stone">Décrivez votre logement en quelques phrases.</p>
                   </div>
                   <textarea 
@@ -383,7 +380,7 @@ export const EditListing: React.FC = () => {
 
                <div className="grid md:grid-cols-2 gap-8">
                   <div className="space-y-3">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-haven-stone">Séjour minimum (nuits)</label>
+                    <label className="text-[11px] font-bold uppercase tracking-widest text-haven-stone">Séjour minimum (nuits)</label>
                     <input 
                       type="number" 
                       value={listing.minStay || 0}
@@ -396,7 +393,7 @@ export const EditListing: React.FC = () => {
                     </label>
                   </div>
                   <div className="space-y-3">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-haven-stone">Surface totale (m²)</label>
+                    <label className="text-[11px] font-bold uppercase tracking-widest text-haven-stone">Surface totale (m²)</label>
                     <input 
                       type="number" 
                       value={listing.surface || 0}
@@ -413,7 +410,7 @@ export const EditListing: React.FC = () => {
 
                <div className="space-y-4">
                  <div>
-                   <label className="text-[10px] font-black uppercase tracking-widest text-haven-stone">Équipements et services</label>
+                   <label className="text-[11px] font-bold uppercase tracking-widest text-haven-stone">Équipements et services</label>
                    <p className="mt-1 text-sm text-haven-stone">Sélectionnez les équipements disponibles dans les parties communes.</p>
                  </div>
                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
@@ -469,15 +466,15 @@ export const EditListing: React.FC = () => {
 
                        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 items-end">
                           <div className="space-y-2 col-span-2">
-                            <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Nom</label>
+                            <label className="text-[11px] font-bold uppercase tracking-widest text-gray-400">Nom</label>
                             <input type="text" required placeholder="Ex. Chambre Horizon" value={room.name || ''} onChange={(e) => updateRoom(room.id, { name: e.target.value })} className={`w-full bg-white rounded-xl px-4 py-3 font-bold text-haven-navy outline-none border ${!room.name.trim() ? 'border-haven-red' : 'border-gray-100'}`} />
                           </div>
                           <div className="space-y-2">
-                            <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Prix / Nuit (€)</label>
+                            <label className="text-[11px] font-bold uppercase tracking-widest text-gray-400">Prix / Nuit (€)</label>
                             <input type="number" required min="0.01" step="0.01" placeholder="0" value={room.pricePerDay || ''} onChange={(e) => updateRoom(room.id, { pricePerDay: parseFloat(e.target.value) || 0 })} className={`w-full bg-white rounded-xl px-4 py-3 font-bold text-haven-navy outline-none border ${room.pricePerDay <= 0 ? 'border-haven-red' : 'border-gray-100'}`} />
                           </div>
                           <div className="space-y-2">
-                            <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Surface (m²)</label>
+                            <label className="text-[11px] font-bold uppercase tracking-widest text-gray-400">Surface (m²)</label>
                             <input type="number" required min="1" step="1" placeholder="0" value={room.size || ''} onChange={(e) => updateRoom(room.id, { size: parseInt(e.target.value) || 0 })} className={`w-full bg-white rounded-xl px-4 py-3 font-bold text-haven-navy outline-none border ${room.size <= 0 ? 'border-haven-red' : 'border-gray-100'}`} />
                           </div>
                        </div>
@@ -495,7 +492,7 @@ export const EditListing: React.FC = () => {
                               className={`flex flex-col items-center gap-2 p-3 rounded-2xl border transition-all ${((room as any)[opt.id]) ? 'bg-haven-navy border-haven-navy text-white shadow-sm' : 'bg-white border-gray-100 text-gray-400 hover:border-haven-navy/30'}`}
                             >
                               <opt.icon size={18} />
-                              <span className="text-[9px] font-bold uppercase">{opt.label}</span>
+                              <span className="text-[11px] font-bold uppercase">{opt.label}</span>
                             </button>
                           ))}
                        </div>
@@ -524,14 +521,14 @@ export const EditListing: React.FC = () => {
                           )}
                        </div>
                        {idx === 0 && (
-                         <div className="absolute top-4 left-4 bg-haven-red text-white text-[9px] font-black uppercase px-2 py-1 rounded-full shadow-sm">Principal</div>
+                         <div className="absolute top-4 left-4 bg-haven-red text-white text-[11px] font-bold uppercase px-2 py-1 rounded-full shadow-sm">Principal</div>
                        )}
                     </div>
                   ))}
                   {listing.galleryUrls.length < MAX_LISTING_PHOTOS && (
                     <button type="button" onClick={addGalleryPhoto} className="aspect-[4/3] rounded-[2rem] border-2 border-dashed border-gray-200 flex flex-col items-center justify-center gap-2 text-gray-400 hover:border-haven-navy hover:text-haven-navy transition-all cursor-pointer">
                        <Plus size={24} />
-                       <span className="text-[10px] font-bold uppercase">Charger une photo</span>
+                       <span className="text-[11px] font-bold uppercase">Charger une photo</span>
                     </button>
                   )}
                </div>

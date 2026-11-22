@@ -68,7 +68,7 @@ export const AdminLoginPage: React.FC = () => {
     <div className="min-h-screen bg-[#0F172A] flex flex-col items-center justify-center p-4 font-body">
       {/* Background Pattern */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-10">
-        <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(#1E293B_1px,transparent_1px)] [background-size:24px_24px]"></div>
+        <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(#0B245B_1px,transparent_1px)] [background-size:24px_24px]"></div>
       </div>
 
       <div className="w-full max-w-md relative z-10">
@@ -79,7 +79,7 @@ export const AdminLoginPage: React.FC = () => {
           </div>
           <div className="flex items-center justify-center gap-2 text-haven-red mb-2">
             <ShieldCheck size={20} />
-            <span className="text-[10px] font-black uppercase tracking-[0.3em]">Accès Sécurisé Salariés</span>
+            <span className="text-[11px] font-bold uppercase tracking-[0.3em]">Accès Sécurisé Salariés</span>
           </div>
           <h1 className="text-3xl font-heading font-bold text-white">Portail Administration</h1>
           <p className="text-gray-400 mt-2 text-sm">
@@ -88,7 +88,7 @@ export const AdminLoginPage: React.FC = () => {
         </div>
 
         {/* Login Card */}
-        <div className="bg-white/5 backdrop-blur-xl rounded-[2.5rem] p-8 border border-white/10 shadow-2xl">
+        <div className="bg-white/5 backdrop-blur-xl rounded-[2rem] p-8 border border-white/10 shadow-2xl">
           {resetSent ? (
             <div className="space-y-6 text-center">
               <div className="w-16 h-16 bg-green-500/10 rounded-2xl flex items-center justify-center text-green-500 mx-auto">
@@ -121,7 +121,7 @@ export const AdminLoginPage: React.FC = () => {
               )}
 
               <div className="space-y-2">
-                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Email Professionnel</label>
+                <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-widest ml-1">Email Professionnel</label>
                 <div className="relative group">
                   <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-haven-red transition-colors">
                     <Mail size={18} />
@@ -166,7 +166,7 @@ export const AdminLoginPage: React.FC = () => {
 
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Email Professionnel</label>
+                  <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-widest ml-1">Email Professionnel</label>
                   <div className="relative group">
                     <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-haven-red transition-colors">
                       <Mail size={18} />
@@ -183,7 +183,7 @@ export const AdminLoginPage: React.FC = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Mot de passe</label>
+                  <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-widest ml-1">Mot de passe</label>
                   <div className="relative group">
                     <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-haven-red transition-colors">
                       <Lock size={18} />
@@ -199,7 +199,7 @@ export const AdminLoginPage: React.FC = () => {
                     <button 
                       type="button"
                       onClick={() => setShowReset(true)}
-                      className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-black text-gray-500 hover:text-haven-red uppercase tracking-wider transition-colors"
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-[11px] font-bold text-gray-500 hover:text-haven-red uppercase tracking-wider transition-colors"
                     >
                       Oublié ?
                     </button>
@@ -230,12 +230,12 @@ export const AdminLoginPage: React.FC = () => {
           <div className="flex items-center justify-center gap-6 text-gray-500">
             <div className="flex items-center gap-2">
               <Building size={14} />
-              <span className="text-[10px] font-bold uppercase tracking-wider">HAVEN HQ</span>
+              <span className="text-[11px] font-bold uppercase tracking-wider">HAVEN HQ</span>
             </div>
             <div className="w-1 h-1 bg-gray-700 rounded-full"></div>
-            <span className="text-[10px] font-bold uppercase tracking-wider">v2.4.0-admin</span>
+            <span className="text-[11px] font-bold uppercase tracking-wider">v2.4.0-admin</span>
           </div>
-          <p className="text-[10px] text-gray-600 max-w-[280px] mx-auto leading-relaxed">
+          <p className="text-[11px] text-gray-600 max-w-[280px] mx-auto leading-relaxed">
             L'accès non autorisé à ce système est strictement interdit et peut faire l'objet de poursuites.
           </p>
         </div>

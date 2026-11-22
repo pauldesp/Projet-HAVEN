@@ -1,6 +1,6 @@
 import type { Booking, DamageClaim } from '../types';
 import { formatEuros } from './money';
-import { localDateKey } from './stay';
+import { parisDateKey } from './stay';
 
 /**
  * Caution Haven : rien n'est bloqué ni débité à la réservation. La carte du locataire est enregistrée par Stripe ;
@@ -38,7 +38,7 @@ const addDays = (day: string, days: number) => new Date(Date.parse(`${day}T12:00
 export const damageClaimDeadline = (booking: Pick<Booking, 'endDate'>) => addDays(booking.endDate, DAMAGE_DEPOSIT_POLICY.claimWindowDays);
 
 /** The stay is paid, has ended (departure day included) and the 7-day window is still open. */
-export function canDeclareDamage(booking: Booking, today = localDateKey()) {
+export function canDeclareDamage(booking: Booking, today = parisDateKey()) {
   if (booking.paymentStatus !== 'PAID' || !['CONFIRMED', 'COMPLETED'].includes(booking.status)) return false;
   if (!booking.depositConsent) return false;
   return today >= booking.endDate && today <= damageClaimDeadline(booking);

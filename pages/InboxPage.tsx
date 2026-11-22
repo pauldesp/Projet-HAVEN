@@ -1,7 +1,8 @@
+import { PageSkeleton } from '../components/PageSkeleton';
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, MessageSquare, User as UserIcon, ChevronRight, Loader2, Clock, Home, ShieldCheck } from 'lucide-react';
+import { Search, MessageSquare, User as UserIcon, ChevronRight, Clock, Home, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { apiService } from '../services/api';
 import { Message, User, Booking, Listing } from '../types';
@@ -75,9 +76,7 @@ export const InboxPage: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-[70vh] flex items-center justify-center">
-        <Loader2 className="w-8 h-8 text-haven-navy animate-spin" />
-      </div>
+      <PageSkeleton variant="list" label="Chargement de vos messages…" />
     );
   }
 
@@ -85,7 +84,7 @@ export const InboxPage: React.FC = () => {
     <div className="max-w-5xl mx-auto px-6 py-12">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-heading font-black text-haven-navy">Messages</h1>
+          <h1 className="text-2xl sm:text-3xl font-heading font-bold text-haven-navy">Messages</h1>
           <p className="text-gray-500 mt-2">Gérez vos conversations avec les propriétaires et locataires.</p>
         </div>
 
@@ -153,7 +152,7 @@ export const InboxPage: React.FC = () => {
                 exit={{ opacity: 0, scale: 0.95 }}
                 layout
                 onClick={() => navigate(`/messages/${conv.bookingId}`)}
-                className="group bg-white hover:bg-gray-50 p-4 sm:p-6 rounded-[2rem] shadow-premium border border-haven-navy/5 cursor-pointer transition-all active:scale-[0.98]"
+                className="group bg-white hover:bg-gray-50 p-4 sm:p-6 rounded-[2rem] shadow-premium border border-haven-navy/5 cursor-pointer transition-all"
               >
                 <div className="flex items-center gap-3 sm:gap-6">
                   {/* User Avatar */}
@@ -173,7 +172,7 @@ export const InboxPage: React.FC = () => {
                       )}
                     </div>
                     {conv.unreadCount > 0 && (
-                      <span className="absolute -top-1 -right-1 w-6 h-6 bg-haven-red text-white text-[10px] font-black rounded-full flex items-center justify-center shadow-lg border-2 border-white animate-pulse">
+                      <span className="absolute -top-1 -right-1 w-6 h-6 bg-haven-red text-white text-[11px] font-bold rounded-full flex items-center justify-center shadow-lg border-2 border-white animate-pulse">
                         {conv.unreadCount}
                       </span>
                     )}
@@ -185,7 +184,7 @@ export const InboxPage: React.FC = () => {
                       <h3 className={`font-bold text-lg ${conv.unreadCount > 0 ? 'text-haven-navy' : 'text-gray-700'}`}>
                         {conv.otherUser?.firstName} {conv.otherUser?.lastName}
                       </h3>
-                      <span className="text-[10px] font-bold text-gray-400 flex items-center gap-1 uppercase tracking-widest">
+                      <span className="text-[11px] font-bold text-gray-400 flex items-center gap-1 uppercase tracking-widest">
                         <Clock size={12} />
                         {new Date(conv.latestMessage.timestamp).toLocaleDateString()}
                       </span>
@@ -200,7 +199,7 @@ export const InboxPage: React.FC = () => {
                       {conv.listing && (
                         <div className="flex items-center gap-1.5 px-3 py-1 bg-haven-cream rounded-full">
                           <Home size={12} className="text-haven-navy/50" />
-                          <span className="text-[10px] font-bold text-haven-navy/70 truncate max-w-[150px]">
+                          <span className="text-[11px] font-bold text-haven-navy/70 truncate max-w-[150px]">
                             {conv.listing.title}
                           </span>
                         </div>
@@ -208,7 +207,7 @@ export const InboxPage: React.FC = () => {
                       {conv.booking?.status === 'CONFIRMED' && (
                         <div className="flex items-center gap-1.5 px-3 py-1 bg-green-50 rounded-full">
                           <ShieldCheck size={12} className="text-green-600" />
-                          <span className="text-[10px] font-bold text-green-600 uppercase">Confirmé</span>
+                          <span className="text-[11px] font-bold text-green-600 uppercase">Confirmé</span>
                         </div>
                       )}
                     </div>

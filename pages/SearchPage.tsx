@@ -317,7 +317,7 @@ export const SearchPage: React.FC = () => {
               <span className="min-w-0"><span className="block truncate text-sm font-bold">{cityParam.split(',')[0] || 'Tous les logements'}</span><span className="block truncate text-xs text-gray-500">{isRecurring ? `${requestedPeriods.length} séjours · ${requestedPeriods.reduce((sum, period) => sum + countNights(period.start, period.end), 0)} nuits` : startDate && endDate ? `${new Date(`${startDate}T12:00:00Z`).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', timeZone: 'UTC' })} → ${new Date(`${endDate}T12:00:00Z`).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', timeZone: 'UTC' })}` : 'Choisir mes dates'}</span></span>
               <span className="sr-only"> · Modifier ma recherche</span>
             </button>
-            <button type="button" aria-label={mobileFiltersOpen ? 'Fermer les filtres' : 'Filtrer les résultats'} aria-expanded={mobileFiltersOpen} aria-controls="search-filters" onClick={() => { setMobileFiltersOpen(open => !open); setMobileSearchOpen(false); }} className={`relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full border ${mobileFiltersOpen ? 'border-haven-navy bg-haven-navy text-white' : 'border-gray-200 bg-white text-haven-navy'}`}><SlidersHorizontal size={19} />{activeFilterCount > 0 && <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-haven-red px-1 text-[9px] font-bold text-white">{activeFilterCount}<span className="sr-only"> filtre(s) actif(s)</span></span>}</button>
+            <button type="button" aria-label={mobileFiltersOpen ? 'Fermer les filtres' : 'Filtrer les résultats'} aria-expanded={mobileFiltersOpen} aria-controls="search-filters" onClick={() => { setMobileFiltersOpen(open => !open); setMobileSearchOpen(false); }} className={`relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full border ${mobileFiltersOpen ? 'border-haven-navy bg-haven-navy text-white' : 'border-gray-200 bg-white text-haven-navy'}`}><SlidersHorizontal size={19} />{activeFilterCount > 0 && <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-haven-red px-1 text-[11px] font-bold text-white">{activeFilterCount}<span className="sr-only"> filtre(s) actif(s)</span></span>}</button>
           </div>
         </div>
         {/* Top Header */}
@@ -510,7 +510,7 @@ export const SearchPage: React.FC = () => {
               <div className="space-y-0 md:space-y-6">
                 <div className="hidden items-center gap-3 md:flex">
                   <div className="h-px flex-1 bg-gray-100"></div>
-                  <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-gray-400">Logements à {cityParam.split(',')[0]}</h2>
+                  <h2 className="text-[11px] font-bold uppercase tracking-[0.3em] text-gray-400">Logements à {cityParam.split(',')[0]}</h2>
                   <div className="h-px flex-1 bg-gray-100"></div>
                 </div>
                 <div className="grid md:grid-cols-2 gap-8">
@@ -541,14 +541,14 @@ export const SearchPage: React.FC = () => {
               <div className="space-y-6">
                 <div className="flex items-center gap-3">
                   <div className="h-px flex-1 bg-gray-100"></div>
-                  <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-gray-400">À proximité</h2>
+                  <h2 className="text-[11px] font-bold uppercase tracking-[0.3em] text-gray-400">À proximité</h2>
                   <div className="h-px flex-1 bg-gray-100"></div>
                 </div>
                 <div className="grid md:grid-cols-2 gap-8">
                   {nearbyMatches.map(listing => (
                     <div key={listing.id} className="relative">
                       <ListingCard listing={listing} availability={availability} {...recurrenceCardProps(listing)} />
-                      <div className="pointer-events-none absolute top-4 left-4 z-10 bg-white/95 backdrop-blur-sm text-haven-navy px-4 py-2 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl flex items-center gap-2 border border-gray-100">
+                      <div className="pointer-events-none absolute top-4 left-4 z-10 bg-white/95 backdrop-blur-sm text-haven-navy px-4 py-2 rounded-2xl text-[11px] font-bold uppercase tracking-widest shadow-xl flex items-center gap-2 border border-gray-100">
                         <Route size={14} className="text-haven-red" />
                         À {Math.round(listing.distance || 0)} km à vol d’oiseau
                       </div>
@@ -562,7 +562,7 @@ export const SearchPage: React.FC = () => {
             {listingsError && <p role="alert" className="text-haven-red">{listingsError}</p>}
             {geocodingError && <p role="alert" className="text-haven-red">La localisation de cette ville est indisponible. Réessayez la recherche pour afficher les logements à proximité.</p>}
             {!isGeocoding && !listingsLoading && !isAvailabilityLoading && !listingsError && !geocodingError && exactMatches.length === 0 && nearbyDateMatches.length === 0 && nearbyMatches.length === 0 && (
-              <div className="text-center py-10 sm:py-24 bg-white rounded-[3rem] border border-gray-100 shadow-premium">
+              <div className="text-center py-10 sm:py-24 bg-white rounded-[2rem] border border-gray-100 shadow-premium">
                 <div className="w-24 h-24 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-6">
                   <MapPin size={40} className="text-gray-200" />
                 </div>
@@ -571,7 +571,7 @@ export const SearchPage: React.FC = () => {
                 <div className="flex flex-col items-center gap-4">
                   <Button 
                     variant="outline" 
-                    className="rounded-2xl px-8 h-12 text-[10px] font-black uppercase tracking-widest"
+                    className="rounded-2xl px-8 h-12 text-[11px] font-bold uppercase tracking-widest"
                     onClick={resetFilters}
                   >
                     Réinitialiser les filtres

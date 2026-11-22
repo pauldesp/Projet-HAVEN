@@ -16,6 +16,21 @@ import { ProtectedRoute } from './components/ProtectedRoute';
 import { UserRole } from './types';
 
 import { Toaster, toast } from 'sonner';
+
+/** Notifications at the top right on a computer; on a phone, at the bottom, within reach and above the tab bar. */
+function ResponsiveToaster() {
+  const query = '(max-width: 767px)';
+  const [phone, setPhone] = React.useState(() => typeof window !== 'undefined' && window.matchMedia(query).matches);
+  React.useEffect(() => {
+    const media = window.matchMedia(query);
+    const update = () => setPhone(media.matches);
+    media.addEventListener('change', update);
+    return () => media.removeEventListener('change', update);
+  }, []);
+  return <Toaster richColors position={phone ? 'bottom-center' : 'top-right'}
+    mobileOffset={{ bottom: 'calc(76px + env(safe-area-inset-bottom))', left: 16, right: 16 }} />;
+}
+import { HavenDialogHost } from './components/HavenDialogs';
 import { classifyError, reportError } from './services/errorHandling';
 
 const AccountPage = lazy(() => import('./pages/AccountPage').then(module => ({ default: module.AccountPage })));
@@ -109,7 +124,8 @@ const AppContent: React.FC = () => {
 
   return (
     <div className="haven-content flex min-h-screen min-w-0 flex-col bg-haven-cream font-body text-haven-navy">
-      <Toaster position="top-right" richColors />
+      <ResponsiveToaster />
+      <HavenDialogHost />
       {!isAdminLogin && !isPaymentPage && <Header />}
       
       <main className="min-w-0 flex-grow">

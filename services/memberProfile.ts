@@ -19,7 +19,7 @@ export function createPendingMemberProfile(authMember: AuthMember, emailFallback
     email: authMember.email || emailFallback,
     role: UserRole.TENANT,
     status: 'PENDING',
-    avatarUrl: authMember.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=1E293B&color=fff`,
+    avatarUrl: authMember.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=0B245B&color=fff`,
     ...(authMember.phoneNumber ? { phone: authMember.phoneNumber } : {}),
     emailVerified: authMember.emailVerified,
     phoneVerified: Boolean(authMember.phoneNumber),

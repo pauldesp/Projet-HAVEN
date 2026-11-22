@@ -1,3 +1,4 @@
+import { useSheet } from './useSheet';
 import { CleaningPolicyNotice } from './CleaningPolicyNotice';
 import { CLEANING_POLICY_VERSION } from '../services/cleaningPolicy';
 import { DAMAGE_DEPOSIT_CONSENT_TEXT, DAMAGE_DEPOSIT_POLICY } from '../services/damageDeposit';
@@ -80,6 +81,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose, lis
   const [isLoadingLegal, setIsLoadingLegal] = useState(false);
 
   const { currentUser } = useAuth();
+  const sheet = useSheet(onClose);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -246,18 +248,21 @@ export const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose, lis
   return (
     <>
       <div role="dialog" aria-modal="true" aria-label="Réserver ce logement" className="fixed inset-0 z-[60] flex items-end justify-center md:items-center md:p-4">
-        <div className="absolute inset-0 bg-haven-navy/40 backdrop-blur-sm" onClick={onClose}></div>
+        <div ref={sheet.backdropRef} className="haven-backdrop absolute inset-0 bg-haven-navy/40 backdrop-blur-sm" onClick={sheet.requestClose}></div>
 
-        <div className="haven-dialog-panel relative bg-white rounded-t-[2rem] md:rounded-3xl w-full max-w-2xl max-h-[92dvh] md:max-h-[90dvh] overflow-y-auto shadow-2xl flex flex-col">
+        <div ref={sheet.panelRef} className="haven-sheet haven-dialog-panel relative bg-white rounded-t-[2rem] md:rounded-3xl w-full max-w-2xl max-h-[92dvh] md:max-h-[90dvh] overflow-y-auto shadow-2xl flex flex-col">
+          {/* Handle and header: drag down to close on phones. */}
+          <div {...sheet.dragProps} className="sticky top-0 z-10 bg-white">
           <div className="mx-auto mt-2 h-1.5 w-12 rounded-full bg-gray-200 md:hidden" />
           {/* Header */}
-          <div className="flex justify-between items-center px-4 py-4 md:p-6 border-b border-gray-100 sticky top-0 bg-white z-10">
+          <div className="flex justify-between items-center px-4 py-4 md:p-6 border-b border-gray-100">
             <div className="flex items-center gap-2">
               <h2 className="font-heading font-bold text-lg md:text-xl text-haven-navy">Confirmer et payer</h2>
             </div>
-            <button onClick={onClose} aria-label="Fermer la réservation" className="haven-touch-action p-2 hover:bg-gray-100 rounded-full text-gray-500">
+            <button onClick={sheet.requestClose} aria-label="Fermer la réservation" className="haven-touch-action p-2 hover:bg-gray-100 rounded-full text-gray-500">
               <X size={20} />
             </button>
+          </div>
           </div>
 
           <div className="p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] md:p-8">
@@ -327,7 +332,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose, lis
       {isLegalModalOpen && legalDoc && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-0 md:p-8">
           <div className="absolute inset-0 bg-haven-navy/80 backdrop-blur-md" onClick={() => setIsLegalModalOpen(false)} />
-          <div className="relative bg-white w-full max-w-5xl h-[100dvh] md:h-[90dvh] md:rounded-[3rem] shadow-2xl flex flex-col overflow-hidden animate-fade-in-up">
+          <div className="relative bg-white w-full max-w-5xl h-[100dvh] md:h-[90dvh] md:rounded-[2rem] shadow-2xl flex flex-col overflow-hidden animate-fade-in-up">
             <div className="shrink-0 px-4 py-4 sm:px-8 sm:py-6 border-b border-gray-100 flex items-center justify-between bg-white sticky top-0 z-10">
               <div className="flex items-center gap-4">
                 <div className="shrink-0 w-10 h-10 sm:w-12 sm:h-12 bg-haven-red/10 rounded-2xl flex items-center justify-center text-haven-red">
@@ -335,10 +340,10 @@ export const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose, lis
                 </div>
                 <div>
                   <h3 className="font-heading font-bold text-lg sm:text-xl text-haven-navy leading-tight mb-1">{legalDoc.title}</h3>
-                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Document officiel HAVEN</p>
+                  <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">Document officiel HAVEN</p>
                 </div>
               </div>
-              <button onClick={() => setIsLegalModalOpen(false)} className="shrink-0 w-11 h-11 rounded-2xl hover:bg-gray-100 flex items-center justify-center text-haven-stone transition-all hover:rotate-90">
+              <button onClick={() => setIsLegalModalOpen(false)} className="shrink-0 w-11 h-11 rounded-2xl hover:bg-gray-100 flex items-center justify-center text-haven-stone transition-all">
                 <XCircle size={28} />
               </button>
             </div>

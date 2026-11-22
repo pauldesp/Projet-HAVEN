@@ -4,8 +4,8 @@
   "description": "Trouvez et réservez une chambre flexible pour vos séjours.",
   "start_url": "/#/",
   "display": "standalone",
-  "background_color": "#FDFCFB",
-  "theme_color": "#FDFCFB",
+  "background_color": "#F9FAF5",
+  "theme_color": "#F9FAF5",
   "orientation": "portrait-primary",
   "icons": [
     {

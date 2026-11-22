@@ -1,3 +1,4 @@
+import { useSheet } from './useSheet';
 import { pickFile } from '../services/filePicker';
 import { CHECKIN_VERSION, CHECKIN_AREAS, CHECKIN_QUESTIONS, emptyCheckinAssessments, checkinHasIssue as assessmentHasIssue, type CheckinArea, type CheckinField, type CheckinAssessment } from '../services/checkinAssessment';
 import { CleaningPolicyNotice } from './CleaningPolicyNotice';
@@ -42,6 +43,7 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
 }) => {
   const { currentUser } = useAuth();
   const [step, setStep] = useState(1);
+  const sheet = useSheet(onClose);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isForcedOverride, setIsForcedOverride] = useState(false);
@@ -250,12 +252,13 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-[100] flex items-end md:items-center justify-center md:p-4">
-      <div className="absolute inset-0 bg-haven-navy/45 backdrop-blur-md" onClick={onClose} />
+      <div ref={sheet.backdropRef} className="haven-backdrop absolute inset-0 bg-haven-navy/45 backdrop-blur-md" onClick={sheet.requestClose} />
 
-      <div className="haven-dialog-panel relative bg-white rounded-t-[2rem] md:rounded-[2.5rem] w-full max-w-4xl max-h-[94dvh] md:max-h-[92vh] overflow-hidden shadow-2xl flex flex-col">
+      <div ref={sheet.panelRef} className="haven-sheet haven-dialog-panel relative bg-white rounded-t-[2rem] md:rounded-[2rem] w-full max-w-4xl max-h-[94dvh] md:max-h-[92vh] overflow-hidden shadow-2xl flex flex-col">
+        <div {...sheet.dragProps} className="shrink-0 bg-white"><div className="mx-auto mt-2 h-1.5 w-12 rounded-full bg-gray-200 md:hidden" aria-hidden="true" />
         <div className="px-5 py-5 md:px-8 md:py-6 border-b border-gray-100 flex items-center justify-between bg-white">
           <div>
-            <p className="text-[11px] font-black uppercase tracking-[0.18em] text-haven-red mb-1">
+            <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-haven-red mb-1">
               {type === 'IN' ? 'Arrivée autonome' : 'Départ autonome'}
             </p>
             <h2 className="font-heading font-bold text-xl md:text-2xl text-haven-navy">
@@ -265,9 +268,10 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
               {listing?.title || 'Logement'}{room?.name ? ` • ${room.name}` : ''}
             </p>
           </div>
-          <button onClick={onClose} className="p-2.5 hover:bg-gray-100 rounded-full text-gray-500" aria-label="Fermer">
+          <button onClick={sheet.requestClose} className="p-2.5 hover:bg-gray-100 rounded-full text-gray-500" aria-label="Fermer">
             <X size={22} />
           </button>
+        </div>
         </div>
 
         <div className="h-1.5 bg-gray-100">
@@ -715,7 +719,7 @@ const BinaryQuestion: React.FC<{ label: string; value: boolean | null; onChange:
 
 const SummaryStatus: React.FC<{ label: string; ok: boolean }> = ({ label, ok }) => (
   <div className={`rounded-2xl border p-4 ${ok ? 'bg-green-50 border-green-100' : 'bg-amber-50 border-amber-100'}`}>
-    <div className={`text-xs font-black uppercase tracking-wider ${ok ? 'text-green-700' : 'text-amber-700'}`}>{ok ? 'Conforme' : 'Signalement'}</div>
+    <div className={`text-xs font-bold uppercase tracking-wider ${ok ? 'text-green-700' : 'text-amber-700'}`}>{ok ? 'Conforme' : 'Signalement'}</div>
     <div className="font-bold text-haven-navy mt-1">{label}</div>
   </div>
 );

@@ -1,3 +1,4 @@
+import { useSheet } from './useSheet';
 import { pickFile } from '../services/filePicker';
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -39,6 +40,8 @@ export const ReportModal: React.FC<ReportModalProps> = ({
   const { currentUser } = useAuth();
   const [requestId, setRequestId] = useState(createIssueId);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // Centered dialog: no drag, but it leaves with a short fade instead of vanishing.
+  const sheet = useSheet(onClose, { sheetBelow: 1 });
   const [isSuccess, setIsSuccess] = useState(false);
 
   // State for Report
@@ -142,7 +145,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
   if (isSuccess) {
     return (
       <div className="fixed inset-0 z-[110] flex items-center justify-center p-6 bg-haven-navy/40 backdrop-blur-sm">
-        <div className="bg-white rounded-[1.75rem] sm:rounded-[2.5rem] shadow-premium max-w-lg w-full p-5 sm:p-10 text-center animate-fade-in-up">
+        <div className="bg-white rounded-[1.75rem] sm:rounded-[2rem] shadow-premium max-w-lg w-full p-5 sm:p-10 text-center animate-fade-in-up">
           <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
             <CheckCircle2 className="w-10 h-10 text-green-600" />
           </div>
@@ -159,8 +162,8 @@ export const ReportModal: React.FC<ReportModalProps> = ({
   }
 
   return (
-    <div className="fixed inset-0 z-[110] flex items-center justify-center p-2 sm:p-6 bg-haven-navy/40 backdrop-blur-sm overflow-y-auto">
-      <div className="haven-dialog-panel bg-white rounded-[1.75rem] sm:rounded-[2.5rem] shadow-premium max-w-4xl w-full relative animate-fade-in-up flex flex-col max-h-[95dvh]">
+    <div ref={sheet.backdropRef} className="haven-backdrop fixed inset-0 z-[110] flex items-center justify-center p-2 sm:p-6 bg-haven-navy/40 backdrop-blur-sm overflow-y-auto">
+      <div ref={sheet.panelRef} className="haven-sheet haven-dialog-panel bg-white rounded-[1.75rem] sm:rounded-[2rem] shadow-premium max-w-4xl w-full relative flex flex-col max-h-[95dvh]">
 
         {/* Header */}
         <div className="shrink-0 p-4 sm:p-8 border-b border-gray-100 flex items-center justify-between">
@@ -178,7 +181,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
           <button
             type="button"
             aria-label="Fermer"
-            onClick={onClose}
+            onClick={sheet.requestClose}
             className="shrink-0 p-3 text-gray-400 hover:text-haven-navy hover:bg-gray-100 rounded-full transition-all"
           >
             <X size={24} />
@@ -199,7 +202,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
                   {INCIDENT_CATEGORIES.map(cat => (
                     <button key={cat.id} type="button" onClick={() => { setIncidentReport(prev => ({ ...prev, category: cat.title, subCategory: '' })); revealNextStep(); }}
                       className="flex min-h-14 items-center gap-3 rounded-2xl border-2 border-gray-50 bg-gray-50 p-4 text-left transition-all hover:border-amber-200">
-                      <span className="text-[10px] font-black text-amber-600">{cat.id}</span>
+                      <span className="text-[11px] font-bold text-amber-600">{cat.id}</span>
                       <span className="text-sm font-bold text-haven-navy">{cat.title}</span>
                     </button>
                   ))}

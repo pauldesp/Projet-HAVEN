@@ -106,8 +106,8 @@ export const HowItWorks: React.FC = () => {
     <div className="bg-haven-cream min-h-screen py-8 sm:py-16 px-4 sm:px-6 lg:px-8 mt-4 sm:mt-12 animate-fade-in">
       <div className="max-w-4xl mx-auto">
         <div className="text-center mb-8 sm:mb-12">
-          <span className="px-4 py-1.5 bg-haven-navy/5 text-haven-navy rounded-full text-xs font-black uppercase tracking-widest">Comment ça marche</span>
-          <h1 className="text-[1.75rem] sm:text-5xl font-heading font-black text-haven-navy mt-3 sm:mt-4 mb-3 sm:mb-6 leading-tight">
+          <span className="px-4 py-1.5 bg-haven-navy/5 text-haven-navy rounded-full text-xs font-bold uppercase tracking-widest">Comment ça marche</span>
+          <h1 className="text-[1.75rem] sm:text-5xl font-heading font-bold text-haven-navy mt-3 sm:mt-4 mb-3 sm:mb-6 leading-tight">
             Une colocation simple, <br className="hidden sm:inline" />flexible et vérifiée
           </h1>
           <p className="text-sm sm:text-lg text-gray-500 max-w-2xl mx-auto">
@@ -125,7 +125,7 @@ export const HowItWorks: React.FC = () => {
         </div>
 
         {/* Steps: numbered timeline, one short sentence then the practical details. */}
-        <ol className="bg-white rounded-[1.75rem] sm:rounded-[2.5rem] p-5 sm:p-10 border border-gray-100 shadow-premium mb-6 sm:mb-10">
+        <ol className="bg-white rounded-[1.75rem] sm:rounded-[2rem] p-5 sm:p-10 border border-gray-100 shadow-premium mb-6 sm:mb-10">
           {steps.map((step, index) => {
             const Icon = step.icon;
             const last = index === steps.length - 1;
@@ -137,7 +137,7 @@ export const HowItWorks: React.FC = () => {
                 </div>
                 <div className={`min-w-0 ${last ? '' : 'pb-7 sm:pb-8'}`}>
                   <p className="text-xs font-bold uppercase tracking-widest text-gray-400">Étape {index + 1}</p>
-                  <h2 className="mt-0.5 text-lg sm:text-xl font-heading font-black text-haven-navy">{step.title}</h2>
+                  <h2 className="mt-0.5 text-lg sm:text-xl font-heading font-bold text-haven-navy">{step.title}</h2>
                   <p className="mt-1 text-sm sm:text-base font-medium text-gray-700">{step.text}</p>
                   <ul className="mt-2 space-y-1.5">
                     {step.details.map(detail => (
@@ -154,7 +154,7 @@ export const HowItWorks: React.FC = () => {
 
         {/* The rules people ask about most, in one glance. */}
         <section className="mb-6 sm:mb-10" aria-labelledby="facts-title">
-          <h2 id="facts-title" className="mb-4 text-center font-heading text-xl sm:text-2xl font-black text-haven-navy">Bon à savoir</h2>
+          <h2 id="facts-title" className="mb-4 text-center font-heading text-xl sm:text-2xl font-bold text-haven-navy">Bon à savoir</h2>
           <div className="grid gap-3 sm:grid-cols-2">
             {facts.map(({ icon: Icon, title, text }, index) => (
               <div key={title} className={`rounded-2xl border border-gray-100 bg-white p-5 shadow-card ${facts.length % 2 && index === facts.length - 1 ? 'sm:col-span-2' : ''}`}>
@@ -169,7 +169,7 @@ export const HowItWorks: React.FC = () => {
           </p>
         </section>
 
-        <div className="bg-gradient-to-tr from-haven-navy to-slate-900 rounded-[1.75rem] sm:rounded-[2.5rem] p-6 sm:p-12 text-white shadow-premium text-center">
+        <div className="bg-gradient-to-tr from-haven-navy to-gray-900 rounded-[1.75rem] sm:rounded-[2rem] p-6 sm:p-12 text-white shadow-premium text-center">
           <div className="max-w-xl mx-auto space-y-5">
             <h2 className="font-heading font-bold text-2xl sm:text-3xl leading-tight">
               {activeTab === 'TENANT' ? 'Prêt à trouver votre chambre ?' : 'Prêt à proposer vos chambres ?'}

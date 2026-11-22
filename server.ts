@@ -34,7 +34,7 @@ import { preparePaymentConfirmation, simulationSessionId, type PaymentReceipt } 
 import { isOwnerBookingVisible } from './services/bookingVisibility';
 import { BookingLifecycleError, bookingDeadline, isBookingExpired, assertBookingPayable, prepareInventoryReport, recoverInventoryReport } from './services/bookingLifecycle';
 import { hasVerificationException, hasTrustedVerificationException, prepareVerificationException, VerificationExceptionError } from './services/verificationException';
-import { countNights, isBookableStay } from './services/stay';
+import { countNights, isBookableStay, parisDateKey } from './services/stay';
 import { getCancellationTerms } from './services/cancellationPolicy';
 import { isStayReviewWindowOpen } from './services/reviewPolicy';
 import { hasCompleteVerificationDetails, hasRequiredPhoneNumber, isVerificationReadyToSubmit } from './services/profileVerification';
@@ -73,6 +73,7 @@ import type { NextFunction, Request, Response } from "express";
 import firebaseConfig from "./firebase-applet-config.json" with { type: "json" };
 import { createHash, randomUUID } from "node:crypto";
 import helmet from "helmet";
+import compression from "compression";
 import { rateLimit } from "express-rate-limit";
 
 let stripeClient: Stripe | null = null;
@@ -713,6 +714,8 @@ async function startServer() {
   // Tailwind is compiled and the page has no inline script: the built site runs under a CSP.
   // Vite's development server injects an inline preamble, so CSP stays off while developing.
   app.use(helmet({ contentSecurityPolicy: isProduction ? { useDefaults: false, directives: CONTENT_SECURITY_POLICY } : false }));
+  // Pages, code and API answers are compressed (gzip): the home page's code goes from about 1 MB to about 300 KB.
+  app.use(compression());
 
   for (const [route, secretName] of [['/api/stripe/webhook', 'STRIPE_WEBHOOK_SECRET'], ['/api/stripe/connect-webhook', 'STRIPE_CONNECT_WEBHOOK_SECRET']]) {
     app.post(route, express.raw({ type: 'application/json', limit: '1mb' }), async (req, res) => {
@@ -1530,7 +1533,7 @@ async function startServer() {
     const user = (await userRef.get()).data();
     if (!user) throw new AdminFinanceError('Compte introuvable.', 404);
     if (user.role === 'ADMIN') throw new AdminFinanceError(self ? 'Un compte administrateur ne peut pas être supprimé depuis cette page.' : 'Retirez d’abord ce compte de l’équipe d’administration.');
-    const today = new Date().toISOString().slice(0, 10);
+    const today = parisDateKey();
     const active = (await Promise.all(['tenantId', 'ownerId'].map(field => adminDb.collection('bookings').where(field, '==', id).get())))
       .flatMap(snap => snap.docs.map(doc => doc.data() as Booking))
       .filter(booking => booking.endDate >= today && (booking.status === 'CONFIRMED' || (booking.status === 'PENDING' && booking.seriesScheduled)));

@@ -444,7 +444,7 @@ export const ListingDetails: React.FC = () => {
                     <div className="flex items-center gap-2 mb-1">
                       <h3 className="font-bold text-haven-navy text-lg">Propriétaire : {owner.firstName}</h3>
                       {owner.status === 'APPROVED' && (
-                        <span className="flex items-center gap-1 text-[10px] font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded-full uppercase tracking-wider">
+                        <span className="flex items-center gap-1 text-[11px] font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded-full uppercase tracking-wider">
                           Vérifié
                         </span>
                       )}
@@ -525,38 +525,38 @@ export const ListingDetails: React.FC = () => {
               </div>
 
               {!isListingOwner && (
-                <section className="mb-10 rounded-3xl border border-slate-200 bg-slate-50/70 p-5 sm:p-6" aria-labelledby="housemates-heading" aria-live="polite">
+                <section className="mb-10 rounded-3xl border border-gray-200 bg-gray-50/70 p-5 sm:p-6" aria-labelledby="housemates-heading" aria-live="polite">
                   <div className="flex items-start gap-3">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-slate-200 bg-white text-haven-navy">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-gray-200 bg-white text-haven-navy">
                       <Users size={19} strokeWidth={1.8} />
                     </div>
                     <div>
                       <h2 id="housemates-heading" className="font-heading text-lg font-bold text-haven-navy">Avec qui partagerez-vous le logement ?</h2>
-                      <p className="mt-1 text-sm leading-relaxed text-slate-500">Un aperçu des personnes présentes aux dates de votre séjour.</p>
+                      <p className="mt-1 text-sm leading-relaxed text-gray-500">Un aperçu des personnes présentes aux dates de votre séjour.</p>
                     </div>
                   </div>
 
                   {!isBookableStay(startDate, endDate) ? (
-                    <div className="mt-5 rounded-2xl border border-dashed border-slate-200 bg-white px-4 py-4 text-sm text-slate-600">
+                    <div className="mt-5 rounded-2xl border border-dashed border-gray-200 bg-white px-4 py-4 text-sm text-gray-600">
                       <p>Choisissez vos dates pour découvrir les profils des autres colocataires.</p>
                       <button type="button" onClick={() => calendarRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })} className="mt-2 font-bold text-haven-navy underline underline-offset-4 hover:text-haven-red">Voir le calendrier</button>
                     </div>
                   ) : !currentUser ? (
-                    <div className="mt-5 rounded-2xl border border-slate-200 bg-white px-4 py-4 text-sm text-slate-600">
+                    <div className="mt-5 rounded-2xl border border-gray-200 bg-white px-4 py-4 text-sm text-gray-600">
                       <p>Connectez-vous pour voir les profils des colocataires présents aux mêmes dates.</p>
                       <Link to={`/login?redirect=${encodeURIComponent(`/listing/${id}?${searchParams.toString()}`)}`} className="mt-2 inline-block font-bold text-haven-navy underline underline-offset-4 hover:text-haven-red">Se connecter</Link>
                     </div>
                   ) : isHousematesLoading ? (
-                    <div className="mt-5 flex items-center gap-2 text-sm text-slate-500"><Loader2 size={16} className="animate-spin" /> Recherche des profils disponibles…</div>
+                    <div className="mt-5 flex items-center gap-2 text-sm text-gray-500"><Loader2 size={16} className="animate-spin" /> Recherche des profils disponibles…</div>
                   ) : housematesError ? (
                     <p className="mt-5 text-sm text-haven-red">L’aperçu des profils est momentanément indisponible.</p>
                   ) : housemates.length === 0 ? (
-                    <p className="mt-5 rounded-2xl border border-slate-200 bg-white px-4 py-4 text-sm text-slate-600">Aucun autre colocataire confirmé pour ces dates.</p>
+                    <p className="mt-5 rounded-2xl border border-gray-200 bg-white px-4 py-4 text-sm text-gray-600">Aucun autre colocataire confirmé pour ces dates.</p>
                   ) : (
                     <>
                       <div className="mt-5 grid gap-3 sm:grid-cols-2">
                         {housemates.slice(0, 4).map(housemate => (
-                          <div key={housemate.id} className="flex min-w-0 items-center gap-3 rounded-2xl border border-slate-200 bg-white p-3.5">
+                          <div key={housemate.id} className="flex min-w-0 items-center gap-3 rounded-2xl border border-gray-200 bg-white p-3.5">
                             {housemate.avatarUrl ? (
                               <img src={housemate.avatarUrl} alt="" className="h-12 w-12 shrink-0 rounded-full object-cover" />
                             ) : (
@@ -564,17 +564,17 @@ export const ListingDetails: React.FC = () => {
                             )}
                             <div className="min-w-0">
                               <p className="truncate font-bold text-haven-navy">{housemate.firstName}{housemate.age ? ` · ${housemate.age} ans` : ''}</p>
-                              {!!housemate.interests?.length && <p className="mt-1 text-xs text-slate-500">{housemate.interests.join(' · ')}</p>}
-                              {housemate.activity && <p className="truncate text-sm text-slate-500">{housemate.activity}</p>}
-                              <p className="mt-0.5 text-xs text-slate-400">{housemate.coverage === 'FULL' ? 'Présent tout votre séjour' : 'Quelques nuits en commun'}</p>
+                              {!!housemate.interests?.length && <p className="mt-1 text-xs text-gray-500">{housemate.interests.join(' · ')}</p>}
+                              {housemate.activity && <p className="truncate text-sm text-gray-500">{housemate.activity}</p>}
+                              <p className="mt-0.5 text-xs text-gray-400">{housemate.coverage === 'FULL' ? 'Présent tout votre séjour' : 'Quelques nuits en commun'}</p>
                             </div>
                           </div>
                         ))}
                       </div>
-                      {housemates.length > 4 && <p className="mt-3 text-sm text-slate-500">Et {housemates.length - 4} autre{housemates.length - 4 > 1 ? 's' : ''} colocataire{housemates.length - 4 > 1 ? 's' : ''}.</p>}
+                      {housemates.length > 4 && <p className="mt-3 text-sm text-gray-500">Et {housemates.length - 4} autre{housemates.length - 4 > 1 ? 's' : ''} colocataire{housemates.length - 4 > 1 ? 's' : ''}.</p>}
                     </>
                   )}
-                  <p className="mt-4 text-xs text-slate-400">Seuls les colocataires avec une réservation confirmée aux mêmes dates apparaissent ici.</p>
+                  <p className="mt-4 text-xs text-gray-400">Seuls les colocataires avec une réservation confirmée aux mêmes dates apparaissent ici.</p>
                 </section>
               )}
 
@@ -599,7 +599,7 @@ export const ListingDetails: React.FC = () => {
                     </p>
                     <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4 sm:flex sm:items-end sm:justify-between sm:gap-5">
                       <div>
-                        <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Bloquer pour</p>
+                        <p className="text-[11px] font-bold uppercase tracking-widest text-gray-400">Bloquer pour</p>
                         <p className="mt-1 text-sm font-bold text-haven-navy">
                           {isBlockingWholeListing ? 'Tout le logement' : blockedRoom.name}
                         </p>
@@ -687,7 +687,7 @@ export const ListingDetails: React.FC = () => {
                                 ))}
                               </div>
                            </div>
-                           <span className="ml-auto text-[10px] text-gray-400 font-bold uppercase tracking-tighter">
+                           <span className="ml-auto text-[11px] text-gray-400 font-bold uppercase tracking-tight">
                               {new Date(review.createdAt).toLocaleDateString('fr-FR', { month: 'short', year: 'numeric' })}
                            </span>
                         </div>
@@ -759,7 +759,7 @@ export const ListingDetails: React.FC = () => {
                   </div></>}
 
                   {paymentSchedule && <section className="mb-5" aria-label="Échéancier prévisionnel des séjours">
-                    <div className="flex flex-wrap items-center justify-between gap-2"><h4 className="text-sm font-bold">Tes séjours et paiements</h4><span className="rounded-full bg-amber-50 px-2 py-1 text-[10px] font-semibold text-amber-800">Prévisionnel</span></div>
+                    <div className="flex flex-wrap items-center justify-between gap-2"><h4 className="text-sm font-bold">Tes séjours et paiements</h4><span className="rounded-full bg-amber-50 px-2 py-1 text-[11px] font-semibold text-amber-800">Prévisionnel</span></div>
                     <p className="mt-2 text-xs leading-relaxed text-gray-500">Clique sur un séjour pour le sélectionner et dérouler son détail. Premier séjour à la réservation ; suivants un mois avant l’arrivée. Si l’échéance est déjà passée, le règlement est immédiat.</p>
                     <ol className="mt-4 max-h-72 space-y-3 overflow-y-auto pr-1">
                       {paymentSchedule.entries.map(entry => <li key={entry.start}>

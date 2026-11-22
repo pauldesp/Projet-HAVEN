@@ -25,12 +25,12 @@ export const CookiePolicyPage: React.FC = () => {
     <div className="bg-haven-cream min-h-screen py-8 sm:py-16 px-4 sm:px-6 lg:px-8 mt-4 sm:mt-12 animate-fade-in">
       <div className="max-w-3xl mx-auto">
         <div className="text-center mb-8 sm:mb-12">
-          <span className="px-4 py-1.5 bg-haven-navy/5 text-haven-navy rounded-full text-xs font-black uppercase tracking-widest">Vie privée</span>
-          <h1 className="text-[1.75rem] sm:text-4xl font-heading font-black text-haven-navy mt-4 mb-4">Cookies et stockage sur votre appareil</h1>
+          <span className="px-4 py-1.5 bg-haven-navy/5 text-haven-navy rounded-full text-xs font-bold uppercase tracking-widest">Vie privée</span>
+          <h1 className="text-[1.75rem] sm:text-4xl font-heading font-bold text-haven-navy mt-4 mb-4">Cookies et stockage sur votre appareil</h1>
           <p className="text-sm text-gray-500 max-w-xl mx-auto">Haven n’utilise aucun cookie publicitaire ni outil de suivi d’un site à l’autre. Voici tout ce qui est enregistré sur votre appareil, et pourquoi.</p>
         </div>
 
-        <div className="bg-white rounded-[1.75rem] sm:rounded-[2.5rem] p-5 sm:p-10 border border-gray-100 shadow-premium mb-6 space-y-6">
+        <div className="bg-white rounded-[1.75rem] sm:rounded-[2rem] p-5 sm:p-10 border border-gray-100 shadow-premium mb-6 space-y-6">
           <div className="flex gap-4 items-start">
             <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center shrink-0"><Cookie size={20} aria-hidden="true" /></div>
             <div>
@@ -47,7 +47,7 @@ export const CookiePolicyPage: React.FC = () => {
           </ul>
         </div>
 
-        <div className="bg-white rounded-[1.75rem] sm:rounded-[2.5rem] p-5 sm:p-10 border border-gray-100 shadow-premium mb-6 space-y-4">
+        <div className="bg-white rounded-[1.75rem] sm:rounded-[2rem] p-5 sm:p-10 border border-gray-100 shadow-premium mb-6 space-y-4">
           <div className="flex gap-4 items-start">
             <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-700 flex items-center justify-center shrink-0"><BarChart3 size={20} aria-hidden="true" /></div>
             <div>
@@ -63,7 +63,7 @@ export const CookiePolicyPage: React.FC = () => {
           </div>
         </div>
 
-        <div className="bg-haven-navy rounded-[1.75rem] sm:rounded-[2.5rem] p-5 sm:p-8 text-white flex flex-col sm:flex-row gap-6 items-center shadow-premium">
+        <div className="bg-haven-navy rounded-[1.75rem] sm:rounded-[2rem] p-5 sm:p-8 text-white flex flex-col sm:flex-row gap-6 items-center shadow-premium">
           <div className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center shrink-0"><ShieldCheck size={22} aria-hidden="true" /></div>
           <div>
             <h2 className="font-heading font-bold text-lg mb-1">Vos données personnelles</h2>

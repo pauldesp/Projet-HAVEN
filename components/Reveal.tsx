@@ -1,25 +1,36 @@
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 
+const DURATION_MS = 320;
+
 /**
- * Appears softly when scrolled into view, once. Plain CSS transition: replaces a 120 KB animation
- * library on the home page. Respects "reduce motion"; content stays visible if observation is unavailable.
+ * Appears softly as it comes into view, once. It starts a little before the element reaches the screen,
+ * so even a quick scroll never shows empty space, and it stays short and discreet: the motion accompanies
+ * the content instead of holding it back. Respects "reduce motion"; content stays visible if observation is
+ * unavailable. Once settled, the inline style is dropped so the element's own transitions (hover) work again.
  */
 export function Reveal({ children, className = '', from = 'up', delay = 0 }: { children: ReactNode; className?: string; from?: 'up' | 'scale'; delay?: number }) {
   const ref = useRef<HTMLDivElement>(null);
-  const [shown, setShown] = useState(() => typeof IntersectionObserver === 'undefined'
-    || (typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches));
+  const immediate = typeof IntersectionObserver === 'undefined'
+    || (typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches);
+  const [shown, setShown] = useState(immediate);
+  const [settled, setSettled] = useState(immediate);
+  const wait = Math.min(delay, 120);
   useEffect(() => {
     const element = ref.current;
     if (shown || !element) return;
     const observer = new IntersectionObserver(entries => {
       if (entries.some(entry => entry.isIntersecting)) { setShown(true); observer.disconnect(); }
-    }, { rootMargin: '0px 0px -40px 0px' });
+    }, { rootMargin: '0px 0px 20% 0px' });
     observer.observe(element);
     return () => observer.disconnect();
   }, [shown]);
-  // Once shown, the inline transform is removed so the element's own classes (e.g. scale) apply again.
-  const style: CSSProperties = shown
-    ? { transition: `opacity 500ms ease-out ${delay}ms, transform 500ms ease-out ${delay}ms` }
-    : { opacity: 0, transform: from === 'up' ? 'translateY(20px)' : 'scale(0.95)' };
+  useEffect(() => {
+    if (!shown || settled) return;
+    const timer = window.setTimeout(() => setSettled(true), DURATION_MS + wait + 50);
+    return () => window.clearTimeout(timer);
+  }, [shown, settled, wait]);
+  const style: CSSProperties | undefined = settled ? undefined : shown
+    ? { transition: `opacity ${DURATION_MS}ms ease-out ${wait}ms, transform ${DURATION_MS}ms cubic-bezier(0.32, 0.72, 0, 1) ${wait}ms` }
+    : { opacity: 0, transform: from === 'up' ? 'translateY(12px)' : 'scale(0.98)' };
   return <div ref={ref} className={className} style={style}>{children}</div>;
 }

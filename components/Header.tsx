@@ -20,6 +20,14 @@ export const Header: React.FC = () => {
   const [isLangOpen, setIsLangOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  // A soft shadow appears only once the page scrolls under the header, instead of a permanent hard line.
+  const [scrolled, setScrolled] = useState(false);
+  useEffect(() => {
+    const update = () => setScrolled(window.scrollY > 4);
+    update();
+    window.addEventListener('scroll', update, { passive: true });
+    return () => window.removeEventListener('scroll', update);
+  }, []);
   
   const langRef = useRef<HTMLDivElement>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
@@ -78,7 +86,7 @@ export const Header: React.FC = () => {
   };
 
   return (
-    <header className="sticky top-0 z-50 w-full bg-haven-cream/80 backdrop-blur-md border-b border-haven-gray/50">
+    <header className={`haven-header sticky top-0 z-50 w-full bg-haven-cream/80 backdrop-blur-md transition-shadow duration-200 ${scrolled ? 'shadow-[0_1px_0_rgba(11,36,91,0.06),0_8px_24px_-12px_rgba(11,36,91,0.18)]' : ''}`}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16 md:h-20">
           <Link to="/" className="flex items-center gap-2 hover:opacity-90 transition-opacity">
@@ -136,7 +144,7 @@ export const Header: React.FC = () => {
                     aria-label={tr("Ouvrir le menu du compte")}
                     aria-expanded={isUserMenuOpen}
                     onClick={() => { setIsUserMenuOpen(!isUserMenuOpen); setIsLangOpen(false); }}
-                    className="relative flex items-center gap-2 p-1 pl-3 pr-1 bg-white border border-gray-100 rounded-full hover:shadow-md transition-all active:scale-95 group"
+                    className="relative flex items-center gap-2 p-1 pl-3 pr-1 bg-white border border-gray-100 rounded-full hover:shadow-md transition-all group"
                   >
                     <span className="text-xs font-bold text-haven-navy hidden lg:block">{currentUser.firstName}</span>
                     <div className="relative">
@@ -193,7 +201,7 @@ export const Header: React.FC = () => {
                               <span>{tr("Messages")}</span>
                             </div>
                             {unreadCount > 0 && (
-                              <span className="px-2 py-0.5 bg-haven-red text-white text-[10px] font-black rounded-full">
+                              <span className="px-2 py-0.5 bg-haven-red text-white text-[11px] font-bold rounded-full">
                                 {unreadCount}
                               </span>
                             )}

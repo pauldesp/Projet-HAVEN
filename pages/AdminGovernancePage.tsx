@@ -1,3 +1,4 @@
+import { askConfirm } from '../components/HavenDialogs';
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, History, Loader2, Shield, UserRoundCog } from 'lucide-react';
@@ -81,7 +82,7 @@ export const AdminGovernancePage: React.FC = () => {
   };
 
   const revokeAdministrator = async (admin: User) => {
-    if (!window.confirm(`Retirer l’accès administrateur de ${admin.firstName} ${admin.lastName} ?`)) return;
+    if (!await askConfirm({ title: 'Retirer l’accès administrateur ?', message: `${admin.firstName} ${admin.lastName} n’aura plus accès au back office.`, confirmLabel: 'Retirer', danger: true })) return;
     setIsSaving(true);
     try {
       await apiService.admin.revokeAdministrator(admin.id);
@@ -105,7 +106,7 @@ export const AdminGovernancePage: React.FC = () => {
             <div className="mt-6 flex items-center gap-3"><div className="rounded-xl bg-haven-red p-2 text-white"><Shield size={20} /></div><h1 className="font-heading text-3xl font-bold text-white">Gouvernance administrative</h1></div>
             <p className="mt-3 max-w-2xl text-sm leading-relaxed text-white/70">Espace distinct de la gestion quotidienne : accès des administrateurs et historique des décisions prises dans le back-office.</p>
           </div>
-          <div className="hidden rounded-2xl border border-white/15 bg-white/10 px-5 py-4 text-right sm:block"><p className="text-[10px] font-black uppercase tracking-widest text-white/60">Compte connecté</p><p className="mt-1 text-sm font-bold text-white">{currentUser.email}</p></div>
+          <div className="hidden rounded-2xl border border-white/15 bg-white/10 px-5 py-4 text-right sm:block"><p className="text-[11px] font-bold uppercase tracking-widest text-white/60">Compte connecté</p><p className="mt-1 text-sm font-bold text-white">{currentUser.email}</p></div>
         </div>
       </div>
 
@@ -134,7 +135,7 @@ export const AdminGovernancePage: React.FC = () => {
             <div className="rounded-3xl border border-gray-100 bg-white p-4 sm:p-8 shadow-card">
               <h2 className="font-heading text-2xl font-bold text-haven-navy">Équipe d’administration</h2>
               <div className="mt-6 grid gap-4 md:grid-cols-2">
-                {team.map(admin => <div key={admin.id} className="flex items-center gap-4 rounded-2xl border border-gray-100 bg-gray-50 p-5"><img src={admin.avatarUrl} alt="" className="h-12 w-12 rounded-full border-2 border-white object-cover" /><div className="min-w-0 flex-1"><p className="truncate font-bold text-haven-navy">{admin.firstName} {admin.lastName}</p><p className="truncate text-xs text-gray-400">{admin.email}</p><p className={`mt-2 text-[10px] font-black uppercase tracking-widest ${admin.adminLevel === 'PRIMARY' ? 'text-amber-600' : 'text-haven-red'}`}>{admin.adminLevel === 'PRIMARY' ? 'Administrateur principal' : 'Administrateur'}</p></div>{admin.adminLevel !== 'PRIMARY' && <button onClick={() => void revokeAdministrator(admin)} disabled={isSaving} className="rounded-lg border border-red-100 px-3 py-2 text-[10px] font-black uppercase tracking-wider text-haven-red hover:bg-red-50">Retirer</button>}</div>)}
+                {team.map(admin => <div key={admin.id} className="flex items-center gap-4 rounded-2xl border border-gray-100 bg-gray-50 p-5"><img src={admin.avatarUrl} alt="" className="h-12 w-12 rounded-full border-2 border-white object-cover" /><div className="min-w-0 flex-1"><p className="truncate font-bold text-haven-navy">{admin.firstName} {admin.lastName}</p><p className="truncate text-xs text-gray-400">{admin.email}</p><p className={`mt-2 text-[11px] font-bold uppercase tracking-widest ${admin.adminLevel === 'PRIMARY' ? 'text-amber-600' : 'text-haven-red'}`}>{admin.adminLevel === 'PRIMARY' ? 'Administrateur principal' : 'Administrateur'}</p></div>{admin.adminLevel !== 'PRIMARY' && <button onClick={() => void revokeAdministrator(admin)} disabled={isSaving} className="rounded-lg border border-red-100 px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-haven-red hover:bg-red-50">Retirer</button>}</div>)}
               </div>
             </div>
           </div>

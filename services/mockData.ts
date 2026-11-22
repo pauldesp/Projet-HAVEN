@@ -20,7 +20,7 @@ export const MOCK_USERS_DB: User[] = [
     firstName: 'Paul',
     lastName: 'Desplanques',
     email: 'paul.desplanques@gmail.com',
-    avatarUrl: 'https://ui-avatars.com/api/?name=Paul+Desplanques&background=1E293B&color=fff',
+    avatarUrl: 'https://ui-avatars.com/api/?name=Paul+Desplanques&background=0B245B&color=fff',
     role: UserRole.ADMIN,
     status: 'APPROVED',
     isVerified: true,

@@ -1,3 +1,4 @@
+import { pollWhileVisible } from '../services/visiblePolling';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Loader2, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
@@ -26,7 +27,7 @@ export function AdminMonitoring() {
       setData(payload);
     } catch (cause) { setError(cause instanceof Error ? cause.message : 'Surveillance indisponible.'); }
   }, []);
-  useEffect(() => { void load(); const timer = setInterval(() => void load(), 60_000); return () => clearInterval(timer); }, [load]);
+  useEffect(() => { void load(); return pollWhileVisible(load, 60_000); }, [load]);
 
   const mails = useMemo(() => (data?.mails || []).filter(mail => filter === 'ALL' || !['SENT', 'PENDING', 'SENDING'].includes(mail.status)), [data, filter]);
   const retry = async (id: string) => {

@@ -142,7 +142,8 @@ export const AccountStatusOverlay: React.FC<AccountStatusOverlayProps> = ({
     window.addEventListener('focus', synchronizeEmail);
     window.addEventListener('online', synchronizeEmail);
     document.addEventListener('visibilitychange', synchronizeEmail);
-    const timer = window.setInterval(synchronizeEmail, 10_000);
+    // Only while the page is shown: focus and visibility already trigger a check when the person comes back.
+    const timer = window.setInterval(() => { if (document.visibilityState === 'visible') void synchronizeEmail(); }, 10_000);
     return () => {
       cancelled = true;
       window.clearInterval(timer);
@@ -335,7 +336,7 @@ export const AccountStatusOverlay: React.FC<AccountStatusOverlayProps> = ({
                 {currentUser.status === 'REJECTED' ? <XCircle size={24} /> : isVerifiedForCurrentRole ? <ShieldCheck size={24} /> : <Clock size={24} />}
               </div>
               <div className="min-w-0">
-                <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.18em] text-gray-400">{tr("Vérification du compte")}</p>
+                <p className="mb-1 text-[11px] font-bold uppercase tracking-[0.18em] text-gray-400">{tr("Vérification du compte")}</p>
                 <h2 id="account-status-title" className="truncate text-xl font-bold tracking-tight text-haven-navy sm:text-2xl">{hasVerificationException(currentUser) ? tr("Validation exceptionnelle de test") : isVerifiedForCurrentRole ? tr("Profil vérifié") : currentUser.status === 'REJECTED' ? tr("Dossier à corriger") : isSubmittedForReview ? tr("Dossier en cours de vérification") : tr("Complétez votre profil")}</h2>
               </div>
             </div>

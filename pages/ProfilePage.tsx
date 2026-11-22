@@ -23,20 +23,20 @@ const AdminProfileView: React.FC<AdminProfileViewProps> = ({ user, memberSince, 
       <div className="mb-8 flex items-center gap-3 text-haven-red">
         <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-haven-red/10"><Shield size={22} /></div>
         <div>
-          <p className="text-xs font-black uppercase tracking-[0.18em]">HAVEN</p>
+          <p className="text-xs font-bold uppercase tracking-[0.18em]">HAVEN</p>
           <p className="text-sm font-semibold text-haven-navy">Espace administrateur privé</p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3 lg:gap-10">
         <aside className="lg:col-span-1">
-          <div className="sticky top-24 rounded-3xl border border-gray-100 bg-white p-7 text-center shadow-soft md:rounded-[2.5rem] md:p-8">
+          <div className="sticky top-24 rounded-3xl border border-gray-100 bg-white p-7 text-center shadow-soft md:rounded-[2rem] md:p-8">
             <div className="relative mx-auto mb-5 h-32 w-32">
               <img src={user.avatarUrl} alt={`${user.firstName} ${user.lastName}`} className="h-full w-full rounded-full border-4 border-white object-cover shadow-xl" />
               <div className="absolute bottom-0 right-0 flex h-10 w-10 items-center justify-center rounded-full border-4 border-white bg-haven-navy text-white shadow-lg" title="Accès administrateur actif"><ShieldCheck size={19} /></div>
             </div>
             <h1 className="font-heading text-2xl font-bold text-haven-navy">{user.firstName} {user.lastName}</h1>
-            <p className="mt-2 text-[11px] font-black uppercase tracking-[0.17em] text-haven-red">{user.adminLevel === 'PRIMARY' ? 'Administrateur principal HAVEN' : 'Administrateur HAVEN'}</p>
+            <p className="mt-2 text-[11px] font-bold uppercase tracking-[0.17em] text-haven-red">{user.adminLevel === 'PRIMARY' ? 'Administrateur principal HAVEN' : 'Administrateur HAVEN'}</p>
 
             <div className="mt-7 space-y-4 border-t border-gray-100 pt-6 text-left">
               <div className="flex items-center gap-3 text-sm text-gray-600"><Mail size={17} className="text-haven-stone" /><span className="truncate">{user.email}</span></div>
@@ -49,7 +49,7 @@ const AdminProfileView: React.FC<AdminProfileViewProps> = ({ user, memberSince, 
         </aside>
 
         <section className="space-y-6 lg:col-span-2">
-          <div className="rounded-3xl border border-gray-100 bg-white p-6 shadow-soft md:rounded-[2.5rem] md:p-10">
+          <div className="rounded-3xl border border-gray-100 bg-white p-6 shadow-soft md:rounded-[2rem] md:p-10">
             <h2 className="font-heading text-2xl font-bold text-haven-navy md:text-3xl">Mon compte administrateur</h2>
             <p className="mt-3 max-w-2xl text-base leading-relaxed text-gray-600">Cet espace est strictement interne à HAVEN. Il n’est pas présenté aux locataires, aux propriétaires ou aux visiteurs de la plateforme.</p>
 
@@ -67,7 +67,7 @@ const AdminProfileView: React.FC<AdminProfileViewProps> = ({ user, memberSince, 
             </div>
           </div>
 
-          <div className="rounded-3xl border border-gray-100 bg-white p-6 shadow-soft md:rounded-[2.5rem] md:p-10">
+          <div className="rounded-3xl border border-gray-100 bg-white p-6 shadow-soft md:rounded-[2rem] md:p-10">
             <div className="flex items-center gap-3"><ClipboardCheck className="text-haven-red" size={24} /><h2 className="font-heading text-xl font-bold text-haven-navy md:text-2xl">Périmètre d’administration</h2></div>
             <div className="mt-6 grid gap-4 sm:grid-cols-3">
               {[
@@ -199,7 +199,7 @@ export const ProfilePage: React.FC = () => {
           
           {/* Left Column: Avatar & Stats */}
           <div className="lg:col-span-1">
-            <div className="bg-white rounded-3xl md:rounded-[2.5rem] shadow-soft md:shadow-premium p-5 md:p-8 border border-gray-50 sticky top-24">
+            <div className="bg-white rounded-3xl md:rounded-[2rem] shadow-soft md:shadow-premium p-5 md:p-8 border border-gray-50 sticky top-24">
               <div className="flex flex-col items-center text-center">
                 <div className="relative mb-4 md:mb-6">
                   <img 
@@ -217,22 +217,22 @@ export const ProfilePage: React.FC = () => {
                 <h1 className="text-2xl md:text-3xl font-heading font-bold text-haven-navy mb-1">
                   {user.firstName} {user.lastName}
                 </h1>
-                <p className="text-gray-500 font-medium mb-6 uppercase tracking-widest text-[10px]">
+                <p className="text-gray-500 font-medium mb-6 uppercase tracking-widest text-[11px]">
                   {user.role === 'OWNER' ? 'Propriétaire' : user.role === 'ADMIN' ? 'Administrateur' : 'Locataire'}
                 </p>
 
                 <div className="grid grid-cols-2 gap-3 md:gap-4 w-full mb-5 md:mb-8">
                   <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
-                    <div className="flex items-center justify-center gap-1 text-haven-navy font-black text-xl mb-1">
+                    <div className="flex items-center justify-center gap-1 text-haven-navy font-bold text-xl mb-1">
                       {user.rating || 4.8} <Star size={16} className="fill-haven-red text-haven-red" />
                     </div>
-                    <p className="text-[10px] text-gray-400 uppercase font-black tracking-widest">Note moyenne</p>
+                    <p className="text-[11px] text-gray-400 uppercase font-bold tracking-widest">Note moyenne</p>
                   </div>
                   <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
-                    <div className="text-haven-navy font-black text-xl mb-1">
+                    <div className="text-haven-navy font-bold text-xl mb-1">
                       {user.reviewsCount || 12}
                     </div>
-                    <p className="text-[10px] text-gray-400 uppercase font-black tracking-widest">Avis reçus</p>
+                    <p className="text-[11px] text-gray-400 uppercase font-bold tracking-widest">Avis reçus</p>
                   </div>
                 </div>
 
@@ -285,7 +285,7 @@ export const ProfilePage: React.FC = () => {
             )}
             
             {/* Bio Section */}
-            <div className="bg-white rounded-3xl md:rounded-[2.5rem] shadow-soft md:shadow-premium p-5 md:p-10 border border-gray-50">
+            <div className="bg-white rounded-3xl md:rounded-[2rem] shadow-soft md:shadow-premium p-5 md:p-10 border border-gray-50">
               <h2 className="text-xl md:text-2xl font-heading font-bold text-haven-navy mb-4 md:mb-6">{isOwnProfile ? 'Mon profil public' : `À propos de ${user.firstName}`}</h2>
               <p className="text-gray-600 leading-relaxed text-base md:text-lg">
                 {user.bio || `${user.firstName} n'a pas encore rédigé sa description. C'est un membre de la communauté HAVEN qui apprécie les séjours de qualité et les rencontres conviviales.`}
@@ -327,7 +327,7 @@ export const ProfilePage: React.FC = () => {
                             alt={listing.title} 
                             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
                           />
-                          <div className="absolute top-4 left-4 bg-white/95 backdrop-blur-sm px-3 py-1 rounded-full text-[10px] font-black uppercase text-haven-navy shadow-sm">
+                          <div className="absolute top-4 left-4 bg-white/95 backdrop-blur-sm px-3 py-1 rounded-full text-[11px] font-bold uppercase text-haven-navy shadow-sm">
                             {listing.city}
                           </div>
                         </div>

@@ -2,7 +2,7 @@ import { PRICE_COMPARISON, comparisonNotice, comparisonStayLabel, havenIsCheapes
 
 import React, { useRef, useState } from 'react';
 import { Reveal } from '../components/Reveal';
-import { Calendar as CalendarIcon, ShieldCheck, Sparkles, TrendingUp, BarChart3, AlertCircle, Users, Route, Info } from 'lucide-react';
+import { Calendar as CalendarIcon, ShieldCheck, Sparkles, TrendingUp, BarChart3, AlertCircle, Users, Route } from 'lucide-react';
 import { Button } from '../components/Button';
 import { HomeSearchPreview } from '../components/HomeSearchPreview';
 import { Logo } from '../components/Logo';
@@ -11,6 +11,17 @@ import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
 import { UserRole } from '../types';
+
+/** Section title with its brick eyebrow, the visual anchor repeated across the page. */
+function SectionHeading({ eyebrow, title, subtitle, dark = false, center = false }: { eyebrow: string; title: string; subtitle?: string; dark?: boolean; center?: boolean }) {
+  return <div className={`max-w-3xl ${center ? 'mx-auto text-center' : ''}`}>
+    <p className={`flex items-center gap-3 text-xs font-bold uppercase tracking-[0.18em] ${center ? 'justify-center' : ''} ${dark ? 'text-[#E2A9BF]' : 'text-haven-red'}`}>
+      <span aria-hidden="true" className={`h-px w-8 ${dark ? 'bg-[#E2A9BF]' : 'bg-haven-red'}`} />{eyebrow}
+    </p>
+    <h2 className={`mt-3 font-heading text-[1.75rem] font-bold leading-[1.15] tracking-tight sm:text-4xl md:text-[2.75rem] ${dark ? 'text-white' : 'text-haven-navy'}`}>{title}</h2>
+    {subtitle && <p className={`mt-3 text-base leading-relaxed sm:text-lg ${dark ? 'text-white/70' : 'text-haven-stone'}`}>{subtitle}</p>}
+  </div>;
+}
 
 export const Home: React.FC = () => {
   const navigate = useNavigate();
@@ -64,227 +75,128 @@ export const Home: React.FC = () => {
       </div>
 
       <div>
-      {/* Value Props Section */}
-      <section className="py-8 sm:py-12 md:py-24 max-w-7xl mx-auto px-4 sm:px-6">
-        <div className="grid md:grid-cols-3 gap-5 sm:gap-12 lg:gap-20">
-          <div className="flex items-center gap-4 sm:block sm:space-y-8">
-            <div className="shrink-0 w-10 h-10 sm:w-16 sm:h-16 flex items-center justify-center bg-blue-50 text-blue-600 rounded-xl sm:rounded-[22px] transition-transform duration-300 hover:scale-110">
-              <CalendarIcon size={32} strokeWidth={1.5} className="w-5 h-5 sm:w-8 sm:h-8" />
-            </div>
-            <div className="min-w-0 space-y-1 sm:space-y-4">
-              <h3 className="font-heading font-bold text-lg sm:text-2xl text-haven-navy tracking-tight">{t('value.flexibility.title')}</h3>
-              <p className="text-haven-stone text-[13px] sm:text-sm leading-snug sm:leading-relaxed antialiased font-medium opacity-90">
-                {t('value.flexibility.desc')}
-              </p>
-            </div>
-          </div>
-          
-          <div className="flex items-center gap-4 sm:block sm:space-y-8">
-            <div className="shrink-0 w-10 h-10 sm:w-16 sm:h-16 flex items-center justify-center bg-red-50 text-haven-red rounded-xl sm:rounded-[22px] transition-transform duration-300 hover:scale-110">
-              <ShieldCheck size={32} strokeWidth={1.5} className="w-5 h-5 sm:w-8 sm:h-8" />
-            </div>
-            <div className="min-w-0 space-y-1 sm:space-y-4">
-              <h3 className="font-heading font-bold text-lg sm:text-2xl text-haven-navy tracking-tight">{t('value.community.title')}</h3>
-              <p className="text-haven-stone text-[13px] sm:text-sm leading-snug sm:leading-relaxed antialiased font-medium opacity-90">
-                {t('value.community.desc')}
-              </p>
-            </div>
-          </div>
-          
-          <div className="flex items-center gap-4 sm:block sm:space-y-8">
-            <div className="shrink-0 w-10 h-10 sm:w-16 sm:h-16 flex items-center justify-center bg-green-50 text-green-600 rounded-xl sm:rounded-[22px] transition-transform duration-300 hover:scale-110">
-              <Sparkles size={32} strokeWidth={1.5} className="w-5 h-5 sm:w-8 sm:h-8" />
-            </div>
-            <div className="min-w-0 space-y-1 sm:space-y-4">
-              <h3 className="font-heading font-bold text-lg sm:text-2xl text-haven-navy tracking-tight">{t('value.ready.title')}</h3>
-              <p className="text-haven-stone text-[13px] sm:text-sm leading-snug sm:leading-relaxed antialiased font-medium opacity-90">
-                {t('value.ready.desc')}
-              </p>
-            </div>
-          </div>
+      {/* WHY HAVEN: three promises, numbered, on the cream background */}
+      <section className="mx-auto max-w-7xl px-5 py-14 sm:px-6 md:py-24">
+        <SectionHeading eyebrow="Pourquoi Haven" title="Une colocation pensée pour les vies qui bougent" />
+        <div className="mt-8 grid gap-4 sm:mt-12 md:grid-cols-3 md:gap-6">
+          {([
+            [CalendarIcon, 'value.flexibility'],
+            [ShieldCheck, 'value.community'],
+            [Sparkles, 'value.ready'],
+          ] as const).map(([Icon, key], index) => (
+            <Reveal key={key} delay={index * 100} className="group relative overflow-hidden rounded-[1.75rem] border border-haven-navy/5 bg-white p-6 shadow-soft transition-all duration-300 hover:-translate-y-1 hover:shadow-lift sm:p-8">
+              <span aria-hidden="true" className="absolute -right-2 -top-6 font-heading text-[7rem] font-bold leading-none text-haven-sand transition-colors group-hover:text-haven-blush">0{index + 1}</span>
+              <div className="relative">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-haven-red text-white shadow-lg shadow-haven-red/25">
+                  <Icon size={22} strokeWidth={1.8} />
+                </div>
+                <h3 className="mt-5 font-heading text-xl font-bold tracking-tight text-haven-navy sm:text-2xl">{t(`${key}.title`)}</h3>
+                <p className="mt-2 text-[15px] leading-relaxed text-haven-stone">{t(`${key}.desc`)}</p>
+              </div>
+            </Reveal>
+          ))}
         </div>
       </section>
 
-      {/* MARKET STATS SECTION */}
-      <section className="bg-haven-gray/50 py-8 sm:py-12 md:py-24 border-y border-gray-100">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6">
-          <div className="max-w-3xl mb-6 sm:mb-16 space-y-2 sm:space-y-4">
-            <h2 className="font-heading font-bold text-2xl sm:text-3xl md:text-4xl text-haven-navy leading-tight">
-              {t('stats.title')}
-            </h2>
-            <p className="text-haven-stone text-sm sm:text-lg font-light leading-relaxed">
-              {t('stats.subtitle')}
-            </p>
+      {/* THE PROBLEM: market figures on the navy band, the strongest contrast of the page */}
+      <section className="relative overflow-hidden bg-haven-navy py-14 text-white md:py-24">
+        <div aria-hidden="true" className="pointer-events-none absolute -right-32 -top-32 h-96 w-96 rounded-full bg-haven-red/25 blur-3xl" />
+        <div className="relative mx-auto max-w-7xl px-5 sm:px-6">
+          <SectionHeading eyebrow="Le constat" title={t('stats.title')} subtitle={t('stats.subtitle')} dark />
+          <div className="mt-8 grid grid-cols-1 gap-3 sm:mt-12 sm:grid-cols-2 sm:gap-4 lg:grid-cols-4">
+            {([[AlertCircle, 'stats.stat1.val', 'stats.stat1.label'], [Route, 'stats.stat2.val', 'stats.stat2.label'], [BarChart3, 'stats.stat3.val', 'stats.stat3.label'], [Users, 'stats.stat4.val', 'stats.stat4.label']] as const).map(([Icon, value, label], index) => (
+              <Reveal key={index} delay={index * 80} className="flex items-start gap-4 rounded-[1.75rem] border border-white/10 bg-white/[0.04] p-5 backdrop-blur-sm transition-colors hover:bg-white/[0.08] sm:block sm:p-7">
+                <Icon size={20} className="hidden text-[#E2A9BF] sm:block" aria-hidden="true" />
+                {/* On phones the figure sits beside its explanation: four stacked cards were too tall. */}
+                <div className="w-[6.5rem] shrink-0 sm:w-auto">
+                  <span className="block font-heading text-[2rem] font-bold leading-none tracking-tight sm:mt-4 sm:text-5xl">{t(value)}</span>
+                  <span aria-hidden="true" className="mt-3 block h-0.5 w-10 rounded-full bg-[#E2A9BF]" />
+                </div>
+                <p className="text-sm leading-relaxed text-white/70 sm:mt-3 sm:text-[15px]">{t(label)}</p>
+              </Reveal>
+            ))}
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5 md:gap-8">
-            <div className="flex items-center gap-4 sm:block bg-white p-5 sm:p-6 md:p-10 rounded-[1.75rem] sm:rounded-[2.5rem] shadow-soft border border-gray-100 hover:shadow-premium transition-all duration-500 group">
-              <div className="shrink-0 sm:mb-6 w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-haven-red/5 text-haven-red flex items-center justify-center group-hover:bg-haven-red group-hover:text-white transition-colors">
-                <AlertCircle size={24} />
-              </div>
-              <div className="min-w-0 space-y-1 sm:space-y-3">
-                <span className="block font-heading font-bold text-3xl sm:text-5xl text-haven-navy tracking-tight">{t('stats.stat1.val')}</span>
-                <p className="text-[13px] sm:text-sm text-haven-stone leading-snug sm:leading-relaxed font-medium">{t('stats.stat1.label')}</p>
-              </div>
+          <div className="mt-8 flex flex-col gap-5 rounded-[1.75rem] bg-white p-6 text-haven-navy sm:mt-12 sm:p-8 md:flex-row md:items-center md:justify-between">
+            <div className="flex items-start gap-4">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-haven-blush text-haven-red"><Route size={20} aria-hidden="true" /></div>
+              <p className="max-w-2xl text-base font-medium leading-relaxed sm:text-lg">{t('stats.recurring.pitch')}</p>
             </div>
-
-            <div className="flex items-center gap-4 sm:block bg-white p-5 sm:p-6 md:p-10 rounded-[1.75rem] sm:rounded-[2.5rem] shadow-soft border border-gray-100 hover:shadow-premium transition-all duration-500 group">
-              <div className="shrink-0 sm:mb-6 w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition-colors">
-                <Route size={24} />
-              </div>
-              <div className="min-w-0 space-y-1 sm:space-y-3">
-                <span className="block font-heading font-bold text-3xl sm:text-5xl text-haven-navy tracking-tight">{t('stats.stat2.val')}</span>
-                <p className="text-[13px] sm:text-sm text-haven-stone leading-snug sm:leading-relaxed font-medium">{t('stats.stat2.label')}</p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-4 sm:block bg-white p-5 sm:p-6 md:p-10 rounded-[1.75rem] sm:rounded-[2.5rem] shadow-soft border border-gray-100 hover:shadow-premium transition-all duration-500 group">
-              <div className="shrink-0 sm:mb-6 w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center group-hover:bg-amber-600 group-hover:text-white transition-colors">
-                <BarChart3 size={24} />
-              </div>
-              <div className="min-w-0 space-y-1 sm:space-y-3">
-                <span className="block font-heading font-bold text-3xl sm:text-5xl text-haven-navy tracking-tight">{t('stats.stat3.val')}</span>
-                <p className="text-[13px] sm:text-sm text-haven-stone leading-snug sm:leading-relaxed font-medium">{t('stats.stat3.label')}</p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-4 sm:block bg-white p-5 sm:p-6 md:p-10 rounded-[1.75rem] sm:rounded-[2.5rem] shadow-soft border border-gray-100 hover:shadow-premium transition-all duration-500 group">
-              <div className="shrink-0 sm:mb-6 w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-green-50 text-green-600 flex items-center justify-center group-hover:bg-green-600 group-hover:text-white transition-colors">
-                <Users size={24} />
-              </div>
-              <div className="min-w-0 space-y-1 sm:space-y-3">
-                <span className="block font-heading font-bold text-3xl sm:text-5xl text-haven-navy tracking-tight">{t('stats.stat4.val')}</span>
-                <p className="text-[13px] sm:text-sm text-haven-stone leading-snug sm:leading-relaxed font-medium">{t('stats.stat4.label')}</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-6 sm:mt-10 md:mt-14 flex flex-col md:flex-row md:items-center md:justify-between gap-4 sm:gap-6 md:gap-10">
-            <p className="text-haven-navy text-sm sm:text-lg md:text-xl font-medium leading-relaxed max-w-3xl">
-              {t('stats.recurring.pitch')}
-            </p>
-            <Button
-              size="lg"
-              className="w-full md:w-auto shrink-0 bg-haven-navy text-white hover:bg-haven-navy/90 px-6 md:px-8 py-3 sm:py-4 rounded-2xl font-black uppercase tracking-widest shadow-xl active:scale-95 transition-all text-xs"
-              onClick={handleRecurringClick}
-            >
+            <Button size="lg" className="w-full shrink-0 rounded-xl bg-haven-red px-6 py-3.5 text-sm font-bold text-white shadow-lg shadow-haven-red/25 hover:bg-haven-red/90 md:w-auto" onClick={handleRecurringClick}>
               {t('stats.recurring.cta')}
             </Button>
           </div>
         </div>
       </section>
 
-      {/* TENANT COMPARISON SECTION */}
-      <section className="py-8 sm:py-12 md:py-24 bg-white relative overflow-hidden">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 relative z-10 text-center">
-          <div className="max-w-4xl mx-auto mb-6 sm:mb-12 space-y-2 sm:space-y-4">
-            <h2 className="font-heading font-medium text-2xl sm:text-3xl md:text-4xl lg:text-5xl text-haven-navy leading-tight tracking-tight">
-              Le juste prix de la mobilité pour le locataire
-            </h2>
-            <div className="flex items-center justify-center gap-3 text-haven-stone">
-              <div className="shrink-0 w-8 h-8 rounded-full bg-haven-navy/5 flex items-center justify-center">
-                <Info size={14} className="text-haven-navy" />
-              </div>
-              <p className="text-xs font-medium opacity-80">
-                {comparisonStayLabel()}
-              </p>
-            </div>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 items-stretch max-w-6xl mx-auto pt-3 sm:pt-4">
-            {/* Hotel Card */}
-            <Reveal className="bg-gray-50/50 rounded-[1.75rem] sm:rounded-[2rem] p-5 sm:p-8 border border-gray-100 flex flex-col items-center justify-center space-y-2 sm:space-y-6 h-full">
-              <h3 className="text-lg sm:text-xl font-black text-haven-navy tracking-tight">{PRICE_COMPARISON.hotel.label}</h3>
-              <div className="space-y-1">
-                <div className="text-3xl sm:text-5xl font-black text-haven-navy tracking-tighter">{PRICE_COMPARISON.hotel.priceEuros} €</div>
-              </div>
-              <div className="space-y-1 sm:pt-2">
-                <p className="text-[10px] font-bold text-haven-stone uppercase tracking-widest">Ex. : {PRICE_COMPARISON.hotel.example}</p>
-                <p className="text-[11px] font-medium text-gray-500">{PRICE_COMPARISON.hotel.description}</p>
+      {/* TENANT COMPARISON: warm sand background, the Haven card in navy so it stands out */}
+      <section className="relative overflow-hidden bg-haven-sand py-14 md:py-24">
+        <div className="relative z-10 mx-auto max-w-7xl px-5 text-center sm:px-6">
+          <SectionHeading eyebrow="Pour les locataires" title="Le juste prix de la mobilité" subtitle={comparisonStayLabel()} center />
+
+          <div className="mx-auto mt-10 grid max-w-6xl grid-cols-1 items-stretch gap-4 sm:mt-14 sm:gap-6 md:grid-cols-3">
+            {/* Hotel */}
+            <Reveal className="flex h-full flex-col items-center justify-center rounded-[1.75rem] bg-white p-6 shadow-soft sm:p-8">
+              <h3 className="text-sm font-bold uppercase tracking-[0.14em] text-haven-stone">{PRICE_COMPARISON.hotel.label}</h3>
+              <div className="mt-3 font-heading text-4xl font-bold tracking-tight text-haven-navy sm:text-5xl">{PRICE_COMPARISON.hotel.priceEuros} €</div>
+              <p className="mt-3 text-sm font-semibold text-haven-navy">Ex. : {PRICE_COMPARISON.hotel.example}</p>
+              <p className="mt-1 text-[13px] text-haven-stone">{PRICE_COMPARISON.hotel.description}</p>
+            </Reveal>
+
+            {/* Airbnb */}
+            <Reveal className="flex h-full flex-col items-center justify-center rounded-[1.75rem] bg-white p-6 shadow-soft sm:p-8" delay={100}>
+              <h3 className="text-sm font-bold uppercase tracking-[0.14em] text-haven-stone">Airbnb</h3>
+              <div className="mt-3 grid w-full grid-cols-2 gap-3 sm:gap-4">
+                {[PRICE_COMPARISON.airbnbStudio, PRICE_COMPARISON.airbnbRoom].map(offer => <div key={offer.label} className="rounded-2xl bg-haven-sand/70 px-3 py-4">
+                  <div className="font-heading text-2xl font-bold tracking-tight text-haven-navy sm:text-3xl">{offer.priceEuros} €</div>
+                  <p className="mt-1 text-xs font-semibold text-haven-navy">{offer.label}</p>
+                  <p className="mt-1 text-[12px] leading-snug text-haven-stone">{offer.description}</p>
+                </div>)}
               </div>
             </Reveal>
 
-            {/* Airbnb Card */}
-            <Reveal className="bg-gray-50/50 rounded-[1.75rem] sm:rounded-[2rem] p-5 sm:p-8 border border-gray-100 flex flex-col items-center justify-center space-y-2 sm:space-y-6 h-full" delay={100}>
-              <h3 className="text-lg sm:text-xl font-black text-haven-navy tracking-tight">Airbnb</h3>
-              <div className="w-full grid grid-cols-2 gap-3 sm:block sm:space-y-4">
-                <div className="space-y-0.5">
-                  <div className="text-2xl sm:text-3xl font-black text-haven-navy tracking-tighter">{PRICE_COMPARISON.airbnbStudio.priceEuros} €</div>
-                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-tight sm:leading-none">{PRICE_COMPARISON.airbnbStudio.label}</p>
-                  <p className="pt-1 text-[11px] font-medium text-gray-500">{PRICE_COMPARISON.airbnbStudio.description}</p>
-                </div>
-                <div className="hidden sm:block h-px w-8 bg-gray-200 mx-auto"></div>
-                <div className="space-y-0.5">
-                  <div className="text-2xl sm:text-3xl font-black text-haven-navy tracking-tighter">{PRICE_COMPARISON.airbnbRoom.priceEuros} €</div>
-                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-tight sm:leading-none">{PRICE_COMPARISON.airbnbRoom.label}</p>
-                  <p className="pt-1 text-[11px] font-medium text-gray-500">{PRICE_COMPARISON.airbnbRoom.description}</p>
-                </div>
-              </div>
-            </Reveal>
-
-            {/* Haven Card */}
-            <Reveal className="relative rounded-[2rem] bg-white border-2 border-haven-red p-0.5 shadow-2xl flex flex-col items-center h-full group" from="scale">
-              {havenIsCheapest() &&               <div className="absolute -top-3.5 bg-haven-red text-white text-[10px] font-black uppercase tracking-[0.15em] px-5 py-1.5 rounded-full shadow-lg z-10 translate-y-0 group-hover:-translate-y-1 transition-transform">
+            {/* Haven */}
+            <Reveal className="relative flex h-full flex-col items-center justify-center rounded-[1.75rem] bg-haven-navy p-6 text-white shadow-lift sm:p-8" from="scale">
+              {havenIsCheapest() && <div className="absolute -top-3.5 rounded-full bg-haven-red px-5 py-1.5 text-[11px] font-bold uppercase tracking-[0.12em] text-white shadow-lg shadow-haven-red/30">
                 Le moins cher dans cet exemple
               </div>}
-              <div className="flex-1 w-full bg-white rounded-[1.9rem] px-5 pt-6 pb-5 sm:p-8 flex flex-col items-center justify-center space-y-2 sm:space-y-6">
-                <Logo className="h-7 sm:h-9" />
-                <div className="space-y-1">
-                  <div className="text-4xl sm:text-6xl font-black text-haven-red tracking-tighter">{PRICE_COMPARISON.haven.priceEuros === null ? '—' : `${PRICE_COMPARISON.haven.priceEuros} €`}</div>
-                  <p className="text-[11px] font-black text-haven-navy uppercase tracking-[0.2em]">POUR CE SÉJOUR</p>
-                  <p className="pt-1 text-[11px] font-medium text-gray-500">{PRICE_COMPARISON.haven.description}</p>
-                </div>
-              </div>
+              <Logo white className="h-8 sm:h-9" />
+              <div className="mt-4 font-heading text-5xl font-bold tracking-tight sm:text-6xl">{PRICE_COMPARISON.haven.priceEuros === null ? '—' : `${PRICE_COMPARISON.haven.priceEuros} €`}</div>
+              <p className="mt-2 text-xs font-bold uppercase tracking-[0.18em] text-[#E2A9BF]">Pour ce séjour</p>
+              <p className="mt-3 text-[13px] text-white/70">{PRICE_COMPARISON.haven.description}</p>
             </Reveal>
           </div>
           {/* Comparative advertising: survey date, scope of prices and sources must be stated (Code de la consommation L122-1 s.). */}
-          <p className="mx-auto mt-6 max-w-4xl text-[11px] leading-relaxed text-gray-500 sm:mt-8">{comparisonNotice()}</p>
+          <p className="mx-auto mt-8 max-w-4xl text-xs leading-relaxed text-haven-stone/90">{comparisonNotice()}</p>
         </div>
       </section>
 
       {/* OWNER YIELD COMPARISON SECTION */}
-      <section className="py-8 sm:py-12 md:py-24 bg-white relative overflow-hidden">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 relative z-10 text-center">
-          <div className="max-w-4xl mx-auto mb-6 sm:mb-12 space-y-2 sm:space-y-4">
-            <h2 className="font-heading font-medium text-2xl sm:text-3xl md:text-4xl lg:text-5xl text-haven-navy leading-tight tracking-tight">
-              Rentabilité propriétaire
-            </h2>
-            <div className="flex items-center justify-center gap-3 text-haven-stone">
-              <div className="shrink-0 w-8 h-8 rounded-full bg-haven-navy/5 flex items-center justify-center">
-                <Info size={14} className="text-haven-navy" />
-              </div>
-              <div className="text-left">
-                <p className="text-xs font-medium opacity-80">
-                  Exemple : T4 en ville moyenne peu tendue
-                </p>
-                <p className="text-[11px] font-medium opacity-60">
-                  Base : occupation complète
-                </p>
-              </div>
-            </div>
-          </div>
+      <section className="relative overflow-hidden bg-white py-14 md:py-24">
+        <div className="relative z-10 mx-auto max-w-7xl px-5 text-center sm:px-6">
+          <SectionHeading eyebrow="Pour les propriétaires" title="Louez mieux, sans vacance" subtitle="Exemple : un T4 en ville moyenne peu tendue, occupé toute l’année." center />
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-6 items-stretch max-w-6xl mx-auto">
+          <div className="mx-auto mt-10 grid max-w-6xl grid-cols-1 items-stretch gap-4 sm:mt-14 sm:gap-6 md:grid-cols-3">
             {/* Basic Furnished Card */}
-            <Reveal className="bg-white rounded-[2rem] shadow-premium border border-gray-100 flex flex-col overflow-hidden h-full">
-              <div className="bg-haven-navy p-3 sm:p-5 flex items-center justify-center">
-                <h3 className="text-sm sm:text-base font-bold text-white tracking-tight">Logement entier meublé</h3>
+            <Reveal className="flex h-full flex-col overflow-hidden rounded-[1.75rem] bg-haven-sand">
+              <div className="flex items-center justify-center p-4 pb-0 sm:p-6 sm:pb-0">
+                <h3 className="text-sm font-bold uppercase tracking-[0.14em] text-haven-stone">Logement entier meublé</h3>
               </div>
               <div className="flex-1 flex flex-col items-center justify-center p-4 sm:p-8 space-y-1">
-                <div className="text-3xl sm:text-5xl font-black text-haven-navy tracking-tighter">900 €</div>
-                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">/ mois</p>
+                <div className="font-heading text-4xl font-bold tracking-tight text-haven-navy sm:text-5xl">900 €</div>
+                <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">/ mois</p>
               </div>
             </Reveal>
 
             {/* Classic Colocation Card */}
-            <Reveal className="bg-white rounded-[2rem] shadow-premium border border-gray-100 flex flex-col overflow-hidden h-full" delay={100}>
-              <div className="bg-gray-100 p-3 sm:p-5 flex flex-col items-center justify-center">
-                <h3 className="text-sm sm:text-base font-bold text-haven-navy tracking-tight text-center">Colocation{' '}<br className="hidden sm:inline"/>classique</h3>
+            <Reveal className="flex h-full flex-col overflow-hidden rounded-[1.75rem] bg-haven-sand" delay={100}>
+              <div className="flex items-center justify-center p-4 pb-0 sm:p-6 sm:pb-0">
+                <h3 className="text-sm font-bold uppercase tracking-[0.14em] text-haven-stone">Colocation classique</h3>
               </div>
               <div className="flex-1 flex flex-col items-center justify-center p-4 sm:p-8 space-y-1.5 sm:space-y-3">
                 <div className="space-y-1">
-                  <div className="text-3xl sm:text-5xl font-black text-haven-navy tracking-tighter">1 350 €</div>
-                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">/ mois</p>
+                  <div className="font-heading text-4xl font-bold tracking-tight text-haven-navy sm:text-5xl">1 350 €</div>
+                  <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">/ mois</p>
                 </div>
                 <div className="h-px w-6 bg-gray-100"></div>
                 <p className="text-xs font-bold text-haven-navy tracking-tight">450 € HC / chambre</p>
@@ -292,19 +204,19 @@ export const Home: React.FC = () => {
             </Reveal>
 
             {/* Haven Card */}
-            <Reveal className="relative rounded-[2rem] bg-white border-2 border-haven-red shadow-2xl flex flex-col overflow-hidden h-full scale-[1.02] z-10" from="scale">
+            <Reveal className="relative z-10 flex h-full flex-col overflow-hidden rounded-[1.75rem] bg-white shadow-lift ring-2 ring-haven-red" from="scale">
               <div className="bg-haven-red p-3 sm:p-6 flex items-center justify-center">
                 <Logo className="h-7 sm:h-10" white />
               </div>
               <div className="flex-1 flex flex-col items-center justify-center p-4 sm:p-8 space-y-2 sm:space-y-4">
                 <div className="space-y-1">
-                  <div className="text-3xl sm:text-5xl font-black text-haven-red tracking-tighter">1 870 €</div>
-                  <p className="text-[10px] font-black text-haven-red uppercase tracking-widest leading-none">/ mois</p>
+                  <div className="font-heading text-4xl font-bold tracking-tight text-haven-red sm:text-5xl">1 870 €</div>
+                  <p className="text-[11px] font-bold text-haven-red uppercase tracking-widest leading-none">/ mois</p>
                 </div>
                 <p className="text-xs font-bold text-haven-red tracking-tight">145 € / semaine par chambre</p>
                 
                 <div className="w-full sm:pt-2">
-                  <div className="bg-haven-red text-white py-2 px-4 rounded-xl text-[9px] font-black uppercase tracking-widest shadow-lg shadow-haven-red/20">
+                  <div className="bg-haven-red text-white py-2 px-4 rounded-xl text-[11px] font-bold uppercase tracking-widest shadow-lg shadow-haven-red/20">
                     Solution la plus rentable
                   </div>
                 </div>
@@ -323,7 +235,7 @@ export const Home: React.FC = () => {
                 <TrendingUp size={20} className="w-4 h-4 sm:w-5 sm:h-5" />
               </div>
               <div className="flex items-baseline gap-2">
-                 <span className="text-2xl sm:text-4xl font-black text-haven-red tracking-tighter">+520 €</span>
+                 <span className="font-heading text-2xl font-bold tracking-tight text-haven-red sm:text-4xl">+520 €</span>
                  <span className="text-xs sm:text-sm font-bold text-haven-red opacity-80">/ mois</span>
               </div>
               <div className="h-6 w-px bg-gray-100 hidden md:block mx-2"></div>
@@ -332,9 +244,9 @@ export const Home: React.FC = () => {
               </p>
             </div>
 
-            <Button 
-              size="lg" 
-              className="w-full sm:w-auto bg-haven-navy text-white hover:bg-haven-navy/90 px-8 py-3 sm:py-4 rounded-2xl font-black uppercase tracking-widest shadow-xl active:scale-95 transition-all text-xs h-12 sm:h-[72px]"
+            <Button
+              size="lg"
+              className="h-12 w-full rounded-xl bg-haven-navy px-8 text-sm font-bold text-white shadow-lg transition-all hover:bg-haven-navy/90 sm:h-[64px] sm:w-auto"
               onClick={handlePublishClick}
             >
               Publier un logement

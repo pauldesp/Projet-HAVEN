@@ -1,3 +1,4 @@
+import { askConfirm, askText } from './HavenDialogs';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, Bold, CheckCircle2, CircleAlert, ExternalLink, Eye, Heading2, Heading3, ImagePlus, Italic, Link2, List, ListOrdered, Loader2, Pencil, Plus, Quote, Trash2, Upload } from 'lucide-react';
 import { toast } from 'sonner';
@@ -100,7 +101,7 @@ export function AdminArticles() {
   };
 
   const remove = async (article: Article) => {
-    if (!window.confirm(`Supprimer définitivement « ${article.title} » ?`)) return;
+    if (!await askConfirm({ title: 'Supprimer cet article ?', message: `« ${article.title} » sera supprimé définitivement.`, confirmLabel: 'Supprimer', danger: true })) return;
     try {
       const response = await authenticatedFetch(`/api/admin/articles/${article.id}`, { method: 'DELETE' });
       if (!response.ok) throw new Error((await response.json().catch(() => ({}))).error || 'Suppression impossible.');
@@ -122,8 +123,8 @@ export function AdminArticles() {
     update({ content: next });
     requestAnimationFrame(() => { element.focus(); const cursor = before.endsWith(' ') && !after ? end + before.length : start + before.length + selected.length + after.length; element.setSelectionRange(cursor, cursor); });
   };
-  const insertLink = () => {
-    const url = window.prompt('Adresse du lien (ex. : /#/search ou https://…)');
+  const insertLink = async () => {
+    const url = await askText({ title: 'Ajouter un lien', label: 'Adresse du lien', placeholder: '/#/search ou https://…', confirmLabel: 'Ajouter' });
     if (url) format('[', `](${url.trim()})`, 'texte du lien');
   };
   const insertImage = async (file?: File) => {
@@ -131,7 +132,7 @@ export function AdminArticles() {
     setUploading('content');
     try {
       const { url } = await uploadImage(file);
-      const alt = window.prompt('Décrivez l’image en quelques mots (important pour Google et l’accessibilité)') || '';
+      const alt = await askText({ title: 'Décrire l’image', message: 'Quelques mots, importants pour Google et l’accessibilité.', label: 'Description', confirmLabel: 'Insérer', minLength: 0 }) || '';
       format(`\n\n![${alt}](${url})\n\n`, '', '');
     } catch (cause) { toast.error(cause instanceof Error ? cause.message : 'Image non envoyée.'); }
     finally { setUploading(''); }

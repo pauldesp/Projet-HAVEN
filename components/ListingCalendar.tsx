@@ -219,7 +219,7 @@ export const ListingCalendar: React.FC<ListingCalendarProps> = ({
               {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
             </h3>
             {isBlockingMode && (
-              <span className="text-[10px] font-black uppercase text-haven-red animate-pulse">Blocage : {blockTargetLabel}</span>
+              <span className="text-[11px] font-bold uppercase text-haven-red animate-pulse">Blocage : {blockTargetLabel}</span>
             )}
           </div>
 
@@ -254,7 +254,7 @@ export const ListingCalendar: React.FC<ListingCalendarProps> = ({
               </div>
             )}
             
-            <div className="flex flex-wrap gap-2 text-[10px] font-bold items-center sm:pr-4">
+            <div className="flex flex-wrap gap-2 text-[11px] font-bold items-center sm:pr-4">
               {!isOwner && selectedStart && (
                 <div className="flex items-center gap-1.5 mr-3 text-gray-500">
                   <div className={`w-2.5 h-2.5 rounded-full border ${recurringStays.length ? 'bg-haven-navy border-haven-navy' : 'bg-gray-300 border-gray-400'}`}></div>
@@ -266,11 +266,11 @@ export const ListingCalendar: React.FC<ListingCalendarProps> = ({
                 <div className="w-2.5 h-2.5 rounded-full bg-white border border-gray-200"></div>
                 <span>Libre</span>
               </div>
-              <div className="flex items-center gap-1.5 mr-3 text-gray-600 font-black">
+              <div className="flex items-center gap-1.5 mr-3 text-gray-600 font-bold">
                 <div className="w-2.5 h-2.5 rounded-full bg-gray-300 border border-gray-400"></div>
                 <span>Réservé</span>
               </div>
-              <div className="flex items-center gap-1.5 text-haven-red font-black">
+              <div className="flex items-center gap-1.5 text-haven-red font-bold">
                 <div className="w-2.5 h-2.5 rounded-full bg-haven-red/10 border border-haven-red/20"></div>
                 <span>Bloqué</span>
               </div>
@@ -375,10 +375,10 @@ export const ListingCalendar: React.FC<ListingCalendarProps> = ({
                     ${isBlockingMode && !tempBlockedDates.includes(dateStr) ? 'hover:bg-haven-red/5' : ''}
                   `}
                 >
-                  <span className={`z-10 ${isToday(year, month, day) ? 'font-black relative after:content-[""] after:absolute after:-bottom-1 after:left-1/2 after:-translate-x-1/2 after:w-1 after:h-1 after:bg-haven-red after:rounded-full' : ''}`}>
+                  <span className={`z-10 ${isToday(year, month, day) ? 'font-bold relative after:content-[""] after:absolute after:-bottom-1 after:left-1/2 after:-translate-x-1/2 after:w-1 after:h-1 after:bg-haven-red after:rounded-full' : ''}`}>
                     {day}
                   </span>
-                  {recurringStay && <span className={`mt-0.5 text-[8px] leading-tight sm:text-[9px] ${isSelectedNight ? 'text-white' : 'text-haven-red'}`}>{recurringStay.label.replace('Séjour ', 'S')}{dateStr === recurringStay.end ? ' · dép.' : ''}</span>}
+                  {recurringStay && <span className={`mt-0.5 text-[8px] leading-tight sm:text-[11px] ${isSelectedNight ? 'text-white' : 'text-haven-red'}`}>{recurringStay.label.replace('Séjour ', 'S')}{dateStr === recurringStay.end ? ' · dép.' : ''}</span>}
                   
                   {isManualBlocked && (
                     <div className="absolute top-1 right-1">
@@ -419,7 +419,7 @@ export const ListingCalendar: React.FC<ListingCalendarProps> = ({
                           </div>
                           <div className="text-left flex-1">
                             <p className="text-sm font-bold text-haven-navy">Occupation confirmée</p>
-                            <p className="text-[10px] text-gray-500 line-clamp-1">
+                            <p className="text-[11px] text-gray-500 line-clamp-1">
                               Chambre indisponible à cette date
                             </p>
                           </div>

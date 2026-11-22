@@ -61,7 +61,7 @@ export const LegalPage: React.FC = () => {
           <ArrowLeft size={20} /> Retour
         </button>
 
-        <div className="bg-white rounded-[1.75rem] sm:rounded-[2.5rem] shadow-premium p-5 sm:p-8 md:p-16 border border-gray-100 animate-fade-in-up">
+        <div className="bg-white rounded-[1.75rem] sm:rounded-[2rem] shadow-premium p-5 sm:p-8 md:p-16 border border-gray-100 animate-fade-in-up">
           <div className="mb-6 sm:mb-12 border-b border-gray-100 pb-5 sm:pb-8">
             <h1 className="text-2xl sm:text-4xl md:text-5xl font-heading font-bold text-haven-navy mb-2 sm:mb-4">{document.title}</h1>
             <div className="flex items-center gap-2 text-haven-stone text-xs sm:text-sm font-medium">

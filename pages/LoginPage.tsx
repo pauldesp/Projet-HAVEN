@@ -193,7 +193,7 @@ export const LoginPage: React.FC = () => {
         marketingOptIn,
         legalAccepted: false,
         role: initialRole,
-        avatarUrl: `https://ui-avatars.com/api/?name=${firstName}+${lastName}&background=1E293B&color=fff`,
+        avatarUrl: `https://ui-avatars.com/api/?name=${firstName}+${lastName}&background=0B245B&color=fff`,
         isVerified: false,
         emailVerified: false,
         phoneVerified: false,
@@ -296,7 +296,7 @@ export const LoginPage: React.FC = () => {
         return (
           <form onSubmit={handleLoginSubmit} className="space-y-6">
             <div className="space-y-2">
-              <label className="block text-[10px] font-black text-haven-stone uppercase tracking-widest ml-1">Mot de passe</label>
+              <label className="block text-[11px] font-bold text-haven-stone uppercase tracking-widest ml-1">Mot de passe</label>
               <div className="relative">
                 <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300" size={18} />
                 <input 
@@ -334,14 +334,14 @@ export const LoginPage: React.FC = () => {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <label className="block text-[10px] font-black text-haven-stone uppercase tracking-widest ml-1">Prénom</label>
+                <label className="block text-[11px] font-bold text-haven-stone uppercase tracking-widest ml-1">Prénom</label>
                 <input 
                   type="text" required value={firstName} onChange={(e) => setFirstName(e.target.value)}
                   className="w-full px-4 py-3 bg-gray-50 rounded-xl border border-gray-100 outline-none focus:border-haven-navy text-sm"
                 />
               </div>
               <div className="space-y-2">
-                <label className="block text-[10px] font-black text-haven-stone uppercase tracking-widest ml-1">Nom</label>
+                <label className="block text-[11px] font-bold text-haven-stone uppercase tracking-widest ml-1">Nom</label>
                 <input 
                   type="text" required value={lastName} onChange={(e) => setLastName(e.target.value)}
                   className="w-full px-4 py-3 bg-gray-50 rounded-xl border border-gray-100 outline-none focus:border-haven-navy text-sm"
@@ -349,11 +349,11 @@ export const LoginPage: React.FC = () => {
               </div>
             </div>
             <div className="space-y-2">
-              <label className="block text-[10px] font-black text-haven-stone uppercase tracking-widest ml-1">Date de naissance</label>
+              <label className="block text-[11px] font-bold text-haven-stone uppercase tracking-widest ml-1">Date de naissance</label>
               <BirthDateInput value={birthDate} onChange={setBirthDate} />
             </div>
             <div className="space-y-2">
-              <label className="block text-[10px] font-black text-haven-stone uppercase tracking-widest ml-1">
+              <label className="block text-[11px] font-bold text-haven-stone uppercase tracking-widest ml-1">
                 {identifier.includes('@') ? 'Numéro de téléphone' : 'Adresse Email'}
               </label>
               <div className="relative">
@@ -370,7 +370,7 @@ export const LoginPage: React.FC = () => {
               </div>
             </div>
             <div className="space-y-2">
-              <label htmlFor="registration-password" className="block text-[10px] font-black text-haven-stone uppercase tracking-widest ml-1">Définir un mot de passe</label>
+              <label htmlFor="registration-password" className="block text-[11px] font-bold text-haven-stone uppercase tracking-widest ml-1">Définir un mot de passe</label>
               <div className="relative">
                 <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300" size={18} />
                 <input 
@@ -383,7 +383,7 @@ export const LoginPage: React.FC = () => {
               <p id="registration-password-rules" className="text-xs text-haven-stone">Au moins 8 caractères, une majuscule et un chiffre.</p>
             </div>
             <div className="space-y-2">
-              <label htmlFor="registration-password-confirmation" className="block text-[10px] font-black text-haven-stone uppercase tracking-widest ml-1">Confirmer le mot de passe</label>
+              <label htmlFor="registration-password-confirmation" className="block text-[11px] font-bold text-haven-stone uppercase tracking-widest ml-1">Confirmer le mot de passe</label>
               <input id="registration-password-confirmation" type="password" autoComplete="new-password" required minLength={8}
                 value={passwordConfirmation} onChange={e => setPasswordConfirmation(e.target.value)}
                 className="w-full px-4 py-3 bg-gray-50 rounded-xl border border-gray-100 outline-none focus:border-haven-navy text-sm" />
@@ -441,7 +441,7 @@ export const LoginPage: React.FC = () => {
 
             <form onSubmit={handleForgotPassword} className="space-y-4">
               <div className="space-y-2">
-                <label className="block text-[10px] font-black text-haven-stone uppercase tracking-widest ml-1">E-mail</label>
+                <label className="block text-[11px] font-bold text-haven-stone uppercase tracking-widest ml-1">E-mail</label>
                 <div className="relative">
                   <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300" size={18} />
                   <input 
@@ -542,7 +542,7 @@ export const LoginPage: React.FC = () => {
                     </p>
                     <button 
                       onClick={() => logout()}
-                      className="text-xs font-black text-amber-900 uppercase tracking-widest hover:opacity-70 transition-opacity"
+                      className="text-xs font-bold text-amber-900 uppercase tracking-widest hover:opacity-70 transition-opacity"
                     >
                       Se déconnecter
                     </button>
@@ -569,7 +569,7 @@ export const LoginPage: React.FC = () => {
                       onClick={handleGoogleLogin}
                       disabled={isLoading}
                       aria-busy={isGoogleSigningIn}
-                      className="w-full flex items-center justify-between px-4 py-3 bg-white border border-gray-900 rounded-xl font-bold text-haven-navy hover:bg-gray-50 transition-all active:scale-[0.98]"
+                      className="w-full flex items-center justify-between px-4 py-3 bg-white border border-gray-900 rounded-xl font-bold text-haven-navy hover:bg-gray-50 transition-all"
                     >
                       <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-5 h-5" />
                       <span className="flex flex-grow items-center justify-center gap-2 text-center text-sm">{isGoogleSigningIn && <Loader2 size={18} className="animate-spin" />}{isGoogleSigningIn ? 'Connexion Google en cours…' : 'Continuer avec Google'}</span>

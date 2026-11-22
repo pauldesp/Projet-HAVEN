@@ -1,3 +1,4 @@
+import { useSheet } from './useSheet';
 import React, { useMemo, useState } from 'react';
 import { AlertTriangle, Loader2, X } from 'lucide-react';
 import type { Booking } from '../types';
@@ -27,6 +28,7 @@ export const CancellationModal: React.FC<CancellationModalProps> = ({ booking, a
   const [details, setDetails] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const sheet = useSheet(onClose, { sheetBelow: 640 });
   const terms = useMemo(() => getCancellationTerms(booking, actor), [booking, actor]);
 
   const fullReason = `${reason}${details.trim() ? ` — ${details.trim()}` : ''}`;
@@ -47,14 +49,15 @@ export const CancellationModal: React.FC<CancellationModalProps> = ({ booking, a
 
   return (
     <div role="dialog" aria-modal="true" aria-labelledby="cancel-booking-title" className="fixed inset-0 z-[70] flex items-end justify-center p-0 sm:items-center sm:p-4">
-      <button type="button" aria-label="Fermer" onClick={onClose} className="absolute inset-0 bg-haven-navy/45 backdrop-blur-sm" />
-      <div className="haven-dialog-panel overflow-y-auto relative w-full max-w-lg rounded-t-[2rem] bg-white p-6 shadow-2xl sm:rounded-[2rem] sm:p-8">
+      <div ref={sheet.backdropRef} aria-hidden="true" onClick={sheet.requestClose} className="haven-backdrop absolute inset-0 bg-haven-navy/45 backdrop-blur-sm" />
+      <div ref={sheet.panelRef} className="haven-sheet haven-dialog-panel overflow-y-auto relative w-full max-w-lg rounded-t-[2rem] bg-white p-6 pt-3 shadow-2xl sm:rounded-[2rem] sm:p-8">
+        <div {...sheet.dragProps} className="-mx-6 -mt-3 mb-3 px-6 pt-3 sm:hidden"><div className="mx-auto h-1.5 w-12 rounded-full bg-gray-200" aria-hidden="true" /></div>
         <div className="mb-5 flex items-start justify-between gap-4">
           <div>
             <h2 id="cancel-booking-title" className="font-heading text-2xl font-bold text-haven-navy">Annuler le séjour</h2>
             <p className="mt-1 text-sm text-gray-500">Cette action libère la chambre pour les dates concernées.</p>
           </div>
-          <button type="button" onClick={onClose} aria-label="Fermer" className="rounded-full p-2 text-gray-400 hover:bg-gray-100 hover:text-haven-navy"><X size={20} /></button>
+          <button type="button" onClick={sheet.requestClose} aria-label="Fermer" className="rounded-full p-2 text-gray-400 hover:bg-gray-100 hover:text-haven-navy"><X size={20} /></button>
         </div>
 
         <div className={`mb-5 rounded-2xl border p-4 ${terms.refundAmount > 0 ? 'border-green-100 bg-green-50' : 'border-amber-100 bg-amber-50'}`}>

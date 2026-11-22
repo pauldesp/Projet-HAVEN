@@ -1,3 +1,4 @@
+import { askText } from './HavenDialogs';
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Loader2, Search, Star } from 'lucide-react';
@@ -34,7 +35,7 @@ export function AdminModeration({ listings, users }: { listings: Listing[]; user
     catch (cause) { toast.error(cause instanceof Error ? cause.message : 'Action impossible.'); }
     finally { setBusy(''); }
   };
-  const askReason = (question: string) => { const value = window.prompt(question); return value && value.trim().length >= 3 ? value.trim() : null; };
+  const askReason = (question: string) => askText({ title: 'Masquer cet avis', label: question, minLength: 3, multiline: true, confirmLabel: 'Masquer', danger: true });
 
   return <section className="space-y-5">
     <div>
@@ -58,7 +59,7 @@ export function AdminModeration({ listings, users }: { listings: Listing[]; user
         </div>
         {review.hiddenByHaven
           ? <button type="button" disabled={busy === review.id} onClick={() => void act(review.id, `/api/admin/reviews/${review.id}/hide`, { hide: false }, 'Avis de nouveau visible.', loadReviews)} className="min-h-11 shrink-0 rounded-xl border border-green-200 px-3 font-semibold text-green-700">Rendre visible</button>
-          : <button type="button" disabled={busy === review.id} onClick={() => { const reason = askReason('Motif du masquage (insulte, hors sujet, données personnelles…)'); if (reason) void act(review.id, `/api/admin/reviews/${review.id}/hide`, { hide: true, reason }, 'Avis masqué, note recalculée.', loadReviews); }} className="min-h-11 shrink-0 rounded-xl border border-red-100 px-3 font-semibold text-haven-red">Masquer</button>}
+          : <button type="button" disabled={busy === review.id} onClick={async () => { const reason = await askReason('Motif du masquage (insulte, hors sujet, données personnelles…)'); if (reason) void act(review.id, `/api/admin/reviews/${review.id}/hide`, { hide: true, reason }, 'Avis masqué, note recalculée.', loadReviews); }} className="min-h-11 shrink-0 rounded-xl border border-red-100 px-3 font-semibold text-haven-red">Masquer</button>}
       </li>)}
       {!shownReviews.length && <li className="p-8 text-center text-sm text-gray-500">Aucun avis.</li>}
     </ul>)}
@@ -81,6 +82,6 @@ export function ListingModerationActions({ listing }: { listing: Listing }) {
     <Link to={`/owner/edit/${listing.id}`} className={`${buttonClass} border-gray-200 text-haven-navy`}>Corriger</Link>
     {listing.suspendedByHaven
       ? <button type="button" disabled={busy} onClick={() => void act({ suspend: false }, 'Annonce remise en ligne.')} className={`${buttonClass} border-green-200 text-green-700`}>Remettre en ligne</button>
-      : <button type="button" disabled={busy} onClick={() => { const reason = window.prompt('Motif de la suspension (visible par le propriétaire)'); if (reason && reason.trim().length >= 3) void act({ suspend: true, reason: reason.trim() }, 'Annonce suspendue.'); }} className={`${buttonClass} border-red-100 text-haven-red`}>Suspendre</button>}
+      : <button type="button" disabled={busy} onClick={async () => { const reason = await askText({ title: 'Suspendre cette annonce', message: 'Elle disparaît des recherches jusqu’à sa remise en ligne.', label: 'Motif (visible par le propriétaire)', minLength: 3, multiline: true, confirmLabel: 'Suspendre', danger: true }); if (reason) void act({ suspend: true, reason }, 'Annonce suspendue.'); }} className={`${buttonClass} border-red-100 text-haven-red`}>Suspendre</button>}
   </>;
 }

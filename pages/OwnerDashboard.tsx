@@ -1,3 +1,5 @@
+import { PageSkeleton } from '../components/PageSkeleton';
+import { pollWhileVisible } from '../services/visiblePolling';
 import { OwnerPayoutSettings } from '../components/OwnerPayoutSettings';
 import { ScrollableRow } from '../components/ScrollableRow';
 import { OwnerBookingActions } from '../components/OwnerBookingActions';
@@ -10,7 +12,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { OwnerIncidentDetail, incidentStatusLabel } from '../components/OwnerIncidentDetail';
 import { Button } from '../components/Button';
-import { Plus, Home, CheckCircle, Loader2, AlertTriangle, ShieldCheck, MessageCircle, Upload } from 'lucide-react';
+import { Plus, Home, CheckCircle, AlertTriangle, ShieldCheck, MessageCircle, Upload } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useListings } from '../contexts/ListingContext';
 import { apiService } from '../services/api';
@@ -52,8 +54,8 @@ export const OwnerDashboard: React.FC = () => {
       catch { if (active) setPayoutError('Les virements sont momentanément indisponibles.'); }
       finally { if (active) setPayoutLoading(false); }
     };
-    void load(); const timer = setInterval(load, 30_000);
-    return () => { active = false; clearInterval(timer); };
+    void load(); const stop = pollWhileVisible(load, 30_000);
+    return () => { active = false; stop(); };
   }, [currentUser?.id]);
   const [isLoading, setIsLoading] = useState(true);
   // With real payments, Haven publishes a listing only once the owner can receive payouts.
@@ -175,7 +177,7 @@ export const OwnerDashboard: React.FC = () => {
   const displayedBookings = bookingSubTab === 'UPCOMING' ? upcomingBookings :
                             bookingSubTab === 'CURRENT' ? currentBookings : pastBookings;
 
-  if (isLoading) return <div className="p-20 text-center"><Loader2 className="animate-spin mx-auto text-haven-navy"/></div>;
+  if (isLoading) return <PageSkeleton label="Chargement de votre espace propriétaire…" />;
 
   return (
     <div className="min-h-screen bg-white pb-20 font-body">
@@ -249,7 +251,7 @@ export const OwnerDashboard: React.FC = () => {
                 onClick={() => setActiveTab(tab.id as typeof activeTab)}
               >
                 {tab.label}
-                {tab.badge > 0 && <span className="rounded-full bg-haven-red px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">{tab.badge}</span>}
+                {tab.badge > 0 && <span className="rounded-full bg-haven-red px-1.5 py-0.5 text-[11px] font-bold leading-none text-white">{tab.badge}</span>}
                 {activeTab === tab.id && <span className="absolute inset-x-0 bottom-0 h-0.5 rounded-full bg-haven-navy" />}
               </button>
             ))}
@@ -309,7 +311,7 @@ export const OwnerDashboard: React.FC = () => {
                       }`}
                     >
                       <span>{subTab.label}</span>
-                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
+                      <span className={`px-2 py-0.5 rounded-full text-[11px] font-bold ${
                         bookingSubTab === subTab.id
                           ? 'bg-haven-navy text-white'
                           : 'bg-gray-200 text-gray-600'
@@ -324,11 +326,11 @@ export const OwnerDashboard: React.FC = () => {
                   <table className="haven-table w-full text-left">
                     <thead>
                       <tr className="border-b border-gray-100">
-                        <th className="pb-4 text-[10px] font-black uppercase tracking-widest text-gray-400">Locataire</th>
-                        <th className="pb-4 text-[10px] font-black uppercase tracking-widest text-gray-400">Logement</th>
-                        <th className="pb-4 text-[10px] font-black uppercase tracking-widest text-gray-400">Dates</th>
-                        <th className="pb-4 text-[10px] font-black uppercase tracking-widest text-gray-400">Statut</th>
-                        <th className="pb-4 text-[10px] font-black uppercase tracking-widest text-gray-400 text-right">Actions</th>
+                        <th className="pb-4 text-[11px] font-bold uppercase tracking-widest text-gray-400">Locataire</th>
+                        <th className="pb-4 text-[11px] font-bold uppercase tracking-widest text-gray-400">Logement</th>
+                        <th className="pb-4 text-[11px] font-bold uppercase tracking-widest text-gray-400">Dates</th>
+                        <th className="pb-4 text-[11px] font-bold uppercase tracking-widest text-gray-400">Statut</th>
+                        <th className="pb-4 text-[11px] font-bold uppercase tracking-widest text-gray-400 text-right">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-50">
@@ -351,7 +353,7 @@ export const OwnerDashboard: React.FC = () => {
                             </span>
                           </td>
                           <td data-label="Statut" className="py-4">
-                            <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase ${
+                            <span className={`px-3 py-1 rounded-full text-[11px] font-bold uppercase ${
                               booking.status === 'CONFIRMED' ? 'bg-green-100 text-green-600' :
                               booking.status === 'APPROVED' ? 'bg-blue-100 text-blue-600' :
                               booking.status === 'PENDING' ? 'bg-amber-100 text-amber-600' : 'bg-red-100 text-red-600'
@@ -415,10 +417,10 @@ export const OwnerDashboard: React.FC = () => {
                     <table className="haven-table w-full text-left">
                       <thead>
                         <tr className="border-b border-gray-100">
-                          <th className="pb-4 text-[10px] font-black uppercase tracking-widest text-gray-400">Date</th>
-                          <th className="pb-4 text-[10px] font-black uppercase tracking-widest text-gray-400">Description</th>
-                          <th className="pb-4 text-[10px] font-black uppercase tracking-widest text-gray-400">Montant</th>
-                          <th className="pb-4 text-[10px] font-black uppercase tracking-widest text-gray-400">Statut</th>
+                          <th className="pb-4 text-[11px] font-bold uppercase tracking-widest text-gray-400">Date</th>
+                          <th className="pb-4 text-[11px] font-bold uppercase tracking-widest text-gray-400">Description</th>
+                          <th className="pb-4 text-[11px] font-bold uppercase tracking-widest text-gray-400">Montant</th>
+                          <th className="pb-4 text-[11px] font-bold uppercase tracking-widest text-gray-400">Statut</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-50">
@@ -430,9 +432,9 @@ export const OwnerDashboard: React.FC = () => {
                           <tr key={payment.id}>
                             <td data-label="Date" className="py-4 text-sm text-gray-600">{new Date(payment.createdAt).toLocaleDateString('fr-FR')}</td>
                             <td data-label="Réservation" className="py-4 text-sm font-bold text-haven-navy">{isRefund ? 'Remboursement' : 'Réservation'} - {listings.find(l => l.id === payment.listingId)?.title || 'Logement supprimé'}</td>
-                            <td data-label="Montant" className={`py-4 text-sm font-black ${isRefund ? 'text-haven-red' : payment.status === 'COMPLETED' ? 'text-green-600' : 'text-gray-500'}`}>{isRefund ? '−' : '+'}{formatEuros(payment.amount)}</td>
+                            <td data-label="Montant" className={`py-4 text-sm font-bold ${isRefund ? 'text-haven-red' : payment.status === 'COMPLETED' ? 'text-green-600' : 'text-gray-500'}`}>{isRefund ? '−' : '+'}{formatEuros(payment.amount)}</td>
                             <td data-label="Statut" className="py-4">
-                              <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase ${payment.status === 'COMPLETED' ? 'bg-green-100 text-green-600' : payment.status === 'REFUNDED' ? 'bg-red-50 text-haven-red' : payment.status === 'PENDING' ? 'bg-amber-50 text-amber-700' : 'bg-gray-100 text-gray-600'}`}>{paymentStatus}</span>{paymentIsTest && <span className="ml-2 text-xs font-bold text-amber-700">Test</span>}
+                              <span className={`px-3 py-1 rounded-full text-[11px] font-bold uppercase ${payment.status === 'COMPLETED' ? 'bg-green-100 text-green-600' : payment.status === 'REFUNDED' ? 'bg-red-50 text-haven-red' : payment.status === 'PENDING' ? 'bg-amber-50 text-amber-700' : 'bg-gray-100 text-gray-600'}`}>{paymentStatus}</span>{paymentIsTest && <span className="ml-2 text-xs font-bold text-amber-700">Test</span>}
                             </td>
                           </tr>
                           );
@@ -477,7 +479,7 @@ export const OwnerDashboard: React.FC = () => {
                             <div className="min-w-0 flex-1">
                               <div className="flex flex-wrap items-center justify-between gap-2">
                                 <h4 className="font-bold text-haven-navy">{document.label}</h4>
-                                <span className={`rounded-full px-2.5 py-1 text-[9px] font-black uppercase tracking-widest ${status === 'Validé' ? 'bg-green-100 text-green-700' : status === 'En attente' ? 'bg-orange-100 text-orange-700' : 'bg-gray-200 text-gray-500'}`}>{status}</span>
+                                <span className={`rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-widest ${status === 'Validé' ? 'bg-green-100 text-green-700' : status === 'En attente' ? 'bg-orange-100 text-orange-700' : 'bg-gray-200 text-gray-500'}`}>{status}</span>
                               </div>
                               <p className="mt-2 text-sm leading-relaxed text-gray-500">{document.detail}</p>
                             </div>
@@ -510,14 +512,14 @@ export const OwnerDashboard: React.FC = () => {
                       <div className="flex-1">
                         <div className="flex items-center gap-3 mb-1">
                           <h4 className="font-bold text-haven-navy">{incident.title}</h4>
-                          <span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase ${
+                          <span className={`px-2 py-0.5 rounded-full text-[8px] font-bold uppercase ${
                             incident.priority === 'HIGH' ? 'bg-red-500 text-white' : 'bg-orange-500 text-white'
                           }`}>
                             {incidentStatusLabel(incident.status)}
                           </span>
                         </div>
                         <p className="text-sm text-gray-500 line-clamp-1">{incident.description}</p>
-                        <p className="text-[10px] text-gray-400 mt-1 uppercase font-bold tracking-widest">
+                        <p className="text-[11px] text-gray-400 mt-1 uppercase font-bold tracking-widest">
                           {listings.find(l => l.id === incident.listingId)?.title} • Signalé le {new Date(incident.createdAt).toLocaleDateString('fr-FR')}
                         </p>
                       </div>
@@ -529,7 +531,7 @@ export const OwnerDashboard: React.FC = () => {
                   ))}
 
                   {ownerIncidents.length === 0 && (
-                    <div className="text-center py-10 sm:py-20 bg-gray-50 rounded-[1.75rem] sm:rounded-[2.5rem] border border-dashed border-gray-200">
+                    <div className="text-center py-10 sm:py-20 bg-gray-50 rounded-[1.75rem] sm:rounded-[2rem] border border-dashed border-gray-200">
                       <CheckCircle size={48} className="mx-auto text-green-200 mb-4" />
                       <p className="font-bold text-gray-400">Aucun incident signalé sur vos logements.</p>
                     </div>

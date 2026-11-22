@@ -1,3 +1,4 @@
+import { askConfirm } from '../components/HavenDialogs';
 import { AdminPlatformFeedback } from '../components/AdminPlatformFeedback';
 import { ScrollableRow } from '../components/ScrollableRow';
 import { authenticatedFetch } from '../services/serverApi';
@@ -505,7 +506,7 @@ export const AdminDashboard: React.FC = () => {
   };
 
   const handleRevokeAdmin = async (admin: User) => {
-    if (!window.confirm(`Retirer l’accès administrateur de ${admin.firstName} ${admin.lastName} ?`)) return;
+    if (!await askConfirm({ title: 'Retirer l’accès administrateur ?', message: `${admin.firstName} ${admin.lastName} n’aura plus accès au back office.`, confirmLabel: 'Retirer', danger: true })) return;
     setProcessingId(admin.id);
     try {
       await apiService.admin.revokeAdministrator(admin.id);
@@ -696,7 +697,7 @@ export const AdminDashboard: React.FC = () => {
                <tab.icon size={16} />
                {tab.label}
                {tab.count !== undefined && tab.count > 0 && (
-                 <span className="bg-haven-red text-white text-[10px] px-2 py-0.5 rounded-full ml-1">{tab.count}</span>
+                 <span className="bg-haven-red text-white text-[11px] px-2 py-0.5 rounded-full ml-1">{tab.count}</span>
                )}
              </button>
            ))}
@@ -742,7 +743,7 @@ export const AdminDashboard: React.FC = () => {
                     </div>
                     <div className="text-right min-w-[100px]">
                       <span className="text-3xl font-bold text-haven-navy">{listings.length}</span>
-                      <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Annonces totales</p>
+                      <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">Annonces totales</p>
                     </div>
                   </div>
                 </div>
@@ -751,10 +752,10 @@ export const AdminDashboard: React.FC = () => {
                   <table className="haven-table haven-table--filters w-full text-left border-collapse">
                     <thead>
                       <tr className="bg-gray-50 border-b border-gray-100">
-                        <th className="p-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Aperçu</th>
+                        <th className="p-6 text-[11px] font-bold text-gray-400 uppercase tracking-widest">Aperçu</th>
                         <th className="p-6">
                           <div 
-                            className="text-[10px] font-black text-gray-400 uppercase tracking-widest cursor-pointer hover:text-haven-navy transition-colors flex items-center gap-2 mb-2"
+                            className="text-[11px] font-bold text-gray-400 uppercase tracking-widest cursor-pointer hover:text-haven-navy transition-colors flex items-center gap-2 mb-2"
                             onClick={() => handleListingSort('title')}
                           >
                             Nom de la coloc <SortIcon sortKey="title" currentSort={listingSort} />
@@ -769,7 +770,7 @@ export const AdminDashboard: React.FC = () => {
                         </th>
                         <th className="p-6">
                           <div 
-                            className="text-[10px] font-black text-gray-400 uppercase tracking-widest cursor-pointer hover:text-haven-navy transition-colors flex items-center gap-2 mb-2"
+                            className="text-[11px] font-bold text-gray-400 uppercase tracking-widest cursor-pointer hover:text-haven-navy transition-colors flex items-center gap-2 mb-2"
                             onClick={() => handleListingSort('city')}
                           >
                             Ville <SortIcon sortKey="city" currentSort={listingSort} />
@@ -784,7 +785,7 @@ export const AdminDashboard: React.FC = () => {
                         </th>
                         <th className="p-6">
                           <div 
-                            className="text-[10px] font-black text-gray-400 uppercase tracking-widest cursor-pointer hover:text-haven-navy transition-colors flex items-center gap-2 mb-2"
+                            className="text-[11px] font-bold text-gray-400 uppercase tracking-widest cursor-pointer hover:text-haven-navy transition-colors flex items-center gap-2 mb-2"
                             onClick={() => handleListingSort('totalRooms')}
                           >
                             Chambres <SortIcon sortKey="totalRooms" currentSort={listingSort} />
@@ -799,7 +800,7 @@ export const AdminDashboard: React.FC = () => {
                         </th>
                         <th className="p-6">
                           <div 
-                            className="text-[10px] font-black text-gray-400 uppercase tracking-widest cursor-pointer hover:text-haven-navy transition-colors flex items-center gap-2 mb-2"
+                            className="text-[11px] font-bold text-gray-400 uppercase tracking-widest cursor-pointer hover:text-haven-navy transition-colors flex items-center gap-2 mb-2"
                             onClick={() => handleListingSort('ownerName')}
                           >
                             Propriétaire <SortIcon sortKey="ownerName" currentSort={listingSort} />
@@ -813,12 +814,12 @@ export const AdminDashboard: React.FC = () => {
                           />
                         </th>
                         <th 
-                          className="p-6 text-[10px] font-black text-gray-400 uppercase tracking-widest cursor-pointer hover:text-haven-navy transition-colors"
+                          className="p-6 text-[11px] font-bold text-gray-400 uppercase tracking-widest cursor-pointer hover:text-haven-navy transition-colors"
                           onClick={() => handleListingSort('status')}
                         >
                           <div className="flex items-center gap-2">Statut <SortIcon sortKey="status" currentSort={listingSort} /></div>
                         </th>
-                        <th className="p-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Actions</th>
+                        <th className="p-6 text-[11px] font-bold text-gray-400 uppercase tracking-widest">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
@@ -831,7 +832,7 @@ export const AdminDashboard: React.FC = () => {
                           </td>
                           <td data-label="Nom du logement" className="p-6">
                             <div className="font-bold text-haven-navy text-sm">{listing.title}</div>
-                            <div className="text-[10px] text-gray-400 font-medium">{listing.type === 'APARTMENT' ? 'Appartement' : 'Maison'}</div>
+                            <div className="text-[11px] text-gray-400 font-medium">{listing.type === 'APARTMENT' ? 'Appartement' : 'Maison'}</div>
                           </td>
                           <td data-label="Ville" className="p-6">
                             <div className="text-sm text-gray-600 font-medium">{listing.city}</div>
@@ -843,7 +844,7 @@ export const AdminDashboard: React.FC = () => {
                             <div className="text-sm text-gray-600 font-medium">{getUserName(listing.ownerId)}</div>
                           </td>
                           <td data-label="Statut" className="p-6">
-                            <span className={`inline-flex whitespace-nowrap px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${
+                            <span className={`inline-flex whitespace-nowrap px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-widest border ${
                               listing.status === 'DRAFT' ? 'bg-orange-50 text-orange-700 border-orange-100' :
                               listing.status === 'PENDING' ? 'bg-blue-50 text-blue-700 border-blue-100' :
                               listing.status === 'APPROVED' ? 'bg-green-50 text-green-600 border-green-100' :
@@ -919,7 +920,7 @@ export const AdminDashboard: React.FC = () => {
                       </div>
                       <div className="text-right min-w-[100px]">
                         <span className="text-3xl font-bold text-haven-navy">{users.length}</span>
-                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Inscrits totaux</p>
+                        <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">Inscrits totaux</p>
                       </div>
                     </div>
                  </div>
@@ -928,10 +929,10 @@ export const AdminDashboard: React.FC = () => {
                     <table className="haven-table haven-table--filters w-full text-left border-collapse">
                       <thead>
                         <tr className="bg-gray-50 border-b border-gray-100">
-                          <th className="p-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Profil</th>
+                          <th className="p-6 text-[11px] font-bold text-gray-400 uppercase tracking-widest">Profil</th>
                           <th className="p-6">
                             <div 
-                              className="text-[10px] font-black text-gray-400 uppercase tracking-widest cursor-pointer hover:text-haven-navy transition-colors flex items-center gap-2 mb-2"
+                              className="text-[11px] font-bold text-gray-400 uppercase tracking-widest cursor-pointer hover:text-haven-navy transition-colors flex items-center gap-2 mb-2"
                               onClick={() => handleUserSort('firstName')}
                             >
                               Prénom <SortIcon sortKey="firstName" currentSort={userSort} />
@@ -946,7 +947,7 @@ export const AdminDashboard: React.FC = () => {
                           </th>
                           <th className="p-6">
                             <div 
-                              className="text-[10px] font-black text-gray-400 uppercase tracking-widest cursor-pointer hover:text-haven-navy transition-colors flex items-center gap-2 mb-2"
+                              className="text-[11px] font-bold text-gray-400 uppercase tracking-widest cursor-pointer hover:text-haven-navy transition-colors flex items-center gap-2 mb-2"
                               onClick={() => handleUserSort('lastName')}
                             >
                               Nom <SortIcon sortKey="lastName" currentSort={userSort} />
@@ -961,7 +962,7 @@ export const AdminDashboard: React.FC = () => {
                           </th>
                           <th className="p-6">
                             <div 
-                              className="text-[10px] font-black text-gray-400 uppercase tracking-widest cursor-pointer hover:text-haven-navy transition-colors flex items-center gap-2 mb-2"
+                              className="text-[11px] font-bold text-gray-400 uppercase tracking-widest cursor-pointer hover:text-haven-navy transition-colors flex items-center gap-2 mb-2"
                               onClick={() => handleUserSort('email')}
                             >
                               Email <SortIcon sortKey="email" currentSort={userSort} />
@@ -976,7 +977,7 @@ export const AdminDashboard: React.FC = () => {
                           </th>
                           <th className="p-6">
                             <div 
-                              className="text-[10px] font-black text-gray-400 uppercase tracking-widest cursor-pointer hover:text-haven-navy transition-colors flex items-center gap-2 mb-2"
+                              className="text-[11px] font-bold text-gray-400 uppercase tracking-widest cursor-pointer hover:text-haven-navy transition-colors flex items-center gap-2 mb-2"
                               onClick={() => handleUserSort('phone')}
                             >
                               Téléphone <SortIcon sortKey="phone" currentSort={userSort} />
@@ -991,7 +992,7 @@ export const AdminDashboard: React.FC = () => {
                           </th>
                           <th className="p-6">
                             <div 
-                              className="text-[10px] font-black text-gray-400 uppercase tracking-widest cursor-pointer hover:text-haven-navy transition-colors flex items-center gap-2 mb-2"
+                              className="text-[11px] font-bold text-gray-400 uppercase tracking-widest cursor-pointer hover:text-haven-navy transition-colors flex items-center gap-2 mb-2"
                               onClick={() => handleUserSort('city')}
                             >
                               Ville <SortIcon sortKey="city" currentSort={userSort} />
@@ -1005,18 +1006,18 @@ export const AdminDashboard: React.FC = () => {
                             />
                           </th>
                           <th 
-                            className="p-6 text-[10px] font-black text-gray-400 uppercase tracking-widest cursor-pointer hover:text-haven-navy transition-colors"
+                            className="p-6 text-[11px] font-bold text-gray-400 uppercase tracking-widest cursor-pointer hover:text-haven-navy transition-colors"
                             onClick={() => handleUserSort('role')}
                           >
                             <div className="flex items-center gap-2">Rôle <SortIcon sortKey="role" currentSort={userSort} /></div>
                           </th>
                           <th 
-                            className="p-6 text-[10px] font-black text-gray-400 uppercase tracking-widest cursor-pointer hover:text-haven-navy transition-colors"
+                            className="p-6 text-[11px] font-bold text-gray-400 uppercase tracking-widest cursor-pointer hover:text-haven-navy transition-colors"
                             onClick={() => handleUserSort('status')}
                           >
                             <div className="flex items-center gap-2">Statut <SortIcon sortKey="status" currentSort={userSort} /></div>
                           </th>
-                          <th className="p-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">Actions</th>
+                          <th className="p-6 text-[11px] font-bold text-gray-400 uppercase tracking-widest">Actions</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-100">
@@ -1046,7 +1047,7 @@ export const AdminDashboard: React.FC = () => {
                               </span>
                             </td>
                             <td data-label="Statut" className="p-6">
-                              <span className={`inline-flex whitespace-nowrap px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${
+                              <span className={`inline-flex whitespace-nowrap px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-widest border ${
                                 (user.status || 'PENDING') === 'APPROVED' ? 'bg-green-50 text-green-600 border-green-100' :
                                 (user.status || 'PENDING') === 'PENDING' ? (user.verificationSubmittedAt ? 'bg-blue-50 text-blue-700 border-blue-100' : 'bg-orange-50 text-orange-700 border-orange-100') :
                                 'bg-red-50 text-red-600 border-red-100'
@@ -1134,11 +1135,11 @@ export const AdminDashboard: React.FC = () => {
                                                report.targetType === 'MESSAGE' ? 'Message' : 'Technique'}
                                   </h3>
                                   <p className="text-xs text-gray-400">
-                                    Raison: <span className="font-bold text-gray-600 uppercase tracking-tighter">{report.supportCategory || report.reason}</span> • {new Date(report.timestamp).toLocaleString('fr-FR')}
+                                    Raison: <span className="font-bold text-gray-600 uppercase tracking-tight">{report.supportCategory || report.reason}</span> • {new Date(report.timestamp).toLocaleString('fr-FR')}
                                   </p>
                                 </div>
                               </div>
-                              <span className={`inline-flex whitespace-nowrap px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${
+                              <span className={`inline-flex whitespace-nowrap px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-widest border ${
                                 report.status === 'NEW' ? 'bg-red-50 text-red-600 border-red-100' :
                                 report.status === 'WAITING_OWNER' ? 'bg-blue-50 text-blue-700 border-blue-100' :
                                 report.status === 'INVESTIGATING' ? 'bg-amber-50 text-amber-600 border-amber-100' :
@@ -1236,7 +1237,7 @@ export const AdminDashboard: React.FC = () => {
                             <div>
                               <div className="flex items-center gap-3 mb-1">
                                 <h3 className="font-bold text-xl text-haven-navy">{request.subject}</h3>
-                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-widest border ${
+                                <span className={`px-2 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-widest border ${
                                   request.status === 'NEW' ? 'bg-amber-50 text-amber-600 border-amber-100' :
                                   request.status === 'IN_PROGRESS' ? 'bg-blue-50 text-blue-600 border-blue-100' :
                                   'bg-green-50 text-green-600 border-green-100'
@@ -1340,7 +1341,7 @@ export const AdminDashboard: React.FC = () => {
                 </div>
                 <form onSubmit={handleAddAdmin} className="grid md:grid-cols-4 gap-5 items-end">
                   <div className="space-y-2">
-                    <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Prénom</label>
+                    <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-widest ml-1">Prénom</label>
                     <input 
                       type="text"
                       required
@@ -1351,7 +1352,7 @@ export const AdminDashboard: React.FC = () => {
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Nom</label>
+                    <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-widest ml-1">Nom</label>
                     <input
                       type="text"
                       required
@@ -1362,7 +1363,7 @@ export const AdminDashboard: React.FC = () => {
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Email Professionnel</label>
+                    <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-widest ml-1">Email Professionnel</label>
                     <input 
                       type="email"
                       required
@@ -1392,13 +1393,13 @@ export const AdminDashboard: React.FC = () => {
                       <div className="flex-1 min-w-0">
                         <p className="font-bold text-haven-navy truncate">{admin.firstName} {admin.lastName}</p>
                         <p className="text-xs text-gray-400 truncate">{admin.email}</p>
-                        <div className={`mt-1 flex items-center gap-1 text-[9px] font-black uppercase tracking-widest ${admin.adminLevel === 'PRIMARY' ? 'text-amber-600' : 'text-haven-red'}`}>
+                        <div className={`mt-1 flex items-center gap-1 text-[11px] font-bold uppercase tracking-widest ${admin.adminLevel === 'PRIMARY' ? 'text-amber-600' : 'text-haven-red'}`}>
                           <Shield size={10} /> {admin.adminLevel === 'PRIMARY' ? 'Administrateur principal' : 'Administrateur'}
                         </div>
-                        {admin.adminCreatedBy && <p className="mt-1 text-[10px] text-gray-400">Accès attribué le {admin.adminCreatedAt ? new Date(admin.adminCreatedAt).toLocaleDateString('fr-FR') : '—'}</p>}
+                        {admin.adminCreatedBy && <p className="mt-1 text-[11px] text-gray-400">Accès attribué le {admin.adminCreatedAt ? new Date(admin.adminCreatedAt).toLocaleDateString('fr-FR') : '—'}</p>}
                       </div>
                       {admin.adminLevel !== 'PRIMARY' && (
-                        <button onClick={() => handleRevokeAdmin(admin)} disabled={processingId === admin.id} className="rounded-lg border border-red-100 px-3 py-2 text-[10px] font-black uppercase tracking-wider text-haven-red hover:bg-red-50 disabled:opacity-50">Retirer</button>
+                        <button onClick={() => handleRevokeAdmin(admin)} disabled={processingId === admin.id} className="rounded-lg border border-red-100 px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-haven-red hover:bg-red-50 disabled:opacity-50">Retirer</button>
                       )}
                     </div>
                   ))}
@@ -1456,7 +1457,7 @@ export const AdminDashboard: React.FC = () => {
                         <div className="p-3 bg-white rounded-xl shadow-sm text-haven-navy">
                           <FileText size={24} />
                         </div>
-                        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest bg-white px-2 py-1 rounded-md border border-gray-100">
+                        <span className="text-[11px] font-bold text-gray-400 uppercase tracking-widest bg-white px-2 py-1 rounded-md border border-gray-100">
                           ID: {doc.id}
                         </span>
                       </div>
@@ -1511,7 +1512,7 @@ export const AdminDashboard: React.FC = () => {
 
                   <div className="space-y-8">
                     <div className="space-y-2">
-                      <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Titre du document</label>
+                      <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-widest ml-1">Titre du document</label>
                       <input 
                         type="text"
                         value={legalEditForm.title || ''}
@@ -1521,7 +1522,7 @@ export const AdminDashboard: React.FC = () => {
                       />
                     </div>
                     <div className="space-y-2">
-                      <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Contenu du document</label>
+                      <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-widest ml-1">Contenu du document</label>
                       <div className="bg-gray-50 rounded-2xl overflow-hidden border border-gray-100 focus-within:border-haven-red transition-all">
                         <style>{`
                           .quill-editor .ql-container {
@@ -1630,9 +1631,9 @@ export const AdminDashboard: React.FC = () => {
                       <div className="p-3 bg-blue-50 text-blue-600 rounded-2xl">
                         <Users size={20} />
                       </div>
-                      <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Utilisateurs</span>
+                      <span className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">Utilisateurs</span>
                     </div>
-                    <div className="text-4xl font-heading font-black text-haven-navy">{users.length}</div>
+                    <div className="text-4xl font-heading font-bold text-haven-navy">{users.length}</div>
                     <div className="flex items-center gap-1.5 mt-2 text-xs text-haven-stone">
                       <span className="font-bold text-green-600">{users.filter(u => u.status === 'APPROVED').length} active</span> • {pendingUsers.length} à examiner
                     </div>
@@ -1644,9 +1645,9 @@ export const AdminDashboard: React.FC = () => {
                       <div className="p-3 bg-haven-red/5 text-haven-red rounded-2xl">
                         <Home size={20} />
                       </div>
-                      <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Chambres en Coloc</span>
+                      <span className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">Chambres en Coloc</span>
                     </div>
-                    <div className="text-4xl font-heading font-black text-haven-navy">{totalRoomsCount}</div>
+                    <div className="text-4xl font-heading font-bold text-haven-navy">{totalRoomsCount}</div>
                     <div className="flex items-center gap-1.5 mt-2 text-xs text-haven-stone">
                       <span className="font-bold text-haven-red">{listings.length} propriétés</span> dans {new Set(listings.map(l => l.city)).size} villes
                     </div>
@@ -1658,9 +1659,9 @@ export const AdminDashboard: React.FC = () => {
                       <div className="p-3 bg-indigo-50 text-indigo-600 rounded-2xl">
                         <Calendar size={20} />
                       </div>
-                      <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Réservations</span>
+                      <span className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">Réservations</span>
                     </div>
-                    <div className="text-4xl font-heading font-black text-haven-navy">{bookings.length}</div>
+                    <div className="text-4xl font-heading font-bold text-haven-navy">{bookings.length}</div>
                     <div className="flex items-center gap-1.5 mt-2 text-xs text-haven-stone">
                       <span className="font-bold text-green-600">{confirmedCount + completedCount} confirmées</span> • {pendingCount} en attente
                     </div>
@@ -1673,7 +1674,7 @@ export const AdminDashboard: React.FC = () => {
                         <div className="p-3 bg-teal-50 text-teal-600 rounded-2xl">
                           <CheckCircle size={20} />
                         </div>
-                        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Taux d'occupation</span>
+                        <span className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">Taux d'occupation</span>
                       </div>
                       <span className="font-heading font-bold text-lg text-teal-600">{occupancyRate}%</span>
                     </div>
@@ -1689,9 +1690,9 @@ export const AdminDashboard: React.FC = () => {
                       <div className="p-3 bg-amber-50 text-amber-600 rounded-2xl">
                         <TrendingUp size={20} />
                       </div>
-                      <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Volume Financier</span>
+                      <span className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">Volume Financier</span>
                     </div>
-                    <div className="text-4xl font-heading font-black text-haven-navy">{totalProcessed.toLocaleString('fr-FR')} €</div>
+                    <div className="text-4xl font-heading font-bold text-haven-navy">{totalProcessed.toLocaleString('fr-FR')} €</div>
                     <p className="text-xs text-haven-stone mt-2">Transit sécurisé Stripe (cartes + comptes)</p>
                   </div>
 
@@ -1701,9 +1702,9 @@ export const AdminDashboard: React.FC = () => {
                       <div className="p-3 bg-green-600 text-white rounded-2xl shadow-md shadow-green-600/10">
                         <TrendingUp size={20} />
                       </div>
-                      <span className="text-[10px] font-black text-emerald-800 uppercase tracking-widest">Revenus commissions (15%)</span>
+                      <span className="text-[11px] font-bold text-emerald-800 uppercase tracking-widest">Revenus commissions (15%)</span>
                     </div>
-                    <div className="text-4xl font-heading font-black text-emerald-950">{platformCommissions.toLocaleString('fr-FR')} €</div>
+                    <div className="text-4xl font-heading font-bold text-emerald-950">{platformCommissions.toLocaleString('fr-FR')} €</div>
                     <p className="text-xs text-emerald-700 mt-2 font-bold mb-1">Marge brute accumulée HAVEN</p>
                   </div>
                 </div>
@@ -1711,10 +1712,10 @@ export const AdminDashboard: React.FC = () => {
                 {/* 2. Visual Graphs & Charts */}
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
                   {/* Left Graph: Commissions evolution */}
-                  <div className="bg-white p-5 sm:p-10 rounded-[2.5rem] border border-gray-100 shadow-premium lg:col-span-7 flex flex-col justify-between">
+                  <div className="bg-white p-5 sm:p-10 rounded-[2rem] border border-gray-100 shadow-premium lg:col-span-7 flex flex-col justify-between">
                     <div>
                       <h3 className="font-heading font-bold text-2xl text-haven-navy leading-none mb-1">Marges brutes récoltées (15%)</h3>
-                      <p className="text-xs font-black text-gray-400 uppercase tracking-widest mb-8">Évolution mensuelle des commissions</p>
+                      <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-8">Évolution mensuelle des commissions</p>
                     </div>
 
                     <div className="flex items-end justify-between h-64 px-4 pt-6 pb-2 border-b border-gray-100">
@@ -1723,7 +1724,7 @@ export const AdminDashboard: React.FC = () => {
                         return (
                           <div key={idx} className="flex flex-col items-center flex-1 group relative">
                             {/* Hover Tooltip */}
-                            <div className="absolute -top-12 bg-gray-900 text-white text-[10px] px-3 py-1.5 rounded-xl opacity-0 group-hover:opacity-100 transition-all pointer-events-none whitespace-nowrap shadow-xl z-20">
+                            <div className="absolute -top-12 bg-gray-900 text-white text-[11px] px-3 py-1.5 rounded-xl opacity-0 group-hover:opacity-100 transition-all pointer-events-none whitespace-nowrap shadow-xl z-20">
                               <span className="font-bold">{data.amount.toLocaleString('fr-FR')} €</span> de frais
                             </div>
                             {/* Bar styling */}
@@ -1743,10 +1744,10 @@ export const AdminDashboard: React.FC = () => {
                   {/* Right Graphics: Distribution & Active regions */}
                   <div className="lg:col-span-5 space-y-8">
                     {/* Progress distribution */}
-                    <div className="bg-white p-4 sm:p-8 rounded-[2.5rem] border border-gray-100 shadow-premium space-y-6">
+                    <div className="bg-white p-4 sm:p-8 rounded-[2rem] border border-gray-100 shadow-premium space-y-6">
                       <div>
                         <h4 className="font-heading font-bold text-xl text-haven-navy leading-none mb-1">États des Réservations</h4>
-                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Répartition sectorielle globale</p>
+                        <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">Répartition sectorielle globale</p>
                       </div>
 
                       <div className="space-y-4 pt-2">
@@ -1773,10 +1774,10 @@ export const AdminDashboard: React.FC = () => {
                     </div>
 
                     {/* Active cities */}
-                    <div className="bg-white p-4 sm:p-8 rounded-[2.5rem] border border-gray-100 shadow-premium space-y-6">
+                    <div className="bg-white p-4 sm:p-8 rounded-[2rem] border border-gray-100 shadow-premium space-y-6">
                       <div>
                         <h4 className="font-heading font-bold text-xl text-haven-navy leading-none mb-1">Top villes</h4>
-                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Activité locative par ville</p>
+                        <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">Activité locative par ville</p>
                       </div>
 
                       <div className="space-y-4">
@@ -1789,7 +1790,7 @@ export const AdminDashboard: React.FC = () => {
                                 <span className="font-bold text-haven-navy">{city.name}</span>
                                 <div className="flex items-center gap-2">
                                   <span className="text-gray-400 font-medium">{city.count} réservation(s)</span>
-                                  <span className="bg-teal-50 text-teal-700 px-2 py-0.5 font-black uppercase text-[9px] rounded">{share}%</span>
+                                  <span className="bg-teal-50 text-teal-700 px-2 py-0.5 font-bold uppercase text-[11px] rounded">{share}%</span>
                                 </div>
                               </div>
                             );
@@ -1805,7 +1806,7 @@ export const AdminDashboard: React.FC = () => {
                 </div>
 
                 {/* 3. Session Debug block */}
-                <div className="bg-gray-950 rounded-[2.5rem] p-5 sm:p-10 text-white shadow-premium relative overflow-hidden">
+                <div className="bg-gray-950 rounded-[2rem] p-5 sm:p-10 text-white shadow-premium relative overflow-hidden">
                   <div className="absolute top-0 right-0 p-5 sm:p-12 opacity-10">
                     <Shield size={200} />
                   </div>
@@ -1821,7 +1822,7 @@ export const AdminDashboard: React.FC = () => {
                         </div>
                         <div className="flex justify-between items-center py-3 border-b border-white/10 text-sm">
                           <span className="text-gray-400">Rôle de Session</span>
-                          <span className="bg-haven-red px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest">{currentUser?.role}</span>
+                          <span className="bg-haven-red px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-widest">{currentUser?.role}</span>
                         </div>
                         <div className="flex justify-between items-center py-3 border-b border-white/10 text-sm">
                           <span className="text-gray-400">Email</span>
@@ -1874,7 +1875,7 @@ export const AdminDashboard: React.FC = () => {
       {/* Rejection Modal */}
       {rejectionModal.isOpen && (
         <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-haven-navy/60 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-md overflow-hidden animate-scale-in">
+          <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-md overflow-hidden animate-scale-in">
             <div className="p-4 sm:p-8 border-b border-gray-100 bg-gray-50">
               <div className="w-16 h-16 bg-red-100 text-red-600 rounded-2xl flex items-center justify-center mb-6">
                 <AlertTriangle size={32} />
@@ -1892,7 +1893,7 @@ export const AdminDashboard: React.FC = () => {
                 </div>
               )}
               <div className="space-y-2">
-                <label className="block text-[10px] font-black text-haven-stone uppercase tracking-widest ml-1">Motif de la décision</label>
+                <label className="block text-[11px] font-bold text-haven-stone uppercase tracking-widest ml-1">Motif de la décision</label>
                 <textarea 
                   value={rejectionModal.reason || ''}
                   onChange={(e) => setRejectionModal({ ...rejectionModal, reason: e.target.value })}
@@ -1930,7 +1931,7 @@ export const AdminDashboard: React.FC = () => {
         onOpenFinances={() => { setCaseBookingId(null); setActiveTab('FINANCES'); }} />}
       {userDetailModal.isOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-haven-navy/60 backdrop-blur-sm animate-fade-in">
-          <div className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-4xl max-h-[90dvh] overflow-hidden flex flex-col animate-scale-in">
+          <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-4xl max-h-[90dvh] overflow-hidden flex flex-col animate-scale-in">
             <div className="p-4 sm:p-8 border-b border-gray-100 bg-gray-50 flex justify-between items-center shrink-0">
               <div className="flex items-center gap-4">
                 <div className="p-3 bg-haven-navy text-white rounded-2xl">
@@ -1974,7 +1975,7 @@ export const AdminDashboard: React.FC = () => {
                         <span className="text-sm text-gray-600 self-center">
                           {userDetailModal.user.role === UserRole.ADMIN ? 'Admin' : userDetailModal.user.role === UserRole.OWNER ? 'Propriétaire' : 'Locataire'}
                         </span>
-                        <span className={`inline-flex whitespace-nowrap px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${
+                        <span className={`inline-flex whitespace-nowrap px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-widest border ${
                           (userDetailModal.user.status || 'PENDING') === 'APPROVED' ? 'bg-green-50 text-green-600 border-green-100' :
                           (userDetailModal.user.status || 'PENDING') === 'PENDING' ? (userDetailModal.user.verificationSubmittedAt ? 'bg-blue-50 text-blue-700 border-blue-100' : 'bg-orange-50 text-orange-700 border-orange-100') :
                           'bg-red-50 text-red-600 border-red-100'
@@ -2025,33 +2026,33 @@ export const AdminDashboard: React.FC = () => {
                     <div className="md:col-span-2 space-y-6">
                       <div className="grid grid-cols-2 xl:grid-cols-3 gap-4">
                         <div className="p-4 bg-white border border-gray-100 rounded-2xl">
-                          <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-1">Membre depuis</span>
+                          <span className="text-[11px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Membre depuis</span>
                           <span className="font-bold text-haven-navy">
                             {userDetailModal.user.createdAt ? new Date(userDetailModal.user.createdAt).toLocaleDateString() : 'N/A'}
                           </span>
                         </div>
                         <div className="p-4 bg-white border border-gray-100 rounded-2xl">
-                          <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-1">Date de naissance</span>
+                          <span className="text-[11px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Date de naissance</span>
                           <span className="font-bold text-haven-navy">
                             {userDetailModal.user.birthDate ? new Date(`${userDetailModal.user.birthDate}T00:00:00`).toLocaleDateString('fr-FR') : 'Non renseignée'}
                           </span>
                         </div>
                         <div className="p-4 bg-white border border-gray-100 rounded-2xl">
-                          <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-1">Adresse e-mail</span>
+                          <span className="text-[11px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Adresse e-mail</span>
                           <span className="font-bold text-haven-navy break-all">{userDetailModal.user.email || 'Non renseignée'}</span>
                           <span className={`block mt-1 text-xs font-bold ${userDetailModal.user.emailVerified ? 'text-green-600' : 'text-amber-600'}`}>
                             {userDetailModal.user.emailVerified ? 'Confirmée' : 'À confirmer'}
                           </span>
                         </div>
                         <div className="p-4 bg-white border border-gray-100 rounded-2xl">
-                          <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-1">Téléphone</span>
+                          <span className="text-[11px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Téléphone</span>
                           <span className="font-bold text-haven-navy">{userDetailModal.user.phone || 'Non renseigné'}</span>
                           <span className={`block mt-1 text-xs font-bold ${userDetailModal.user.phone ? 'text-gray-500' : 'text-amber-600'}`}>
                             {userDetailModal.user.phone ? 'Numéro renseigné' : 'Numéro manquant'}
                           </span>
                         </div>
                         <div className="p-4 bg-white border border-gray-100 rounded-2xl xl:col-span-2">
-                          <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-1">Vérification d’identité</span>
+                          <span className="text-[11px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Vérification d’identité</span>
                           <div className="flex flex-wrap items-center justify-between gap-3">
                             <span className={`font-bold ${userDetailModal.user.identityVerified ? 'text-green-600' : 'text-amber-600'}`}>
                               {userDetailModal.user.identityVerified ? `Validée${userDetailModal.user.idVerifiedAt ? ` le ${new Date(userDetailModal.user.idVerifiedAt).toLocaleDateString('fr-FR')}` : ''}` : 'En attente de contrôle'}
@@ -2112,7 +2113,7 @@ export const AdminDashboard: React.FC = () => {
                                 Voir
                               </Button>
                             ) : (
-                              <span className="text-[10px] text-gray-400 uppercase font-black tracking-widest italic">Non fourni</span>
+                              <span className="text-[11px] text-gray-400 uppercase font-bold tracking-widest italic">Non fourni</span>
                             )}
                           </div>
                         );
@@ -2165,7 +2166,7 @@ export const AdminDashboard: React.FC = () => {
                                 <p className="text-xs text-gray-400">Du {new Date(booking.startDate).toLocaleDateString()} au {new Date(booking.endDate).toLocaleDateString()}</p>
                               </div>
                             </div>
-                            <span className={`inline-flex whitespace-nowrap px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${
+                            <span className={`inline-flex whitespace-nowrap px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-widest border ${
                               booking.status === 'CONFIRMED' ? 'bg-green-50 text-green-600 border-green-100' :
                               booking.status === 'PENDING' ? 'bg-amber-50 text-amber-600 border-amber-100' :
                               'bg-red-50 text-red-600 border-red-100'
@@ -2199,7 +2200,7 @@ export const AdminDashboard: React.FC = () => {
                                   <p className="text-xs text-gray-400">Total: {booking.totalPrice}€</p>
                                 </div>
                               </div>
-                              <span className={`inline-flex whitespace-nowrap px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${
+                              <span className={`inline-flex whitespace-nowrap px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-widest border ${
                                 booking.status === 'CONFIRMED' ? 'bg-green-50 text-green-600 border-green-100' :
                                 booking.status === 'PENDING' ? 'bg-amber-50 text-amber-600 border-amber-100' :
                                 'bg-red-50 text-red-600 border-red-100'
@@ -2239,7 +2240,7 @@ export const AdminDashboard: React.FC = () => {
       {/* Document Preview Lightbox */}
       {docPreviewModal.isOpen && (
         <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-haven-navy/80 backdrop-blur-md animate-fade-in">
-          <div className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-3xl max-h-[90dvh] overflow-hidden flex flex-col animate-scale-in border border-white/10">
+          <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-3xl max-h-[90dvh] overflow-hidden flex flex-col animate-scale-in border border-white/10">
             <div className="p-6 border-b border-gray-100 bg-gray-50 flex justify-between items-center shrink-0">
               <div className="flex items-center gap-3">
                 <div className="p-2.5 bg-haven-navy text-white rounded-xl">

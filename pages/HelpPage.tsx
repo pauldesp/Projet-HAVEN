@@ -64,8 +64,8 @@ export const HelpPage: React.FC = () => {
     <div className="bg-haven-cream min-h-screen py-8 sm:py-16 px-4 sm:px-6 lg:px-8 mt-4 sm:mt-12 animate-fade-in">
       <div className="max-w-3xl mx-auto">
         <div className="text-center mb-6 sm:mb-10">
-          <span className="px-4 py-1.5 bg-haven-navy/5 text-haven-navy rounded-full text-xs font-black uppercase tracking-widest">Aide</span>
-          <h1 className="text-[1.75rem] sm:text-4xl font-heading font-black text-haven-navy mt-4 mb-3">Comment pouvons-nous vous aider ?</h1>
+          <span className="px-4 py-1.5 bg-haven-navy/5 text-haven-navy rounded-full text-xs font-bold uppercase tracking-widest">Aide</span>
+          <h1 className="text-[1.75rem] sm:text-4xl font-heading font-bold text-haven-navy mt-4 mb-3">Comment pouvons-nous vous aider ?</h1>
           <p className="text-gray-500 text-sm sm:text-base">Réservation, paiement, séjour, propriétaires : toutes les réponses au même endroit.</p>
         </div>
 
@@ -88,7 +88,7 @@ export const HelpPage: React.FC = () => {
         <div className="mt-8 space-y-8">
           {groups.map(group => (
             <section key={group.id} aria-labelledby={`help-${group.id}`}>
-              <h2 id={`help-${group.id}`} className="mb-3 font-heading text-lg font-black text-haven-navy">{group.label}</h2>
+              <h2 id={`help-${group.id}`} className="mb-3 font-heading text-lg font-bold text-haven-navy">{group.label}</h2>
               <div className="divide-y divide-gray-100 rounded-2xl border border-gray-100 bg-white shadow-card">
                 {group.items.map(item => {
                   const isOpen = open === item.q || query.trim().length > 2;
@@ -115,7 +115,7 @@ export const HelpPage: React.FC = () => {
 
         {/* Two clear ways out: a stay issue goes through the stay, anything else through Contact. */}
         <div className="mt-8 grid gap-3 sm:grid-cols-2">
-          <Link to="/dashboard" className="flex gap-4 rounded-2xl bg-haven-navy p-5 text-white transition-colors hover:bg-slate-900">
+          <Link to="/dashboard" className="flex gap-4 rounded-2xl bg-haven-navy p-5 text-white transition-colors hover:bg-haven-navy-deep">
             <ClipboardList size={22} className="mt-0.5 shrink-0 text-haven-red" aria-hidden="true" />
             <span><span className="block font-bold">Un problème pendant un séjour ?</span><span className="mt-1 block text-sm text-gray-300">Signalez-le depuis « Mes séjours » : le propriétaire est prévenu, puis Haven si besoin.</span></span>
           </Link>

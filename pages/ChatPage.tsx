@@ -211,7 +211,7 @@ export const ChatPage: React.FC = () => {
                   <div className={`text-sm leading-relaxed prose prose-sm ${isMe ? 'prose-invert' : ''} max-w-none`}>
                     <ReactMarkdown>{msg.content.replace(/\n/g, '  \n')}</ReactMarkdown>
                   </div>
-                  <p className={`text-[10px] mt-1 ${isMe ? 'text-white/60' : 'text-gray-400'}`}>
+                  <p className={`text-[11px] mt-1 ${isMe ? 'text-white/60' : 'text-gray-400'}`}>
                     {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </p>
                 </div>

@@ -1,8 +1,6 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react';
-
-const SWIPE_DISTANCE = 50;
 
 interface PhotoLightboxProps {
   photos: string[];
@@ -13,11 +11,24 @@ interface PhotoLightboxProps {
 export function PhotoLightbox({ photos, initialIndex, onClose }: PhotoLightboxProps) {
   const dialogRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
-  const touchStart = useRef<{ x: number; y: number } | null>(null);
+  // Photos sit side by side in a snapping scroller: the photo follows the finger 1:1 and keeps the
+  // phone's own momentum, instead of jumping only when the finger lifts.
+  const trackRef = useRef<HTMLDivElement>(null);
   const [index, setIndex] = useState(initialIndex);
   const hasMany = photos.length > 1;
 
-  const move = (step: number) => setIndex(current => (current + step + photos.length) % photos.length);
+  const reducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const show = (next: number, smooth = true) => {
+    const track = trackRef.current;
+    if (!track) return;
+    const target = (next + photos.length) % photos.length;
+    // Wrapping from last to first jumps directly rather than scrolling back through every photo.
+    const wraps = Math.abs(target - index) > 1;
+    track.scrollTo({ left: target * track.clientWidth, behavior: smooth && !wraps && !reducedMotion() ? 'smooth' : 'auto' });
+    setIndex(target);
+  };
+  const move = (step: number) => show(index + step);
+  useLayoutEffect(() => { show(initialIndex, false); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const previousFocus = document.activeElement as HTMLElement | null;
@@ -49,15 +60,6 @@ export function PhotoLightbox({ photos, initialIndex, onClose }: PhotoLightboxPr
     }
   };
 
-  const handleTouchEnd = (event: React.TouchEvent) => {
-    const start = touchStart.current;
-    touchStart.current = null;
-    if (!start || !hasMany) return;
-    const touch = event.changedTouches[0];
-    const dx = touch.clientX - start.x;
-    if (Math.abs(dx) > SWIPE_DISTANCE && Math.abs(dx) > Math.abs(touch.clientY - start.y)) move(dx < 0 ? 1 : -1);
-  };
-
   const controlClass = 'flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-white';
 
   return createPortal(
@@ -69,22 +71,30 @@ export function PhotoLightbox({ photos, initialIndex, onClose }: PhotoLightboxPr
       className="fixed inset-0 z-[120] flex flex-col bg-haven-navy/95 text-white touch-pinch-zoom"
       onKeyDown={handleKeyDown}
       onClick={onClose}
-      onTouchStart={event => { touchStart.current = event.touches.length === 1 ? { x: event.touches[0].clientX, y: event.touches[0].clientY } : null; }}
-      onTouchEnd={handleTouchEnd}
     >
       <div className="flex shrink-0 items-center justify-between p-3 pt-[max(0.75rem,env(safe-area-inset-top))] md:p-5">
         <p className="pl-2 text-sm font-bold" aria-live="polite">{index + 1} / {photos.length}</p>
         <button ref={closeRef} type="button" aria-label="Fermer les photos" className={controlClass} onClick={onClose}><X size={22} aria-hidden="true" /></button>
       </div>
 
-      <div className="relative flex min-h-0 flex-1 items-center justify-center px-3 pb-[max(1.5rem,env(safe-area-inset-bottom))] md:px-20 md:pb-8">
-        <img
-          src={photos[index]}
-          alt={`Photo ${index + 1} sur ${photos.length} du logement`}
-          draggable={false}
-          className="max-h-full max-w-full rounded-xl object-contain"
-          onClick={event => event.stopPropagation()}
-        />
+      <div className="relative flex min-h-0 flex-1 items-center justify-center pb-[max(1.5rem,env(safe-area-inset-bottom))] md:pb-8">
+        <div
+          ref={trackRef}
+          className="flex h-full w-full snap-x snap-mandatory overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          style={{ touchAction: 'pan-x pinch-zoom' }}
+          onScroll={event => { const track = event.currentTarget; if (track.clientWidth) setIndex(Math.max(0, Math.min(photos.length - 1, Math.round(track.scrollLeft / track.clientWidth)))); }}
+        >
+          {photos.map((photo, position) => <div key={`${photo}-${position}`} className="flex h-full w-full shrink-0 snap-center items-center justify-center px-3 md:px-20" aria-hidden={position !== index}>
+            <img
+              src={photo}
+              alt={`Photo ${position + 1} sur ${photos.length} du logement`}
+              draggable={false}
+              loading={Math.abs(position - index) <= 1 ? 'eager' : 'lazy'}
+              className="max-h-full max-w-full rounded-xl object-contain"
+              onClick={event => event.stopPropagation()}
+            />
+          </div>)}
+        </div>
         {hasMany && <>
           <button type="button" aria-label="Photo précédente" className={`${controlClass} absolute left-3 top-1/2 -translate-y-1/2 md:left-5`} onClick={event => { event.stopPropagation(); move(-1); }}><ChevronLeft size={24} aria-hidden="true" /></button>
           <button type="button" aria-label="Photo suivante" className={`${controlClass} absolute right-3 top-1/2 -translate-y-1/2 md:right-5`} onClick={event => { event.stopPropagation(); move(1); }}><ChevronRight size={24} aria-hidden="true" /></button>

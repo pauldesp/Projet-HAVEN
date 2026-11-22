@@ -1,3 +1,4 @@
+import { toast } from 'sonner';
 
 import React, { useState, useEffect } from 'react';
 import { runAuthTests, runListingTests, runTranslationTests, TestSuite } from '../services/unitTests';
@@ -29,7 +30,7 @@ export const TestDashboard: React.FC = () => {
 
   const handleSeedData = async () => {
     if (!currentUser) {
-      alert("Veuillez vous connecter pour générer des données de test.");
+      toast.error("Veuillez vous connecter pour générer des données de test.");
       return;
     }
     
@@ -37,10 +38,10 @@ export const TestDashboard: React.FC = () => {
     try {
       await seedListings(currentUser.id);
       await refreshListings();
-      alert("20 annonces de test ont été générées avec succès !");
+      toast.success("20 annonces de test ont été générées.");
     } catch (error) {
       console.error("Erreur lors du seeding:", error);
-      alert("Une erreur est survenue lors de la génération des données.");
+      toast.error("Une erreur est survenue lors de la génération des données.");
     } finally {
       setIsSeeding(false);
     }
@@ -62,7 +63,7 @@ export const TestDashboard: React.FC = () => {
           <div>
             <div className="flex items-center gap-3 text-haven-red mb-2">
               <Beaker size={32} />
-              <h1 className="text-3xl font-bold tracking-tighter">HAVEN UNIT TESTS</h1>
+              <h1 className="text-3xl font-bold tracking-tight">HAVEN UNIT TESTS</h1>
             </div>
             <p className="text-gray-500">Suite de tests automatisée pour le moteur de colocation.</p>
           </div>
@@ -132,7 +133,7 @@ export const TestDashboard: React.FC = () => {
                         </div>
                       )}
                     </div>
-                    <div className="text-[10px] text-gray-600 font-bold uppercase mt-1">
+                    <div className="text-[11px] text-gray-600 font-bold uppercase mt-1">
                       {result.status}
                     </div>
                   </div>
@@ -142,7 +143,7 @@ export const TestDashboard: React.FC = () => {
           ))}
         </div>
 
-        <div className="mt-12 text-center text-gray-700 text-[10px] uppercase tracking-widest pb-12">
+        <div className="mt-12 text-center text-gray-700 text-[11px] uppercase tracking-widest pb-12">
           End of Test Suite — Haven Engineering Dept.
         </div>
       </div>

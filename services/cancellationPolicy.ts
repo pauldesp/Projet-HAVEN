@@ -1,3 +1,4 @@
+import { parisDateKey } from './stay';
 import type { Booking } from '../types';
 
 export type CancellationActor = 'TENANT' | 'OWNER' | 'HAVEN';
@@ -15,7 +16,9 @@ const DAY_IN_MS = 24 * 60 * 60 * 1000;
 /** Same limit as the tenant's full refund: an owner cancels alone only this early. */
 export const OWNER_CANCELLATION_DAYS = 30;
 
-const startOfDay = (value: string) => new Date(`${value}T00:00:00`).getTime();
+// Calendar days compared at UTC midnight: a local midnight would lose an hour across the spring time change
+// and count 29 days instead of 30.
+const startOfDay = (value: string) => Date.parse(`${value.slice(0, 10)}T00:00:00Z`);
 
 /**
  * HAVEN's first cancellation policy. Keeping this logic isolated makes the
@@ -24,7 +27,7 @@ const startOfDay = (value: string) => new Date(`${value}T00:00:00`).getTime();
 export const getCancellationTerms = (
   booking: Pick<Booking, 'status' | 'startDate' | 'totalPrice' | 'paymentStatus'> & Partial<Pick<Booking, 'seriesScheduled'>>,
   actor: CancellationActor,
-  today = new Date().toISOString().slice(0, 10),
+  today = parisDateKey(),
 ): CancellationTerms => {
   const daysBeforeArrival = Math.floor((startOfDay(booking.startDate) - startOfDay(today)) / DAY_IN_MS);
   const total = Math.max(0, Number(booking.totalPrice) || 0);

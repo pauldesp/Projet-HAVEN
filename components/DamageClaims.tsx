@@ -1,3 +1,4 @@
+import { useSheet } from './useSheet';
 import { useCallback, useEffect, useId, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { AlertTriangle, ImagePlus, Loader2, X } from 'lucide-react';
@@ -39,14 +40,15 @@ function ClaimSummary({ claim, viewer }: { claim: DamageClaim; viewer: 'OWNER' |
 
 function Dialog({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
   const titleId = useId();
+  const sheet = useSheet(onClose, { sheetBelow: 1 });
   useEffect(() => {
-    const keydown = (event: KeyboardEvent) => { if (event.key === 'Escape') onClose(); };
+    const keydown = (event: KeyboardEvent) => { if (event.key === 'Escape') sheet.requestClose(); };
     document.addEventListener('keydown', keydown);
     return () => document.removeEventListener('keydown', keydown);
   }, [onClose]);
-  return createPortal(<div className="fixed inset-0 z-[90] flex items-center justify-center bg-haven-navy/50 p-3 backdrop-blur-sm sm:p-6" onClick={event => { if (event.target === event.currentTarget) onClose(); }}>
-    <div role="dialog" aria-modal="true" aria-labelledby={titleId} className="haven-dialog-panel flex max-h-[90dvh] w-full max-w-xl flex-col overflow-hidden rounded-3xl bg-white text-left shadow-2xl">
-      <header className="flex items-center justify-between gap-4 border-b border-gray-100 p-5"><h2 id={titleId} className="text-xl font-bold text-haven-navy">{title}</h2><button type="button" aria-label="Fermer" onClick={onClose} className="rounded-full bg-gray-100 p-3"><X size={20} /></button></header>
+  return createPortal(<div ref={sheet.backdropRef} className="haven-backdrop fixed inset-0 z-[90] flex items-center justify-center bg-haven-navy/50 p-3 backdrop-blur-sm sm:p-6" onClick={event => { if (event.target === event.currentTarget) sheet.requestClose(); }}>
+    <div ref={sheet.panelRef} role="dialog" aria-modal="true" aria-labelledby={titleId} className="haven-sheet haven-dialog-panel flex max-h-[90dvh] w-full max-w-xl flex-col overflow-hidden rounded-3xl bg-white text-left shadow-2xl">
+      <header className="flex items-center justify-between gap-4 border-b border-gray-100 p-5"><h2 id={titleId} className="text-xl font-bold text-haven-navy">{title}</h2><button type="button" aria-label="Fermer" onClick={sheet.requestClose} className="rounded-full bg-gray-100 p-3"><X size={20} /></button></header>
       <div className="haven-dialog-scroll space-y-4 overflow-y-auto p-5 sm:p-7">{children}</div>
     </div>
   </div>, document.body);

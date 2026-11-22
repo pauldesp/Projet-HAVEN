@@ -1,3 +1,4 @@
+import { PageSkeleton } from '../components/PageSkeleton';
 import { formatEuros } from '../services/money';
 import { trackStep } from '../services/analyticsClient';
 import { ScrollableRow } from '../components/ScrollableRow';
@@ -19,7 +20,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '../components/Button';
 import { Logo } from '../components/Logo';
-import { Calendar, FileText, MessageCircle, Clock, CheckCircle, ClipboardCheck, Loader2, Sparkles, MapPin, Heart, ShieldCheck, AlertTriangle, X, ChevronRight } from 'lucide-react';
+import { Calendar, FileText, MessageCircle, Clock, CheckCircle, ClipboardCheck, Sparkles, MapPin, Heart, ShieldCheck, AlertTriangle, X, ChevronRight } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useListings } from '../contexts/ListingContext';
 import { apiService } from '../services/api';
@@ -328,7 +329,7 @@ export const TenantDashboard: React.FC = () => {
       () => setIncidentError('Impossible de charger vos incidents. Actualisez la page pour réessayer.'));
   }, [currentUser?.id]);
 
-  if (isLoading) return <div className="p-20 text-center flex flex-col items-center gap-4"><Loader2 className="animate-spin text-haven-navy" size={40}/><p className="text-sm font-bold text-gray-400 uppercase tracking-widest">Chargement de votre univers...</p></div>;
+  if (isLoading) return <PageSkeleton label="Chargement de votre espace…" />;
 
   return (
     <div className="min-h-screen bg-white pb-20 font-body">
@@ -388,7 +389,7 @@ export const TenantDashboard: React.FC = () => {
                 onClick={() => setActiveTab(tab.id as typeof activeTab)}
               >
                 {tab.label}
-                {tab.count > 0 && <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold leading-none ${tab.id === 'INCIDENTS' ? 'bg-haven-red text-white' : 'bg-gray-100 text-gray-600'}`}>{tab.count}</span>}
+                {tab.count > 0 && <span className={`rounded-full px-1.5 py-0.5 text-[11px] font-bold leading-none ${tab.id === 'INCIDENTS' ? 'bg-haven-red text-white' : 'bg-gray-100 text-gray-600'}`}>{tab.count}</span>}
                 {activeTab === tab.id && <span className="absolute inset-x-0 bottom-0 h-0.5 rounded-full bg-haven-navy" />}
               </button>
             ))}
@@ -403,31 +404,31 @@ export const TenantDashboard: React.FC = () => {
                     <div className="relative h-56 w-full overflow-hidden lg:h-full lg:min-h-[285px]">
                       <img src={booking.listing?.mainPhotoUrl} className="h-full w-full object-cover transition-transform duration-1000 group-hover:scale-105" alt="" />
                       <div className="absolute inset-0 bg-gradient-to-t from-haven-navy/35 via-transparent to-transparent" />
-                      <div className={`absolute left-5 top-5 px-3 py-1.5 rounded-full text-[10px] font-black uppercase shadow-sm ${
+                      <div className={`absolute left-5 top-5 px-3 py-1.5 rounded-full text-[11px] font-bold uppercase shadow-sm ${
                         booking.status === 'CONFIRMED' ? bookingCategory(booking, clockNow) === 'CURRENT' ? 'bg-green-500/90 text-white' : 'bg-blue-500/90 text-white' :
                         booking.status === 'APPROVED' ? 'bg-amber-500/90 text-white animate-pulse' :
                         'bg-blue-500/90 text-white'
                       }`}>
                         {booking.status === 'CONFIRMED' ? bookingCategory(booking, clockNow) === 'CURRENT' ? 'En cours' : 'À venir' : booking.status === 'APPROVED' ? 'À régler' : installmentState(booking, clockNow) === 'SCHEDULED' || installmentState(booking, clockNow) === 'DUE' ? 'Réservé · prélèvement prévu' : 'Paiement à finaliser'}
                       </div>
-                      {booking.roomName && <div className="absolute bottom-5 left-5 rounded-full bg-white/90 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-haven-navy backdrop-blur-sm">{booking.roomName}</div>}
+                      {booking.roomName && <div className="absolute bottom-5 left-5 rounded-full bg-white/90 px-3 py-1.5 text-[11px] font-bold uppercase tracking-widest text-haven-navy backdrop-blur-sm">{booking.roomName}</div>}
                     </div>
 
                     <div className="flex min-w-0 flex-col justify-center p-6 text-left sm:p-8">
-                      <p className="mb-3 text-[10px] font-black uppercase tracking-[0.22em] text-haven-red">{bookingCategory(booking, clockNow) === 'CURRENT' ? 'Votre séjour en cours' : 'Votre prochain séjour'}</p>
+                      <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.22em] text-haven-red">{bookingCategory(booking, clockNow) === 'CURRENT' ? 'Votre séjour en cours' : 'Votre prochain séjour'}</p>
                       <div>
                         <h3 className="mb-2 font-heading text-2xl font-bold text-haven-navy transition-colors group-hover:text-haven-red sm:text-3xl">{booking.listing?.title}</h3>
-                        <p className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-widest text-gray-400"><MapPin size={13} className="text-haven-red"/> {booking.listing?.city}</p>
+                        <p className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-widest text-gray-400"><MapPin size={13} className="text-haven-red"/> {booking.listing?.city}</p>
                       </div>
 
                       <div className="mt-7 grid gap-3 sm:grid-cols-2">
                         <div className="rounded-2xl border border-gray-100 bg-gray-50/70 p-4">
-                          <div className="mb-2 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-gray-400"><Calendar size={14} className="text-haven-red" /> Dates du séjour</div>
+                          <div className="mb-2 flex items-center gap-2 text-[11px] font-bold uppercase tracking-widest text-gray-400"><Calendar size={14} className="text-haven-red" /> Dates du séjour</div>
                           <span className="text-sm font-bold text-haven-navy">{new Date(booking.startDate).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })} — {new Date(booking.endDate).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
                         </div>
                         <div className="rounded-2xl border border-haven-navy/10 bg-haven-navy/[0.03] p-4">
-                          <div className="mb-2 text-[10px] font-black uppercase tracking-widest text-gray-400">Montant du séjour</div>
-                          <span className="text-lg font-black text-haven-navy">{formatEuros(booking.totalPrice)} <span className="text-xs font-bold text-gray-400">TTC</span></span>
+                          <div className="mb-2 text-[11px] font-bold uppercase tracking-widest text-gray-400">Montant du séjour</div>
+                          <span className="text-lg font-bold text-haven-navy">{formatEuros(booking.totalPrice)} <span className="text-xs font-bold text-gray-400">TTC</span></span>
                         </div>
                       </div>
                       <div className="mt-4"><BookingCountdown booking={booking} /></div>
@@ -439,7 +440,7 @@ export const TenantDashboard: React.FC = () => {
                           <Link to={`/messages/${booking.id}`}>
                             <Button
                               variant="outline"
-                              className="w-full h-12 rounded-2xl text-[11px] font-black uppercase tracking-widest border-haven-navy/10 text-haven-navy hover:bg-haven-navy hover:text-white transition-all gap-2"
+                              className="w-full h-12 rounded-2xl text-[11px] font-bold uppercase tracking-widest border-haven-navy/10 text-haven-navy hover:bg-haven-navy hover:text-white transition-all gap-2"
                             >
                               <MessageCircle size={16} /> Contacter le propriétaire
                             </Button>
@@ -451,11 +452,11 @@ export const TenantDashboard: React.FC = () => {
                             <div className="space-y-2">
                               <div className="w-full h-12 rounded-2xl bg-green-50 border border-green-200 flex items-center justify-center gap-2">
                                 <CheckCircle size={16} className="text-green-600" />
-                                <span className="text-[10px] font-black uppercase text-green-700">Entrée Réalisée</span>
+                                <span className="text-[11px] font-bold uppercase text-green-700">Entrée Réalisée</span>
                               </div>
                               <Button
                                 variant="outline"
-                                className="w-full h-10 rounded-xl text-[9px] font-black uppercase tracking-widest border-green-100 text-green-700 hover:bg-green-100/50 transition-all gap-2"
+                                className="w-full h-10 rounded-xl text-[11px] font-bold uppercase tracking-widest border-green-100 text-green-700 hover:bg-green-100/50 transition-all gap-2"
                                 onClick={() => {
                                   try {
                                     const doc = documents.find(d => d.bookingId === booking.id && d.type === 'INVENTORY_IN');
@@ -478,7 +479,7 @@ export const TenantDashboard: React.FC = () => {
                           ) : (
                             <Button
                               variant="primary"
-                              className="w-full h-12 rounded-2xl text-[11px] font-black uppercase tracking-widest bg-haven-navy shadow-lg shadow-haven-navy/10 gap-2"
+                              className="w-full h-12 rounded-2xl text-[11px] font-bold uppercase tracking-widest bg-haven-navy shadow-lg shadow-haven-navy/10 gap-2"
                               disabled={!getInventoryTiming(booking, booking.listing, 'IN', clockNow).isAvailable || booking.paymentStatus !== 'PAID'}
                               onClick={() => handleOpenInventory(booking, 'IN')}
                             >
@@ -499,7 +500,7 @@ export const TenantDashboard: React.FC = () => {
                           {/* Departure Inventory */}
                           <Button
                             variant="secondary"
-                            className="w-full h-12 rounded-2xl text-[11px] font-black uppercase tracking-widest gap-2 shadow-lg shadow-haven-red/10"
+                            className="w-full h-12 rounded-2xl text-[11px] font-bold uppercase tracking-widest gap-2 shadow-lg shadow-haven-red/10"
                             disabled={!booking.checkInReportId || Boolean(booking.checkOutReportId) || (!getInventoryTiming(booking, booking.listing, 'OUT', clockNow).isAvailable && !getInventoryTiming(booking, booking.listing, 'OUT', clockNow).isEarlyDeparture)}
                             onClick={() => handleOpenInventory(booking, 'OUT')}
                           >
@@ -509,7 +510,7 @@ export const TenantDashboard: React.FC = () => {
                           {/* Incident Button */}
                           <Button
                             variant="ghost"
-                            className="w-full h-10 rounded-2xl text-[9px] font-black uppercase tracking-widest text-amber-600 bg-amber-50/30 hover:bg-amber-100/50 border border-dashed border-amber-200/50 transition-all gap-2"
+                            className="w-full h-10 rounded-2xl text-[11px] font-bold uppercase tracking-widest text-amber-600 bg-amber-50/30 hover:bg-amber-100/50 border border-dashed border-amber-200/50 transition-all gap-2"
                             onClick={() => setReportState({
                               isOpen: true,
                               targetId: booking.listingId,
@@ -524,7 +525,7 @@ export const TenantDashboard: React.FC = () => {
 
                           <button
                             onClick={() => setCancellationBooking(booking)}
-                            className="w-full h-10 text-[10px] text-haven-red hover:bg-red-50 font-black uppercase tracking-tighter transition-colors rounded-xl"
+                            className="w-full h-10 text-[11px] text-haven-red hover:bg-red-50 font-bold uppercase tracking-tight transition-colors rounded-xl"
                           >
                             Annuler ce séjour
                           </button>
@@ -548,7 +549,7 @@ export const TenantDashboard: React.FC = () => {
                             variant="outline"
                             size="sm"
                             onClick={() => setCancellationBooking(booking)}
-                            className="text-haven-stone border-gray-200 hover:text-haven-red hover:bg-red-50 hover:border-red-100 text-[10px] font-black uppercase tracking-widest h-10 rounded-xl"
+                            className="text-haven-stone border-gray-200 hover:text-haven-red hover:bg-red-50 hover:border-red-100 text-[11px] font-bold uppercase tracking-widest h-10 rounded-xl"
                           >
                             {installment === 'SCHEDULED' || installment === 'DUE' || installment === 'FAILED' ? 'Annuler ce séjour sans frais' : 'Annuler cette réservation'}
                           </Button>
@@ -576,7 +577,7 @@ export const TenantDashboard: React.FC = () => {
                             size="lg"
                             disabled={isPayingBookingId === booking.id}
                             onClick={() => handleProceedToPayment(booking)}
-                            className="bg-haven-red hover:bg-haven-red/90 text-white font-black text-[11px] uppercase tracking-widest h-12 rounded-2xl shadow-lg shadow-haven-red/10 animate-bounce"
+                            className="bg-haven-red hover:bg-haven-red/90 text-white font-bold text-[11px] uppercase tracking-widest h-12 rounded-2xl shadow-lg shadow-haven-red/10 animate-bounce"
                           >
                             {isPayingBookingId === booking.id ? 'Redirection...' : `Payer ${formatEuros(booking.totalPrice)}`}
                           </Button>
@@ -584,7 +585,7 @@ export const TenantDashboard: React.FC = () => {
                             variant="ghost"
                             size="sm"
                             onClick={() => setCancellationBooking(booking)}
-                            className="text-haven-stone hover:text-haven-red hover:bg-red-50 text-[10px] font-bold h-10 rounded-xl"
+                            className="text-haven-stone hover:text-haven-red hover:bg-red-50 text-[11px] font-bold h-10 rounded-xl"
                           >
                             Annuler cette réservation
                           </Button>
@@ -595,10 +596,10 @@ export const TenantDashboard: React.FC = () => {
                 ))}
 
                 {upcoming.length === 0 && (
-                  <div className="text-center py-10 sm:py-20 bg-gray-50/50 rounded-[1.75rem] sm:rounded-[2.5rem] border-2 border-dashed border-gray-100">
+                  <div className="text-center py-10 sm:py-20 bg-gray-50/50 rounded-[1.75rem] sm:rounded-[2rem] border-2 border-dashed border-gray-100">
                     <Calendar size={48} className="mx-auto text-gray-200 mb-4" />
                     <p className="text-gray-400 font-bold">Rien de prévu ?</p>
-                    <Link to="/" className="text-haven-red font-black uppercase tracking-widest text-xs hover:underline mt-2 inline-block">Trouver ma prochaine chambre</Link>
+                    <Link to="/" className="text-haven-red font-bold uppercase tracking-widest text-xs hover:underline mt-2 inline-block">Trouver ma prochaine chambre</Link>
                   </div>
                 )}
               </>
@@ -617,22 +618,22 @@ export const TenantDashboard: React.FC = () => {
                     <div className="flex items-start gap-4">
                       <img src={booking.listing?.mainPhotoUrl} className="h-24 w-24 flex-shrink-0 rounded-2xl object-cover sm:h-28 sm:w-28" alt="" />
                       <div className="min-w-0 flex-1">
-                        <div className={`mb-2 inline-block rounded-full px-2.5 py-1 text-[9px] font-black uppercase tracking-wider ${booking.status === 'CANCELLED' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>{booking.status === 'CANCELLED' ? 'Annulée' : booking.status === 'COMPLETED' || booking.paymentStatus === 'PAID' ? 'Terminée' : 'Réservation expirée'}</div>
+                        <div className={`mb-2 inline-block rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider ${booking.status === 'CANCELLED' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>{booking.status === 'CANCELLED' ? 'Annulée' : booking.status === 'COMPLETED' || booking.paymentStatus === 'PAID' ? 'Terminée' : 'Réservation expirée'}</div>
                         <h4 className="truncate font-heading text-xl font-bold text-haven-navy">{booking.listing?.title}</h4>
-                        <p className="mt-1 flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-gray-400"><MapPin size={12} className="text-haven-red" /> {booking.listing?.city || 'Ville non renseignée'}</p>
+                        <p className="mt-1 flex items-center gap-1 text-[11px] font-bold uppercase tracking-widest text-gray-400"><MapPin size={12} className="text-haven-red" /> {booking.listing?.city || 'Ville non renseignée'}</p>
                         <p className="mt-2 text-xs font-medium text-gray-500">{booking.status === 'CANCELLED' ? `Annulé le ${new Date(booking.cancellation?.cancelledAt || booking.createdAt).toLocaleDateString('fr-FR')}` : `${booking.status === 'COMPLETED' ? 'Terminé le' : 'Fin prévue le'} ${new Date(booking.endDate).toLocaleDateString('fr-FR')}`}</p>
                       </div>
                     </div>
 
                     <div className="mt-5 grid grid-cols-2 gap-3 border-t border-gray-100 pt-5 text-sm">
                       <div className="rounded-xl bg-gray-50 px-3 py-2.5">
-                        <p className="text-[9px] font-black uppercase tracking-widest text-gray-400">Séjour</p>
+                        <p className="text-[11px] font-bold uppercase tracking-widest text-gray-400">Séjour</p>
                         <p className="mt-1 font-bold text-haven-navy">{new Date(booking.startDate).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
                         <p className="text-xs text-gray-500">au {new Date(booking.endDate).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
                       </div>
                       <div className="rounded-xl bg-haven-navy/[0.03] px-3 py-2.5">
-                        <p className="text-[9px] font-black uppercase tracking-widest text-gray-400">Montant</p>
-                        <p className="mt-1 text-lg font-black text-haven-navy">{formatEuros(booking.totalPrice)} <span className="text-[10px] text-gray-400">TTC</span></p>
+                        <p className="text-[11px] font-bold uppercase tracking-widest text-gray-400">Montant</p>
+                        <p className="mt-1 text-lg font-bold text-haven-navy">{formatEuros(booking.totalPrice)} <span className="text-[11px] text-gray-400">TTC</span></p>
                         <p className="text-xs text-gray-500">{booking.roomName || 'Chambre réservée'}</p>
                       </div>
                     </div>
@@ -647,13 +648,13 @@ export const TenantDashboard: React.FC = () => {
 
                     <div className="mt-5 flex flex-wrap gap-2">
                       <Link to={`/listing/${booking.listingId}`}>
-                        <Button variant="outline" size="sm" className="h-10 rounded-xl text-[10px] font-black uppercase tracking-widest">Voir le logement</Button>
+                        <Button variant="outline" size="sm" className="h-10 rounded-xl text-[11px] font-bold uppercase tracking-widest">Voir le logement</Button>
                       </Link>
                       {booking.status === 'COMPLETED' && (() => {
                         const deadline = stayReviewDeadline(booking.completedAt, booking.endDate);
                         if (reviewedBookingIds.has(booking.id)) return <span className="self-center text-xs font-bold text-green-700">Avis définitif publié</span>;
                         if (Date.now() >= deadline) return <span className="self-center text-xs font-bold text-gray-500">Note automatique : 5/5</span>;
-                        return <div className="flex flex-col gap-1"><Button variant="ghost" size="sm" className="h-10 rounded-xl bg-gray-50 text-[10px] font-black uppercase tracking-widest" onClick={() => setReviewState({isOpen: true, targetId: booking.listingId, targetName: booking.listing?.title || 'Logement', targetType: 'LISTING', bookingId: booking.id})}>Noter</Button><span className="text-[10px] text-gray-500">Jusqu’au {new Date(deadline).toLocaleDateString('fr-FR')}</span></div>;
+                        return <div className="flex flex-col gap-1"><Button variant="ghost" size="sm" className="h-10 rounded-xl bg-gray-50 text-[11px] font-bold uppercase tracking-widest" onClick={() => setReviewState({isOpen: true, targetId: booking.listingId, targetName: booking.listing?.title || 'Logement', targetType: 'LISTING', bookingId: booking.id})}>Noter</Button><span className="text-[11px] text-gray-500">Jusqu’au {new Date(deadline).toLocaleDateString('fr-FR')}</span></div>;
                       })()}
                     </div>
                   </div>
@@ -675,14 +676,14 @@ export const TenantDashboard: React.FC = () => {
                       <h4 className="font-bold text-haven-navy group-hover:text-haven-red transition-colors">{listing.title}</h4>
                       <p className="text-xs text-gray-500 mt-1 flex items-center gap-1"><MapPin size={12}/> {listing.city}</p>
                       <div className="mt-4 flex justify-between items-center">
-                        <span className="text-sm font-black text-haven-navy">{listing.rooms[0]?.pricePerDay}€ <span className="text-[10px] text-gray-400 font-medium">/ nuit</span></span>
+                        <span className="text-sm font-bold text-haven-navy">{listing.rooms[0]?.pricePerDay}€ <span className="text-[11px] text-gray-400 font-medium">/ nuit</span></span>
                         <ChevronRight className="w-5 h-5 text-gray-300 group-hover:text-haven-navy transition-colors" />
                       </div>
                     </div>
                   </div>
                 ))}
                 {favorites.length === 0 && (
-                  <div className="col-span-full text-center py-10 sm:py-20 bg-gray-50/50 rounded-[1.75rem] sm:rounded-[2.5rem] border-2 border-dashed border-gray-100">
+                  <div className="col-span-full text-center py-10 sm:py-20 bg-gray-50/50 rounded-[1.75rem] sm:rounded-[2rem] border-2 border-dashed border-gray-100">
                     <Heart size={48} className="mx-auto text-gray-200 mb-4" />
                     <p className="text-gray-400 font-bold">Coup de cœur ?</p>
                     <p className="text-sm text-gray-500">Ajoutez des logements à vos favoris pour les retrouver ici.</p>
@@ -749,7 +750,7 @@ export const TenantDashboard: React.FC = () => {
               initial={{ scale: 0.95, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.95, opacity: 0, y: 20 }}
-              className="relative bg-white rounded-[3rem] w-full max-w-4xl max-h-[90dvh] overflow-hidden shadow-[0_0_100px_rgba(0,0,0,0.5)] flex flex-col z-[10000]"
+              className="relative bg-white rounded-[2rem] w-full max-w-4xl max-h-[90dvh] overflow-hidden shadow-[0_0_100px_rgba(0,0,0,0.5)] flex flex-col z-[10000]"
             >
               <div className="p-4 sm:p-8 md:p-10 border-b border-gray-100 flex justify-between items-center bg-haven-cream/20">
                 <div className="flex items-center gap-5">
@@ -762,7 +763,7 @@ export const TenantDashboard: React.FC = () => {
                   </div>
                 </div>
                 <button onClick={() => setViewingDocument(null)} className="w-12 h-12 flex items-center justify-center bg-gray-50 hover:bg-gray-100 rounded-full transition-all group">
-                  <X size={24} className="text-gray-400 group-hover:text-haven-navy group-hover:rotate-90 transition-all duration-300" />
+                  <X size={24} className="text-gray-400 group-hover:text-haven-navy group-transition-all duration-300" />
                 </button>
               </div>
 
@@ -771,7 +772,7 @@ export const TenantDashboard: React.FC = () => {
                  {viewingDocument.reportId && <iframe title={viewingDocument.title} srcDoc={viewedReportHtml || '<p>Chargement de l’état des lieux…</p>'} sandbox="" className="w-full h-[60vh] border-0" />}
                  <div className={`max-w-2xl mx-auto space-y-12 ${viewingDocument.reportId || viewingDocument.receiptId ? 'hidden' : ''}`}>
                     <div className="text-center space-y-4 mb-16">
-                       <div className="inline-block px-4 py-1.5 bg-haven-navy text-white text-[10px] font-black uppercase tracking-[0.2em] rounded-full mb-4">
+                       <div className="inline-block px-4 py-1.5 bg-haven-navy text-white text-[11px] font-bold uppercase tracking-[0.2em] rounded-full mb-4">
                           {viewingDocument.type.replace('_', ' ')}
                        </div>
                        <h2 className="text-haven-navy font-heading font-bold text-[1.75rem] sm:text-4xl leading-tight">Certificat de conformité</h2>
@@ -781,12 +782,12 @@ export const TenantDashboard: React.FC = () => {
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-12 border-y border-gray-100 py-10">
                        <div className="space-y-2">
-                          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest leading-none mb-4">Émetteur du document</p>
+                          <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest leading-none mb-4">Émetteur du document</p>
                           <Logo className="h-10 w-auto mb-2" />
                           <p className="text-sm text-haven-stone leading-relaxed">Département Gestion & Conformité<br/>Service des États des Lieux</p>
                        </div>
                        <div className="space-y-2 text-right">
-                          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest leading-none mb-4">Porteur des droits</p>
+                          <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest leading-none mb-4">Porteur des droits</p>
                           <p className="font-bold text-haven-navy text-lg">{currentUser?.firstName} {currentUser?.lastName}</p>
                           <p className="text-sm text-haven-stone">{currentUser?.email}</p>
                        </div>
@@ -795,11 +796,11 @@ export const TenantDashboard: React.FC = () => {
                     <div className="space-y-8">
                        <div className="flex items-center gap-3">
                           <div className="h-px flex-1 bg-gray-100"></div>
-                          <h4 className="font-black text-heaven-stone uppercase tracking-[0.3em] text-[10px]">Informations certifiées</h4>
+                          <h4 className="font-bold text-heaven-stone uppercase tracking-[0.3em] text-[11px]">Informations certifiées</h4>
                           <div className="h-px flex-1 bg-gray-100"></div>
                        </div>
 
-                       <div className="bg-gray-50/50 p-5 sm:p-10 rounded-[1.75rem] sm:rounded-[2.5rem] space-y-6 border border-gray-100 shadow-inner">
+                       <div className="bg-gray-50/50 p-5 sm:p-10 rounded-[1.75rem] sm:rounded-[2rem] space-y-6 border border-gray-100 shadow-inner">
                           <div className="flex justify-between items-center text-sm">
                              <div className="flex items-center gap-3 text-haven-stone">
                                 <FileText size={16} />
@@ -819,13 +820,13 @@ export const TenantDashboard: React.FC = () => {
                                 <ShieldCheck size={16} />
                                 <span>Validité juridique</span>
                              </div>
-                             <span className="px-4 py-1.5 bg-green-500 text-white rounded-full text-[9px] font-black uppercase tracking-widest shadow-md shadow-green-500/20">Signé & Certifié</span>
+                             <span className="px-4 py-1.5 bg-green-500 text-white rounded-full text-[11px] font-bold uppercase tracking-widest shadow-md shadow-green-500/20">Signé & Certifié</span>
                           </div>
                        </div>
                     </div>
 
                     <div className="pt-8">
-                       <div className="bg-haven-navy text-white rounded-[1.75rem] sm:rounded-[2.5rem] p-5 sm:p-12 text-center relative overflow-hidden group">
+                       <div className="bg-haven-navy text-white rounded-[1.75rem] sm:rounded-[2rem] p-5 sm:p-12 text-center relative overflow-hidden group">
                           <Sparkles className="absolute -top-4 -right-4 text-white/5 opacity-0 group-hover:opacity-100 transition-opacity duration-1000" size={120} />
                           <div className="relative z-10 space-y-4">
                              <CheckCircle className="mx-auto text-green-400 mb-6" size={48} />
@@ -846,8 +847,8 @@ export const TenantDashboard: React.FC = () => {
                     Ce document est confidentiel et généré automatiquement par HAVEN. En cas de litige, seule la version archivée sur nos serveurs fait foi.
                  </p>
                  <div className="flex gap-4 w-full md:w-auto">
-                    <Button variant="outline" className="flex-1 md:flex-none rounded-2xl px-10 h-14 font-black uppercase tracking-widest text-[11px]" onClick={() => setViewingDocument(null)}>Fermer</Button>
-                    <Button variant="primary" className="flex-1 md:flex-none rounded-2xl px-12 h-14 font-black uppercase tracking-widest text-[11px] shadow-xl shadow-haven-navy/20" onClick={() => handleDownload(viewingDocument)}>Télécharger le document</Button>
+                    <Button variant="outline" className="flex-1 md:flex-none rounded-2xl px-10 h-14 font-bold uppercase tracking-widest text-[11px]" onClick={() => setViewingDocument(null)}>Fermer</Button>
+                    <Button variant="primary" className="flex-1 md:flex-none rounded-2xl px-12 h-14 font-bold uppercase tracking-widest text-[11px] shadow-xl shadow-haven-navy/20" onClick={() => handleDownload(viewingDocument)}>Télécharger le document</Button>
                  </div>
               </div>
             </motion.div>

@@ -142,7 +142,7 @@ export const ConversationsList: React.FC = () => {
                     )}
                   </div>
                   {conv.unreadCount > 0 && (
-                    <span className="absolute -top-1 -right-1 w-5 h-5 bg-haven-red text-white text-[10px] font-black rounded-full flex items-center justify-center shadow-lg border-2 border-white">
+                    <span className="absolute -top-1 -right-1 w-5 h-5 bg-haven-red text-white text-[11px] font-bold rounded-full flex items-center justify-center shadow-lg border-2 border-white">
                       {conv.unreadCount}
                     </span>
                   )}
@@ -153,7 +153,7 @@ export const ConversationsList: React.FC = () => {
                     <h4 className={`text-sm font-bold truncate ${conv.unreadCount > 0 ? 'text-haven-navy' : 'text-gray-700'}`}>
                       {conv.otherUser?.firstName} {conv.otherUser?.lastName}
                     </h4>
-                    <span className="text-[10px] font-bold text-gray-400 whitespace-nowrap ml-2">
+                    <span className="text-[11px] font-bold text-gray-400 whitespace-nowrap ml-2">
                       {new Date(conv.latestMessage.timestamp).toLocaleDateString()}
                     </span>
                   </div>
@@ -164,7 +164,7 @@ export const ConversationsList: React.FC = () => {
                   {conv.listing && (
                     <div className="flex items-center gap-1.5 mt-2 opacity-60">
                       <Home size={10} className="text-haven-navy" />
-                      <span className="text-[9px] font-black uppercase tracking-wider text-haven-navy truncate">
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-haven-navy truncate">
                         {conv.listing.title}
                       </span>
                     </div>
