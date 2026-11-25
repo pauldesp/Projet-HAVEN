@@ -63,6 +63,7 @@ import { createDamageDeposit } from './services/damageDepositServer';
 import { damageMailContent, damageMailDisposition, isDamageMailJob, type DamageMailJob } from './services/damageMail';
 import { caseGuidance, pickPreviousStay, type CaseMember, type CaseSettlement, type ReportCase } from './services/reportCase';
 import { DAMAGE_DEPOSIT_CONSENT_TEXT, DAMAGE_DEPOSIT_POLICY, DamageClaimError, assertDamageDepositAccepted } from './services/damageDeposit';
+import { assertResidenceDeclared, residenceDeclarationRecord } from './services/residenceDeclaration';
 import { Resend } from "resend";
 import Stripe from "stripe";
 import { applicationDefault, getApps, initializeApp } from "firebase-admin/app";
@@ -815,7 +816,7 @@ async function startServer() {
           typeof startDate !== 'string' || typeof endDate !== 'string' || !isBookableStay(startDate, endDate)) {
         return sendApiError(res, 422, 'Les informations ou les dates du séjour sont invalides');
       }
-      try { assertCleaningPolicyAccepted(req.body?.cleaningPolicyVersion); assertDamageDepositAccepted(req.body?.depositPolicyVersion); } catch (error) { return sendApiError(res, 422, (error as Error).message); }
+      try { assertCleaningPolicyAccepted(req.body?.cleaningPolicyVersion); assertDamageDepositAccepted(req.body?.depositPolicyVersion); assertResidenceDeclared(req.body?.residenceDeclarationVersion); } catch (error) { return sendApiError(res, 422, (error as Error).message); }
       const userRef = adminDb.collection('users').doc(req.user!.uid);
       const listingRef = adminDb.collection('listings').doc(listingId);
       const bookingRef = adminDb.collection('bookings').doc(id);
@@ -866,6 +867,7 @@ async function startServer() {
           platformFee, totalPrice: basePrice + cleaningFee + platformFee, createdAt,
           paymentStatus: 'PENDING', bookingMode: 'INSTANT', cleaningPolicyVersion: CLEANING_POLICY_VERSION, cleaningPolicyAcceptedAt: createdAt,
           depositConsent: { version: DAMAGE_DEPOSIT_POLICY.version, text: DAMAGE_DEPOSIT_CONSENT_TEXT, amountCents: DAMAGE_DEPOSIT_POLICY.amountCents, acceptedAt: createdAt },
+          residenceDeclaration: residenceDeclarationRecord(createdAt),
           checkInTime: listing.checkInTime || '15:00', checkOutTime: listing.checkOutTime || '11:00',
         };
         transaction.set(roomLockRef, { updatedAt: createdAt });

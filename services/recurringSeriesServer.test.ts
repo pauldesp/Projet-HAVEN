@@ -4,6 +4,7 @@ import { createRecurringSeries } from './recurringSeriesServer';
 import { CLEANING_POLICY_VERSION } from './cleaningPolicy';
 import { localDateKey } from './stay';
 import { AUTO_CHARGE_CONSENT_VERSION } from './recurringInstallments';
+import { RESIDENCE_DECLARATION_TEXT, RESIDENCE_DECLARATION_VERSION } from './residenceDeclaration';
 import type { Booking, BookingSeries } from '../types';
 
 /** Minimal in-memory Firestore: enough for transactions, documents and equality queries. */
@@ -76,7 +77,7 @@ const stays = () => [
 
 test('une série réserve et chiffre tous les séjours, puis s’active au paiement du premier', async () => {
   const { data, series } = setup();
-  const created = await series.create('tenant', { seriesId: 's1', listingId: 'l1', stays: stays(), autoChargeConsentVersion: AUTO_CHARGE_CONSENT_VERSION });
+  const created = await series.create('tenant', { seriesId: 's1', listingId: 'l1', stays: stays(), autoChargeConsentVersion: AUTO_CHARGE_CONSENT_VERSION, residenceDeclarationVersion: RESIDENCE_DECLARATION_VERSION });
   assert.equal(created.bookings.length, 3);
   assert.deepEqual(created.bookings.map(item => item.totalPrice), [30 * 5 + 15 + 23, 188, 188]);
   assert.equal(created.bookings[0].installmentDueDate, day(0));
@@ -98,7 +99,7 @@ test('une série réserve et chiffre tous les séjours, puis s’active au paiem
 
 test('le passage automatique prélève les échéances dues, et seulement elles', async () => {
   const { data, series, settled } = setup();
-  await series.create('tenant', { seriesId: 's1', listingId: 'l1', stays: stays(), autoChargeConsentVersion: AUTO_CHARGE_CONSENT_VERSION });
+  await series.create('tenant', { seriesId: 's1', listingId: 'l1', stays: stays(), autoChargeConsentVersion: AUTO_CHARGE_CONSENT_VERSION, residenceDeclarationVersion: RESIDENCE_DECLARATION_VERSION });
   data.set('bookings/b1', { ...data.get('bookings/b1'), status: 'CONFIRMED', paymentStatus: 'PAID' });
   await series.sweep();
   assert.deepEqual(settled, ['b2']);
@@ -108,13 +109,13 @@ test('le passage automatique prélève les échéances dues, et seulement elles'
 test('une date déjà prise refuse toute la série', async () => {
   const { data, series } = setup();
   data.set('booking_availability/x', { id: 'x', bookingId: 'x', listingId: 'l1', roomId: 'r1', startDate: day(21), endDate: day(23), status: 'CONFIRMED', updatedAt: '' });
-  await assert.rejects(series.create('tenant', { seriesId: 's1', listingId: 'l1', stays: stays(), autoChargeConsentVersion: AUTO_CHARGE_CONSENT_VERSION }), /séjour 2 vient d’être réservé/);
+  await assert.rejects(series.create('tenant', { seriesId: 's1', listingId: 'l1', stays: stays(), autoChargeConsentVersion: AUTO_CHARGE_CONSENT_VERSION, residenceDeclarationVersion: RESIDENCE_DECLARATION_VERSION }), /séjour 2 vient d’être réservé/);
   assert.equal(data.get('bookings/b1'), undefined, 'aucun séjour créé');
 });
 
 test('sans paiement du premier séjour, toute la série est libérée', async () => {
   const { data, series } = setup();
-  await series.create('tenant', { seriesId: 's1', listingId: 'l1', stays: stays(), autoChargeConsentVersion: AUTO_CHARGE_CONSENT_VERSION });
+  await series.create('tenant', { seriesId: 's1', listingId: 'l1', stays: stays(), autoChargeConsentVersion: AUTO_CHARGE_CONSENT_VERSION, residenceDeclarationVersion: RESIDENCE_DECLARATION_VERSION });
   data.set('bookings/b1', { ...data.get('bookings/b1'), status: 'CANCELLED' });
   await series.releaseInactive('s1');
   assert.equal(data.get('bookings/b3')!.status, 'CANCELLED');
@@ -126,7 +127,7 @@ test('sans autorisation explicite du prélèvement automatique, la série est re
   const { data, series } = setup();
   await assert.rejects(series.create('tenant', { seriesId: 's1', listingId: 'l1', stays: stays() }), /Autorisez le prélèvement automatique/);
   assert.equal(data.get('booking_series/s1'), undefined);
-  await series.create('tenant', { seriesId: 's2', listingId: 'l1', stays: stays(), autoChargeConsentVersion: AUTO_CHARGE_CONSENT_VERSION });
+  await series.create('tenant', { seriesId: 's2', listingId: 'l1', stays: stays(), autoChargeConsentVersion: AUTO_CHARGE_CONSENT_VERSION, residenceDeclarationVersion: RESIDENCE_DECLARATION_VERSION });
   assert.equal((data.get('booking_series/s2') as BookingSeries).autoChargeConsent?.version, AUTO_CHARGE_CONSENT_VERSION);
 });
 
@@ -146,7 +147,7 @@ test('un compte de versement du propriétaire incomplet ne pénalise pas le loca
       return { disposition: 'CONFIRM', booking: data.get(path) as Booking };
     },
   });
-  await series.create('tenant', { seriesId: 's1', listingId: 'l1', stays: stays(), autoChargeConsentVersion: AUTO_CHARGE_CONSENT_VERSION });
+  await series.create('tenant', { seriesId: 's1', listingId: 'l1', stays: stays(), autoChargeConsentVersion: AUTO_CHARGE_CONSENT_VERSION, residenceDeclarationVersion: RESIDENCE_DECLARATION_VERSION });
   data.set('bookings/b1', { ...data.get('bookings/b1'), status: 'CONFIRMED', paymentStatus: 'PAID' });
   data.set('booking_series/s1', { ...data.get('booking_series/s1'), paymentProvider: 'STRIPE', stripeCustomerId: 'cus_1', paymentMethodId: 'pm_1' });
   await series.sweep();
@@ -162,8 +163,20 @@ test('une série collée à un autre séjour du même locataire dans ce logement
   const { data, series } = setup();
   // An earlier booking of 86 nights ending the day the series starts: with the first 5-night stay, 91 nights.
   data.set('bookings/old', { id: 'old', tenantId: 'tenant', listingId: 'l1', roomId: 'r1', status: 'CONFIRMED', startDate: day(-83), endDate: day(3) });
-  await assert.rejects(series.create('tenant', { seriesId: 's1', listingId: 'l1', stays: stays(), autoChargeConsentVersion: AUTO_CHARGE_CONSENT_VERSION }), /90 nuits/);
+  await assert.rejects(series.create('tenant', { seriesId: 's1', listingId: 'l1', stays: stays(), autoChargeConsentVersion: AUTO_CHARGE_CONSENT_VERSION, residenceDeclarationVersion: RESIDENCE_DECLARATION_VERSION }), /90 nuits/);
   // A cancelled booking does not count.
   data.set('bookings/old', { ...data.get('bookings/old'), status: 'CANCELLED' });
-  await series.create('tenant', { seriesId: 's1', listingId: 'l1', stays: stays(), autoChargeConsentVersion: AUTO_CHARGE_CONSENT_VERSION });
+  await series.create('tenant', { seriesId: 's1', listingId: 'l1', stays: stays(), autoChargeConsentVersion: AUTO_CHARGE_CONSENT_VERSION, residenceDeclarationVersion: RESIDENCE_DECLARATION_VERSION });
+});
+
+test('une série exige la déclaration de résidence principale et la conserve avec la série et chaque séjour', async () => {
+  const { data, series } = setup();
+  await assert.rejects(series.create('tenant', { seriesId: 's1', listingId: 'l1', stays: stays(), autoChargeConsentVersion: AUTO_CHARGE_CONSENT_VERSION }), /résidence principale/);
+  await assert.rejects(series.create('tenant', { seriesId: 's1', listingId: 'l1', stays: stays(), autoChargeConsentVersion: AUTO_CHARGE_CONSENT_VERSION, residenceDeclarationVersion: 'ancienne' }), /résidence principale/);
+  await series.create('tenant', { seriesId: 's1', listingId: 'l1', stays: stays(), autoChargeConsentVersion: AUTO_CHARGE_CONSENT_VERSION, residenceDeclarationVersion: RESIDENCE_DECLARATION_VERSION });
+  const saved = data.get('booking_series/s1') as BookingSeries;
+  assert.equal(saved.residenceDeclaration?.text, RESIDENCE_DECLARATION_TEXT);
+  assert.equal(saved.residenceDeclaration?.version, RESIDENCE_DECLARATION_VERSION);
+  assert.ok(saved.residenceDeclaration?.declaredAt);
+  for (const id of ['b1', 'b2', 'b3']) assert.equal((data.get(`bookings/${id}`) as Booking).residenceDeclaration?.version, RESIDENCE_DECLARATION_VERSION);
 });

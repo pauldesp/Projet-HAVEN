@@ -235,6 +235,8 @@ export interface Booking {
   havenRefunds?: HavenRefund[];
   /** Caution : accord du locataire pour un prélèvement plafonné en cas de dégradation validée par Haven. */
   depositConsent?: { version: string; text: string; amountCents: number; acceptedAt: string };
+  /** Déclaration de résidence principale distincte, cochée à la réservation (texte, version, date). */
+  residenceDeclaration?: { version: string; text: string; declaredAt: string };
 }
 
 /** Déclaration de dégradation d'un propriétaire après un séjour (collection serveur `damage_claims`, id = réservation). */
@@ -278,6 +280,8 @@ export interface BookingSeries {
   cardLast4?: string;
   /** Proof of the tenant's explicit authorization of the automatic charges. */
   autoChargeConsent?: { version: string; text: string; acceptedAt: string };
+  /** Proof of the main residence declaration made when booking the series. */
+  residenceDeclaration?: { version: string; text: string; declaredAt: string };
 }
 
 // Public calendar record. It intentionally contains no user or payment data.

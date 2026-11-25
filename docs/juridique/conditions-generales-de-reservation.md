@@ -34,6 +34,8 @@ Le prix d'une réservation confirmée ne change plus, y compris pour tous les s�
 
 **3.1 Étapes.** Le locataire choisit les dates et la chambre, consulte le récapitulatif du prix, accepte les présentes conditions et les règles de la maison, puis paie en ligne.
 
+**3.1 bis Résidence principale.** À chaque réservation, unique ou récurrente, le locataire coche la déclaration suivante, qui n'est jamais pré-cochée : « Je déclare disposer d'une résidence principale distincte de cette chambre et ne pas y domicilier mon courrier, une entreprise ou une démarche administrative. » Le texte, sa version et la date de la déclaration sont conservés avec la réservation. Une chambre réservée sur Haven ne peut pas devenir la résidence principale du locataire.
+
 **3.2 Délai de paiement.** Une réservation non payée bloque la chambre **30 minutes**. Passé ce délai, elle est automatiquement libérée.
 
 **3.3 Paiement.** Le paiement se fait par carte bancaire, sur la page sécurisée de **Stripe**, prestataire de paiement de Haven. Haven n'a jamais accès au numéro de carte. Haven encaisse le prix pour le compte du propriétaire et lui reverse sa part dans les conditions de l'article 9.
