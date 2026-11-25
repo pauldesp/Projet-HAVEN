@@ -180,3 +180,21 @@ test('une série exige la déclaration de résidence principale et la conserve a
   assert.ok(saved.residenceDeclaration?.declaredAt);
   for (const id of ['b1', 'b2', 'b3']) assert.equal((data.get(`bookings/${id}`) as Booking).residenceDeclaration?.version, RESIDENCE_DECLARATION_VERSION);
 });
+
+test('une série pour un occupant mineur conserve son identité, la déclaration du représentant et l’autorisation à part', async () => {
+  const { OCCUPANT_RESIDENCE_DECLARATION_VERSION } = await import('./residenceDeclaration');
+  const { GUARDIAN_DECLARATION_VERSION } = await import('./occupant');
+  const { data, series } = setup();
+  const birth = new Date(); birth.setFullYear(birth.getFullYear() - 17);
+  const occupant = { firstName: 'Tom', lastName: 'Durand', birthDate: localDateKey(birth), email: 'tom@example.com', phone: '+33612345678' };
+  const body = { seriesId: 's1', listingId: 'l1', stays: stays(), autoChargeConsentVersion: AUTO_CHARGE_CONSENT_VERSION, residenceDeclarationVersion: OCCUPANT_RESIDENCE_DECLARATION_VERSION, forSomeoneElse: true, occupant };
+  await assert.rejects(series.create('tenant', body), /représentant légal/);
+  await series.create('tenant', { ...body, guardianDeclarationVersion: GUARDIAN_DECLARATION_VERSION, parentalAuthorization: 'data:application/pdf;base64,JVBERi0xLjQK' });
+  const first = data.get('bookings/b1') as Booking;
+  assert.equal(first.occupant?.lastName, 'Durand');
+  assert.equal(first.occupant?.minor, true);
+  assert.equal(first.occupant?.parentalAuthorizationId, 'series_s1');
+  assert.equal(first.guardianDeclaration?.version, GUARDIAN_DECLARATION_VERSION);
+  assert.equal(data.get('occupant_documents/series_s1')?.dataUrl, 'data:application/pdf;base64,JVBERi0xLjQK');
+  assert.equal(JSON.stringify(first).includes('base64'), false, 'le document reste hors de la réservation');
+});

@@ -7,6 +7,20 @@ export function isValidPastBirthDate(value: unknown, today = parisDateKey()): bo
   return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value && value < today;
 }
 
+/** Age in full years on a given day (YYYY-MM-DD), birthdays counted on the calendar day itself. */
+export function ageOn(birthDate: string, day: string): number {
+  const [by, bm, bd] = birthDate.split('-').map(Number);
+  const [y, m, d] = day.split('-').map(Number);
+  return y - by - (m < bm || (m === bm && d < bd) ? 1 : 0);
+}
+
+/** Members must be adults: a minor can only stay as an occupant booked by a parent. */
+export const MINIMUM_MEMBER_AGE = 18;
+export function isAdultBirthDate(value: unknown, today = parisDateKey()): boolean {
+  return isValidPastBirthDate(value, today) && ageOn(value as string, today) >= MINIMUM_MEMBER_AGE;
+}
+export const ADULT_REQUIRED_MESSAGE = `Vous devez avoir au moins ${MINIMUM_MEMBER_AGE} ans pour créer un compte Haven. Un mineur de 16 ou 17 ans peut séjourner si un parent réserve pour lui.`;
+
 export function hasRequiredPhoneNumber(profile: { phone?: unknown }): boolean {
   return typeof profile.phone === 'string' && /^\+[1-9]\d{7,14}$/.test(profile.phone);
 }
@@ -20,7 +34,7 @@ export function hasCompleteVerificationDetails(profile: {
   return Boolean(
     typeof profile.firstName === 'string' && profile.firstName.trim() &&
     typeof profile.lastName === 'string' && profile.lastName.trim() &&
-    isValidPastBirthDate(profile.birthDate) &&
+    isAdultBirthDate(profile.birthDate) &&
     hasRequiredPhoneNumber(profile)
   );
 }

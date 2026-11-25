@@ -64,6 +64,7 @@ import { damageMailContent, damageMailDisposition, isDamageMailJob, type DamageM
 import { caseGuidance, pickPreviousStay, type CaseMember, type CaseSettlement, type ReportCase } from './services/reportCase';
 import { DAMAGE_DEPOSIT_CONSENT_TEXT, DAMAGE_DEPOSIT_POLICY, DamageClaimError, assertDamageDepositAccepted } from './services/damageDeposit';
 import { assertResidenceDeclared, residenceDeclarationRecord } from './services/residenceDeclaration';
+import { OccupantError, guardianDeclarationRecord, normalizeOccupant, type Occupant } from './services/occupant';
 import { Resend } from "resend";
 import Stripe from "stripe";
 import { applicationDefault, getApps, initializeApp } from "firebase-admin/app";
@@ -816,7 +817,13 @@ async function startServer() {
           typeof startDate !== 'string' || typeof endDate !== 'string' || !isBookableStay(startDate, endDate)) {
         return sendApiError(res, 422, 'Les informations ou les dates du séjour sont invalides');
       }
-      try { assertCleaningPolicyAccepted(req.body?.cleaningPolicyVersion); assertDamageDepositAccepted(req.body?.depositPolicyVersion); assertResidenceDeclared(req.body?.residenceDeclarationVersion); } catch (error) { return sendApiError(res, 422, (error as Error).message); }
+      // Booking for someone else: the account pays and stays responsible, the occupant is checked here.
+      const forSomeoneElse = req.body?.forSomeoneElse === true;
+      let occupant: Occupant | undefined;
+      try {
+        assertCleaningPolicyAccepted(req.body?.cleaningPolicyVersion); assertDamageDepositAccepted(req.body?.depositPolicyVersion); assertResidenceDeclared(req.body?.residenceDeclarationVersion, forSomeoneElse);
+        if (forSomeoneElse) occupant = normalizeOccupant(req.body?.occupant, startDate, { guardianDeclarationVersion: req.body?.guardianDeclarationVersion, parentalAuthorization: req.body?.parentalAuthorization });
+      } catch (error) { return sendApiError(res, 422, (error as Error).message); }
       const userRef = adminDb.collection('users').doc(req.user!.uid);
       const listingRef = adminDb.collection('listings').doc(listingId);
       const bookingRef = adminDb.collection('bookings').doc(id);
@@ -836,6 +843,7 @@ async function startServer() {
         if (!userSnap.exists) throw new Error('COMPTE_INTRouvable');
         const user = userSnap.data()!;
         const isAdminAccount = user.role === 'ADMIN';
+        if (occupant && typeof user.email === 'string' && user.email.trim().toLowerCase() === occupant.email) throw new OccupantError('Indiquez l’adresse e-mail de l’occupant, différente de la vôtre.');
         const identityDocument = typeof user.documents?.idCard === 'string' && user.documents.idCard.length > 0;
         const exceptionRecord = hasVerificationException(user) ? await transaction.get(adminDb.collection('verification_exceptions').doc(`USER_${req.user!.uid}`)) : undefined;
         const testException = hasTrustedVerificationException(user, exceptionRecord?.data(), req.user!.uid);
@@ -867,9 +875,12 @@ async function startServer() {
           platformFee, totalPrice: basePrice + cleaningFee + platformFee, createdAt,
           paymentStatus: 'PENDING', bookingMode: 'INSTANT', cleaningPolicyVersion: CLEANING_POLICY_VERSION, cleaningPolicyAcceptedAt: createdAt,
           depositConsent: { version: DAMAGE_DEPOSIT_POLICY.version, text: DAMAGE_DEPOSIT_CONSENT_TEXT, amountCents: DAMAGE_DEPOSIT_POLICY.amountCents, acceptedAt: createdAt },
-          residenceDeclaration: residenceDeclarationRecord(createdAt),
+          residenceDeclaration: residenceDeclarationRecord(createdAt, forSomeoneElse),
+          ...(occupant ? { occupant: { ...occupant, ...(occupant.minor ? { parentalAuthorizationId: id } : {}) } } : {}),
+          ...(occupant?.minor ? { guardianDeclaration: guardianDeclarationRecord(createdAt) } : {}),
           checkInTime: listing.checkInTime || '15:00', checkOutTime: listing.checkOutTime || '11:00',
         };
+        if (occupant?.minor) transaction.set(adminDb.collection('occupant_documents').doc(id), { bookingIds: [id], tenantId: req.user!.uid, dataUrl: req.body.parentalAuthorization, uploadedAt: createdAt });
         transaction.set(roomLockRef, { updatedAt: createdAt });
         transaction.create(bookingRef, booking);
         transaction.create(availabilityRef, {
@@ -879,6 +890,7 @@ async function startServer() {
       });
       return res.status(201).json({ booking: createdBooking });
     } catch (error) {
+      if (error instanceof OccupantError) return sendApiError(res, error.status, error.message);
       const reason = error instanceof Error ? error.message : '';
       if (reason === 'VERIFICATION_REQUISE') return sendApiError(res, 403, 'La validation manuelle de votre compte et de votre pièce d’identité est requise pour réserver');
       if (reason === 'LOGEMENT_INDISPONIBLE' || reason === 'CHAMBRE_INVALIDE') return sendApiError(res, 404, 'Ce logement ou cette chambre n’est plus disponible');
@@ -1993,6 +2005,21 @@ async function startServer() {
       res.setHeader('Cache-Control', 'no-store');
       return res.json({ dataUrl: snapshot.data()!.back });
     } catch { return sendApiError(res, 500, 'Impossible de charger le verso.'); }
+  });
+  // Parental authorization of a minor occupant: the account that booked and Haven only (never the owner).
+  app.get('/api/bookings/:bookingId/parental-authorization', sensitiveApiLimiter, requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      const id = String(req.params.bookingId);
+      if (!/^[a-zA-Z0-9_-]{1,128}$/.test(id)) return sendApiError(res, 404, 'Document introuvable.');
+      const booking = await adminDb.collection('bookings').doc(id).get();
+      const documentId = booking.data()?.occupant?.parentalAuthorizationId;
+      if (!booking.exists || typeof documentId !== 'string') return sendApiError(res, 404, 'Document introuvable.');
+      if (booking.data()!.tenantId !== req.user!.uid && !await requireAdmin(req, res)) return;
+      const snapshot = await adminDb.collection('occupant_documents').doc(documentId).get();
+      if (!snapshot.exists) return sendApiError(res, 404, 'Document introuvable.');
+      res.setHeader('Cache-Control', 'no-store');
+      return res.json({ dataUrl: snapshot.data()!.dataUrl });
+    } catch { return sendApiError(res, 500, 'Impossible de charger l’autorisation parentale.'); }
   });
   app.get('/api/users/:userId/proof-of-address', sensitiveApiLimiter, requireAuth, async (req: AuthenticatedRequest, res) => {
     try {

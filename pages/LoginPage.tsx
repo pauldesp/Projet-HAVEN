@@ -12,7 +12,7 @@ import { RecaptchaVerifier, signInWithPhoneNumber, type ConfirmationResult } fro
 import { auth } from '../firebase';
 import { normalizeAccountIdentifier, normalizeEmailInput } from '../services/accountEntry';
 import { clearPhoneRecaptcha, normalizePhoneForVerification, isValidPhoneForVerification, phoneVerificationErrorMessage } from '../services/phoneVerification';
-import { isValidPastBirthDate } from '../services/profileVerification';
+import { ADULT_REQUIRED_MESSAGE, isAdultBirthDate, isValidPastBirthDate } from '../services/profileVerification';
 import { registrationPasswordError } from '../services/accountTerms';
 import { googleSignInErrorMessage } from '../services/googleSignIn';
 
@@ -136,6 +136,10 @@ export const LoginPage: React.FC = () => {
     }
     if (!isValidPastBirthDate(birthDate)) {
       setError('Saisissez une date de naissance valide et passée.');
+      return;
+    }
+    if (!isAdultBirthDate(birthDate)) {
+      setError(ADULT_REQUIRED_MESSAGE);
       return;
     }
     setError('');

@@ -11,7 +11,8 @@ import { AUTO_CHARGE_CONSENT_TEXT, AUTO_CHARGE_CONSENT_VERSION, installmentCharg
 import type { SeriesMailKind } from './tenantMail';
 import { simulationSessionId } from './paymentCheckout';
 import { ownerMailId, ownerMailJob } from './ownerMail';
-import { RESIDENCE_DECLARATION_VERSION, residenceDeclarationRecord } from './residenceDeclaration';
+import { residenceDeclarationRecord, residenceDeclarationVersion } from './residenceDeclaration';
+import { OccupantError, guardianDeclarationRecord, normalizeOccupant, type Occupant } from './occupant';
 
 export class SeriesError extends Error {
   constructor(message: string, public status = 409) { super(message); }
@@ -46,15 +47,22 @@ export function createRecurringSeries(deps: RecurringSeriesDependencies) {
   const outbox = db.collection('reservation_mail_outbox');
 
   /** Every stay is priced, held and created at once; only the first is paid now. */
-  async function create(tenantId: string, body: { seriesId?: unknown; listingId?: unknown; stays?: unknown; autoChargeConsentVersion?: unknown; residenceDeclarationVersion?: unknown }) {
+  async function create(tenantId: string, body: { seriesId?: unknown; listingId?: unknown; stays?: unknown; autoChargeConsentVersion?: unknown; residenceDeclarationVersion?: unknown; forSomeoneElse?: unknown; occupant?: unknown; guardianDeclarationVersion?: unknown; parentalAuthorization?: unknown }) {
     const { seriesId, listingId } = body;
     if (body.autoChargeConsentVersion !== AUTO_CHARGE_CONSENT_VERSION) throw new SeriesError('Autorisez le prélèvement automatique des séjours suivants pour réserver une série.', 422);
-    if (body.residenceDeclarationVersion !== RESIDENCE_DECLARATION_VERSION) throw new SeriesError('Cochez la déclaration de résidence principale pour réserver.', 422);
+    const forSomeoneElse = body.forSomeoneElse === true;
+    if (body.residenceDeclarationVersion !== residenceDeclarationVersion(forSomeoneElse)) throw new SeriesError('Cochez la déclaration de résidence principale pour réserver.', 422);
     const stays = body.stays as SeriesStayInput[];
     if (typeof seriesId !== 'string' || !ID.test(seriesId) || typeof listingId !== 'string' || !ID.test(listingId)) throw new SeriesError('Série récurrente invalide.', 422);
     const invalid = validateSeriesStays(stays);
     if (invalid) throw new SeriesError(invalid, 422);
     const sorted = [...stays].sort((a, b) => a.startDate.localeCompare(b.startDate));
+    // The occupant's age is checked on the first arrival; a minor needs the parental authorization for the whole series.
+    let occupant: Occupant | undefined;
+    try {
+      if (forSomeoneElse) occupant = normalizeOccupant(body.occupant, sorted[0].startDate, { guardianDeclarationVersion: body.guardianDeclarationVersion, parentalAuthorization: body.parentalAuthorization });
+    } catch (error) { if (error instanceof OccupantError) throw new SeriesError(error.message, 422); throw error; }
+    const occupantRecord = occupant ? { ...occupant, ...(occupant.minor ? { parentalAuthorizationId: `series_${seriesId}` } : {}) } : undefined;
     const provider = deps.paymentMode();
     const createdAt = new Date().toISOString();
     const dueDates = installmentDueDates(sorted, localDateKey(new Date()));
@@ -98,14 +106,19 @@ export function createRecurringSeries(deps: RecurringSeriesDependencies) {
           startDate: stay.startDate, endDate: stay.endDate, status: 'PENDING', basePrice, cleaningFee, platformFee, totalPrice: basePrice + cleaningFee + platformFee,
           createdAt, paymentStatus: 'PENDING', bookingMode: 'INSTANT', cleaningPolicyVersion: CLEANING_POLICY_VERSION, cleaningPolicyAcceptedAt: createdAt,
           depositConsent: { version: DAMAGE_DEPOSIT_POLICY.version, text: DAMAGE_DEPOSIT_CONSENT_TEXT, amountCents: DAMAGE_DEPOSIT_POLICY.amountCents, acceptedAt: createdAt },
-          residenceDeclaration: residenceDeclarationRecord(createdAt),
+          residenceDeclaration: residenceDeclarationRecord(createdAt, forSomeoneElse),
+          ...(occupantRecord ? { occupant: occupantRecord } : {}),
+          ...(occupant?.minor ? { guardianDeclaration: guardianDeclarationRecord(createdAt) } : {}),
           checkInTime: listing.checkInTime || '15:00', checkOutTime: listing.checkOutTime || '11:00',
           seriesId, seriesIndex: index, seriesCount: sorted.length, installmentDueDate: dueDates[index], installmentAttempts: 0,
         };
       });
       const series: BookingSeries = { id: seriesId, tenantId, ownerId: listing.ownerId, listingId, listingTitle: listing.title, bookingIds: created.map(item => item.id), status: 'PENDING', paymentProvider: provider, createdAt,
         autoChargeConsent: { version: AUTO_CHARGE_CONSENT_VERSION, text: AUTO_CHARGE_CONSENT_TEXT, acceptedAt: createdAt },
-        residenceDeclaration: residenceDeclarationRecord(createdAt) };
+        residenceDeclaration: residenceDeclarationRecord(createdAt, forSomeoneElse),
+        ...(occupantRecord ? { occupant: occupantRecord } : {}),
+        ...(occupant?.minor ? { guardianDeclaration: guardianDeclarationRecord(createdAt) } : {}) };
+      if (occupant?.minor) transaction.set(db.collection('occupant_documents').doc(`series_${seriesId}`), { bookingIds: created.map(item => item.id), tenantId, dataUrl: body.parentalAuthorization, uploadedAt: createdAt });
       transaction.create(seriesRef, series);
       for (const roomId of roomIds) transaction.set(db.collection('room_booking_locks').doc(`${listingId}_${roomId}`), { updatedAt: createdAt });
       for (const booking of created) {

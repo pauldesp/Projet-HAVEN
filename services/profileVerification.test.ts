@@ -56,3 +56,14 @@ test('modifier des données déjà soumises exige une nouvelle transmission du d
     ...details, lastName: 'Durand', verificationSubmittedAt: null
   });
 });
+
+test('members must be at least 18 on the day they sign up or update their details', async () => {
+  const { ageOn, isAdultBirthDate, hasCompleteVerificationDetails } = await import('./profileVerification');
+  assert.equal(ageOn('2008-11-25', '2026-11-25'), 18, 'anniversaire le jour même');
+  assert.equal(ageOn('2008-11-26', '2026-11-25'), 17);
+  assert.equal(ageOn('2008-02-29', '2026-02-28'), 17, 'né un 29 février');
+  assert.equal(isAdultBirthDate('2008-11-25', '2026-11-25'), true);
+  assert.equal(isAdultBirthDate('2008-11-26', '2026-11-25'), false);
+  assert.equal(isAdultBirthDate('not-a-date', '2026-11-25'), false);
+  assert.equal(hasCompleteVerificationDetails({ firstName: 'Léa', lastName: 'Martin', birthDate: '2015-01-01', phone: '+33612345678' }), false);
+});

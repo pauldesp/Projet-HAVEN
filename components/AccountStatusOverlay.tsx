@@ -17,7 +17,7 @@ import { reload } from 'firebase/auth';
 import { requestVerificationEmail } from '../services/authEmailApi';
 import { auth } from '../firebase';
 import { prepareVerificationDocument } from '../services/verificationDocument';
-import { hasCompleteVerificationDetails, hasRequiredPhoneNumber, isVerificationPending, isAccountVerificationComplete, isValidPastBirthDate, isVerificationReadyToSubmit, hasCompleteIdentityDocument, isTwoSidedIdentityDocument } from '../services/profileVerification';
+import { hasCompleteVerificationDetails, hasRequiredPhoneNumber, isVerificationPending, isAccountVerificationComplete, isValidPastBirthDate, isAdultBirthDate, ADULT_REQUIRED_MESSAGE, isVerificationReadyToSubmit, hasCompleteIdentityDocument, isTwoSidedIdentityDocument } from '../services/profileVerification';
 import { BirthDateInput } from './BirthDateInput';
 import { EMAIL_LIMIT_BACKOFF_MS, EMAIL_RESEND_DELAY_MS, emailRetrySeconds, finishAccountEmailVerification, requestAccountEmailVerification } from '../services/accountEmailVerification';
 import { isValidPhoneForVerification, normalizePhoneForVerification } from '../services/phoneVerification';
@@ -175,6 +175,10 @@ export const AccountStatusOverlay: React.FC<AccountStatusOverlayProps> = ({
     }
     if (!isValidPastBirthDate(birthDate)) {
       setVerificationError(tr("Saisissez une date de naissance valide et passée."));
+      return false;
+    }
+    if (!isAdultBirthDate(birthDate)) {
+      setVerificationError(ADULT_REQUIRED_MESSAGE);
       return false;
     }
     const normalizedPhone = normalizePhoneForVerification(phone);

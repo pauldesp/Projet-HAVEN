@@ -343,6 +343,12 @@ export const OwnerDashboard: React.FC = () => {
                               </div>
                               <span className="text-sm font-bold text-haven-ink">{booking.tenant.firstName} {booking.tenant.lastName}</span>
                             </div>
+                            {/* Booking made for someone else: the owner knows who actually stays. */}
+                            {booking.occupant && <p className="mt-2 text-xs leading-relaxed text-gray-600">
+                              <span className="font-semibold text-haven-ink">Occupant : {booking.occupant.firstName} {booking.occupant.lastName}</span>
+                              {' · '}né(e) le {new Date(`${booking.occupant.birthDate}T12:00:00`).toLocaleDateString('fr-FR')}{booking.occupant.minor ? ' · mineur, autorisation parentale fournie' : ''}
+                              <br /><a href={`mailto:${booking.occupant.email}`} className="underline">{booking.occupant.email}</a> · <a href={`tel:${booking.occupant.phone}`} className="underline">{booking.occupant.phone}</a>
+                            </p>}
                           </td>
                           <td data-label="Logement" className="py-4">
                             <span className="text-sm font-medium text-gray-600">{listings.find(l => l.id === booking.listingId)?.title}</span>

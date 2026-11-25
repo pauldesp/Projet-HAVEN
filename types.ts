@@ -237,6 +237,22 @@ export interface Booking {
   depositConsent?: { version: string; text: string; amountCents: number; acceptedAt: string };
   /** Déclaration de résidence principale distincte, cochée à la réservation (texte, version, date). */
   residenceDeclaration?: { version: string; text: string; declaredAt: string };
+  /** Réservation pour un tiers : la personne qui séjourne (le compte qui réserve paie et reste responsable). */
+  occupant?: BookingOccupant;
+  /** Occupant mineur : déclaration du Réservant comme représentant légal. */
+  guardianDeclaration?: { version: string; text: string; declaredAt: string };
+}
+
+export interface BookingOccupant {
+  firstName: string;
+  lastName: string;
+  birthDate: string;
+  email: string;
+  phone: string;
+  minor: boolean;
+  /** Autorisation parentale déposée (document dans la collection serveur `occupant_documents`). */
+  parentalAuthorization?: boolean;
+  parentalAuthorizationId?: string;
 }
 
 /** Déclaration de dégradation d'un propriétaire après un séjour (collection serveur `damage_claims`, id = réservation). */
@@ -282,6 +298,8 @@ export interface BookingSeries {
   autoChargeConsent?: { version: string; text: string; acceptedAt: string };
   /** Proof of the main residence declaration made when booking the series. */
   residenceDeclaration?: { version: string; text: string; declaredAt: string };
+  occupant?: BookingOccupant;
+  guardianDeclaration?: { version: string; text: string; declaredAt: string };
 }
 
 // Public calendar record. It intentionally contains no user or payment data.

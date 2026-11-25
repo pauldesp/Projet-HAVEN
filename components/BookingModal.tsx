@@ -2,7 +2,8 @@ import { useSheet } from './useSheet';
 import { CleaningPolicyNotice } from './CleaningPolicyNotice';
 import { CLEANING_POLICY_VERSION } from '../services/cleaningPolicy';
 import { DAMAGE_DEPOSIT_CONSENT_TEXT, DAMAGE_DEPOSIT_POLICY } from '../services/damageDeposit';
-import { RESIDENCE_DECLARATION_TEXT, RESIDENCE_DECLARATION_VERSION } from '../services/residenceDeclaration';
+import { residenceDeclarationRecord, residenceDeclarationText, residenceDeclarationVersion } from '../services/residenceDeclaration';
+import { OccupantForm, emptyOccupantDraft, occupantDraftProblem, occupantPayload, type OccupantDraft } from './OccupantForm';
 import { isRoomAvailableForStay } from '../services/availability';
 import { countNights, isBookableStay, localDateKey } from '../services/stay';
 import { createRandomId } from '../services/randomId';
@@ -74,6 +75,9 @@ export const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose, lis
   const [depositAccepted, setDepositAccepted] = useState(false);
   // Unchecked by default: an explicit declaration at every booking.
   const [residenceDeclared, setResidenceDeclared] = useState(false);
+  const [occupant, setOccupant] = useState<OccupantDraft>(emptyOccupantDraft);
+  const firstArrival = stays[0]?.startDate || startDate;
+  const occupantProblem = occupantDraftProblem(occupant, firstArrival);
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -150,6 +154,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose, lis
     if (!cleaningAccepted) { setError('Confirmez les engagements de ménage avant de continuer.'); return; }
     if (!depositAccepted) { setError('Acceptez la caution avant de continuer.'); return; }
     if (!residenceDeclared) { setError('Cochez la déclaration de résidence principale pour réserver.'); return; }
+    if (occupantProblem) { setError(occupantProblem); return; }
     if (!await checkAvailability()) return;
     if (!currentUser) {
       setError("Vous devez être connecté pour réserver.");
@@ -159,7 +164,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose, lis
       setIsProcessing(true); setError(null);
       try {
         const result = await apiService.bookings.createSeries({
-          seriesId: `s-${createRandomId()}`, listingId: listing.id, cleaningPolicyVersion: CLEANING_POLICY_VERSION, autoChargeConsentVersion: AUTO_CHARGE_CONSENT_VERSION, depositPolicyVersion: DAMAGE_DEPOSIT_POLICY.version, residenceDeclarationVersion: RESIDENCE_DECLARATION_VERSION,
+          seriesId: `s-${createRandomId()}`, listingId: listing.id, cleaningPolicyVersion: CLEANING_POLICY_VERSION, autoChargeConsentVersion: AUTO_CHARGE_CONSENT_VERSION, depositPolicyVersion: DAMAGE_DEPOSIT_POLICY.version, residenceDeclarationVersion: residenceDeclarationVersion(occupant.forSomeoneElse), ...occupantPayload(occupant, firstArrival),
           stays: stays.map(stay => ({ id: `b-${createRandomId()}`, roomId: stay.room.id, startDate: stay.startDate, endDate: stay.endDate })),
         });
         const first = [...result.bookings].sort((a, b) => a.startDate.localeCompare(b.startDate))[0];
@@ -196,11 +201,11 @@ export const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose, lis
         createdAt: new Date().toISOString(),
         cleaningPolicyVersion: CLEANING_POLICY_VERSION,
         depositConsent: { version: DAMAGE_DEPOSIT_POLICY.version, text: DAMAGE_DEPOSIT_CONSENT_TEXT, amountCents: DAMAGE_DEPOSIT_POLICY.amountCents, acceptedAt: new Date().toISOString() },
-        residenceDeclaration: { version: RESIDENCE_DECLARATION_VERSION, text: RESIDENCE_DECLARATION_TEXT, declaredAt: new Date().toISOString() },
+        residenceDeclaration: residenceDeclarationRecord(new Date().toISOString(), occupant.forSomeoneElse),
         paymentStatus: 'PENDING'
       };
 
-      await apiService.bookings.create(bookingData);
+      await apiService.bookings.create(bookingData, occupantPayload(occupant, firstArrival));
       createdBookingId = bookingId;
 
       window.location.hash = `#/payment/${encodeURIComponent(bookingId)}`;
@@ -240,9 +245,10 @@ export const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose, lis
       <p className="mt-1 text-gray-600">Votre carte est conservée de façon sécurisée par Stripe. Elle n’est prélevée que si le propriétaire déclare une dégradation dans les {DAMAGE_DEPOSIT_POLICY.claimWindowDays} jours suivant votre départ et que Haven la valide, après avoir lu votre réponse.</p>
       <label className="mt-3 flex items-start gap-3"><input type="checkbox" checked={depositAccepted} onChange={event => setDepositAccepted(event.target.checked)} className="mt-1" />{DAMAGE_DEPOSIT_CONSENT_TEXT}</label>
     </div>
-    <label className="flex items-start gap-3 rounded-xl border border-gray-200 p-4 text-sm leading-relaxed text-gray-700"><input type="checkbox" checked={residenceDeclared} onChange={event => setResidenceDeclared(event.target.checked)} className="mt-1" required />{RESIDENCE_DECLARATION_TEXT}</label>
+    <OccupantForm value={occupant} onChange={next => { if (next.forSomeoneElse !== occupant.forSomeoneElse) setResidenceDeclared(false); setOccupant(next); }} arrival={firstArrival} />
+    <label className="flex items-start gap-3 rounded-xl border border-gray-200 p-4 text-sm leading-relaxed text-gray-700"><input type="checkbox" checked={residenceDeclared} onChange={event => setResidenceDeclared(event.target.checked)} className="mt-1" required />{residenceDeclarationText(occupant.forSomeoneElse)}</label>
     {error && <p role="alert" className="rounded-lg border border-red-100 bg-red-50 p-3 text-sm text-red-600">{error}</p>}
-    <Button fullWidth size="lg" disabled={isProcessing || checkingAvailability || !roomAvailable || !cleaningAccepted || !depositAccepted || !residenceDeclared} onClick={() => void handlePayment()} className="py-4">
+    <Button fullWidth size="lg" disabled={isProcessing || checkingAvailability || !roomAvailable || !cleaningAccepted || !depositAccepted || !residenceDeclared || Boolean(occupantProblem)} onClick={() => void handlePayment()} className="py-4">
       {isProcessing ? 'Ouverture du paiement…' : checkingAvailability ? 'Vérification…' : !roomAvailable ? (isSeries ? 'Séjour indisponible' : 'Chambre indisponible') : `Confirmer et payer · ${money(payAmount)}`}
     </Button>
     <p className="text-center text-xs leading-relaxed text-gray-500">

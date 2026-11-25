@@ -1,4 +1,4 @@
-import { isValidPastBirthDate, personalDetailsUpdate } from './profileVerification';
+import { ADULT_REQUIRED_MESSAGE, isAdultBirthDate, isValidPastBirthDate, personalDetailsUpdate } from './profileVerification';
 import { isValidPhoneForVerification } from './phoneVerification';
 
 type SavedProfile = {
@@ -31,6 +31,7 @@ export function preparePersonalDetails(profile: SavedProfile, details: PersonalD
   if (!firstName || firstName.length >= 100 || !lastName || lastName.length >= 100 || !isValidPastBirthDate(birthDate)) {
     throw new Error('Prénom, nom ou date de naissance invalide.');
   }
+  if (!isAdultBirthDate(birthDate)) throw new Error(ADULT_REQUIRED_MESSAGE);
   if (!isValidPhoneForVerification(phone)) {
     throw new Error('Saisissez un numéro de téléphone valide avec son indicatif.');
   }

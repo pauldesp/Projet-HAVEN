@@ -5,7 +5,8 @@ export function createApiRequestBodyParser() {
   const router = express.Router();
   // A 600 KiB optimized file needs about 800 KiB when encoded as base64.
   // This larger envelope applies only to endpoints accepting an optimized file.
-  router.use(['/api/users/me/identity-document', '/api/users/me/residence', '/api/stay-issues', '/api/listings/test-create', /^\/api\/bookings\/[^/]+\/inventory$/, /^\/api\/bookings\/[^/]+\/damage-claim$/], express.json({ limit: '900kb' }));
+  // Booking for a minor carries the parental authorization.
+  router.use(['/api/users/me/identity-document', '/api/users/me/residence', '/api/stay-issues', /^\/api\/bookings$/, /^\/api\/booking-series$/, '/api/listings/test-create', /^\/api\/bookings\/[^/]+\/inventory$/, /^\/api\/bookings\/[^/]+\/damage-claim$/], express.json({ limit: '900kb' }));
   // Room identification photos are optimized and stored in separate private documents.
   router.use(/^\/api\/listings\/[^/]+\/access-instructions$/, express.json({ limit: '8mb' }));
   // Blog: an optimized image (up to 900 KiB) and long article texts.
