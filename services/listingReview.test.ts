@@ -12,8 +12,8 @@ const owner = {
 const listing = {
   cleaningPolicyVersion: CLEANING_POLICY_VERSION, id: 'listing-1', ownerId: 'owner-1', status: 'PENDING', title: 'Maison calme',
   description: 'Une maison en colocation.', address: '10 rue des Fleurs', city: 'Paris',
-  mainPhotoUrl: 'photo1', galleryUrls: ['photo1', 'photo2', 'photo3'], totalRooms: 1,
-  rooms: [{ id: 'room-1', name: 'Chambre 1', size: 12, pricePerDay: 25, hasDesk: true, photoUrl: 'room-photo' }]
+  mainPhotoUrl: 'photo1', galleryUrls: ['photo1', 'photo2', 'photo3'], totalRooms: 2,
+  rooms: [{ id: 'room-1', name: 'Chambre 1', size: 12, pricePerDay: 25, hasDesk: true, photoUrl: 'room-photo' }, { id: 'room-2', name: 'Chambre 2', size: 11, pricePerDay: 24, hasDesk: true, photoUrl: 'room-photo-2' }]
 } as Listing;
 
 test('l’annonce examinée est validée avec attribution de la décision à l’administrateur', () => {
@@ -33,11 +33,11 @@ test('la validation refuse un examen non confirmé, un brouillon et un propriét
 });
 test('les informations, chambres et photos manquantes empêchent la publication', () => {
   const incomplete: Partial<Listing>[] = [
-    { title: '' }, { address: '' }, { description: '' }, { city: '' }, { rooms: [] }, { totalRooms: 2 },
-    { rooms: [{ ...listing.rooms[0], pricePerDay: NaN }] },
-    { rooms: [{ ...listing.rooms[0], size: 0 }] },
-    { rooms: [{ ...listing.rooms[0], hasDesk: false }] },
-    { rooms: [{ ...listing.rooms[0], photoUrl: '' }] }, { galleryUrls: ['photo1'], mainPhotoUrl: 'photo1' }
+    { title: '' }, { address: '' }, { description: '' }, { city: '' }, { rooms: [] }, { totalRooms: 3 },
+    { rooms: [{ ...listing.rooms[0], pricePerDay: NaN }, listing.rooms[1]] },
+    { rooms: [{ ...listing.rooms[0], size: 0 }, listing.rooms[1]] },
+    { rooms: [{ ...listing.rooms[0], hasDesk: false }, listing.rooms[1]] },
+    { rooms: [{ ...listing.rooms[0], photoUrl: '' }, listing.rooms[1]] }, { galleryUrls: ['photo1'], mainPhotoUrl: 'photo1' }
   ];
   for (const fields of incomplete) assert.throws(() => prepareListingReview({ ...listing, ...fields }, owner, 'APPROVED', true, '', 'admin'));
 });
@@ -48,4 +48,10 @@ test('le refus exige un motif et reste possible lorsque le dossier propriétaire
   assert.throws(() => prepareListingReview(listing, owner, 'REJECTED', false, ' ', 'admin'), /motif/);
   assert.throws(() => prepareListingReview(listing, owner, 'REJECTED', false, 'x'.repeat(2001), 'admin'), /motif/);
   assert.throws(() => prepareListingReview(listing, owner, 'DRAFT', true, '', 'admin'), /invalide/);
+});
+
+test('un logement entier (une seule chambre) ne peut pas être publié : Haven ne publie que des colocations', () => {
+  const single = { ...listing, totalRooms: 1, rooms: [listing.rooms[0]] };
+  assert.throws(() => prepareListingReview(single, owner, 'APPROVED', true, '', 'admin'), /au moins 2 chambres/);
+  assert.doesNotThrow(() => prepareListingReview(listing, owner, 'APPROVED', true, '', 'admin'));
 });

@@ -49,6 +49,7 @@ import { AccountStatusOverlay } from '../components/AccountStatusOverlay';
 
 import ReactMarkdown from 'react-markdown';
 import { readableLegalHtml } from '../services/legalContent';
+import { MIN_LISTING_ROOMS } from '../services/listingReview';
 
 export const PublishListing: React.FC = () => {
   const { tr } = useLanguage();
@@ -195,7 +196,8 @@ export const PublishListing: React.FC = () => {
     zipCode: '',
     showPreciseLocation: true,
     surface: 50,
-    totalRooms: 1,
+    // A Haven listing is a shared flat: at least two rooms from the start.
+    totalRooms: MIN_LISTING_ROOMS,
     bathrooms: 1,
     cleaningFee: 15,
     cleaningPolicyVersion: '',
@@ -207,7 +209,8 @@ export const PublishListing: React.FC = () => {
     bookingMode: 'INSTANT' as const,
     galleryUrls: [] as string[],
       rooms: [
-        { id: 'temp-1', name: '', pricePerDay: 0, size: 0, hasPrivateBath: false, bedSize: 'Double' as any, isAvailable: true, photoUrl: '', hasDesk: false, hasLock: false, hasWardrobe: false, roomPhotos: [] }
+        { id: 'temp-1', name: '', pricePerDay: 0, size: 0, hasPrivateBath: false, bedSize: 'Double' as any, isAvailable: true, photoUrl: '', hasDesk: false, hasLock: false, hasWardrobe: false, roomPhotos: [] },
+        { id: 'temp-2', name: '', pricePerDay: 0, size: 0, hasPrivateBath: false, bedSize: 'Double' as any, isAvailable: true, photoUrl: '', hasDesk: false, hasLock: false, hasWardrobe: false, roomPhotos: [] }
       ] as Room[]
   });
 
@@ -543,7 +546,7 @@ export const PublishListing: React.FC = () => {
       case 'TYPE': return true;
       case 'LOCATION': return (formData.address || '').length >= 2; 
       case 'ADDRESS_CONFIRM': return (formData.city || '').length >= 2 && (formData.address || '').length >= 2 && (formData.zipCode || '').length >= 4;
-      case 'DETAILS': return formData.title.length > 5 && formData.surface > 0 && formData.totalRooms > 0;
+      case 'DETAILS': return formData.title.length > 5 && formData.surface > 0 && formData.totalRooms >= MIN_LISTING_ROOMS;
       case 'DESCRIPTION': return formData.description.length > 10 && formData.description.length <= MAX_LISTING_DESCRIPTION_LENGTH;
       case 'AMENITIES': return true;
       case 'ROOMS': return !hasIncompleteRoom(formData.rooms) && !hasRoomWithoutOption(formData.rooms);
@@ -719,7 +722,7 @@ export const PublishListing: React.FC = () => {
                 <label className="block text-[11px] font-bold text-haven-stone mb-4">Nombre de chambres</label>
                 <div className="flex items-center gap-4 mt-2">
                   <button 
-                    onClick={() => handleTotalRoomsChange(Math.max(1, formData.totalRooms - 1))}
+                    onClick={() => handleTotalRoomsChange(Math.max(MIN_LISTING_ROOMS, formData.totalRooms - 1))}
                     className="w-8 h-8 rounded-lg bg-gray-50 flex items-center justify-center text-haven-ink hover:bg-gray-100 transition-colors"
                   >
                     <Minus size={16} />
@@ -732,6 +735,7 @@ export const PublishListing: React.FC = () => {
                     <Plus size={16} />
                   </button>
                 </div>
+                <p className="mt-3 text-xs leading-relaxed text-haven-stone">Haven publie uniquement des colocations : {MIN_LISTING_ROOMS} chambres louables au minimum.</p>
               </div>
 
               <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-soft">

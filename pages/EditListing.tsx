@@ -23,6 +23,7 @@ import { AMENITIES_LIST } from '../services/amenities';
 import { WardrobeIcon } from '../components/WardrobeIcon';
 import { userFacingErrorMessage } from '../services/errorHandling';
 import { needsNewReview } from '../services/listingChanges';
+import { MIN_LISTING_ROOMS } from '../services/listingReview';
 
 export const EditListing: React.FC = () => {
   const { tr } = useLanguage();
@@ -185,8 +186,8 @@ export const EditListing: React.FC = () => {
   };
 
   const removeRoom = async (roomId: string) => {
-    if (listing.rooms.length <= 1) {
-      toast.error("Il doit y avoir au moins une chambre.");
+    if (listing.rooms.length <= MIN_LISTING_ROOMS) {
+      toast.error(`Haven publie uniquement des colocations : ${MIN_LISTING_ROOMS} chambres au minimum.`);
       return;
     }
     const roomToRemove = listing.rooms.find(room => room.id === roomId);
@@ -457,7 +458,7 @@ export const EditListing: React.FC = () => {
                        <button 
                         type="button"
                         onClick={() => removeRoom(room.id)}
-                        disabled={listing.rooms.length <= 1}
+                        disabled={listing.rooms.length <= MIN_LISTING_ROOMS}
                         aria-label={`Supprimer ${room.name || 'cette chambre'}`}
                         className="mb-6 ml-auto flex items-center gap-2 rounded-xl border border-red-100 bg-white px-3 py-2 text-xs font-bold text-haven-red shadow-sm transition-colors hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40"
                        >
