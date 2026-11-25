@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { ChevronLeft, ChevronRight, Lock } from 'lucide-react';
 import { BookingAvailability } from '../types';
 import { Button } from './Button';
-import { localDateKey } from '../services/stay';
+import { MAX_STAY_NIGHTS, addNights, localDateKey } from '../services/stay';
 
 interface ListingCalendarProps {
   activeRoomBookings: BookingAvailability[];
@@ -39,6 +39,8 @@ export const ListingCalendar: React.FC<ListingCalendarProps> = ({
   
   const today = new Date();
   const todayKey = localDateKey(today);
+  // A tenant who picked an arrival cannot choose a departure past the longest stay allowed.
+  const latestDeparture = !isOwner && selectedStart && !selectedEnd ? addNights(selectedStart, MAX_STAY_NIGHTS) : '';
   const isToday = (year: number, month: number, day: number) => {
     return today.getFullYear() === year && 
            today.getMonth() === month && 
@@ -152,6 +154,7 @@ export const ListingCalendar: React.FC<ListingCalendarProps> = ({
       return;
     }
 
+    if (latestDeparture && clickedDateStr > latestDeparture) return;
     const selectingDeparture = selectedStart && !selectedEnd && clickedDateStr > selectedStart;
     if (isRoomBooked(year, month, day) && !selectingDeparture) return;
 
@@ -255,6 +258,7 @@ export const ListingCalendar: React.FC<ListingCalendarProps> = ({
             )}
             
             <div className="flex flex-wrap gap-2 text-[11px] font-bold items-center sm:pr-4">
+              {latestDeparture && <span className="mr-3 text-haven-ink" aria-live="polite">Départ au plus tard le {new Date(`${latestDeparture}T12:00:00`).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })} ({MAX_STAY_NIGHTS} nuits maximum)</span>}
               {!isOwner && selectedStart && (
                 <div className="flex items-center gap-1.5 mr-3 text-gray-500">
                   <div className={`w-2.5 h-2.5 rounded-full border ${recurringStays.length ? 'bg-haven-navy border-haven-navy' : 'bg-gray-300 border-gray-400'}`}></div>
@@ -345,7 +349,7 @@ export const ListingCalendar: React.FC<ListingCalendarProps> = ({
                 onMouseLeave={() => setHoveredDate(null)}
               >
                 <button
-                  disabled={!isOwner && (isPast || (isBooked && !(selectedStart && !selectedEnd && new Date(year, month, day) > new Date(`${selectedStart}T00:00:00`))))}
+                  disabled={!isOwner && (isPast || Boolean(latestDeparture && dateStr > latestDeparture) || (isBooked && !(selectedStart && !selectedEnd && new Date(year, month, day) > new Date(`${selectedStart}T00:00:00`))))}
                   type="button"
                   aria-label={`${day} ${monthNames[month]} ${year}${isBooked ? ', indisponible' : ', disponible'}${recurringStay ? ` · ${recurringStay.label}${dateStr === recurringStay.end ? ', départ' : ''}${!recurringStay.available ? ', séjour non disponible pour ce logement' : ''}` : ''}`}
                   data-recurring-stay={recurringStay?.label}

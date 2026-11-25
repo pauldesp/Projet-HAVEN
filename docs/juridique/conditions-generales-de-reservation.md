@@ -14,7 +14,7 @@ Les présentes conditions s'appliquent à toute réservation faite sur Haven par
 
 **1.2 L'annonce.** Chaque annonce indique notamment : l'adresse approximative puis exacte après réservation, la chambre et ses équipements, les parties communes, le prix par nuit, le forfait ménage, le nombre minimum de nuits, les horaires d'arrivée et de départ, et les règles de la maison. Le propriétaire est responsable de l'exactitude de son annonce ; Haven la vérifie avant publication et à chaque modification importante.
 
-**1.3 Durée du séjour.** Chaque logement fixe un **nombre minimum de nuits**. Un séjour plus court peut toutefois être accepté s'il occupe exactement l'intervalle libre entre deux séjours dans la même chambre (au moins 2 nuits), lorsque le propriétaire a autorisé cette option.
+**1.3 Durée du séjour.** Chaque logement fixe un **nombre minimum de nuits**. Un séjour plus court peut toutefois être accepté s'il occupe exactement l'intervalle libre entre deux séjours dans la même chambre (au moins 2 nuits), lorsque le propriétaire a autorisé cette option. Un séjour ne peut pas dépasser **90 nuits d'affilée** : cette limite s'applique à une réservation unique, à chaque séjour d'une série, et à des séjours du même locataire dans le même logement qui se suivent sans interruption.
 
 ## Article 2 — Le prix
 

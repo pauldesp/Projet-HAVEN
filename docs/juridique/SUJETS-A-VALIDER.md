@@ -20,7 +20,7 @@ Les sujets marqués ⭐ conditionnent beaucoup d'autres : à traiter en premier.
 ## B. La nature des locations ⭐
 
 6. 🔴 ⭐ **Quel contrat lie le locataire et le propriétaire ?** — *Avocat*. Location saisonnière / meublé de tourisme, bail mobilité (1 à 10 mois, réservé à certains publics : études, stage, mutation, mission…), simple hébergement, ou chambre chez l'habitant. La réponse décide de la caution (interdite en bail mobilité), du préavis, des documents obligatoires, de l'assurance et des taxes.
-7. 🔴 **Durée maximale d'un séjour** — *Avocat, puis code*. Le site accepte aujourd'hui jusqu'à **366 nuits** pour une réservation. Un long séjour qui devient la résidence principale du locataire relève du bail meublé de la loi de 1989 (1 an, ou 9 mois pour un étudiant), que Haven ne gère pas. Fixer un plafond cohérent avec le point 6, que je reporterai dans le code.
+7. 🔴 **Durée maximale d'un séjour** — *Avocat, puis code*. Plafond fixé à **90 nuits d'affilée** le 25 novembre 2026 (voir « Points tranchés »). Un long séjour qui devient la résidence principale du locataire relève du bail meublé de la loi de 1989 (1 an, ou 9 mois pour un étudiant), que Haven ne gère pas. Fixer un plafond cohérent avec le point 6, que je reporterai dans le code.
 8. 🔴 **La récurrence** — *Avocat*. Des séjours répétés dans la même chambre, réservés en une fois, peuvent être requalifiés en bail d'habitation. Valider les limites (nombre de séjours, durée cumulée, intervalle entre séjours).
 9. 🔴 **Meublés de tourisme : déclaration et numéro d'enregistrement** — *Avocat, puis code*. Depuis la loi du 19 novembre 2024, la déclaration en mairie et le numéro d'enregistrement se généralisent ; la plateforme doit afficher ce numéro sur chaque annonce concernée et peut devoir refuser les annonces sans numéro. La Rochelle applique déjà un régime d'enregistrement. **Le site ne demande ni n'affiche aucun numéro aujourd'hui.**
 10. 🔴 **Plafond de nuitées des résidences principales** — *Avocat, puis code*. Un propriétaire qui loue sa résidence principale est limité à 120 nuits par an (moins si la commune l'a décidé) ; la plateforme doit compter les nuits et bloquer au-delà, et transmettre le décompte à la commune sur demande. **Non géré par le site.**
@@ -107,6 +107,7 @@ Les sujets marqués ⭐ conditionnent beaucoup d'autres : à traiter en premier.
 ## Points tranchés (mise en conformité du site, branche `conformite-cg`)
 
 - **25 novembre 2026 — Annulation par le locataire.** Plus de 14 jours avant l'arrivée : tout est remboursé (hébergement, ménage, frais de service). De 14 à 8 jours : 50 % de l'hébergement et du forfait ménage, frais de service conservés. Moins de 8 jours ou non-présentation : rien. Le forfait ménage suit la même règle que l'hébergement (choix de Paul). Un séjour de série pas encore prélevé s'annule sans frais. Seuil propriétaire inchangé et désormais indépendant : annulation seul à 30 jours ou plus, ensuite Haven seulement. Code : `services/cancellationPolicy.ts`.
+- **25 novembre 2026 — Durée maximale.** 90 nuits d'affilée au plus, pour une réservation unique, chaque séjour d'une série, et des séjours du même locataire dans le même logement qui se suivent sans nuit d'écart (choix de Paul). Contrôlé par le serveur et par les calendriers. Code : `MAX_STAY_NIGHTS` dans `services/stay.ts`.
 
 ---
 

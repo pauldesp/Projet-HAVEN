@@ -157,3 +157,13 @@ test('un compte de versement du propriétaire incomplet ne pénalise pas le loca
   assert.equal(alert?.kind, 'HAVEN_ALERT');
   assert.ok(data.get('bookings/b2')!.ownerPayoutAlertAt);
 });
+
+test('une série collée à un autre séjour du même locataire dans ce logement ne dépasse pas 90 nuits d’affilée', async () => {
+  const { data, series } = setup();
+  // An earlier booking of 86 nights ending the day the series starts: with the first 5-night stay, 91 nights.
+  data.set('bookings/old', { id: 'old', tenantId: 'tenant', listingId: 'l1', roomId: 'r1', status: 'CONFIRMED', startDate: day(-83), endDate: day(3) });
+  await assert.rejects(series.create('tenant', { seriesId: 's1', listingId: 'l1', stays: stays(), autoChargeConsentVersion: AUTO_CHARGE_CONSENT_VERSION }), /90 nuits/);
+  // A cancelled booking does not count.
+  data.set('bookings/old', { ...data.get('bookings/old'), status: 'CANCELLED' });
+  await series.create('tenant', { seriesId: 's1', listingId: 'l1', stays: stays(), autoChargeConsentVersion: AUTO_CHARGE_CONSENT_VERSION });
+});

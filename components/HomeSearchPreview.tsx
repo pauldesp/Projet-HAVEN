@@ -4,6 +4,7 @@ import { DateRangePicker } from './DateRangePicker';
 import './HomeSearchPreview.css';
 import { CityAutocomplete } from './CityAutocomplete';
 import { Link, useNavigate } from 'react-router-dom';
+import { MAX_STAY_NIGHTS } from '../services/stay';
 
 type Mode = 'single' | 'recurring';
 type Period = { id: number; start: string; end: string };
@@ -90,7 +91,7 @@ export function HomeSearchPreview({ recurringRequest = 0 }: { recurringRequest?:
         <div className="home-search-single-dates">
           <p className="home-search-label">Dates du séjour</p>
           <div className="home-search-date-picker">
-            <DateRangePicker startDate={arrival} endDate={departure}
+            <DateRangePicker maxNights={MAX_STAY_NIGHTS} startDate={arrival} endDate={departure}
               onChange={(start, end) => { setArrival(start); setDeparture(end); }} />
           </div>
         </div>
@@ -104,7 +105,7 @@ export function HomeSearchPreview({ recurringRequest = 0 }: { recurringRequest?:
                 onClick={() => { setPeriods(previous => previous.filter(item => item.id !== period.id)); }}><X size={16} aria-hidden="true" /></button>}
             </div>
             <div className="home-search-date-picker">
-              <DateRangePicker startDate={period.start} endDate={period.end}
+              <DateRangePicker maxNights={MAX_STAY_NIGHTS} startDate={period.start} endDate={period.end}
                 otherStays={periods.flatMap((item, itemIndex) => item.id === period.id ? [] : [{ start: item.start, end: item.end, label: `Séjour ${itemIndex + 1}` }])}
                 onChange={(start, end) => { setPeriods(previous => previous.map(item => item.id === period.id ? { ...item, start, end } : item)); }} />
             </div>

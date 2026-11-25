@@ -16,7 +16,7 @@ import { listingHasBookableRoom } from '../services/gapStay';
 import { apiService } from '../services/api';
 import { readSearchDates } from '../services/searchDates';
 import { findClosestAvailableStay, NearbyStay } from '../services/nearbyStays';
-import { countNights } from '../services/stay';
+import { MAX_STAY_NIGHTS, countNights } from '../services/stay';
 import { minimumNights } from '../services/minimumStay';
 import { parseRecurringPeriods, matchRecurringStays, completionForPeriod, recurringScore } from '../services/recurringSearch';
 import { distanceKm, validCoordinates } from '../services/proximity';
@@ -350,10 +350,10 @@ export const SearchPage: React.FC = () => {
           <label className="min-w-0"><span className="mb-2 block text-xs font-bold text-gray-500">Ville</span><div className="min-h-11"><CityAutocomplete value={searchCity} onChange={value => { setSearchCity(value); setSearchCityCode(''); }} onSelect={place => setSearchCityCode(place.cityCode || '')} placeholder="Où cherchez-vous ?" /></div></label>
           <div className="min-w-0 space-y-3">{isRecurring ? editedPeriods.map((period, index) => <div key={index}>
             <p className="mb-2 text-xs font-bold text-gray-500">Dates du séjour {index + 1}</p>
-            <DateRangePicker startDate={period.start} endDate={period.end}
+            <DateRangePicker maxNights={MAX_STAY_NIGHTS} startDate={period.start} endDate={period.end}
               otherStays={editedPeriods.flatMap((other, otherIndex) => otherIndex === index ? [] : [{ ...other, label: `Séjour ${otherIndex + 1}` }])}
               onChange={(start, end) => setEditedPeriods(previous => previous.map((item, itemIndex) => itemIndex === index ? { start, end } : item))} />
-          </div>) : <><p className="mb-2 text-xs font-bold text-gray-500">Dates du séjour</p><div className="min-h-11"><DateRangePicker startDate={searchStart} endDate={searchEnd} onChange={(start, end) => { setSearchStart(start); setSearchEnd(end); }} /></div></>}</div>
+          </div>) : <><p className="mb-2 text-xs font-bold text-gray-500">Dates du séjour</p><div className="min-h-11"><DateRangePicker maxNights={MAX_STAY_NIGHTS} startDate={searchStart} endDate={searchEnd} onChange={(start, end) => { setSearchStart(start); setSearchEnd(end); }} /></div></>}</div>
           <Button type="submit" className="self-end sm:col-span-2 lg:col-span-1">Rechercher</Button>
         </form>}
 

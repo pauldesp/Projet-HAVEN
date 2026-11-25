@@ -1,6 +1,6 @@
 import type { Booking } from '../types';
 import { monthBeforeArrival } from './recurringPaymentSchedule';
-import { countNights, isBookableStay, localDateKey } from './stay';
+import { MAX_STAY_MESSAGE, MAX_STAY_NIGHTS, countNights, isBookableStay, localDateKey, longestContinuousNights } from './stay';
 
 /** Days a failed or forgotten installment stays open before that stay alone is released. */
 export const INSTALLMENT_GRACE_DAYS = 5;
@@ -33,12 +33,14 @@ export function validateSeriesStays(stays: SeriesStayInput[], now = new Date()):
   const ids = new Set<string>();
   for (const stay of stays) {
     if (!stay || ![stay.id, stay.roomId].every(value => typeof value === 'string' && /^[a-zA-Z0-9_-]{1,128}$/.test(value))) return 'Un séjour de la série est invalide.';
-    if (typeof stay.startDate !== 'string' || typeof stay.endDate !== 'string' || !isBookableStay(stay.startDate, stay.endDate, now) || countNights(stay.startDate, stay.endDate) > 366) return 'Les dates d’un séjour de la série sont invalides.';
+    if (typeof stay.startDate !== 'string' || typeof stay.endDate !== 'string' || !isBookableStay(stay.startDate, stay.endDate, now) || countNights(stay.startDate, stay.endDate) < 1) return 'Les dates d’un séjour de la série sont invalides.';
+    if (countNights(stay.startDate, stay.endDate) > MAX_STAY_NIGHTS) return MAX_STAY_MESSAGE;
     if (ids.has(stay.id)) return 'Un séjour de la série est en double.';
     ids.add(stay.id);
   }
   const sorted = [...stays].sort((a, b) => a.startDate.localeCompare(b.startDate));
   if (sorted.some((stay, index) => index > 0 && stay.startDate < sorted[index - 1].endDate)) return 'Les séjours de la série se chevauchent.';
+  if (longestContinuousNights(sorted) > MAX_STAY_NIGHTS) return MAX_STAY_MESSAGE;
   return null;
 }
 

@@ -34,7 +34,7 @@ import { preparePaymentConfirmation, simulationSessionId, type PaymentReceipt } 
 import { isOwnerBookingVisible } from './services/bookingVisibility';
 import { BookingLifecycleError, bookingDeadline, isBookingExpired, assertBookingPayable, prepareInventoryReport, recoverInventoryReport } from './services/bookingLifecycle';
 import { hasVerificationException, hasTrustedVerificationException, prepareVerificationException, VerificationExceptionError } from './services/verificationException';
-import { countNights, isBookableStay, parisDateKey } from './services/stay';
+import { MAX_STAY_MESSAGE, MAX_STAY_NIGHTS, countNights, isBookableStay, longestContinuousNights, parisDateKey } from './services/stay';
 import { getCancellationTerms } from './services/cancellationPolicy';
 import { isStayReviewWindowOpen } from './services/reviewPolicy';
 import { hasCompleteVerificationDetails, hasRequiredPhoneNumber, isVerificationReadyToSubmit } from './services/profileVerification';
@@ -825,10 +825,12 @@ async function startServer() {
       let createdBooking: Record<string, unknown> | null = null;
 
       await adminDb.runTransaction(async transaction => {
-        const [userSnap, listingSnap, existingBooking, existingAvailability, availabilityQuery] = await Promise.all([
+        const [userSnap, listingSnap, existingBooking, existingAvailability, availabilityQuery, , ownStays] = await Promise.all([
           transaction.get(userRef), transaction.get(listingRef), transaction.get(bookingRef), transaction.get(availabilityRef),
           transaction.get(adminDb.collection('booking_availability').where('listingId', '==', listingId)),
-          transaction.get(roomLockRef)
+          transaction.get(roomLockRef),
+          // The tenant's other stays in this home: one that follows them without a night off extends the same stay.
+          transaction.get(adminDb.collection('bookings').where('tenantId', '==', req.user!.uid).where('listingId', '==', listingId)),
         ]);
         if (!userSnap.exists) throw new Error('COMPTE_INTRouvable');
         const user = userSnap.data()!;
@@ -847,7 +849,9 @@ async function startServer() {
         const nights = countNights(startDate, endDate);
         const availability = availabilityQuery.docs.map(item => item.data() as BookingAvailability);
         // The minimum may be lowered to a gap the stay exactly fills between two occupations of the room.
-        if (nights < requiredNightsForStay(room, listing, availability, startDate, endDate) || nights > 366) throw new Error('DATES_INVALIDES');
+        if (nights < requiredNightsForStay(room, listing, availability, startDate, endDate)) throw new Error('DATES_INVALIDES');
+        const activeOwnStays = ownStays.docs.map(item => item.data() as Booking).filter(item => item.status !== 'CANCELLED');
+        if (nights > MAX_STAY_NIGHTS || longestContinuousNights([...activeOwnStays, { startDate, endDate }]) > MAX_STAY_NIGHTS) throw new Error('SEJOUR_TROP_LONG');
         if (!isRoomAvailableForStay(room, listing, availability, startDate, endDate)) throw new Error('DATES_INDISPONIBLES');
         if (existingBooking.exists || existingAvailability.exists) throw new Error('RESERVATION_EXISTANTE');
 
@@ -877,7 +881,8 @@ async function startServer() {
       if (reason === 'VERIFICATION_REQUISE') return sendApiError(res, 403, 'La validation manuelle de votre compte et de votre pièce d’identité est requise pour réserver');
       if (reason === 'LOGEMENT_INDISPONIBLE' || reason === 'CHAMBRE_INVALIDE') return sendApiError(res, 404, 'Ce logement ou cette chambre n’est plus disponible');
       if (reason === 'PROPRE_LOGEMENT') return sendApiError(res, 403, 'Vous ne pouvez pas réserver votre propre logement');
-      if (reason === 'DATES_INVALIDES') return sendApiError(res, 422, 'Ces dates ne respectent pas la durée minimale ou maximale du séjour');
+      if (reason === 'DATES_INVALIDES') return sendApiError(res, 422, 'Ces dates ne respectent pas la durée minimale du séjour');
+      if (reason === 'SEJOUR_TROP_LONG') return sendApiError(res, 422, MAX_STAY_MESSAGE);
       if (reason === 'DATES_INDISPONIBLES' || reason === 'RESERVATION_EXISTANTE') return sendApiError(res, 409, 'Ces dates viennent d’être réservées. Choisissez une autre période');
       console.error('Booking request creation failed', error);
       return sendApiError(res, 500, 'La demande de réservation n’a pas pu être enregistrée. Réessayez dans quelques instants');

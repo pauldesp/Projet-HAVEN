@@ -5,7 +5,7 @@ import { isRoomAvailableForStay } from './availability';
 import { CLEANING_POLICY_VERSION } from './cleaningPolicy';
 import { DAMAGE_DEPOSIT_CONSENT_TEXT, DAMAGE_DEPOSIT_POLICY } from './damageDeposit';
 import { requiredNightsForStay } from './gapStay';
-import { countNights, localDateKey } from './stay';
+import { MAX_STAY_MESSAGE, MAX_STAY_NIGHTS, countNights, localDateKey, longestContinuousNights } from './stay';
 import { CONNECT_POLICY_VERSION } from './stripeConnect';
 import { AUTO_CHARGE_CONSENT_TEXT, AUTO_CHARGE_CONSENT_VERSION, installmentChargeDecision, installmentDueDates, installmentReminderAt, isLaterSeriesStay, nextInstallmentAttempt, validateSeriesStays, type SeriesStayInput } from './recurringInstallments';
 import type { SeriesMailKind } from './tenantMail';
@@ -69,6 +69,10 @@ export function createRecurringSeries(deps: RecurringSeriesDependencies) {
         ...sorted.map(stay => transaction.get(db.collection('booking_availability').doc(stay.id))),
         ...roomIds.map(roomId => transaction.get(db.collection('room_booking_locks').doc(`${listingId}_${roomId}`))),
       ]);
+      // Stays that follow the tenant's other bookings in this home without a night off count as one stay.
+      const ownStays = await transaction.get(bookings.where('tenantId', '==', tenantId).where('listingId', '==', listingId));
+      const activeOwnStays = ownStays.docs.map(item => item.data() as Booking).filter(item => item.status !== 'CANCELLED');
+      if (longestContinuousNights([...activeOwnStays, ...sorted]) > MAX_STAY_NIGHTS) throw new SeriesError(MAX_STAY_MESSAGE, 422);
       await deps.assertTenantCanBook(transaction, tenantId);
       if (seriesSnap.exists || rest.slice(0, sorted.length * 2).some(item => item.exists)) throw new SeriesError('Cette série existe déjà.', 409);
       if (!listingSnap.exists || listingSnap.data()?.status !== 'APPROVED') throw new SeriesError('Ce logement n’est plus disponible.', 404);

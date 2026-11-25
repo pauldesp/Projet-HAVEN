@@ -2,16 +2,18 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Calendar as CalendarIcon, ChevronLeft, ChevronRight, X } from 'lucide-react';
-import { countNights } from '../services/stay';
+import { addNights, countNights } from '../services/stay';
 
 interface DateRangePickerProps {
   startDate: string;
   endDate: string;
   onChange: (start: string, end: string) => void;
   otherStays?: { start: string; end: string; label: string }[];
+  /** Longest stay that can be chosen: later departures are disabled once the arrival is picked. */
+  maxNights?: number;
 }
 
-export const DateRangePicker: React.FC<DateRangePickerProps> = ({ startDate, endDate, onChange, otherStays = [] }) => {
+export const DateRangePicker: React.FC<DateRangePickerProps> = ({ startDate, endDate, onChange, otherStays = [], maxNights }) => {
   const [isOpen, setIsOpen] = useState(false);
   const panel = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
@@ -83,8 +85,13 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({ startDate, end
     return date < today;
   };
 
+  // Once the arrival is chosen, a departure past the maximum stay cannot be picked.
+  const latestDeparture = maxNights && startDate && !endDate ? addNights(startDate, maxNights) : '';
+  const tooLong = (dateStr: string) => Boolean(latestDeparture) && dateStr > latestDeparture;
+
   const handleDateClick = (date: Date) => {
     const dateStr = formatDate(date);
+    if (tooLong(dateStr)) return;
     if (!startDate || (startDate && endDate)) {
       onChange(dateStr, '');
     } else {
@@ -120,7 +127,7 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({ startDate, end
       const isSelectedStart = isSameDay(startDate, date);
       const isSelectedEnd = isSameDay(endDate, date);
       const inRange = isWithinRange(date);
-      const past = isPast(date);
+      const past = isPast(date) || tooLong(dateStr);
       const today = isToday(date);
       const previousStays = completedOtherStays.filter(stay => dateStr >= stay.start && dateStr <= stay.end);
       const previousEndpoint = previousStays.some(stay => stay.start === dateStr || stay.end === dateStr);
@@ -277,6 +284,10 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({ startDate, end
                 {renderSingleMonth(nextMonthDate)}
               </div>
             </div>
+
+            {maxNights && <p className={`mt-4 text-center text-xs ${latestDeparture ? 'font-semibold text-haven-ink' : 'text-haven-stone'}`} aria-live="polite">
+              {latestDeparture ? `Départ au plus tard le ${new Date(`${latestDeparture}T12:00:00`).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })} : ${maxNights} nuits maximum par séjour.` : `${maxNights} nuits maximum par séjour.`}
+            </p>}
 
             {completedOtherStays.length > 0 && <div className="mt-5 border-t border-gray-100 pt-4 text-xs text-gray-600" aria-label="Légende des séjours">
               <div className="flex flex-wrap gap-x-5 gap-y-2">
