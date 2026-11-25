@@ -25,6 +25,7 @@ import { getCancellationTerms } from '../services/cancellationPolicy';
 import { installmentDateLabel } from '../services/recurringInstallments';
 import { calculateOwnerFinanceStats, ownerEarningsSummary, realOwnerPayouts, ownerPayoutStatusLabel } from '../services/ownerFinances';
 import { OwnerTaxProfile } from '../components/OwnerTaxProfile';
+import { OwnerTaxBanner } from '../components/OwnerTaxBanner';
 
 interface BookingWithTenant extends Booking {
   tenant: User;
@@ -35,7 +36,7 @@ export const OwnerDashboard: React.FC = () => {
   const [searchParams] = useSearchParams();
   const { currentUser } = useAuth();
   const { listings } = useListings();
-  const [activeTab, setActiveTab] = useState<'LISTINGS' | 'BOOKINGS' | 'FINANCES' | 'DOCUMENTS' | 'INCIDENTS'>(searchParams.has('stripe') ? 'FINANCES' : 'LISTINGS');
+  const [activeTab, setActiveTab] = useState<'LISTINGS' | 'BOOKINGS' | 'FINANCES' | 'DOCUMENTS' | 'INCIDENTS'>(searchParams.has('stripe') || searchParams.get('tab') === 'finances' ? 'FINANCES' : 'LISTINGS');
   const [ownerBookings, setOwnerBookings] = useState<BookingWithTenant[]>([]);
   const damageClaims = useDamageClaims(Boolean(currentUser?.id));
   const [ownerIncidents, setOwnerIncidents] = useState<Incident[]>([]);
@@ -210,6 +211,7 @@ export const OwnerDashboard: React.FC = () => {
           </div>
         )}
 
+        <OwnerTaxBanner onOpen={() => { setActiveTab('FINANCES'); window.setTimeout(() => document.getElementById('statut-fiscal')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 300); }} />
         {payoutsToConfigure && (
           <div className="mt-4 flex flex-col gap-3 rounded-2xl border border-blue-100 bg-blue-50 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
             <div>

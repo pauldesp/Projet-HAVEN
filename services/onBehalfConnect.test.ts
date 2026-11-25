@@ -132,10 +132,20 @@ test('a dispute takes the amount back from the owner and suspends the payout', a
   assert.equal(f.payouts.length, 0, 'aucun versement pendant la contestation');
 });
 
-test('without the owner’s tax details (DAC7), nothing is paid out', async () => {
+test('missing tax details hold payouts only after the 60 days that follow Haven’s first request', async () => {
   const f = fixture();
   await f.service.registerPayment(f.booking, f.session);
   f.records.delete('owner_tax_profiles/o');
+  f.records.set('owner_tax_requests/o', { ownerId: 'o', status: 'PENDING', firstRequestAt: new Date(Date.now() - 10 * 86400_000).toISOString(), deadlineAt: new Date(Date.now() + 50 * 86400_000).toISOString(), remindersSent: 0, nextReminderAt: null });
+  await f.service.releaseArrivedBookings();
+  assert.equal(f.payouts.length, 1, 'pendant les 60 jours, le versement part');
+});
+
+test('after the 60 days, nothing is paid out until the tax details are given', async () => {
+  const f = fixture();
+  await f.service.registerPayment(f.booking, f.session);
+  f.records.delete('owner_tax_profiles/o');
+  f.records.set('owner_tax_requests/o', { ownerId: 'o', status: 'PENDING', firstRequestAt: new Date(Date.now() - 61 * 86400_000).toISOString(), deadlineAt: new Date(Date.now() - 86400_000).toISOString(), remindersSent: 2, nextReminderAt: null });
   await f.service.releaseArrivedBookings();
   assert.equal(f.payouts.length, 0);
   assert.equal(f.records.get('owner_settlements/b').state, 'WAITING_TAX_INFO');

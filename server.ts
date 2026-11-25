@@ -81,6 +81,8 @@ import compression from "compression";
 import { CONNECT_ON_BEHALF_POLICY, cancellationRefundBearer, onBehalfChargeData, refundOptionsFor } from './services/onBehalfPayments';
 import { rateLimit } from "express-rate-limit";
 import { TaxProfileError, hostStatusLabel, isTaxProfileComplete, maskedTaxProfile, normalizeTaxProfile, type OwnerTaxProfile } from './services/ownerTaxProfile';
+import { dueReminder, newTaxRequest, type OwnerTaxRequest } from './services/ownerTaxRequest';
+import { ownerTaxRequestEmail } from './services/ownerTaxMail';
 
 let stripeClient: Stripe | null = null;
 const adminApp = getApps()[0] ?? initializeApp({ credential: applicationDefault(), projectId: firebaseConfig.projectId });
@@ -410,10 +412,43 @@ async function settleBookingPayment(receipt: PaymentReceipt, actorId?: string) {
     return { disposition: 'CONFIRM' as const, booking: { ...booking, ...prepared.bookingUpdate } };
   });
   if (result.disposition === 'CONFIRM') {
+    // Money collected for this owner: the right moment to ask for their status and tax details, never earlier.
+    void startOwnerTaxRequest(result.booking.ownerId).catch(() => console.error('Owner tax request will be retried.'));
     void deliverReservationMail();
     if (result.booking.seriesId && result.booking.seriesIndex === 0) void recurringSeries.activate(result.booking.seriesId).catch(() => console.error('Series activation requires a retry.'));
   }
   return result;
+}
+
+/** First paid booking of an owner without tax details: open the 60-day request and send the first mail. */
+async function startOwnerTaxRequest(ownerId: string) {
+  const requestRef = adminDb.collection('owner_tax_requests').doc(ownerId);
+  const at = new Date().toISOString();
+  await adminDb.runTransaction(async transaction => {
+    const [request, profile] = await Promise.all([transaction.get(requestRef), transaction.get(adminDb.collection('owner_tax_profiles').doc(ownerId))]);
+    if (request.exists || isTaxProfileComplete(profile.data())) return;
+    transaction.create(requestRef, newTaxRequest(ownerId, at));
+    transaction.create(adminDb.collection('reservation_mail_outbox').doc(`tax-request-${ownerId}-0`), { kind: 'OWNER_TAX_REQUEST', ownerId, reminder: 0, status: 'PENDING', attempts: 0, nextAttemptAt: at });
+  });
+  void deliverReservationMail();
+}
+
+/** Hourly: two reminders while the details are missing; a completed request is closed. */
+async function remindOwnerTaxRequests() {
+  const pending = await adminDb.collection('owner_tax_requests').where('status', '==', 'PENDING').get();
+  for (const item of pending.docs) {
+    await adminDb.runTransaction(async transaction => {
+      const [fresh, profile] = await Promise.all([transaction.get(item.ref), transaction.get(adminDb.collection('owner_tax_profiles').doc(item.id))]);
+      const request = fresh.data() as OwnerTaxRequest | undefined;
+      if (!request || request.status !== 'PENDING') return;
+      if (isTaxProfileComplete(profile.data())) { transaction.update(item.ref, { status: 'DONE', completedAt: new Date().toISOString() }); return; }
+      const due = dueReminder(request);
+      if (!due) return;
+      transaction.update(item.ref, due.update);
+      transaction.create(adminDb.collection('reservation_mail_outbox').doc(`tax-request-${item.id}-${due.reminder}`), { kind: 'OWNER_TAX_REQUEST', ownerId: item.id, reminder: due.reminder, status: 'PENDING', attempts: 0, nextAttemptAt: new Date().toISOString() });
+    }).catch(() => console.error('Owner tax reminder will be retried.'));
+  }
+  void deliverReservationMail();
 }
 
 async function deliverAuthAction(kind: AuthMailKind, email: string, name: string, previousEmail?: string) {
@@ -567,6 +602,14 @@ async function deliverReservationMail() {
             await item.ref.update({ status: resolved.disposition === 'WAIT' ? 'PENDING' : resolved.disposition, nextAttemptAt: resolved.disposition === 'WAIT' ? new Date(Date.now() + 60_000).toISOString() : FieldValue.delete() }); continue;
           }
           mail = resolved.mail!; recipient = resolved.to!; selectedTemplate = resolved.selectedTemplate;
+        } else if (job.kind === 'OWNER_TAX_REQUEST') {
+          const [requestSnap, profileSnap, ownerSnap] = await Promise.all(['owner_tax_requests', 'owner_tax_profiles', 'users'].map(name => adminDb.collection(name).doc(String(job.ownerId)).get()));
+          const request = requestSnap.data() as OwnerTaxRequest | undefined;
+          if (!request || request.status !== 'PENDING' || isTaxProfileComplete(profileSnap.data()) || !ownerSnap.data()?.email) {
+            await item.ref.update({ status: 'CANCELLED', nextAttemptAt: FieldValue.delete() }); continue;
+          }
+          recipient = String(ownerSnap.data()!.email);
+          mail = ownerTaxRequestEmail(Number(job.reminder) || 0, String(ownerSnap.data()?.firstName || ''), request, process.env.APP_ORIGIN);
         } else if (isDamageMailJob(job)) {
           const claim = (await adminDb.collection('damage_claims').doc(String(job.claimId)).get()).data() as import('./types').DamageClaim | undefined;
           const disposition = damageMailDisposition(job as DamageMailJob, claim);
@@ -2167,9 +2210,17 @@ async function startServer() {
   // ---- Owner status (private / professional) and DAC7 tax details: private, server-only collection. ----
   app.get('/api/owners/me/tax-profile', sensitiveApiLimiter, requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
-      const saved = (await adminDb.collection('owner_tax_profiles').doc(req.user!.uid).get()).data() as OwnerTaxProfile | undefined;
+      const [profileSnap, requestSnap, userSnap, residenceSnap] = await Promise.all(['owner_tax_profiles', 'owner_tax_requests', 'users', 'user_residences'].map(name => adminDb.collection(name).doc(req.user!.uid).get()));
+      const saved = profileSnap.data() as OwnerTaxProfile | undefined;
+      const request = requestSnap.data() as OwnerTaxRequest | undefined;
+      // Pre-filled from the profile and home address the owner already gave: only the status and tax number remain.
+      const residence = residenceSnap.data();
+      const prefill = { birthDate: typeof userSnap.data()?.birthDate === 'string' ? userSnap.data()!.birthDate : '',
+        address: residence ? { street: String(residence.address || ''), postalCode: String(residence.postalCode || ''), city: String(residence.city || ''), country: /^france$/i.test(String(residence.country || '')) || !residence.country ? 'FR' : String(residence.country).slice(0, 2).toUpperCase() } : null };
       res.setHeader('Cache-Control', 'no-store');
-      return res.json({ profile: saved ? maskedTaxProfile(saved) : null, complete: isTaxProfileComplete(saved) });
+      return res.json({ profile: saved ? maskedTaxProfile(saved) : null, complete: isTaxProfileComplete(saved), prefill,
+        // Nothing fiscal is shown to an owner before money has been collected for them.
+        requested: Boolean(request), deadlineAt: request?.status === 'PENDING' ? request.deadlineAt : null });
     } catch { return sendApiError(res, 503, 'Vos informations fiscales sont momentanément indisponibles.'); }
   });
   app.put('/api/owners/me/tax-profile', sensitiveApiLimiter, requireAuth, async (req: AuthenticatedRequest, res) => {
@@ -2183,6 +2234,9 @@ async function startServer() {
       if (typeof input.nif === 'string' && input.nif.includes('•') && previous?.nif) input.nif = previous.nif;
       const profile = normalizeTaxProfile(input);
       await ref.set(profile);
+      // Details complete: no more reminders, and payouts held after the deadline start again at the next sweep.
+      const request = adminDb.collection('owner_tax_requests').doc(req.user!.uid);
+      if ((await request.get()).exists) await request.update({ status: 'DONE', completedAt: new Date().toISOString() });
       return res.json({ profile: maskedTaxProfile(profile), complete: true });
     } catch (error) {
       if (error instanceof TaxProfileError) return sendApiError(res, 422, error.message);
@@ -2884,6 +2938,9 @@ async function startServer() {
   const bookingSweep = setInterval(() => void expireBookings(), 60_000);
   bookingSweep.unref();
   void finalizeExpiredStayReviews().catch(() => undefined);
+  void remindOwnerTaxRequests().catch(() => undefined);
+  const taxReminderSweep = setInterval(() => void remindOwnerTaxRequests().catch(() => undefined), 60 * 60 * 1000);
+  taxReminderSweep.unref();
   const reviewSweep = setInterval(() => void finalizeExpiredStayReviews().catch(() => undefined), 60 * 60 * 1000);
   reviewSweep.unref();
   const analyticsSweep = setInterval(() => void analytics.flush().catch(() => console.error('Audience totals will be written on the next run.')), 60_000);

@@ -6,6 +6,7 @@ import type { Booking, InventoryReport } from '../types';
 import { CONNECT_POLICY_VERSION, connectStatus, hasRecordedArrival, ownerShareCents, payoutStatus, type OwnerConnectView } from './stripeConnect';
 import { CONNECT_ON_BEHALF_POLICY, canChargeOnBehalf, isOnBehalfPolicy, ownerNetCents } from './onBehalfPayments';
 import { TAX_PROFILE_MISSING_MESSAGE, isTaxProfileComplete } from './ownerTaxProfile';
+import { taxHoldsPayouts, type OwnerTaxRequest } from './ownerTaxRequest';
 
 export class ConnectError extends Error { constructor(message: string, public status = 409) { super(message); } }
 export function createStripeConnect(db: Firestore, stripe: () => Stripe, configuration: () => { enabled: boolean; isTest: boolean }) {
@@ -178,10 +179,13 @@ export function createStripeConnect(db: Firestore, stripe: () => Stripe, configu
     try {
       // Only jobs still waiting: transferred or cancelled ones are never read again here.
       const jobs = await db.collection('owner_settlements').where('state', 'in', ['WAITING_ARRIVAL', 'WAITING_ACCOUNT', 'RETRY', 'CREATING', 'WAITING_FUNDS', 'WAITING_TAX_INFO']).get();
-      // DAC7: no payout to an owner whose status and tax details are incomplete.
+      // DAC7: payouts are held only when the details are still missing 60 days after Haven first asked for them.
       const taxReady = new Map<string, boolean>();
       const hasTaxDetails = async (ownerId: string) => {
-        if (!taxReady.has(ownerId)) taxReady.set(ownerId, isTaxProfileComplete((await db.collection('owner_tax_profiles').doc(ownerId).get()).data()));
+        if (!taxReady.has(ownerId)) {
+          const [profile, request] = await Promise.all([db.collection('owner_tax_profiles').doc(ownerId).get(), db.collection('owner_tax_requests').doc(ownerId).get()]);
+          taxReady.set(ownerId, !taxHoldsPayouts(request.data() as OwnerTaxRequest | undefined, isTaxProfileComplete(profile.data())));
+        }
         return taxReady.get(ownerId)!;
       };
       for (const job of jobs.docs) {

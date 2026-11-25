@@ -17,6 +17,9 @@ const empty: Form = { status: '', legalForm: '', siret: '', companyName: '', nif
 export function OwnerTaxProfile() {
   const [form, setForm] = useState<Form>(empty);
   const [complete, setComplete] = useState<boolean | null>(null);
+  // Shown only once money has been collected for this owner (or details were already given).
+  const [visible, setVisible] = useState(false);
+  const [deadlineAt, setDeadlineAt] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   useEffect(() => {
@@ -24,6 +27,9 @@ export function OwnerTaxProfile() {
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || 'Informations indisponibles.');
       setComplete(Boolean(data.complete));
+      setVisible(Boolean(data.requested || data.profile));
+      setDeadlineAt(data.deadlineAt || null);
+      if (!data.profile && data.prefill) setForm(previous => ({ ...previous, birthDate: data.prefill.birthDate || '', address: data.prefill.address ? { ...empty.address, ...data.prefill.address } : previous.address }));
       if (data.profile) setForm({ ...empty, ...data.profile, legalForm: data.profile.legalForm || '', siret: data.profile.siret || '', companyName: data.profile.companyName || '', nif: data.profile.nif || '', nifCountry: data.profile.nifCountry || 'FR', birthDate: data.profile.birthDate || '', address: { ...empty.address, ...data.profile.address } });
     }).catch(reason => setError(reason instanceof Error ? reason.message : 'Informations indisponibles.'));
   }, []);
@@ -36,7 +42,7 @@ export function OwnerTaxProfile() {
       const response = await authenticatedFetch('/api/owners/me/tax-profile', { method: 'PUT', body: JSON.stringify(form) });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || 'Enregistrement impossible.');
-      setComplete(true); set({ nif: data.profile?.nif || form.nif });
+      setComplete(true); setDeadlineAt(null); set({ nif: data.profile?.nif || form.nif });
       toast.success('Statut et informations fiscales enregistrés.');
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'Enregistrement impossible.'); }
     finally { setSaving(false); }
@@ -45,12 +51,13 @@ export function OwnerTaxProfile() {
   const company = form.status === 'PROFESSIONNEL' && form.legalForm === 'SOCIETE';
   const choice = (active: boolean) => `min-h-11 rounded-full border px-4 text-sm font-semibold ${active ? 'border-haven-navy bg-haven-navy text-white' : 'border-gray-300 text-haven-ink hover:bg-gray-100'}`;
 
-  return <section className="space-y-4 rounded-3xl border border-gray-100 bg-white p-5 sm:p-6">
+  if (!visible) return null;
+  return <section id="statut-fiscal" className="space-y-4 rounded-3xl border border-gray-100 bg-white p-5 sm:p-6">
     <div>
       <h2 className="font-heading text-2xl font-normal text-haven-ink">Statut et informations fiscales</h2>
-      <p className="mt-2 text-sm leading-relaxed text-gray-600">Votre statut apparaît sur vos annonces (« Hôte particulier » ou « Hôte professionnel »). La loi (directive européenne DAC7) impose à Haven de collecter vos informations fiscales et de déclarer vos revenus à l’administration : <strong className="text-haven-ink">aucun versement n’est effectué tant qu’elles manquent</strong>. Elles restent confidentielles, visibles par vous et par Haven seulement.</p>
+      <p className="mt-2 text-sm leading-relaxed text-gray-600">Votre statut apparaît sur vos annonces (« Hôte particulier » ou « Hôte professionnel »). Comme toutes les plateformes de location, Haven doit connaître votre numéro fiscal pour déclarer les revenus perçus à l’administration (directive européenne DAC7). Ces informations restent confidentielles, visibles par vous et par Haven seulement.</p>
     </div>
-    {complete === false && <p role="status" className="rounded-xl bg-amber-50 p-3 text-sm text-amber-800">Informations à compléter : vos versements sont en attente.</p>}
+    {complete === false && deadlineAt && <p role="status" className="rounded-xl bg-haven-sand p-3 text-sm text-haven-ink">{Date.now() < Date.parse(deadlineAt) ? `À compléter avant le ${new Date(deadlineAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })}. Vos versements continuent normalement d’ici là.` : 'Vos versements sont suspendus jusqu’à ce que ces informations soient complétées. Ils reprennent aussitôt après.'}</p>}
     {complete && <p role="status" className="rounded-xl bg-green-50 p-3 text-sm text-green-800">Informations complètes.</p>}
     <form onSubmit={save} className="space-y-4 text-sm text-gray-700">
       <fieldset><legend className="font-semibold text-haven-ink">Vous louez en tant que</legend>
