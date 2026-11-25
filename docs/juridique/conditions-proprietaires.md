@@ -18,9 +18,11 @@ Les présentes conditions s'appliquent à tout membre qui propose un logement su
 
 **1.3 Vérification.** Avant toute publication, le propriétaire fait vérifier son compte (identité, domicile) et **configure son compte de versement Stripe** (identité et compte bancaire vérifiés par Stripe). Une annonce ne peut pas être mise en ligne tant que ces deux étapes ne sont pas terminées.
 
+**1.4 Statut et informations fiscales.** Le propriétaire indique s'il loue en tant que **particulier** ou **professionnel** ; dans ce cas, il communique son numéro SIRET, et pour une société sa dénomination. Ce statut est affiché sur ses annonces (« Hôte particulier » ou « Hôte professionnel »). Conformément à la directive européenne 2021/514 dite DAC7 et à l'article 1649 ter A du Code général des impôts, Haven collecte ses informations fiscales : numéro d'identification fiscale (NIF), date de naissance et adresse pour une personne ; SIREN et adresse du siège pour une société. Ces informations sont conservées de façon confidentielle et transmises à l'administration fiscale dans la déclaration annuelle de Haven. **Aucun versement n'est effectué tant qu'elles sont incomplètes.**
+
 ## Article 2 — Publier une annonce
 
-**2.1 Contenu.** Le propriétaire décrit son logement de façon exacte et à jour : adresse, chambres, surfaces, équipements, parties communes, règles de la maison, photos récentes et fidèles. Chaque chambre doit disposer d'au moins une des options prévues par le Cahier des charges (salle de bain privée, bureau, verrou, rangement).
+**2.1 Contenu.** Le propriétaire décrit son logement de façon exacte et à jour : adresse, chambres, surfaces, équipements, parties communes, règles de la maison, photos récentes et fidèles. Chaque chambre doit disposer d'au moins une des options prévues par le Cahier des charges (salle de bain privée, bureau, verrou, rangement). Haven ne publie que des **colocations** : une annonce propose **au moins deux chambres louables**, chacune avec son prix ; un logement entier ne peut pas être publié.
 
 **2.2 Vérification par Haven.** Chaque annonce est examinée par Haven avant sa mise en ligne. Toute modification des textes, des photos ou de l'adresse d'une annonce en ligne la **soumet à une nouvelle vérification** avant publication des changements. Haven peut refuser ou suspendre une annonce non conforme au Cahier des charges, en indiquant ses motifs.
 

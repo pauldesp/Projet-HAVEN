@@ -39,6 +39,7 @@ function fixture() {
   records.set('owner_arrivals/b', { reportId: 'in', tenantId: 't' });
   records.set('owner_stripe_accounts/test_o', { ownerId: 'o', accountId: 'acct_o' });
   records.set('stripe_account_owners/test_acct_o', { ownerId: 'o' });
+  records.set('owner_tax_profiles/o', { status: 'PARTICULIER', nif: '1234567890123', nifCountry: 'FR', birthDate: '1980-04-02', address: { street: '1 rue A', postalCode: '17000', city: 'La Rochelle', country: 'FR' }, updatedAt: '2026-11-25T10:00:00Z' });
   const account = { id: 'acct_o', payouts_enabled: true, charges_enabled: true, capabilities: { transfers: 'active', card_payments: 'active' }, settings: { payouts: { schedule: { interval: 'manual' } } }, metadata: { havenOwnerId: 'o', havenMode: 'test' } };
   const transfer = { id: 'tr_auto', amount: 14200, amount_reversed: 0 };
   const fee = { id: 'fee_b', amount: 1700, amount_refunded: 0 };
@@ -129,4 +130,16 @@ test('a dispute takes the amount back from the owner and suspends the payout', a
   assert.equal(settlement.state, 'REVIEW_REQUIRED');
   await f.service.releaseArrivedBookings();
   assert.equal(f.payouts.length, 0, 'aucun versement pendant la contestation');
+});
+
+test('without the owner’s tax details (DAC7), nothing is paid out', async () => {
+  const f = fixture();
+  await f.service.registerPayment(f.booking, f.session);
+  f.records.delete('owner_tax_profiles/o');
+  await f.service.releaseArrivedBookings();
+  assert.equal(f.payouts.length, 0);
+  assert.equal(f.records.get('owner_settlements/b').state, 'WAITING_TAX_INFO');
+  f.records.set('owner_tax_profiles/o', { status: 'PROFESSIONNEL', legalForm: 'SOCIETE', siret: '73282932000074', siren: '732829320', companyName: 'Colocs SAS', address: { street: '1 rue A', postalCode: '17000', city: 'La Rochelle', country: 'FR' }, updatedAt: '2026-11-25T10:00:00Z' });
+  await f.service.releaseArrivedBookings();
+  assert.equal(f.payouts.length, 1);
 });

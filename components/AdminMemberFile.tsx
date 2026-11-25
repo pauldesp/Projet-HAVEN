@@ -67,6 +67,7 @@ export function AdminMemberFile({ userId }: { userId: string }) {
   const events = filter === 'ALL' ? file.events : file.events.filter(event => event.kind === filter);
 
   return <section className="space-y-6 border-t border-gray-100 pt-6">
+    <AdminTaxProfile userId={userId} />
     <h4 className="font-heading text-xl font-normal text-haven-ink">Fiche complète</h4>
     <dl className="grid grid-cols-2 gap-3 sm:grid-cols-3">
       {[['Séjours payés (locataire)', String(counters.stays)], ['Séjours reçus (propriétaire)', String(counters.ownerStays)], ['Annulations', String(counters.cancelled)],
@@ -116,4 +117,21 @@ export function AdminMemberFile({ userId }: { userId: string }) {
       </ol>
     </div>
   </section>;
+}
+
+
+/** Owner status and DAC7 tax details, for Haven only (payouts wait while they are incomplete). */
+function AdminTaxProfile({ userId }: { userId: string }) {
+  const [data, setData] = useState<{ profile: Record<string, any> | null; complete: boolean } | null>(null);
+  useEffect(() => {
+    void authenticatedFetch(`/api/admin/owners/${encodeURIComponent(userId)}/tax-profile`).then(response => response.ok ? response.json() : null).then(setData).catch(() => setData(null));
+  }, [userId]);
+  if (!data?.profile) return data ? <p className="text-sm text-gray-500">Statut et informations fiscales (DAC7) : non renseignés.</p> : null;
+  const profile = data.profile;
+  return <div className="rounded-2xl border border-gray-100 p-4 text-sm text-gray-700">
+    <p className="font-semibold text-haven-ink">Statut et informations fiscales (DAC7) · {data.complete ? 'complets' : 'incomplets'}</p>
+    <p className="mt-1">{profile.status === 'PROFESSIONNEL' ? `Professionnel (${profile.legalForm === 'SOCIETE' ? 'société' : 'entreprise individuelle'}) · SIRET ${profile.siret}` : 'Particulier'}{profile.companyName ? ` · ${profile.companyName}` : ''}</p>
+    {profile.nif && <p>NIF {profile.nif} ({profile.nifCountry}) · né(e) le {profile.birthDate}</p>}
+    <p>{[profile.address?.street, profile.address?.postalCode, profile.address?.city, profile.address?.country].filter(Boolean).join(', ')}</p>
+  </div>;
 }

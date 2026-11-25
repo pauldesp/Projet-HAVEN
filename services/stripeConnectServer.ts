@@ -5,6 +5,7 @@ import { ownerMailId, ownerMailJob } from './ownerMail';
 import type { Booking, InventoryReport } from '../types';
 import { CONNECT_POLICY_VERSION, connectStatus, hasRecordedArrival, ownerShareCents, payoutStatus, type OwnerConnectView } from './stripeConnect';
 import { CONNECT_ON_BEHALF_POLICY, canChargeOnBehalf, isOnBehalfPolicy, ownerNetCents } from './onBehalfPayments';
+import { TAX_PROFILE_MISSING_MESSAGE, isTaxProfileComplete } from './ownerTaxProfile';
 
 export class ConnectError extends Error { constructor(message: string, public status = 409) { super(message); } }
 export function createStripeConnect(db: Firestore, stripe: () => Stripe, configuration: () => { enabled: boolean; isTest: boolean }) {
@@ -176,7 +177,13 @@ export function createStripeConnect(db: Firestore, stripe: () => Stripe, configu
     releasing = true;
     try {
       // Only jobs still waiting: transferred or cancelled ones are never read again here.
-      const jobs = await db.collection('owner_settlements').where('state', 'in', ['WAITING_ARRIVAL', 'WAITING_ACCOUNT', 'RETRY', 'CREATING', 'WAITING_FUNDS']).get();
+      const jobs = await db.collection('owner_settlements').where('state', 'in', ['WAITING_ARRIVAL', 'WAITING_ACCOUNT', 'RETRY', 'CREATING', 'WAITING_FUNDS', 'WAITING_TAX_INFO']).get();
+      // DAC7: no payout to an owner whose status and tax details are incomplete.
+      const taxReady = new Map<string, boolean>();
+      const hasTaxDetails = async (ownerId: string) => {
+        if (!taxReady.has(ownerId)) taxReady.set(ownerId, isTaxProfileComplete((await db.collection('owner_tax_profiles').doc(ownerId).get()).data()));
+        return taxReady.get(ownerId)!;
+      };
       for (const job of jobs.docs) {
         const saved = job.data();
         if (saved.mode !== mode() || (saved.retryAt && Date.parse(saved.retryAt) > Date.now())) continue;
@@ -193,11 +200,15 @@ export function createStripeConnect(db: Firestore, stripe: () => Stripe, configu
           const proof = await db.collection('owner_arrivals').doc(job.id).get();
           if (!hasRecordedArrival(booking, arrival?.exists ? arrival.data() as InventoryReport : null, proof.exists ? proof.data() as { reportId: string; tenantId: string } : null)) continue;
         }
+        if (!await hasTaxDetails(booking.ownerId)) {
+          if (saved.state !== 'WAITING_TAX_INFO') await job.ref.update({ state: 'WAITING_TAX_INFO', error: TAX_PROFILE_MISSING_MESSAGE, updatedAt: new Date().toISOString() });
+          continue;
+        }
         const leaseToken = randomUUID();
         const claimed = await db.runTransaction(async transaction => {
           const [current, freshBooking] = await Promise.all([transaction.get(job.ref), transaction.get(bookingSnapshot.ref)]);
           const data = current.data();
-          if (!data || !['WAITING_ARRIVAL', 'WAITING_ACCOUNT', 'RETRY', 'CREATING', 'WAITING_FUNDS'].includes(data.state) || (data.leaseUntil && Date.parse(data.leaseUntil) > Date.now()) || (freshBooking.data()?.status === 'CANCELLED' && data.model !== 'ON_BEHALF') || freshBooking.data()?.checkInReportId !== booking.checkInReportId) return false;
+          if (!data || !['WAITING_ARRIVAL', 'WAITING_ACCOUNT', 'RETRY', 'CREATING', 'WAITING_FUNDS', 'WAITING_TAX_INFO'].includes(data.state) || (data.leaseUntil && Date.parse(data.leaseUntil) > Date.now()) || (freshBooking.data()?.status === 'CANCELLED' && data.model !== 'ON_BEHALF') || freshBooking.data()?.checkInReportId !== booking.checkInReportId) return false;
           transaction.update(job.ref, { state: 'CREATING', leaseToken, leaseUntil: new Date(Date.now() + 120000).toISOString(), updatedAt: new Date().toISOString() });
           return true;
         });
@@ -259,6 +270,7 @@ export function createStripeConnect(db: Firestore, stripe: () => Stripe, configu
       for (const job of damages.docs) {
         const saved = job.data();
         if (saved.mode !== mode() || (saved.retryAt && Date.parse(saved.retryAt) > Date.now()) || saved.adminHold === true) continue;
+        if (!await hasTaxDetails(saved.ownerId)) { await job.ref.update({ error: TAX_PROFILE_MISSING_MESSAGE, updatedAt: new Date().toISOString() }); continue; }
         try { await payOut(job, saved, saved.amountCents, update => job.ref.update(update)); }
         catch { await job.ref.update({ retryAt: new Date(Date.now() + 3600_000).toISOString(), error: 'Virement de la caution à relancer.', updatedAt: new Date().toISOString() }); }
       }

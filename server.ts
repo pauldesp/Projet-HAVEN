@@ -80,6 +80,7 @@ import helmet from "helmet";
 import compression from "compression";
 import { CONNECT_ON_BEHALF_POLICY, cancellationRefundBearer, onBehalfChargeData, refundOptionsFor } from './services/onBehalfPayments';
 import { rateLimit } from "express-rate-limit";
+import { TaxProfileError, hostStatusLabel, isTaxProfileComplete, maskedTaxProfile, normalizeTaxProfile, type OwnerTaxProfile } from './services/ownerTaxProfile';
 
 let stripeClient: Stripe | null = null;
 const adminApp = getApps()[0] ?? initializeApp({ credential: applicationDefault(), projectId: firebaseConfig.projectId });
@@ -2163,6 +2164,54 @@ async function startServer() {
       return res.json({ dataUrl: snapshot.data()!.back });
     } catch { return sendApiError(res, 500, 'Impossible de charger le verso.'); }
   });
+  // ---- Owner status (private / professional) and DAC7 tax details: private, server-only collection. ----
+  app.get('/api/owners/me/tax-profile', sensitiveApiLimiter, requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      const saved = (await adminDb.collection('owner_tax_profiles').doc(req.user!.uid).get()).data() as OwnerTaxProfile | undefined;
+      res.setHeader('Cache-Control', 'no-store');
+      return res.json({ profile: saved ? maskedTaxProfile(saved) : null, complete: isTaxProfileComplete(saved) });
+    } catch { return sendApiError(res, 503, 'Vos informations fiscales sont momentanément indisponibles.'); }
+  });
+  app.put('/api/owners/me/tax-profile', sensitiveApiLimiter, requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      const user = (await adminDb.collection('users').doc(req.user!.uid).get()).data();
+      if (!user || !['OWNER', 'ADMIN'].includes(String(user.role))) return sendApiError(res, 403, 'Réservé aux propriétaires.');
+      const ref = adminDb.collection('owner_tax_profiles').doc(req.user!.uid);
+      const previous = (await ref.get()).data() as OwnerTaxProfile | undefined;
+      const input = { ...(req.body || {}) };
+      // The tax number comes back masked: an unchanged field keeps the saved number.
+      if (typeof input.nif === 'string' && input.nif.includes('•') && previous?.nif) input.nif = previous.nif;
+      const profile = normalizeTaxProfile(input);
+      await ref.set(profile);
+      return res.json({ profile: maskedTaxProfile(profile), complete: true });
+    } catch (error) {
+      if (error instanceof TaxProfileError) return sendApiError(res, 422, error.message);
+      return sendApiError(res, 503, 'Vos informations fiscales n’ont pas pu être enregistrées.');
+    }
+  });
+  app.get('/api/admin/owners/:userId/tax-profile', sensitiveApiLimiter, requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      if (!await requireAdmin(req, res)) return;
+      const id = String(req.params.userId);
+      if (!/^[a-zA-Z0-9_-]{1,128}$/.test(id)) return sendApiError(res, 404, 'Membre introuvable.');
+      const saved = (await adminDb.collection('owner_tax_profiles').doc(id).get()).data() as OwnerTaxProfile | undefined;
+      res.setHeader('Cache-Control', 'no-store');
+      return res.json({ profile: saved || null, complete: isTaxProfileComplete(saved) });
+    } catch { return sendApiError(res, 503, 'Informations fiscales indisponibles.'); }
+  });
+  // Public: the listing page says whether the host rents privately or professionally (L111-7 Code de la consommation).
+  app.get('/api/listings/:listingId/host-status', rateLimit({ windowMs: 60_000, limit: 120, standardHeaders: true, legacyHeaders: false }), async (req, res) => {
+    try {
+      const id = String(req.params.listingId);
+      if (!/^[a-zA-Z0-9_-]{1,128}$/.test(id)) return sendApiError(res, 404, 'Logement introuvable.');
+      const listing = (await adminDb.collection('listings').doc(id).get()).data();
+      if (!listing || listing.status !== 'APPROVED') return sendApiError(res, 404, 'Logement introuvable.');
+      const profile = (await adminDb.collection('owner_tax_profiles').doc(String(listing.ownerId)).get()).data() as OwnerTaxProfile | undefined;
+      res.setHeader('Cache-Control', 'public, max-age=300');
+      return res.json({ status: profile?.status || null, label: hostStatusLabel(profile?.status) });
+    } catch { return sendApiError(res, 503, 'Statut de l’hôte indisponible.'); }
+  });
+
   // Parental authorization of a minor occupant: the account that booked and Haven only (never the owner).
   app.get('/api/bookings/:bookingId/parental-authorization', sensitiveApiLimiter, requireAuth, async (req: AuthenticatedRequest, res) => {
     try {

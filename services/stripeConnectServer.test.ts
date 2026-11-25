@@ -39,6 +39,7 @@ function fixture() {
   records.set('owner_arrivals/b', { reportId: 'in', tenantId: 't' });
   records.set('owner_stripe_accounts/test_o', { ownerId: 'o', accountId: 'acct_o' });
   records.set('stripe_account_owners/test_acct_o', { ownerId: 'o' });
+  records.set('owner_tax_profiles/o', { status: 'PARTICULIER', nif: '1234567890123', nifCountry: 'FR', birthDate: '1980-04-02', address: { street: '1 rue A', postalCode: '17000', city: 'La Rochelle', country: 'FR' }, updatedAt: '2026-11-25T10:00:00Z' });
   let payout: any = { id: 'po_1', amount: 12500, currency: 'eur', status: 'pending', created: 1, arrival_date: 2, livemode: false };
   let charge: any = { id: 'ch_b', paid: true, amount: 14200, currency: 'eur', amount_refunded: 0, refunded: false, disputed: false, livemode: false, balance_transaction: { fee: 238 } };
   const transfers: any[] = [];

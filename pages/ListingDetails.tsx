@@ -30,6 +30,7 @@ import { minimumNights } from '../services/minimumStay';
 import { isGapStay, isRoomBookableForStay, requiredNightsForStay } from '../services/gapStay';
 import { parseRecurringPeriods, matchRecurringStays } from '../services/recurringSearch';
 import { recurringPaymentSchedule } from '../services/recurringPaymentSchedule';
+import { HostStatusBadge } from '../components/HostStatusBadge';
 
 export const ListingDetails: React.FC = () => {
   const { id } = useParams();
@@ -422,6 +423,7 @@ export const ListingDetails: React.FC = () => {
                 </div>
               </section>
 
+              {listing.id && <HostStatusBadge listingId={listing.id} />}
               <div className="mb-10"><CleaningPolicyNotice /></div>
 
               {owner && (

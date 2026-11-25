@@ -24,6 +24,7 @@ import { formatEuros } from '../services/money';
 import { getCancellationTerms } from '../services/cancellationPolicy';
 import { installmentDateLabel } from '../services/recurringInstallments';
 import { calculateOwnerFinanceStats, ownerEarningsSummary, realOwnerPayouts, ownerPayoutStatusLabel } from '../services/ownerFinances';
+import { OwnerTaxProfile } from '../components/OwnerTaxProfile';
 
 interface BookingWithTenant extends Booking {
   tenant: User;
@@ -404,6 +405,7 @@ export const OwnerDashboard: React.FC = () => {
 
             {activeTab === 'FINANCES' && (
               <div className="space-y-8">
+                <OwnerTaxProfile />
                 <OwnerPayoutSettings payouts={ownerPayouts} />
                 <dl className="grid grid-cols-2 gap-3 text-sm">
                   <div className="rounded-2xl border border-gray-200 p-4"><dt className="text-gray-500">Total versé sur votre compte</dt><dd className="mt-1 text-xl font-bold text-haven-ink">{payoutLoading || payoutError ? '—' : formatEuros(financeStats.totalRevenue)}</dd></div>

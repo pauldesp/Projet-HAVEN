@@ -57,8 +57,8 @@ test('une annonce incomplète peut être validée en test mais pas par le parcou
 test('la validation normale d’une annonce ne croit pas une dérogation propriétaire sans preuve serveur', () => {
   const listing = {
     cleaningPolicyVersion: CLEANING_POLICY_VERSION, status: 'PENDING', title: 'Logement test', description: 'Description', address: '1 rue Test', city: 'Paris',
-    totalRooms: 1, mainPhotoUrl: 'photo1', galleryUrls: ['photo1', 'photo2', 'photo3'],
-    rooms: [{ name: 'Chambre', size: 12, pricePerDay: 20, hasDesk: true, photoUrl: 'room' }]
+    totalRooms: 2, mainPhotoUrl: 'photo1', galleryUrls: ['photo1', 'photo2', 'photo3'],
+    rooms: [{ name: 'Chambre', size: 12, pricePerDay: 20, hasDesk: true, photoUrl: 'room' }, { name: 'Chambre 2', size: 11, pricePerDay: 19, hasDesk: true, photoUrl: 'room-2' }]
   } as Listing;
   const owner = { ...incomplete, ...update } as unknown as User;
   assert.throws(() => prepareListingReview(listing, owner, 'APPROVED', true, '', actor.uid), /propriétaire/);
