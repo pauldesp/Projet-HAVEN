@@ -17,19 +17,19 @@ export const Button: React.FC<ButtonProps> = ({
   ...props
 }) => {
   // Press feedback (scale on :active) comes from styles/responsive.css, in 120 ms: never a 300 ms lag after the tap.
-  const baseStyles = "inline-flex min-h-11 min-w-0 items-center justify-center gap-2 font-bold rounded-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-haven-red disabled:opacity-50 disabled:cursor-not-allowed";
+  const baseStyles = "inline-flex min-h-11 min-w-0 items-center justify-center gap-2 font-semibold rounded-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-haven-red disabled:opacity-50 disabled:cursor-not-allowed";
   
   const variants = {
     primary: "bg-haven-navy text-white hover:bg-haven-navy-deep shadow-sm",
     secondary: "bg-haven-red text-white hover:bg-haven-red-deep shadow-sm",
-    outline: "border border-gray-200 text-haven-navy hover:bg-gray-50",
-    ghost: "text-haven-navy hover:bg-gray-50"
+    outline: "border border-gray-300 text-haven-ink hover:bg-gray-100",
+    ghost: "text-haven-ink hover:bg-gray-100"
   };
 
   const sizes = {
-    sm: "text-xs px-4 py-2",
-    md: "text-sm px-6 py-3",
-    lg: "text-base px-8 py-4"
+    sm: "text-sm px-4 py-2",
+    md: "text-sm px-5 py-2.5",
+    lg: "text-base px-7 py-3.5"
   };
 
   const width = fullWidth ? "w-full" : "";

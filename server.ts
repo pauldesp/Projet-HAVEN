@@ -1898,8 +1898,8 @@ async function startServer() {
   const siteOrigin = (req: Request) => (process.env.APP_ORIGIN?.replace(/\/$/, '') || `${req.protocol}://${req.get('host')}`);
   const sendPage = (res: Response, html: string, status = 200) => res.status(status).type('html').set('Cache-Control', 'public, max-age=300').send(html);
   const fontFiles: Record<string, string> = {
-    'inter.woff2': path.join(process.cwd(), 'node_modules/@fontsource-variable/inter/files/inter-latin-wght-normal.woff2'),
-    'dm-sans.woff2': path.join(process.cwd(), 'node_modules/@fontsource-variable/dm-sans/files/dm-sans-latin-opsz-normal.woff2'),
+    'manrope.woff2': path.join(process.cwd(), 'node_modules/@fontsource-variable/manrope/files/manrope-latin-wght-normal.woff2'),
+    'newsreader.woff2': path.join(process.cwd(), 'node_modules/@fontsource-variable/newsreader/files/newsreader-latin-opsz-normal.woff2'),
   };
   app.get('/fonts/:file', (req, res) => {
     const file = fontFiles[String(req.params.file)];

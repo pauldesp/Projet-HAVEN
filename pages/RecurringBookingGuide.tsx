@@ -13,24 +13,24 @@ export function RecurringBookingGuide() {
 
     <section className="mt-5 rounded-3xl bg-haven-navy px-6 py-9 text-white sm:p-12">
       <span className="inline-flex items-center gap-2 text-xs font-semibold tracking-wide text-white/75"><Repeat2 size={16} />LA RÉSERVATION RÉCURRENTE</span>
-      <h1 className="mt-4 max-w-2xl font-heading text-2xl font-bold leading-tight sm:text-5xl">Vous revenez souvent&nbsp;?<br />Préparez tous vos séjours.</h1>
+      <h1 className="mt-4 max-w-2xl font-heading text-2xl font-normal leading-tight sm:text-5xl">Vous revenez souvent&nbsp;?<br />Préparez tous vos séjours.</h1>
       <p className="mt-5 max-w-2xl text-base leading-relaxed text-white/85">Semaines de cours, alternance ou déplacements réguliers : retrouvez une chambre en colocation qui s’adapte à votre planning.</p>
       <p className="mt-5 text-sm leading-relaxed text-white/70">Pas besoin de revenir chaque semaine : choisissez seulement les périodes dont vous avez besoin.</p>
     </section>
 
     <section className="mt-10" aria-labelledby="recurring-steps">
-      <h2 id="recurring-steps" className="font-heading text-2xl font-bold">Comment ça marche ?</h2>
+      <h2 id="recurring-steps" className="font-heading text-2xl font-normal">Comment ça marche ?</h2>
       <ol className="mt-5 grid gap-4 md:grid-cols-3">
         {steps.map(({ Icon, title, text }, index) => <li key={title} className="rounded-2xl border border-gray-200 bg-white p-5 sm:p-6">
           <div className="flex items-center justify-between text-haven-red"><Icon size={23} aria-hidden="true" /><span className="text-xs font-semibold text-gray-400">0{index + 1}</span></div>
-          <h3 className="mt-5 font-heading text-lg font-bold">{title}</h3>
+          <h3 className="mt-5 font-heading text-lg font-normal">{title}</h3>
           <p className="mt-2 text-sm leading-relaxed text-gray-600">{text}</p>
         </li>)}
       </ol>
     </section>
 
     <section className="mt-8 rounded-3xl border border-gray-200 bg-white p-6 sm:p-8" aria-labelledby="recurring-payment">
-      <h2 id="recurring-payment" className="flex items-center gap-3 font-heading text-2xl font-bold"><CreditCard size={24} className="shrink-0 text-haven-red" />Un budget clair, séjour par séjour</h2>
+      <h2 id="recurring-payment" className="flex items-center gap-3 font-heading text-2xl font-normal"><CreditCard size={24} className="shrink-0 text-haven-red" />Un budget clair, séjour par séjour</h2>
       <p className="mt-4 text-sm leading-relaxed text-gray-600">Les annonces affichent d’abord le prix moyen par nuit, frais inclus, puis le montant du premier séjour, le total des séjours disponibles et le montant des suivants. Le détail à confirmer est présenté avant chaque paiement.</p>
       <div className="mt-5 rounded-2xl bg-haven-cream p-5 text-sm leading-relaxed">
         <h3 className="font-bold">Comment se passent les paiements</h3>
@@ -47,7 +47,7 @@ export function RecurringBookingGuide() {
     </section>
 
     <section className="mt-10" aria-labelledby="recurring-questions">
-      <h2 id="recurring-questions" className="font-heading text-2xl font-bold">Et si mon planning change ?</h2>
+      <h2 id="recurring-questions" className="font-heading text-2xl font-normal">Et si mon planning change ?</h2>
       <div className="mt-5 divide-y divide-gray-200 rounded-2xl border border-gray-200 bg-white px-5 sm:px-7">
         {[
           { question: 'Puis-je annuler un séjour ?', answer: <><p>Les conditions et le remboursement éventuel se vérifient pour chaque réservation. Pour un séjour confirmé, les règles actuellement appliquées par Haven sont :</p><ul className="mt-3 list-disc space-y-2 pl-5"><li>Au moins 30 jours avant l’arrivée : remboursement intégral.</li><li>Entre 14 et 29 jours avant : remboursement de 50 %.</li><li>Moins de 14 jours avant : aucun remboursement.</li></ul><p className="mt-3">Dans une série, chaque séjour s’annule séparément et suit ces règles selon sa propre date d’arrivée. Un séjour pas encore prélevé s’annule sans frais. Vérifiez le montant proposé avant de confirmer une annulation.</p></> },

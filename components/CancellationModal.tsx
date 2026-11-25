@@ -54,17 +54,17 @@ export const CancellationModal: React.FC<CancellationModalProps> = ({ booking, a
         <div {...sheet.dragProps} className="-mx-6 -mt-3 mb-3 px-6 pt-3 sm:hidden"><div className="mx-auto h-1.5 w-12 rounded-full bg-gray-200" aria-hidden="true" /></div>
         <div className="mb-5 flex items-start justify-between gap-4">
           <div>
-            <h2 id="cancel-booking-title" className="font-heading text-2xl font-bold text-haven-navy">Annuler le séjour</h2>
+            <h2 id="cancel-booking-title" className="font-heading text-2xl font-normal text-haven-ink">Annuler le séjour</h2>
             <p className="mt-1 text-sm text-gray-500">Cette action libère la chambre pour les dates concernées.</p>
           </div>
-          <button type="button" onClick={sheet.requestClose} aria-label="Fermer" className="rounded-full p-2 text-gray-400 hover:bg-gray-100 hover:text-haven-navy"><X size={20} /></button>
+          <button type="button" onClick={sheet.requestClose} aria-label="Fermer" className="rounded-full p-2 text-gray-400 hover:bg-gray-100 hover:text-haven-ink"><X size={20} /></button>
         </div>
 
         <div className={`mb-5 rounded-2xl border p-4 ${terms.refundAmount > 0 ? 'border-green-100 bg-green-50' : 'border-amber-100 bg-amber-50'}`}>
           <div className="flex gap-3">
             <AlertTriangle size={20} className={terms.refundAmount > 0 ? 'text-green-700' : 'text-amber-700'} />
             <div>
-              <p className="font-bold text-haven-navy">{terms.label}</p>
+              <p className="font-bold text-haven-ink">{terms.label}</p>
               <p className="mt-1 text-sm text-gray-600">{terms.detail}</p>
               {terms.refundAmount > 0 && <p className="mt-2 text-sm font-bold text-green-700">Montant remboursé : {terms.refundAmount} €</p>}
             </div>
@@ -75,12 +75,12 @@ export const CancellationModal: React.FC<CancellationModalProps> = ({ booking, a
           <Button fullWidth onClick={onClose} className="h-12 rounded-xl">Fermer</Button>
         ) : (
           <>
-            <label className="block text-sm font-bold text-haven-navy">Motif de l’annulation</label>
-            <select value={reason} onChange={(event) => setReason(event.target.value)} className="mt-2 block w-full rounded-xl border border-gray-200 bg-white px-3 py-3 text-sm text-haven-navy">
+            <label className="block text-sm font-bold text-haven-ink">Motif de l’annulation</label>
+            <select value={reason} onChange={(event) => setReason(event.target.value)} className="mt-2 block w-full rounded-xl border border-gray-200 bg-white px-3 py-3 text-sm text-haven-ink">
               {REASONS.map(item => <option key={item} value={item}>{item}</option>)}
             </select>
-            <label className="mt-4 block text-sm font-bold text-haven-navy" htmlFor="cancellation-details">Précision facultative</label>
-            <textarea id="cancellation-details" value={details} onChange={(event) => setDetails(event.target.value)} maxLength={400} rows={3} placeholder="Expliquez brièvement la situation…" className="mt-2 block w-full resize-none rounded-xl border border-gray-200 px-3 py-3 text-sm text-haven-navy" />
+            <label className="mt-4 block text-sm font-bold text-haven-ink" htmlFor="cancellation-details">Précision facultative</label>
+            <textarea id="cancellation-details" value={details} onChange={(event) => setDetails(event.target.value)} maxLength={400} rows={3} placeholder="Expliquez brièvement la situation…" className="mt-2 block w-full resize-none rounded-xl border border-gray-200 px-3 py-3 text-sm text-haven-ink" />
             {error && <p role="alert" className="mt-3 text-sm font-medium text-haven-red">{error}</p>}
             <div className="mt-6 grid grid-cols-2 gap-3">
               <Button variant="outline" onClick={onClose} disabled={isSubmitting} className="h-12 rounded-xl">Conserver</Button>

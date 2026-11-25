@@ -50,7 +50,7 @@ export const ContactPage: React.FC = () => {
           <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
             <CheckCircle2 className="w-10 h-10 text-green-600" />
           </div>
-          <h2 className="text-xl sm:text-2xl font-heading font-bold text-haven-navy mb-4">Message envoyé !</h2>
+          <h2 className="text-xl sm:text-2xl font-heading font-normal text-haven-ink mb-4">Message envoyé !</h2>
           <p className="text-gray-600 mb-8">
             Votre message a bien été transmis à l’équipe Haven. Nous utiliserons les coordonnées indiquées pour vous répondre si nécessaire.
           </p>
@@ -70,7 +70,7 @@ export const ContactPage: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-12">
         {/* Info Section */}
         <div>
-          <h1 className="text-[1.75rem] sm:text-4xl font-heading font-bold text-haven-navy mb-6">Contacter Haven</h1>
+          <h1 className="text-[1.75rem] sm:text-4xl font-heading font-normal text-haven-ink mb-6">Contacter Haven</h1>
           <p className="text-sm sm:text-lg text-gray-600 mb-6 sm:mb-12">
             Un avis sur le site, une suggestion, un dysfonctionnement ou une réclamation sur notre service ? Écrivez à l’équipe Haven.
           </p>
@@ -81,34 +81,34 @@ export const ContactPage: React.FC = () => {
                 <HelpCircle className="w-6 h-6 text-haven-red" />
               </div>
               <div>
-                <h3 className="font-bold text-haven-navy mb-1">Questions et conseils</h3>
+                <h3 className="font-bold text-haven-ink mb-1">Questions et conseils</h3>
                 <p className="text-gray-600 text-sm">Une question générale sur Haven ou une idée pour améliorer la plateforme ? Votre message est le bienvenu.</p>
               </div>
             </div>
 
             <div className="flex gap-6">
               <div className="w-12 h-12 bg-haven-navy/10 rounded-2xl flex items-center justify-center shrink-0">
-                <ShieldCheck className="w-6 h-6 text-haven-navy" />
+                <ShieldCheck className="w-6 h-6 text-haven-ink" />
               </div>
               <div>
-                <h3 className="font-bold text-haven-navy mb-1">Support technique</h3>
+                <h3 className="font-bold text-haven-ink mb-1">Support technique</h3>
                 <p className="text-gray-600 text-sm">Un bouton qui ne fonctionne pas, une erreur de connexion ou une page inaccessible ? Décrivez le dysfonctionnement du site.</p>
               </div>
             </div>
 
             <div className="flex gap-6">
               <div className="w-12 h-12 bg-haven-cream rounded-2xl flex items-center justify-center shrink-0">
-                <MessageSquare className="w-6 h-6 text-haven-navy" />
+                <MessageSquare className="w-6 h-6 text-haven-ink" />
               </div>
               <div>
-                <h3 className="font-bold text-haven-navy mb-1">Partenariats</h3>
+                <h3 className="font-bold text-haven-ink mb-1">Partenariats</h3>
                 <p className="text-gray-600 text-sm">Vous êtes une école ou une entreprise ? Discutons de la manière dont nous pouvons collaborer.</p>
               </div>
             </div>
           </div>
 
           <div className="mt-10 space-y-4 rounded-2xl border border-gray-100 bg-gray-50 p-6">
-            <h3 className="font-bold text-haven-navy">Un problème pendant votre séjour ?</h3>
+            <h3 className="font-bold text-haven-ink">Un problème pendant votre séjour ?</h3>
             <p className="text-sm text-gray-600"><strong>Incident dans le logement :</strong> panne, fuite ou équipement à réparer sont transmis au propriétaire depuis votre séjour.</p>
             <p className="text-sm text-gray-600"><strong>Intervention de Haven :</strong> conflit, logement insalubre, ménage non fait ou incident non résolu passent par un signalement.</p>
             <Link to="/dashboard" className="inline-block text-sm font-bold text-haven-red underline underline-offset-4">Accéder à mon espace et à mes séjours</Link>
@@ -120,7 +120,7 @@ export const ContactPage: React.FC = () => {
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <label className="block text-sm font-bold text-haven-navy mb-2">Nom complet</label>
+                <label className="block text-sm font-bold text-haven-ink mb-2">Nom complet</label>
                 <input 
                   type="text"
                   maxLength={99}
@@ -132,7 +132,7 @@ export const ContactPage: React.FC = () => {
                 />
               </div>
               <div>
-                <label className="block text-sm font-bold text-haven-navy mb-2">Email</label>
+                <label className="block text-sm font-bold text-haven-ink mb-2">Email</label>
                 <input 
                   type="email"
                   required
@@ -145,7 +145,7 @@ export const ContactPage: React.FC = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-bold text-haven-navy mb-2">Téléphone</label>
+              <label className="block text-sm font-bold text-haven-ink mb-2">Téléphone</label>
               <input 
                 type="tel"
                 maxLength={19}
@@ -158,7 +158,7 @@ export const ContactPage: React.FC = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-bold text-haven-navy mb-2">Motif du contact</label>
+              <label className="block text-sm font-bold text-haven-ink mb-2">Motif du contact</label>
               <select 
                 required
                 value={formData.subject}
@@ -171,7 +171,7 @@ export const ContactPage: React.FC = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-bold text-haven-navy mb-2">Message</label>
+              <label className="block text-sm font-bold text-haven-ink mb-2">Message</label>
               <textarea 
                 required
                 rows={6}
@@ -186,7 +186,7 @@ export const ContactPage: React.FC = () => {
             <button 
               type="submit"
               disabled={isSubmitting}
-              className="w-full py-4 bg-haven-red text-white rounded-2xl font-bold hover:bg-haven-red/90 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-haven-red/20"
+              className="w-full py-4 bg-haven-red text-white rounded-2xl font-bold hover:bg-haven-red/90 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
             >
               {isSubmitting ? (
                 <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin" />

@@ -123,7 +123,7 @@ const AppContent: React.FC = () => {
   }, []);
 
   return (
-    <div className="haven-content flex min-h-screen min-w-0 flex-col bg-haven-cream font-body text-haven-navy">
+    <div className="haven-content flex min-h-screen min-w-0 flex-col bg-haven-cream font-body text-haven-ink">
       <ResponsiveToaster />
       <HavenDialogHost />
       {!isAdminLogin && !isPaymentPage && <Header />}
@@ -207,7 +207,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
           <div className="mt-6 flex justify-center gap-3">
             <button 
               onClick={() => window.location.hash = '#/'}
-              className="px-6 py-2 border border-haven-navy text-haven-navy rounded-xl"
+              className="px-6 py-2 border border-haven-navy text-haven-ink rounded-xl"
             >
               Accueil
             </button>

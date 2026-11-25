@@ -106,8 +106,8 @@ export const HowItWorks: React.FC = () => {
     <div className="bg-haven-cream min-h-screen py-8 sm:py-16 px-4 sm:px-6 lg:px-8 mt-4 sm:mt-12 animate-fade-in">
       <div className="max-w-4xl mx-auto">
         <div className="text-center mb-8 sm:mb-12">
-          <span className="px-4 py-1.5 bg-haven-navy/5 text-haven-navy rounded-full text-xs font-bold uppercase tracking-widest">Comment ça marche</span>
-          <h1 className="text-[1.75rem] sm:text-5xl font-heading font-bold text-haven-navy mt-3 sm:mt-4 mb-3 sm:mb-6 leading-tight">
+          <span className="px-4 py-1.5 bg-haven-navy/5 text-haven-ink rounded-full text-xs font-bold">Comment ça marche</span>
+          <h1 className="text-[1.75rem] sm:text-5xl font-heading font-normal text-haven-ink mt-3 sm:mt-4 mb-3 sm:mb-6 leading-tight">
             Une colocation simple, <br className="hidden sm:inline" />flexible et vérifiée
           </h1>
           <p className="text-sm sm:text-lg text-gray-500 max-w-2xl mx-auto">
@@ -118,7 +118,7 @@ export const HowItWorks: React.FC = () => {
         <div className="flex p-1.5 bg-gray-100 rounded-2xl max-w-md mx-auto mb-8 sm:mb-12 shadow-inner" role="group" aria-label="Choisir votre situation">
           {([['TENANT', 'Je suis locataire', Sparkles], ['OWNER', 'Je suis propriétaire', Home]] as const).map(([id, label, Icon]) => (
             <button key={id} type="button" aria-pressed={activeTab === id} onClick={() => setActiveTab(id)}
-              className={`flex-1 py-3 px-4 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2 ${activeTab === id ? 'bg-white text-haven-navy shadow-sm' : 'text-gray-500 hover:text-haven-navy'}`}>
+              className={`flex-1 py-3 px-4 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2 ${activeTab === id ? 'bg-white text-haven-ink shadow-sm' : 'text-gray-500 hover:text-haven-ink'}`}>
               <Icon size={16} aria-hidden="true" />{label}
             </button>
           ))}
@@ -136,8 +136,8 @@ export const HowItWorks: React.FC = () => {
                   <Icon size={22} aria-hidden="true" />
                 </div>
                 <div className={`min-w-0 ${last ? '' : 'pb-7 sm:pb-8'}`}>
-                  <p className="text-xs font-bold uppercase tracking-widest text-gray-400">Étape {index + 1}</p>
-                  <h2 className="mt-0.5 text-lg sm:text-xl font-heading font-bold text-haven-navy">{step.title}</h2>
+                  <p className="text-xs font-bold text-gray-400">Étape {index + 1}</p>
+                  <h2 className="mt-0.5 text-lg sm:text-xl font-heading font-normal text-haven-ink">{step.title}</h2>
                   <p className="mt-1 text-sm sm:text-base font-medium text-gray-700">{step.text}</p>
                   <ul className="mt-2 space-y-1.5">
                     {step.details.map(detail => (
@@ -154,11 +154,11 @@ export const HowItWorks: React.FC = () => {
 
         {/* The rules people ask about most, in one glance. */}
         <section className="mb-6 sm:mb-10" aria-labelledby="facts-title">
-          <h2 id="facts-title" className="mb-4 text-center font-heading text-xl sm:text-2xl font-bold text-haven-navy">Bon à savoir</h2>
+          <h2 id="facts-title" className="mb-4 text-center font-heading text-xl sm:text-2xl font-normal text-haven-ink">Bon à savoir</h2>
           <div className="grid gap-3 sm:grid-cols-2">
             {facts.map(({ icon: Icon, title, text }, index) => (
               <div key={title} className={`rounded-2xl border border-gray-100 bg-white p-5 shadow-card ${facts.length % 2 && index === facts.length - 1 ? 'sm:col-span-2' : ''}`}>
-                <p className="flex items-center gap-2 font-bold text-haven-navy"><Icon size={18} className="text-haven-red" aria-hidden="true" />{title}</p>
+                <p className="flex items-center gap-2 font-bold text-haven-ink"><Icon size={18} className="text-haven-red" aria-hidden="true" />{title}</p>
                 <p className="mt-2 text-sm leading-relaxed text-gray-600">{text}</p>
               </div>
             ))}
@@ -171,7 +171,7 @@ export const HowItWorks: React.FC = () => {
 
         <div className="bg-gradient-to-tr from-haven-navy to-gray-900 rounded-[1.75rem] sm:rounded-[2rem] p-6 sm:p-12 text-white shadow-premium text-center">
           <div className="max-w-xl mx-auto space-y-5">
-            <h2 className="font-heading font-bold text-2xl sm:text-3xl leading-tight">
+            <h2 className="font-heading font-normal text-2xl sm:text-3xl leading-tight">
               {activeTab === 'TENANT' ? 'Prêt à trouver votre chambre ?' : 'Prêt à proposer vos chambres ?'}
             </h2>
             <p className="text-sm text-gray-300 leading-relaxed">
@@ -179,7 +179,7 @@ export const HowItWorks: React.FC = () => {
                 ? 'Des logements et des colocataires vérifiés, un prix tout compris et une réservation en quelques minutes.'
                 : 'Publication gratuite et aucune commission : Haven s’occupe des réservations, des paiements, des consignes d’accès et des états des lieux.'}
             </p>
-            <button type="button" onClick={handleStart} className="inline-flex items-center gap-2 bg-white text-haven-navy font-bold px-8 py-4 rounded-2xl hover:bg-haven-cream transition-all group shadow-md">
+            <button type="button" onClick={handleStart} className="inline-flex items-center gap-2 bg-white text-haven-ink font-bold px-8 py-4 rounded-2xl hover:bg-haven-cream transition-all group shadow-md">
               {activeTab === 'TENANT' ? 'Rechercher un logement' : 'Publier une annonce'}
               <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" aria-hidden="true" />
             </button>

@@ -245,7 +245,7 @@ const GoogleAddressAutocomplete: React.FC<CityAutocompleteProps> = ({
   return (
     <div className="relative w-full group/city h-full">
       <div className="flex items-center gap-3 text-gray-600 h-full">
-        <MapPin size={20} className="flex-shrink-0 text-haven-navy group-focus-within/city:text-haven-red transition-colors duration-300" />
+        <MapPin size={20} className="flex-shrink-0 text-haven-ink group-focus-within/city:text-haven-red transition-colors duration-300" />
         {!placesLib && (
           <input
             type="text"
@@ -253,7 +253,7 @@ const GoogleAddressAutocomplete: React.FC<CityAutocompleteProps> = ({
             value={value}
             onChange={(event) => onChange(event.target.value)}
             placeholder={placeholder || (isAddressMode ? 'Votre adresse' : 'Dans quelle ville ?')}
-            className="w-full bg-transparent outline-none font-bold text-haven-navy placeholder:text-gray-400"
+            className="w-full bg-transparent outline-none font-bold text-haven-ink placeholder:text-gray-400"
           />
         )}
         <div 

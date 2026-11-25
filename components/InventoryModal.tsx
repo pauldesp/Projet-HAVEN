@@ -258,10 +258,10 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
         <div {...sheet.dragProps} className="shrink-0 bg-white"><div className="mx-auto mt-2 h-1.5 w-12 rounded-full bg-gray-200 md:hidden" aria-hidden="true" />
         <div className="px-5 py-5 md:px-8 md:py-6 border-b border-gray-100 flex items-center justify-between bg-white">
           <div>
-            <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-haven-red mb-1">
+            <p className="text-[11px] font-bold text-haven-red mb-1">
               {type === 'IN' ? 'Arrivée autonome' : 'Départ autonome'}
             </p>
-            <h2 className="font-heading font-bold text-xl md:text-2xl text-haven-navy">
+            <h2 className="font-heading font-normal text-xl md:text-2xl text-haven-ink">
               {type === 'IN' ? "Contrôle d'entrée" : 'Restitution du logement'}
             </h2>
             <p className="text-xs md:text-sm text-gray-500 mt-1">
@@ -284,11 +284,11 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
         <div className="haven-dialog-scroll flex-1 overflow-y-auto p-5 md:p-8">
           {(inventoryTiming.isExpired || (type === 'OUT' && !inventoryTiming.isAvailable && !inventoryTiming.isEarlyDeparture)) ? <p className="p-8 text-center">Cet état des lieux ne peut pas être réalisé à cette date.</p> : type === 'IN' && !inventoryTiming.isAvailable ? (
             <div className="min-h-[420px] flex flex-col items-center justify-center text-center max-w-xl mx-auto space-y-6">
-              <div className="w-20 h-20 rounded-full bg-haven-navy/5 text-haven-navy flex items-center justify-center">
+              <div className="w-20 h-20 rounded-full bg-haven-navy/5 text-haven-ink flex items-center justify-center">
                 <KeyRound size={36} />
               </div>
               <div>
-                <h3 className="text-2xl font-heading font-bold text-haven-navy">Arrivée bientôt disponible</h3>
+                <h3 className="text-2xl font-heading font-normal text-haven-ink">Arrivée bientôt disponible</h3>
                 <p className="text-gray-600 mt-3 leading-relaxed">
                   Votre état des lieux d’entrée sera disponible à partir du {formatScheduledMoment(inventoryTiming.scheduledAt, inventoryTiming.timeZone)}.
                 </p>
@@ -300,14 +300,14 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
                 <AlertTriangle size={36} />
               </div>
               <div>
-                <h3 className="text-2xl font-heading font-bold text-haven-navy">Départ anticipé</h3>
+                <h3 className="text-2xl font-heading font-normal text-haven-ink">Départ anticipé</h3>
                 <p className="text-gray-600 mt-3 leading-relaxed">
                   Le départ est prévu le {formatScheduledMoment(inventoryTiming.scheduledAt, inventoryTiming.timeZone)}.
                   Si vous quittez définitivement le logement avant cette échéance, indiquez votre motif pour poursuivre.
                 </p>
               </div>
               <div className="w-full max-w-md space-y-3 text-left">
-                <label className="block text-sm font-bold text-haven-navy" htmlFor="early-departure-reason">Motif du départ anticipé</label>
+                <label className="block text-sm font-bold text-haven-ink" htmlFor="early-departure-reason">Motif du départ anticipé</label>
                 <textarea
                   id="early-departure-reason"
                   value={earlyDepartureReason}
@@ -333,7 +333,7 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
                     <div className="flex items-start gap-3">
                       <CheckCircle className="text-haven-red mt-0.5" size={22} />
                       <div>
-                        <h3 className="font-bold text-haven-navy">Vous êtes le contrôle qualité final</h3>
+                        <h3 className="font-bold text-haven-ink">Vous êtes le contrôle qualité final</h3>
                         <p className="text-sm text-gray-600 mt-1 leading-relaxed">
                           Vérifiez la chambre, les espaces communs, les équipements et le mobilier annoncés, puis confirmez que l’accès au logement et la récupération des clés se sont bien passés.
                         </p>
@@ -375,7 +375,7 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
                     <CheckCircle size={38} />
                   </div>
                   <div>
-                    <h3 className="text-2xl font-heading font-bold text-haven-navy">Confirmez votre arrivée</h3>
+                    <h3 className="text-2xl font-heading font-normal text-haven-ink">Confirmez votre arrivée</h3>
                     <p className="text-gray-600 mt-3 leading-relaxed">
                       {CHECKIN_AREAS.some(checkinHasIssue)
                         ? 'Vous avez signalé une non-conformité. Vos photos et commentaires seront conservés avec l’état des lieux horodaté.'
@@ -448,7 +448,7 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
                       className={`p-4 rounded-2xl border text-left transition-all ${!hasDamage && checkoutChecklist.no_new_damage ? 'border-green-300 bg-green-50' : 'border-gray-200 bg-white hover:border-gray-300'}`}
                     >
                       <CheckCircle className="text-green-600 mb-2" size={22} />
-                      <div className="font-bold text-haven-navy">Aucune nouvelle dégradation</div>
+                      <div className="font-bold text-haven-ink">Aucune nouvelle dégradation</div>
                       <div className="text-xs text-gray-500 mt-1">Le logement est dans l’état attendu.</div>
                     </button>
                     <button
@@ -460,7 +460,7 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
                       className={`p-4 rounded-2xl border text-left transition-all ${hasDamage ? 'border-amber-300 bg-amber-50' : 'border-gray-200 bg-white hover:border-gray-300'}`}
                     >
                       <AlertTriangle className="text-amber-600 mb-2" size={22} />
-                      <div className="font-bold text-haven-navy">Je signale une dégradation</div>
+                      <div className="font-bold text-haven-ink">Je signale une dégradation</div>
                       <div className="text-xs text-gray-500 mt-1">Ajoutez une description et une preuve photo.</div>
                     </button>
                   </div>
@@ -490,7 +490,7 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
                     <div className="w-20 h-20 mx-auto rounded-full bg-haven-red/10 text-haven-red flex items-center justify-center mb-5">
                       <Check size={38} />
                     </div>
-                    <h3 className="text-2xl font-heading font-bold text-haven-navy">Dernière étape</h3>
+                    <h3 className="text-2xl font-heading font-normal text-haven-ink">Dernière étape</h3>
                     <p className="text-gray-600 mt-3">
                       Vérifiez les tâches déclarées et vos photos. En validant, vous confirmez avoir effectué la remise en état de départ. Le contrôle sera horodaté et disponible dans vos documents.
                     </p>
@@ -504,7 +504,7 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
                     <div className="p-5 space-y-5">
                       <CheckoutTasks tasks={CHECKOUT_ROOM_TASKS} checklist={checkoutChecklist} onToggle={() => setStep(1)} title="Ma chambre" />
                       <CheckoutTasks tasks={CHECKOUT_COMMON_TASKS} checklist={checkoutChecklist} onToggle={() => setStep(2)} title="Espaces communs" />
-                      <div className="flex items-center gap-2 text-sm text-haven-navy"><CheckCircle size={18} className="text-green-600" /> Accès sécurisés et clés restituées</div>
+                      <div className="flex items-center gap-2 text-sm text-haven-ink"><CheckCircle size={18} className="text-green-600" /> Accès sécurisés et clés restituées</div>
                       <p className="text-sm text-gray-600">{hasDamage ? `Dégradation signalée : ${damageDescription}` : 'Aucune nouvelle dégradation signalée.'}</p>
                       <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
                         {Object.entries(checkoutPhotos).flatMap(([category, photos]) => photos.map((photo, index) => (
@@ -589,7 +589,7 @@ const IntroBlock: React.FC<{ icon: React.ReactNode; title: string; text: string 
   <div className="rounded-3xl bg-haven-cream border border-gray-100 p-5 md:p-6 flex items-start gap-4">
     <div className="w-11 h-11 rounded-2xl bg-white text-haven-red flex items-center justify-center shadow-sm shrink-0">{icon}</div>
     <div>
-      <h3 className="font-heading font-bold text-xl text-haven-navy">{title}</h3>
+      <h3 className="font-heading font-normal text-xl text-haven-ink">{title}</h3>
       <p className="text-sm text-gray-600 mt-1 leading-relaxed">{text}</p>
     </div>
   </div>
@@ -601,7 +601,7 @@ const CheckoutTasks: React.FC<{ tasks: Record<string, string>; checklist: Record
   return (
     <section className="space-y-3" aria-label={title}>
       <div className="flex items-center justify-between gap-3">
-        <h4 className="font-bold text-haven-navy">{title}</h4>
+        <h4 className="font-bold text-haven-ink">{title}</h4>
         <span role="status" className="text-xs font-semibold text-gray-500">{done}/{entries.length} tâches effectuées</span>
       </div>
       <div role="progressbar" aria-label={title} aria-valuemin={0} aria-valuemax={entries.length} aria-valuenow={done} className="h-1.5 rounded-full bg-gray-100 overflow-hidden">
@@ -623,7 +623,7 @@ const ChecklistItem: React.FC<{ checked: boolean; label: string; onClick: () => 
     <span className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 ${checked ? 'bg-green-600 border-green-600 text-white' : 'border-gray-300 text-transparent'}`}>
       <Check size={15} />
     </span>
-    <span className="font-medium text-sm text-haven-navy">{label}</span>
+    <span className="font-medium text-sm text-haven-ink">{label}</span>
   </button>
 );
 
@@ -641,10 +641,10 @@ const PhotoSection: React.FC<{
   <div className={`rounded-2xl border border-gray-100 bg-gray-50 ${compact ? 'p-4' : 'p-5'}`}>
     <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
       <div>
-        <div className="font-bold text-sm text-haven-navy">{label}</div>
+        <div className="font-bold text-sm text-haven-ink">{label}</div>
         <div className="text-[11px] text-gray-500">{helper} · {photos.length}/{maxPhotos} photos</div>
       </div>
-      <button type="button" disabled={photos.length >= maxPhotos} onClick={onAdd} className="disabled:opacity-40 disabled:cursor-not-allowed inline-flex items-center gap-2 rounded-xl bg-white border border-gray-200 px-3 py-2 text-xs font-bold text-haven-navy hover:border-haven-red transition-colors">
+      <button type="button" disabled={photos.length >= maxPhotos} onClick={onAdd} className="disabled:opacity-40 disabled:cursor-not-allowed inline-flex items-center gap-2 rounded-xl bg-white border border-gray-200 px-3 py-2 text-xs font-bold text-haven-ink hover:border-haven-red transition-colors">
         <Camera size={16} /> Ajouter
       </button>
     </div>
@@ -679,7 +679,7 @@ const CheckinCard: React.FC<{
   return (
     <div className="rounded-3xl border border-gray-100 bg-white shadow-sm overflow-hidden">
       <div className="p-5 md:p-6 border-b border-gray-100">
-        <h3 className="font-heading font-bold text-xl text-haven-navy">{title}</h3>
+        <h3 className="font-heading font-normal text-xl text-haven-ink">{title}</h3>
         <p className="text-sm text-gray-500 mt-1">{subtitle}</p>
       </div>
       <div className="p-5 md:p-6 space-y-4">
@@ -709,7 +709,7 @@ const CheckinCard: React.FC<{
 
 const BinaryQuestion: React.FC<{ label: string; value: boolean | null; onChange: (value: boolean) => void }> = ({ label, value, onChange }) => (
   <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 py-2">
-    <span className="font-medium text-sm text-haven-navy">{label}</span>
+    <span className="font-medium text-sm text-haven-ink">{label}</span>
     <div className="flex shrink-0 gap-2">
       <button type="button" aria-pressed={value === true} onClick={() => onChange(true)} className={`min-h-11 min-w-14 px-4 py-2 rounded-xl border text-xs font-bold transition-all ${value === true ? 'bg-green-50 border-green-200 text-green-700' : 'bg-white border-gray-200 text-gray-500'}`}>Oui</button>
       <button type="button" aria-pressed={value === false} onClick={() => onChange(false)} className={`min-h-11 min-w-14 px-4 py-2 rounded-xl border text-xs font-bold transition-all ${value === false ? 'bg-red-50 border-red-200 text-red-700' : 'bg-white border-gray-200 text-gray-500'}`}>Non</button>
@@ -719,7 +719,7 @@ const BinaryQuestion: React.FC<{ label: string; value: boolean | null; onChange:
 
 const SummaryStatus: React.FC<{ label: string; ok: boolean }> = ({ label, ok }) => (
   <div className={`rounded-2xl border p-4 ${ok ? 'bg-green-50 border-green-100' : 'bg-amber-50 border-amber-100'}`}>
-    <div className={`text-xs font-bold uppercase tracking-wider ${ok ? 'text-green-700' : 'text-amber-700'}`}>{ok ? 'Conforme' : 'Signalement'}</div>
-    <div className="font-bold text-haven-navy mt-1">{label}</div>
+    <div className={`text-xs font-bold ${ok ? 'text-green-700' : 'text-amber-700'}`}>{ok ? 'Conforme' : 'Signalement'}</div>
+    <div className="font-bold text-haven-ink mt-1">{label}</div>
   </div>
 );

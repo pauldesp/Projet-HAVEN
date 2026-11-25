@@ -7,7 +7,7 @@ body { margin: 0; }
 :where(button, a, input, select, textarea, summary) { touch-action: manipulation; }
 /* Feedback on the press itself, not on release (Apple: respond on pointer-down). The `scale` property composes
    with any transform already on the element, and the short transition keeps it immediate. */
-:where(button, a[href], [role="button"], summary) { transition-property: scale, background-color, border-color, color, opacity, box-shadow; transition-duration: 120ms; transition-timing-function: ease-out; }
+:where(button, a[href], [role="button"], summary) { transition-property: scale, background-color, border-color, color, opacity, box-shadow; transition-duration: 160ms; transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1); }
 :where(button, a[href], [role="button"], summary):active:not(:disabled):not([aria-disabled="true"]) { scale: .97; }
 @media (prefers-reduced-motion: reduce) {
   :where(button, a[href], [role="button"], summary):active:not(:disabled) { scale: none; opacity: .75; }

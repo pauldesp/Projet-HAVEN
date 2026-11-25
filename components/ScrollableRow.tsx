@@ -62,7 +62,7 @@ export function ScrollableRow({ children, className = '', outerClassName = '', f
       aria-label={side === 'left' ? `Voir les ${label} précédents` : `Voir les ${label} suivants`}
       className={`${hidden[side] ? 'pointer-events-auto' : ''} flex h-11 w-11 items-center justify-center`}>
       {/* 44px touch target around a small visible circle. */}
-      <span className="flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 bg-white text-haven-navy shadow-md">
+      <span className="flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 bg-white text-haven-ink shadow-md">
         {side === 'left' ? <ChevronLeft size={16} aria-hidden="true" /> : <ChevronRight size={16} aria-hidden="true" />}
       </span>
     </button>

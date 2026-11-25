@@ -36,7 +36,7 @@ export const LegalPage: React.FC = () => {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-haven-cream flex items-center justify-center">
-        <Loader2 className="animate-spin text-haven-navy" size={48} />
+        <Loader2 className="animate-spin text-haven-ink" size={48} />
       </div>
     );
   }
@@ -44,7 +44,7 @@ export const LegalPage: React.FC = () => {
   if (!document) {
     return (
       <div className="min-h-screen bg-haven-cream flex flex-col items-center justify-center p-6 text-center">
-        <h1 className="text-3xl font-heading font-bold text-haven-navy mb-4">Document non trouvé</h1>
+        <h1 className="text-3xl font-heading font-normal text-haven-ink mb-4">Document non trouvé</h1>
         <p className="text-haven-stone mb-8">Désolé, ce document n'existe pas encore ou a été déplacé.</p>
         <Button onClick={() => navigate('/')}>Retour à l'accueil</Button>
       </div>
@@ -56,14 +56,14 @@ export const LegalPage: React.FC = () => {
       <div className="max-w-4xl mx-auto">
         <button
           onClick={() => navigate(-1)}
-          className="flex items-center gap-2 text-haven-stone hover:text-haven-navy font-bold mb-4 sm:mb-8 transition-colors"
+          className="flex items-center gap-2 text-haven-stone hover:text-haven-ink font-bold mb-4 sm:mb-8 transition-colors"
         >
           <ArrowLeft size={20} /> Retour
         </button>
 
         <div className="bg-white rounded-[1.75rem] sm:rounded-[2rem] shadow-premium p-5 sm:p-8 md:p-16 border border-gray-100 animate-fade-in-up">
           <div className="mb-6 sm:mb-12 border-b border-gray-100 pb-5 sm:pb-8">
-            <h1 className="text-2xl sm:text-4xl md:text-5xl font-heading font-bold text-haven-navy mb-2 sm:mb-4">{document.title}</h1>
+            <h1 className="text-2xl sm:text-4xl md:text-5xl font-heading font-normal text-haven-ink mb-2 sm:mb-4">{document.title}</h1>
             <div className="flex items-center gap-2 text-haven-stone text-xs sm:text-sm font-medium">
               <Clock size={16} />
               Dernière mise à jour le {new Date(document.lastUpdated).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
@@ -71,13 +71,13 @@ export const LegalPage: React.FC = () => {
           </div>
 
           <div className="haven-booking-terms prose prose-sm sm:prose-base prose-slate max-w-none
-            prose-headings:font-heading prose-headings:text-haven-navy prose-headings:font-bold
+            prose-headings:font-heading prose-headings:text-haven-ink prose-headings:font-normal
             prose-p:text-haven-stone prose-p:leading-relaxed prose-p:mb-4 prose-p:mt-0
-            prose-li:text-haven-stone prose-li:marker:text-haven-navy prose-li:my-1
-            prose-strong:text-haven-navy prose-strong:font-bold
+            prose-li:text-haven-stone prose-li:marker:text-haven-ink prose-li:my-1
+            prose-strong:text-haven-ink prose-strong:font-normal
             prose-ul:list-disc prose-ul:pl-5 prose-ul:mb-6 prose-ul:mt-2
             prose-ol:list-decimal prose-ol:pl-5 prose-ol:mb-6 prose-ol:mt-2
-            prose-a:text-haven-red prose-a:font-bold prose-a:no-underline hover:prose-a:underline
+            prose-a:text-haven-red prose-a:font-normal prose-a:no-underline hover:prose-a:underline
             break-words overflow-hidden"
             dangerouslySetInnerHTML={{ __html: readableLegalHtml(document.content) }}
           />

@@ -11,11 +11,11 @@ const imageUrl = (origin: string, id?: string) => id ? `${origin}/articles/image
 const jsonLd = (data: unknown) => `<script type="application/ld+json">${JSON.stringify(data).replace(/</g, '\\u003c')}</script>`;
 
 const STYLE = `
-@font-face{font-family:'Inter Variable';font-style:normal;font-display:swap;font-weight:100 900;src:url(/fonts/inter.woff2) format('woff2')}
-@font-face{font-family:'DM Sans Variable';font-style:normal;font-display:swap;font-weight:100 1000;src:url(/fonts/dm-sans.woff2) format('woff2')}
-:root{--navy:#0B245B;--red:#9A073C;--cream:#F9FAF5;--muted:#64748B;--line:#E5E7EB}
+@font-face{font-family:'Manrope Variable';font-style:normal;font-display:swap;font-weight:200 800;src:url(/fonts/manrope.woff2) format('woff2')}
+@font-face{font-family:'Newsreader Variable';font-style:normal;font-display:swap;font-weight:200 800;src:url(/fonts/newsreader.woff2) format('woff2')}
+:root{--navy:#0B245B;--ink:#1B1E29;--red:#9A073C;--cream:#FBFAF6;--muted:#6B6962;--line:#E7E5DF}
 *{box-sizing:border-box}html{-webkit-text-size-adjust:100%}
-body{margin:0;background:var(--cream);color:var(--navy);font:16px/1.7 'Inter Variable',system-ui,sans-serif}
+body{margin:0;background:var(--cream);color:var(--ink);font:16px/1.7 'Manrope Variable',system-ui,sans-serif}
 a{color:var(--red)}img{max-width:100%;height:auto}
 .wrap{max-width:1100px;margin:0 auto;padding:0 20px}
 header.site{border-bottom:1px solid var(--line);background:#fff}
@@ -23,10 +23,10 @@ header.site .wrap{display:flex;align-items:center;justify-content:space-between;
 header.site img{height:34px;width:auto;display:block}
 header.site nav{display:flex;gap:18px;font-size:14px;font-weight:600}
 header.site nav a{color:var(--navy);text-decoration:none}
-header.site nav a.cta{background:var(--navy);color:#fff;padding:9px 16px;border-radius:12px}
-h1,h2,h3,h4{font-family:'DM Sans Variable',system-ui,sans-serif;line-height:1.2;color:var(--navy)}
+header.site nav a.cta{background:var(--navy);color:#fff;padding:9px 18px;border-radius:999px}
+h1,h2,h3,h4{font-family:'Newsreader Variable',Georgia,serif;font-weight:400;letter-spacing:-.01em;line-height:1.15;color:var(--ink)}
 .crumbs{font-size:13px;color:var(--muted);margin:28px 0 0}.crumbs a{color:var(--muted);text-decoration:none}
-.hero{padding:40px 0 24px}.hero h1{font-size:clamp(30px,5vw,46px);margin:8px 0 12px;font-weight:800}
+.hero{padding:40px 0 24px}.hero h1{font-size:clamp(34px,5.5vw,56px);margin:8px 0 12px;font-weight:400}
 .hero p{color:var(--muted);font-size:18px;max-width:680px;margin:0}
 .chips{display:flex;flex-wrap:wrap;gap:8px;margin:24px 0}
 .chips a{border:1px solid var(--line);background:#fff;border-radius:999px;padding:7px 14px;font-size:14px;font-weight:600;color:var(--navy);text-decoration:none}
@@ -75,10 +75,10 @@ function layout(options: { title: string; description: string; canonical: string
 <meta property="og:url" content="${e(options.canonical)}">
 <meta property="og:image" content="${e(options.image)}">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="theme-color" content="#0B245B">
+<meta name="theme-color" content="#FBFAF6">
 <link rel="icon" type="image/png" href="/logo.png">
 <link rel="alternate" type="application/rss+xml" title="Articles Haven" href="/articles/feed.xml">
-<link rel="preload" href="/fonts/inter.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/fonts/manrope.woff2" as="font" type="font/woff2" crossorigin>
 ${options.head || ''}
 <style>${STYLE}</style>
 </head>

@@ -5,7 +5,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 export function RoomGuideFields({ name, value, onChange, onError, onPhotoBusy }: { name: string; value: RoomGuide; onChange: (value: RoomGuide) => void; onError: (message: string) => void; onPhotoBusy: (busy: boolean) => void }) {
   const { tr } = useLanguage();
   return <section className="rounded-2xl border border-gray-200 p-4 space-y-4">
-    <h5 className="font-bold text-haven-navy">{name}</h5>
+    <h5 className="font-bold text-haven-ink">{name}</h5>
     <label className="block text-sm font-bold">{tr('Emplacement précis de la chambre')}<textarea rows={2} maxLength={1000} value={value.location} onChange={e => onChange({ ...value, location: e.target.value })} placeholder={tr('Ex. Au premier étage, deuxième porte à gauche, plaque Émeraude / n° 2.')} className="mt-2 w-full rounded-xl border border-gray-200 p-3 font-normal" /></label>
     <label className="block text-sm font-bold">{tr('Repère de la clé (facultatif)')}<input maxLength={300} value={value.keyLabel} onChange={e => onChange({ ...value, keyLabel: e.target.value })} placeholder={tr('Ex. Porte-clés Émeraude / n° 2.')} className="mt-2 w-full rounded-xl border border-gray-200 p-3 font-normal" /></label>
     <div className="grid gap-4 sm:grid-cols-2">{(['doorPhoto', 'interiorPhoto'] as const).map(field => <div key={field} className="min-w-0 space-y-2">

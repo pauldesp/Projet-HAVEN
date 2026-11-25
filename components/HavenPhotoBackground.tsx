@@ -9,10 +9,10 @@ export function HavenPhotoBackground({ imageClassName = '' }: { imageClassName?:
       src="/haven-colocation-contemporaine.jpg"
       alt="Salon d’une colocation : jeux vidéo et travail entre colocataires"
       fetchPriority="high"
-      className={`absolute inset-0 w-full h-full object-cover brightness-[0.42] contrast-[1.05] ${imageClassName}`}
+      className={`absolute inset-0 w-full h-full object-cover brightness-[0.58] contrast-[1.02] saturate-[0.85] ${imageClassName}`}
     />
     </picture>
-    <div className="absolute inset-0 bg-gradient-to-t from-haven-navy/80 via-transparent to-haven-navy/60" />
-    <div className="absolute inset-0 bg-black/15 md:bg-black/30" />
+    <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-black/10 to-black/35" />
+    <div className="absolute inset-0 bg-black/5 md:bg-black/10" />
   </div>;
 }

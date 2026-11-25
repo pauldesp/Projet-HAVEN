@@ -39,7 +39,7 @@ export function AdminModeration({ listings, users }: { listings: Listing[]; user
 
   return <section className="space-y-5">
     <div>
-      <h2 className="text-xl font-bold text-haven-navy">Avis publiés</h2>
+      <h2 className="text-xl font-bold text-haven-ink">Avis publiés</h2>
       <p className="mt-1 text-sm text-gray-500">Masquer un avis abusif (insulte, hors sujet, données personnelles) ou le rendre de nouveau visible. Chaque action est inscrite au journal.</p>
     </div>
     <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -53,7 +53,7 @@ export function AdminModeration({ listings, users }: { listings: Listing[]; user
     {(!reviews ? <p className="flex items-center gap-2 text-sm text-gray-500"><Loader2 size={16} className="animate-spin" /> Chargement des avis…</p> : <ul className="divide-y divide-gray-100 rounded-2xl border border-gray-100">
       {shownReviews.map(review => <li key={review.id} className="flex flex-col gap-3 p-4 text-sm sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
-          <p className="flex items-center gap-1 font-semibold text-haven-navy"><Star size={14} className="fill-haven-red text-haven-red" aria-hidden="true" />{review.rating}/5 · {review.targetType === 'LISTING' ? listings.find(item => item.id === review.targetId)?.title || 'Logement' : name(review.targetId)}{review.hiddenByHaven && <span className="ml-1 text-haven-red">· masqué</span>}</p>
+          <p className="flex items-center gap-1 font-semibold text-haven-ink"><Star size={14} className="fill-haven-red text-haven-red" aria-hidden="true" />{review.rating}/5 · {review.targetType === 'LISTING' ? listings.find(item => item.id === review.targetId)?.title || 'Logement' : name(review.targetId)}{review.hiddenByHaven && <span className="ml-1 text-haven-red">· masqué</span>}</p>
           <p className="mt-1 whitespace-pre-wrap text-gray-600">{review.comment || 'Sans commentaire.'}</p>
           <p className="mt-1 text-xs text-gray-400">Par {review.authorName || name(review.authorId)} · {new Date(review.createdAt).toLocaleDateString('fr-FR')}{review.hiddenReason ? ` · motif : ${review.hiddenReason}` : ''}</p>
         </div>
@@ -78,8 +78,8 @@ export function ListingModerationActions({ listing }: { listing: Listing }) {
   };
   const buttonClass = 'flex min-h-9 items-center whitespace-nowrap rounded-lg border px-2.5 text-xs font-semibold';
   return <>
-    <Link to={`/listing/${listing.id}`} className={`${buttonClass} border-gray-200 text-haven-navy`}>Voir</Link>
-    <Link to={`/owner/edit/${listing.id}`} className={`${buttonClass} border-gray-200 text-haven-navy`}>Corriger</Link>
+    <Link to={`/listing/${listing.id}`} className={`${buttonClass} border-gray-200 text-haven-ink`}>Voir</Link>
+    <Link to={`/owner/edit/${listing.id}`} className={`${buttonClass} border-gray-200 text-haven-ink`}>Corriger</Link>
     {listing.suspendedByHaven
       ? <button type="button" disabled={busy} onClick={() => void act({ suspend: false }, 'Annonce remise en ligne.')} className={`${buttonClass} border-green-200 text-green-700`}>Remettre en ligne</button>
       : <button type="button" disabled={busy} onClick={async () => { const reason = await askText({ title: 'Suspendre cette annonce', message: 'Elle disparaît des recherches jusqu’à sa remise en ligne.', label: 'Motif (visible par le propriétaire)', minLength: 3, multiline: true, confirmLabel: 'Suspendre', danger: true }); if (reason) void act({ suspend: true, reason }, 'Annonce suspendue.'); }} className={`${buttonClass} border-red-100 text-haven-red`}>Suspendre</button>}

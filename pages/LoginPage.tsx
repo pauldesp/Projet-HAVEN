@@ -296,7 +296,7 @@ export const LoginPage: React.FC = () => {
         return (
           <form onSubmit={handleLoginSubmit} className="space-y-6">
             <div className="space-y-2">
-              <label className="block text-[11px] font-bold text-haven-stone uppercase tracking-widest ml-1">Mot de passe</label>
+              <label className="block text-[11px] font-bold text-haven-stone ml-1">Mot de passe</label>
               <div className="relative">
                 <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300" size={18} />
                 <input 
@@ -307,7 +307,7 @@ export const LoginPage: React.FC = () => {
                 <button 
                   type="button" 
                   onClick={() => setStep('FORGOT_PASSWORD')}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-haven-stone hover:text-haven-navy"
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-haven-stone hover:text-haven-ink"
                 >
                   Oublié ?
                 </button>
@@ -319,7 +319,7 @@ export const LoginPage: React.FC = () => {
             <button type="button" onClick={() => { setError(''); setStep('PROFILE'); }} disabled={isLoading} className="w-full text-center text-sm font-bold text-haven-red hover:text-haven-red/80 disabled:opacity-50">
               Créer un compte Haven
             </button>
-            <button type="button" onClick={() => setStep('IDENTIFIER')} className="w-full text-center text-sm font-bold text-haven-stone hover:text-haven-navy">
+            <button type="button" onClick={() => setStep('IDENTIFIER')} className="w-full text-center text-sm font-bold text-haven-stone hover:text-haven-ink">
               Utiliser un autre compte
             </button>
           </form>
@@ -329,19 +329,19 @@ export const LoginPage: React.FC = () => {
         return (
           <form onSubmit={handleProfileSubmit} className="space-y-6">
             <div className="space-y-1">
-              <h3 className="text-xl font-heading font-bold text-haven-navy">Créez votre compte Haven</h3>
+              <h3 className="text-xl font-heading font-normal text-haven-ink">Créez votre compte Haven</h3>
               <p className="text-sm text-haven-stone">Complétez vos informations pour vous inscrire avec {identifier}.</p>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <label className="block text-[11px] font-bold text-haven-stone uppercase tracking-widest ml-1">Prénom</label>
+                <label className="block text-[11px] font-bold text-haven-stone ml-1">Prénom</label>
                 <input 
                   type="text" required value={firstName} onChange={(e) => setFirstName(e.target.value)}
                   className="w-full px-4 py-3 bg-gray-50 rounded-xl border border-gray-100 outline-none focus:border-haven-navy text-sm"
                 />
               </div>
               <div className="space-y-2">
-                <label className="block text-[11px] font-bold text-haven-stone uppercase tracking-widest ml-1">Nom</label>
+                <label className="block text-[11px] font-bold text-haven-stone ml-1">Nom</label>
                 <input 
                   type="text" required value={lastName} onChange={(e) => setLastName(e.target.value)}
                   className="w-full px-4 py-3 bg-gray-50 rounded-xl border border-gray-100 outline-none focus:border-haven-navy text-sm"
@@ -349,11 +349,11 @@ export const LoginPage: React.FC = () => {
               </div>
             </div>
             <div className="space-y-2">
-              <label className="block text-[11px] font-bold text-haven-stone uppercase tracking-widest ml-1">Date de naissance</label>
+              <label className="block text-[11px] font-bold text-haven-stone ml-1">Date de naissance</label>
               <BirthDateInput value={birthDate} onChange={setBirthDate} />
             </div>
             <div className="space-y-2">
-              <label className="block text-[11px] font-bold text-haven-stone uppercase tracking-widest ml-1">
+              <label className="block text-[11px] font-bold text-haven-stone ml-1">
                 {identifier.includes('@') ? 'Numéro de téléphone' : 'Adresse Email'}
               </label>
               <div className="relative">
@@ -370,7 +370,7 @@ export const LoginPage: React.FC = () => {
               </div>
             </div>
             <div className="space-y-2">
-              <label htmlFor="registration-password" className="block text-[11px] font-bold text-haven-stone uppercase tracking-widest ml-1">Définir un mot de passe</label>
+              <label htmlFor="registration-password" className="block text-[11px] font-bold text-haven-stone ml-1">Définir un mot de passe</label>
               <div className="relative">
                 <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300" size={18} />
                 <input 
@@ -383,7 +383,7 @@ export const LoginPage: React.FC = () => {
               <p id="registration-password-rules" className="text-xs text-haven-stone">Au moins 8 caractères, une majuscule et un chiffre.</p>
             </div>
             <div className="space-y-2">
-              <label htmlFor="registration-password-confirmation" className="block text-[11px] font-bold text-haven-stone uppercase tracking-widest ml-1">Confirmer le mot de passe</label>
+              <label htmlFor="registration-password-confirmation" className="block text-[11px] font-bold text-haven-stone ml-1">Confirmer le mot de passe</label>
               <input id="registration-password-confirmation" type="password" autoComplete="new-password" required minLength={8}
                 value={passwordConfirmation} onChange={e => setPasswordConfirmation(e.target.value)}
                 className="w-full px-4 py-3 bg-gray-50 rounded-xl border border-gray-100 outline-none focus:border-haven-navy text-sm" />
@@ -410,7 +410,7 @@ export const LoginPage: React.FC = () => {
           <form onSubmit={handlePhoneVerification} className="space-y-6">
             <div className="text-center space-y-2">
               <div className="w-16 h-16 bg-green-50 rounded-2xl flex items-center justify-center text-green-600 mx-auto"><Phone size={30} /></div>
-              <h3 className="text-xl font-heading font-bold text-haven-navy">Connexion par SMS</h3>
+              <h3 className="text-xl font-heading font-normal text-haven-ink">Connexion par SMS</h3>
               <p className="text-sm text-haven-stone">Saisissez le code envoyé par SMS au <strong>{identifier.includes('@') ? normalizePhone(otherContact) : identifier}</strong>.</p>
             </div>
             <input
@@ -432,16 +432,16 @@ export const LoginPage: React.FC = () => {
         return (
           <div className="space-y-6">
             <div className="text-center space-y-4">
-              <div className="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center text-haven-navy mx-auto">
+              <div className="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center text-haven-ink mx-auto">
                 <Lock size={32} />
               </div>
-              <h3 className="text-xl font-heading font-bold text-haven-navy">Mot de passe oublié ?</h3>
+              <h3 className="text-xl font-heading font-normal text-haven-ink">Mot de passe oublié ?</h3>
               <p className="text-haven-stone text-sm">Saisissez votre e-mail ci-dessous pour recevoir un lien de réinitialisation.</p>
             </div>
 
             <form onSubmit={handleForgotPassword} className="space-y-4">
               <div className="space-y-2">
-                <label className="block text-[11px] font-bold text-haven-stone uppercase tracking-widest ml-1">E-mail</label>
+                <label className="block text-[11px] font-bold text-haven-stone ml-1">E-mail</label>
                 <div className="relative">
                   <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300" size={18} />
                   <input 
@@ -461,7 +461,7 @@ export const LoginPage: React.FC = () => {
               <button 
                 type="button" 
                 onClick={() => setStep('LOGIN')} 
-                className="w-full text-center text-sm font-bold text-haven-stone hover:text-haven-navy"
+                className="w-full text-center text-sm font-bold text-haven-stone hover:text-haven-ink"
               >
                 Retour à la connexion
               </button>
@@ -476,7 +476,7 @@ export const LoginPage: React.FC = () => {
               <div className="w-20 h-20 bg-green-50 rounded-[2rem] flex items-center justify-center text-green-600 mx-auto">
                 <CheckCircle size={40} />
               </div>
-              <h3 className="text-2xl font-heading font-bold text-haven-navy">Email envoyé !</h3>
+              <h3 className="text-2xl font-heading font-normal text-haven-ink">Email envoyé !</h3>
               <p className="text-haven-stone">Si un compte correspond à <strong>{identifier}</strong>, vous recevrez un lien de réinitialisation. Veuillez vérifier votre boîte de réception et vos courriers indésirables.</p>
             </div>
             <Button 
@@ -498,7 +498,7 @@ export const LoginPage: React.FC = () => {
       <aside className="order-2 lg:order-1 flex w-full lg:w-1/2 relative overflow-hidden flex-col justify-end p-6 sm:p-10 xl:p-16 text-white bg-haven-navy min-h-[320px] sm:min-h-[380px] lg:min-h-screen">
         <HavenPhotoBackground imageClassName="object-[35%_center]" />
         <div className="relative z-10 max-w-md lg:pb-8">
-          <h1 className="font-heading font-medium text-2xl sm:text-3xl lg:text-4xl xl:text-5xl leading-tight tracking-tight">Bienvenue chez Haven.</h1>
+          <h1 className="font-heading font-normal text-2xl sm:text-3xl lg:text-4xl xl:text-5xl leading-tight tracking-tight">Bienvenue chez Haven.</h1>
           <p className="mt-4 text-base xl:text-lg leading-relaxed text-white/85">Réservez votre chambre en toute simplicité.</p>
         </div>
       </aside>
@@ -516,7 +516,7 @@ export const LoginPage: React.FC = () => {
               >
                 <ArrowLeft size={20} />
               </button>
-              <h2 className="text-base font-bold text-haven-navy">
+              <h2 className="text-base font-bold text-haven-ink">
                 Connexion ou inscription
               </h2>
             </div>
@@ -542,7 +542,7 @@ export const LoginPage: React.FC = () => {
                     </p>
                     <button 
                       onClick={() => logout()}
-                      className="text-xs font-bold text-amber-900 uppercase tracking-widest hover:opacity-70 transition-opacity"
+                      className="text-xs font-bold text-amber-900 hover:opacity-70 transition-opacity"
                     >
                       Se déconnecter
                     </button>
@@ -569,7 +569,7 @@ export const LoginPage: React.FC = () => {
                       onClick={handleGoogleLogin}
                       disabled={isLoading}
                       aria-busy={isGoogleSigningIn}
-                      className="w-full flex items-center justify-between px-4 py-3 bg-white border border-gray-900 rounded-xl font-bold text-haven-navy hover:bg-gray-50 transition-all"
+                      className="w-full flex items-center justify-between px-4 py-3 bg-white border border-gray-900 rounded-xl font-bold text-haven-ink hover:bg-gray-50 transition-all"
                     >
                       <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-5 h-5" />
                       <span className="flex flex-grow items-center justify-center gap-2 text-center text-sm">{isGoogleSigningIn && <Loader2 size={18} className="animate-spin" />}{isGoogleSigningIn ? 'Connexion Google en cours…' : 'Continuer avec Google'}</span>

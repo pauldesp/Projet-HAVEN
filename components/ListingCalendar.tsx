@@ -215,7 +215,7 @@ export const ListingCalendar: React.FC<ListingCalendarProps> = ({
 
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-6 relative z-10">
           <div className="flex flex-col">
-            <h3 className="font-heading font-bold text-lg text-haven-navy capitalize">
+            <h3 className="font-heading font-normal text-lg text-haven-ink capitalize">
               {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
             </h3>
             {isBlockingMode && (
@@ -294,7 +294,7 @@ export const ListingCalendar: React.FC<ListingCalendarProps> = ({
               <div className="w-16 h-16 bg-haven-red/10 text-haven-red rounded-2xl flex items-center justify-center mx-auto mb-4">
                 <Lock size={32} />
               </div>
-              <h4 className="text-xl font-bold text-haven-navy mb-2">Confirmer le blocage ?</h4>
+              <h4 className="text-xl font-bold text-haven-ink mb-2">Confirmer le blocage ?</h4>
               <p className="text-gray-500 text-sm mb-6">
                 Voulez-vous vraiment modifier les dates indisponibles pour {blockTargetLabel} ?
               </p>
@@ -359,9 +359,9 @@ export const ListingCalendar: React.FC<ListingCalendarProps> = ({
                       : isBlockingMode && tempBlockedDates.includes(dateStr)
                       ? 'bg-haven-red/20 text-haven-red border-haven-red shadow-sm scale-105 z-10'
                       : isSelectedNight
-                        ? recurringStays.length ? 'bg-haven-navy text-white border-haven-navy shadow-sm z-10' : 'bg-gray-200 text-haven-navy border-gray-300 shadow-sm z-10'
+                        ? recurringStays.length ? 'bg-haven-navy text-white border-haven-navy shadow-sm z-10' : 'bg-gray-200 text-haven-ink border-gray-300 shadow-sm z-10'
                         : isCheckoutDay
-                          ? 'bg-gray-100 text-haven-navy border-gray-400 border-dashed shadow-sm z-10'
+                          ? 'bg-gray-100 text-haven-ink border-gray-400 border-dashed shadow-sm z-10'
                         : isBooked 
                           ? isReserved
                             ? 'bg-gray-200 text-gray-600 border-gray-300 cursor-not-allowed opacity-80'
@@ -394,7 +394,7 @@ export const ListingCalendar: React.FC<ListingCalendarProps> = ({
                         </div>
                       ))}
                       {tenants.length > 3 && (
-                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center text-[8px] font-bold flex-shrink-0 ${isSelected ? 'bg-white text-haven-navy border-haven-navy' : 'bg-gray-100 text-gray-600 border-white'}`}>
+                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center text-[8px] font-bold flex-shrink-0 ${isSelected ? 'bg-white text-haven-ink border-haven-navy' : 'bg-gray-100 text-gray-600 border-white'}`}>
                           +{tenants.length - 3}
                         </div>
                       )}
@@ -418,7 +418,7 @@ export const ListingCalendar: React.FC<ListingCalendarProps> = ({
                             <div className="w-10 h-10 rounded-full bg-gray-200 border border-gray-200 flex items-center justify-center"><Lock size={14} /></div>
                           </div>
                           <div className="text-left flex-1">
-                            <p className="text-sm font-bold text-haven-navy">Occupation confirmée</p>
+                            <p className="text-sm font-bold text-haven-ink">Occupation confirmée</p>
                             <p className="text-[11px] text-gray-500 line-clamp-1">
                               Chambre indisponible à cette date
                             </p>

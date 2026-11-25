@@ -23,7 +23,7 @@ interface ReportModalProps {
 
 function StepSummary({ label, value, onChange }: { label: string; value: string; onChange: () => void }) {
   return <div className="flex items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50/40 px-4 py-3">
-    <p className="min-w-0 text-sm"><span className="text-gray-500">{label} : </span><span className="font-bold text-haven-navy">{value}</span></p>
+    <p className="min-w-0 text-sm"><span className="text-gray-500">{label} : </span><span className="font-bold text-haven-ink">{value}</span></p>
     <button type="button" onClick={onChange} className="shrink-0 rounded-lg px-2 py-1 text-xs font-bold text-amber-700 underline underline-offset-2">Modifier</button>
   </div>;
 }
@@ -149,7 +149,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
           <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
             <CheckCircle2 className="w-10 h-10 text-green-600" />
           </div>
-          <h2 className="text-2xl font-bold text-haven-navy mb-4">Transmission réussie</h2>
+          <h2 className="text-2xl font-bold text-haven-ink mb-4">Transmission réussie</h2>
           <p className="text-gray-600 mb-8">
             {destination === 'OWNER'
               ? "Votre incident a été transmis au propriétaire du logement pour prise en charge. Haven peut en consulter le suivi."
@@ -172,7 +172,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
               <AlertTriangle size={24} />
             </div>
             <div>
-              <h2 className="text-xl sm:text-2xl font-bold text-haven-navy leading-tight">
+              <h2 className="text-xl sm:text-2xl font-bold text-haven-ink leading-tight">
                 {isIncident ? "Signaler un incident" : isListingReport ? "Signaler cette annonce" : "Demander l’intervention de Haven"}
               </h2>
               <p className="text-xs text-gray-500 font-medium">{destination === 'OWNER' ? 'Le propriétaire prend en charge les problèmes du logement.' : isListingReport ? 'Haven vérifiera ce que vous avez constaté sur l’annonce ou le logement.' : 'Haven examine les situations nécessitant son intervention.'}</p>
@@ -182,7 +182,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
             type="button"
             aria-label="Fermer"
             onClick={sheet.requestClose}
-            className="shrink-0 p-3 text-gray-400 hover:text-haven-navy hover:bg-gray-100 rounded-full transition-all"
+            className="shrink-0 p-3 text-gray-400 hover:text-haven-ink hover:bg-gray-100 rounded-full transition-all"
           >
             <X size={24} />
           </button>
@@ -197,13 +197,13 @@ export const ReportModal: React.FC<ReportModalProps> = ({
             <div className="space-y-4 animate-fade-in">
               {/* Step 1: theme. Once chosen, the list folds into one line that can be reopened. */}
               {!incidentReport.category ? <>
-                <p className="text-sm font-bold text-haven-navy">1. Quel est le thème du problème ?</p>
+                <p className="text-sm font-bold text-haven-ink">1. Quel est le thème du problème ?</p>
                 <div className="grid grid-cols-1 gap-2 md:grid-cols-2 lg:grid-cols-3">
                   {INCIDENT_CATEGORIES.map(cat => (
                     <button key={cat.id} type="button" onClick={() => { setIncidentReport(prev => ({ ...prev, category: cat.title, subCategory: '' })); revealNextStep(); }}
                       className="flex min-h-14 items-center gap-3 rounded-2xl border-2 border-gray-50 bg-gray-50 p-4 text-left transition-all hover:border-amber-200">
                       <span className="text-[11px] font-bold text-amber-600">{cat.id}</span>
-                      <span className="text-sm font-bold text-haven-navy">{cat.title}</span>
+                      <span className="text-sm font-bold text-haven-ink">{cat.title}</span>
                     </button>
                   ))}
                 </div>
@@ -211,7 +211,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
 
               {/* Step 2: precise problem within the theme. */}
               {incidentReport.category && (!incidentReport.subCategory ? <div ref={nextStepRef} className="space-y-3 animate-fade-in-up">
-                <p className="text-sm font-bold text-haven-navy">2. Quel est le problème exactement ?</p>
+                <p className="text-sm font-bold text-haven-ink">2. Quel est le problème exactement ?</p>
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                   {(INCIDENT_CATEGORIES.find(c => c.title === incidentReport.category)?.items || []).map(item => (
                     <button key={item} type="button" onClick={() => { setIncidentReport(prev => ({ ...prev, subCategory: item })); revealNextStep(); }}
@@ -224,9 +224,9 @@ export const ReportModal: React.FC<ReportModalProps> = ({
 
               {/* Step 3: details, adapted to who will handle it. */}
               {incidentReport.subCategory && <div ref={nextStepRef} className="space-y-5 animate-fade-in-up">
-                <p className="rounded-xl bg-blue-50 p-4 text-sm text-haven-navy">{destination === 'OWNER' ? 'Ce problème est transmis au propriétaire, qui le prend en charge. Haven peut intervenir s’il n’est pas résolu.' : 'Cette situation nécessite l’intervention de Haven : elle est transmise directement à l’équipe.'}</p>
+                <p className="rounded-xl bg-blue-50 p-4 text-sm text-haven-ink">{destination === 'OWNER' ? 'Ce problème est transmis au propriétaire, qui le prend en charge. Haven peut intervenir s’il n’est pas résolu.' : 'Cette situation nécessite l’intervention de Haven : elle est transmise directement à l’équipe.'}</p>
                 <div className="space-y-2">
-                  <label htmlFor="incident-description" className="block text-sm font-bold text-haven-navy">3. Décrivez ce que vous constatez</label>
+                  <label htmlFor="incident-description" className="block text-sm font-bold text-haven-ink">3. Décrivez ce que vous constatez</label>
                   <textarea id="incident-description" rows={4} maxLength={4999}
                     className="w-full rounded-2xl border border-gray-200 bg-gray-50 p-4 text-sm outline-none transition-colors focus:border-amber-500"
                     placeholder="Où, depuis quand, ce qui ne fonctionne pas ou n’est pas conforme…"
@@ -235,7 +235,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
                 </div>
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                   <div className="space-y-2">
-                    <p className="text-sm font-bold text-haven-navy">Urgence</p>
+                    <p className="text-sm font-bold text-haven-ink">Urgence</p>
                     <div className="flex gap-2">
                       {(['LOW', 'MEDIUM', 'HIGH'] as const).map(p => (
                         <button key={p} type="button" aria-pressed={priority === p} onClick={() => setPriority(p)}
@@ -246,7 +246,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <p className="text-sm font-bold text-haven-navy">Photo (conseillé)</p>
+                    <p className="text-sm font-bold text-haven-ink">Photo (conseillé)</p>
                     {incidentReport.photo ? (
                       <div className="relative aspect-video overflow-hidden rounded-2xl border border-gray-200">
                         <img src={incidentReport.photo} className="h-full w-full object-cover" alt="Photo jointe" />
@@ -266,14 +266,14 @@ export const ReportModal: React.FC<ReportModalProps> = ({
           ) : (
             <form onSubmit={handleSubmitReport} className="space-y-8 animate-fade-in">
               <div>
-                <label className="block text-sm font-bold text-haven-navy mb-4">Raison du signalement</label>
+                <label className="block text-sm font-bold text-haven-ink mb-4">Raison du signalement</label>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {reportReasons.map(opt => (
                     <button
                       key={opt.id}
                       type="button"
                       onClick={() => setReason(opt.id)}
-                      className={`px-5 py-4 rounded-xl border-2 text-sm font-bold transition-all text-left flex items-center justify-between ${reason === opt.id ? 'border-haven-navy bg-haven-navy/5 text-haven-navy' : 'border-gray-50 bg-gray-50 text-gray-600 hover:border-gray-200'}`}
+                      className={`px-5 py-4 rounded-xl border-2 text-sm font-bold transition-all text-left flex items-center justify-between ${reason === opt.id ? 'border-haven-navy bg-haven-navy/5 text-haven-ink' : 'border-gray-50 bg-gray-50 text-gray-600 hover:border-gray-200'}`}
                     >
                       {opt.label}
                       {reason === opt.id && <CheckCircle2 size={18} />}
@@ -284,7 +284,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
               </div>
 
               <div>
-                <label className="block text-sm font-bold text-haven-navy mb-3">Complément d'information</label>
+                <label className="block text-sm font-bold text-haven-ink mb-3">Complément d'information</label>
                 <textarea
                   required
                   rows={6} maxLength={4999}
@@ -305,7 +305,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
             fullWidth
             disabled={isSubmitting || (isIncident ? (!incidentReport.subCategory || !incidentReport.description.trim()) : !reason)}
             onClick={() => handleSubmitReport()}
-            className="h-14 font-bold rounded-2xl shadow-xl shadow-haven-navy/10"
+            className="h-14 font-bold rounded-2xl shadow-xl"
           >
             {isSubmitting ? <Loader2 size={24} className="animate-spin" /> : (destination === 'OWNER' ? "Transmettre au propriétaire" : isListingReport ? "Envoyer" : "Envoyer à Haven")}
           </Button>

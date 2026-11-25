@@ -184,8 +184,8 @@ export const OwnerDashboard: React.FC = () => {
       <div className="mx-auto max-w-6xl px-4 pt-6 sm:px-6 sm:pt-10 lg:px-8">
         <header className="flex items-start justify-between gap-4">
           <div className="min-w-0">
-            <h1 className="font-heading text-2xl font-bold tracking-tight text-haven-navy sm:text-3xl">Espace propriétaire</h1>
-            <Link to={`/profile/${currentUser?.id}`} className="mt-1 inline-block text-sm text-gray-500 underline underline-offset-4 decoration-gray-300 hover:text-haven-navy">Voir mon profil public</Link>
+            <h1 className="font-heading text-2xl font-normal tracking-tight text-haven-ink sm:text-3xl">Espace propriétaire</h1>
+            <Link to={`/profile/${currentUser?.id}`} className="mt-1 inline-block text-sm text-gray-500 underline underline-offset-4 decoration-gray-300 hover:text-haven-ink">Voir mon profil public</Link>
           </div>
           <div className="flex shrink-0 items-center gap-2 sm:gap-3">
             <button type="button" onClick={handlePublishClick} className="flex h-11 shrink-0 items-center gap-2 rounded-full bg-haven-navy px-4 text-sm font-bold text-white transition-colors hover:bg-haven-navy/90 sm:px-5">
@@ -199,7 +199,7 @@ export const OwnerDashboard: React.FC = () => {
             <div className="flex items-start gap-3">
               <ShieldCheck size={22} className="mt-0.5 shrink-0 text-orange-600" aria-hidden="true" />
               <div>
-                <h2 className="font-bold text-haven-navy">{isSubmittedForReview ? 'Dossier en cours de vérification' : 'Dossier propriétaire requis'}</h2>
+                <h2 className="font-bold text-haven-ink">{isSubmittedForReview ? 'Dossier en cours de vérification' : 'Dossier propriétaire requis'}</h2>
                 <p className="text-sm text-gray-600">{isSubmittedForReview ? 'Votre dossier a été transmis à Haven. Un administrateur vérifie votre identité avant d’activer la mise en ligne.' : 'Votre pièce d’identité doit être validée avant toute mise en ligne.'}</p>
               </div>
             </div>
@@ -212,7 +212,7 @@ export const OwnerDashboard: React.FC = () => {
         {payoutsToConfigure && (
           <div className="mt-4 flex flex-col gap-3 rounded-2xl border border-blue-100 bg-blue-50 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
             <div>
-              <h2 className="font-bold text-haven-navy">Configurez vos versements</h2>
+              <h2 className="font-bold text-haven-ink">Configurez vos versements</h2>
               <p className="text-sm text-gray-600">Vos logements ne peuvent être mis en ligne qu’une fois vos versements Stripe activés (identité et compte bancaire). C’est ce compte qui reçoit le paiement de chaque séjour à l’arrivée du locataire.</p>
             </div>
             <Button variant="primary" size="sm" className="shrink-0 px-6" onClick={() => setActiveTab('FINANCES')}>Configurer mes versements</Button>
@@ -221,14 +221,14 @@ export const OwnerDashboard: React.FC = () => {
 
         <section aria-label="Vos revenus" className="mt-6 grid grid-cols-2 gap-3 sm:mt-8 sm:gap-4">
           <button type="button" onClick={() => setActiveTab('FINANCES')} className="rounded-2xl border border-gray-200 p-4 text-left transition-shadow hover:shadow-md sm:p-6">
-            <p className="font-bold text-haven-navy">Revenus versés</p>
+            <p className="font-bold text-haven-ink">Revenus versés</p>
             <p className="text-sm capitalize text-gray-500">{monthLabel}</p>
-            <p className="mt-4 text-2xl font-bold text-haven-navy sm:mt-6 sm:text-4xl">{payoutLoading || payoutError ? '—' : formatEuros(earnings.paidThisMonth)}</p>
+            <p className="mt-4 text-2xl font-bold text-haven-ink sm:mt-6 sm:text-4xl">{payoutLoading || payoutError ? '—' : formatEuros(earnings.paidThisMonth)}</p>
           </button>
           <button type="button" onClick={() => { setBookingSubTab('UPCOMING'); setActiveTab('BOOKINGS'); }} className="rounded-2xl border border-gray-200 p-4 text-left transition-shadow hover:shadow-md sm:p-6">
-            <p className="font-bold text-haven-navy">À venir</p>
+            <p className="font-bold text-haven-ink">À venir</p>
             <p className="text-sm text-gray-500">Versé à l’arrivée des locataires</p>
-            <p className="mt-4 text-2xl font-bold text-haven-navy sm:mt-6 sm:text-4xl">{payoutLoading || payoutError ? '—' : formatEuros(earnings.upcoming)}</p>
+            <p className="mt-4 text-2xl font-bold text-haven-ink sm:mt-6 sm:text-4xl">{payoutLoading || payoutError ? '—' : formatEuros(earnings.upcoming)}</p>
             {earnings.upcomingSimulated > 0 && <p className="mt-1 text-xs text-amber-700">dont {formatEuros(earnings.upcomingSimulated)} issus de paiements de test (aucun argent réel)</p>}
           </button>
         </section>
@@ -247,7 +247,7 @@ export const OwnerDashboard: React.FC = () => {
                 key={tab.id}
                 type="button"
                 aria-current={activeTab === tab.id ? 'page' : undefined}
-                className={`relative flex min-h-12 shrink-0 items-center gap-1.5 whitespace-nowrap pb-3 text-sm font-semibold transition-colors ${activeTab === tab.id ? 'text-haven-navy' : 'text-gray-500 hover:text-haven-navy'}`}
+                className={`relative flex min-h-12 shrink-0 items-center gap-1.5 whitespace-nowrap pb-3 text-sm font-semibold transition-colors ${activeTab === tab.id ? 'text-haven-ink' : 'text-gray-500 hover:text-haven-ink'}`}
                 onClick={() => setActiveTab(tab.id as typeof activeTab)}
               >
                 {tab.label}
@@ -271,7 +271,7 @@ export const OwnerDashboard: React.FC = () => {
                         <Link to={`/owner/edit/${listing.id}`} className="grid grid-cols-[4rem_minmax(0,1fr)] items-center gap-4 rounded-xl py-3 transition-colors hover:bg-gray-50 md:grid-cols-[4rem_minmax(0,1fr)_10rem_8rem_8rem] md:-mx-2 md:px-2">
                           {listing.mainPhotoUrl ? <img src={listing.mainPhotoUrl} alt="" className="h-16 w-16 rounded-xl object-cover" /> : <span className="h-16 w-16 rounded-xl bg-gray-100" />}
                           <span className="min-w-0">
-                            <span className="block truncate font-semibold text-haven-navy">{listing.title || 'Logement sans titre'}</span>
+                            <span className="block truncate font-semibold text-haven-ink">{listing.title || 'Logement sans titre'}</span>
                             <span className="mt-1 flex items-center gap-2 text-sm text-gray-500 md:hidden">{listing.city}<span aria-hidden="true">·</span><span className={`h-2 w-2 rounded-full ${status.dot}`} aria-hidden="true" />{status.label}</span>
                           </span>
                           <span className="hidden text-sm text-gray-600 md:block">{listing.city}</span>
@@ -306,8 +306,8 @@ export const OwnerDashboard: React.FC = () => {
                       onClick={() => setBookingSubTab(subTab.id as any)}
                       className={`flex-1 py-2.5 px-4 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 ${
                         bookingSubTab === subTab.id
-                          ? 'bg-white text-haven-navy shadow-sm font-extrabold'
-                          : 'text-gray-500 hover:text-haven-navy hover:bg-white/50'
+                          ? 'bg-white text-haven-ink shadow-sm font-extrabold'
+                          : 'text-gray-500 hover:text-haven-ink hover:bg-white/50'
                       }`}
                     >
                       <span>{subTab.label}</span>
@@ -326,11 +326,11 @@ export const OwnerDashboard: React.FC = () => {
                   <table className="haven-table w-full text-left">
                     <thead>
                       <tr className="border-b border-gray-100">
-                        <th className="pb-4 text-[11px] font-bold uppercase tracking-widest text-gray-400">Locataire</th>
-                        <th className="pb-4 text-[11px] font-bold uppercase tracking-widest text-gray-400">Logement</th>
-                        <th className="pb-4 text-[11px] font-bold uppercase tracking-widest text-gray-400">Dates</th>
-                        <th className="pb-4 text-[11px] font-bold uppercase tracking-widest text-gray-400">Statut</th>
-                        <th className="pb-4 text-[11px] font-bold uppercase tracking-widest text-gray-400 text-right">Actions</th>
+                        <th className="pb-4 text-[11px] font-bold text-gray-400">Locataire</th>
+                        <th className="pb-4 text-[11px] font-bold text-gray-400">Logement</th>
+                        <th className="pb-4 text-[11px] font-bold text-gray-400">Dates</th>
+                        <th className="pb-4 text-[11px] font-bold text-gray-400">Statut</th>
+                        <th className="pb-4 text-[11px] font-bold text-gray-400 text-right">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-50">
@@ -341,14 +341,14 @@ export const OwnerDashboard: React.FC = () => {
                               <div className="w-8 h-8 bg-haven-navy/10 rounded-full overflow-hidden flex items-center justify-center">
                                 <img src={booking.tenant.avatarUrl} className="w-full h-full object-cover" alt="" />
                               </div>
-                              <span className="text-sm font-bold text-haven-navy">{booking.tenant.firstName} {booking.tenant.lastName}</span>
+                              <span className="text-sm font-bold text-haven-ink">{booking.tenant.firstName} {booking.tenant.lastName}</span>
                             </div>
                           </td>
                           <td data-label="Logement" className="py-4">
                             <span className="text-sm font-medium text-gray-600">{listings.find(l => l.id === booking.listingId)?.title}</span>
                           </td>
                           <td data-label="Dates" className="py-4">
-                            <span className="text-xs font-bold text-haven-navy">
+                            <span className="text-xs font-bold text-haven-ink">
                               {new Date(booking.startDate).toLocaleDateString('fr-FR')} - {new Date(booking.endDate).toLocaleDateString('fr-FR')}
                             </span>
                           </td>
@@ -367,7 +367,7 @@ export const OwnerDashboard: React.FC = () => {
                           <td data-label="Actions" className="py-4 text-right">
                               <div className="flex flex-wrap justify-end gap-2">
                                 <Link to={`/messages/${booking.id}`}>
-                                  <Button size="sm" variant="ghost" className="text-haven-navy"><MessageCircle size={16} /></Button>
+                                  <Button size="sm" variant="ghost" className="text-haven-ink"><MessageCircle size={16} /></Button>
                                 </Link>
                                 {(booking.status === 'CONFIRMED' || (booking.status === 'PENDING' && booking.seriesScheduled)) && (getCancellationTerms(booking, 'OWNER').canCancel ? (
                                   <Button
@@ -400,27 +400,27 @@ export const OwnerDashboard: React.FC = () => {
               <div className="space-y-8">
                 <OwnerPayoutSettings payouts={ownerPayouts} />
                 <dl className="grid grid-cols-2 gap-3 text-sm">
-                  <div className="rounded-2xl border border-gray-200 p-4"><dt className="text-gray-500">Total versé sur votre compte</dt><dd className="mt-1 text-xl font-bold text-haven-navy">{payoutLoading || payoutError ? '—' : formatEuros(financeStats.totalRevenue)}</dd></div>
-                  <div className="rounded-2xl border border-gray-200 p-4"><dt className="text-gray-500">Virements en cours</dt><dd className="mt-1 text-xl font-bold text-haven-navy">{payoutLoading || payoutError ? '—' : formatEuros(financeStats.pendingRevenue)}</dd></div>
+                  <div className="rounded-2xl border border-gray-200 p-4"><dt className="text-gray-500">Total versé sur votre compte</dt><dd className="mt-1 text-xl font-bold text-haven-ink">{payoutLoading || payoutError ? '—' : formatEuros(financeStats.totalRevenue)}</dd></div>
+                  <div className="rounded-2xl border border-gray-200 p-4"><dt className="text-gray-500">Virements en cours</dt><dd className="mt-1 text-xl font-bold text-haven-ink">{payoutLoading || payoutError ? '—' : formatEuros(financeStats.pendingRevenue)}</dd></div>
                 </dl>
                 <p className="text-xs text-gray-500">Montants nets réellement virés par Stripe, hors frais Haven. Les paiements simulés n’y figurent pas.</p>
 
                 {payoutError && <p role="alert" className="text-sm text-haven-red">{payoutError}</p>}
                 <section className="space-y-4">
-                  <h3 className="font-heading font-bold text-xl text-haven-navy">Vos virements</h3>
+                  <h3 className="font-heading font-normal text-xl text-haven-ink">Vos virements</h3>
                   {payoutLoading ? <p className="text-sm text-gray-500">Chargement des virements…</p> : !payoutError && realOwnerPayouts(ownerPayouts).length === 0 ? <p className="rounded-2xl border border-gray-100 bg-gray-50 p-5 text-sm text-gray-500">Aucun virement réel enregistré. Les paiements simulés des réservations ne sont pas inclus dans vos revenus.</p> : !payoutError && <div className="overflow-x-auto"><table className="haven-table w-full text-left text-sm"><thead><tr className="border-b border-gray-100 text-xs text-gray-500"><th className="py-3">Date</th><th>Référence</th><th>Montant net</th><th>Statut</th></tr></thead><tbody>{realOwnerPayouts(ownerPayouts).sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt)).map(payout => <tr key={payout.id} className="border-b border-gray-50"><td data-label="Date" className="py-4">{new Date(payout.paidAt || payout.createdAt).toLocaleDateString('fr-FR')}</td><td data-label="Référence" className="max-w-48 break-all pr-4 text-xs text-gray-500">{payout.providerPayoutId || payout.id}</td><td data-label="Montant net" className="font-bold">{formatEuros(payout.amountCents / 100)}</td><td data-label="Statut">{ownerPayoutStatusLabel(payout.status)}</td></tr>)}</tbody></table></div>}
                 </section>
                 <div className="space-y-4">
-                  <h3 className="font-heading font-bold text-xl text-haven-navy">Paiements des réservations</h3>
+                  <h3 className="font-heading font-normal text-xl text-haven-ink">Paiements des réservations</h3>
                   <p className="text-sm text-gray-500">Règlements des locataires, frais Haven inclus. Ces montants ne correspondent pas aux virements vers votre compte bancaire.</p>
                   <div className="overflow-x-auto">
                     <table className="haven-table w-full text-left">
                       <thead>
                         <tr className="border-b border-gray-100">
-                          <th className="pb-4 text-[11px] font-bold uppercase tracking-widest text-gray-400">Date</th>
-                          <th className="pb-4 text-[11px] font-bold uppercase tracking-widest text-gray-400">Description</th>
-                          <th className="pb-4 text-[11px] font-bold uppercase tracking-widest text-gray-400">Montant</th>
-                          <th className="pb-4 text-[11px] font-bold uppercase tracking-widest text-gray-400">Statut</th>
+                          <th className="pb-4 text-[11px] font-bold text-gray-400">Date</th>
+                          <th className="pb-4 text-[11px] font-bold text-gray-400">Description</th>
+                          <th className="pb-4 text-[11px] font-bold text-gray-400">Montant</th>
+                          <th className="pb-4 text-[11px] font-bold text-gray-400">Statut</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-50">
@@ -431,7 +431,7 @@ export const OwnerDashboard: React.FC = () => {
                           return (
                           <tr key={payment.id}>
                             <td data-label="Date" className="py-4 text-sm text-gray-600">{new Date(payment.createdAt).toLocaleDateString('fr-FR')}</td>
-                            <td data-label="Réservation" className="py-4 text-sm font-bold text-haven-navy">{isRefund ? 'Remboursement' : 'Réservation'} - {listings.find(l => l.id === payment.listingId)?.title || 'Logement supprimé'}</td>
+                            <td data-label="Réservation" className="py-4 text-sm font-bold text-haven-ink">{isRefund ? 'Remboursement' : 'Réservation'} - {listings.find(l => l.id === payment.listingId)?.title || 'Logement supprimé'}</td>
                             <td data-label="Montant" className={`py-4 text-sm font-bold ${isRefund ? 'text-haven-red' : payment.status === 'COMPLETED' ? 'text-green-600' : 'text-gray-500'}`}>{isRefund ? '−' : '+'}{formatEuros(payment.amount)}</td>
                             <td data-label="Statut" className="py-4">
                               <span className={`px-3 py-1 rounded-full text-[11px] font-bold uppercase ${payment.status === 'COMPLETED' ? 'bg-green-100 text-green-600' : payment.status === 'REFUNDED' ? 'bg-red-50 text-haven-red' : payment.status === 'PENDING' ? 'bg-amber-50 text-amber-700' : 'bg-gray-100 text-gray-600'}`}>{paymentStatus}</span>{paymentIsTest && <span className="ml-2 text-xs font-bold text-amber-700">Test</span>}
@@ -459,7 +459,7 @@ export const OwnerDashboard: React.FC = () => {
                 <div className="space-y-8">
                   <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
                     <div>
-                      <h3 className="font-heading font-bold text-xl text-haven-navy">Ma pièce d’identité</h3>
+                      <h3 className="font-heading font-normal text-xl text-haven-ink">Ma pièce d’identité</h3>
                       <p className="mt-1 text-sm text-gray-500">Elle est contrôlée par HAVEN avant la publication de vos logements.</p>
                     </div>
                     <Button variant="primary" size="sm" onClick={() => setIsVerificationModalOpen(true)} className="flex items-center gap-2">
@@ -478,15 +478,15 @@ export const OwnerDashboard: React.FC = () => {
                             </div>
                             <div className="min-w-0 flex-1">
                               <div className="flex flex-wrap items-center justify-between gap-2">
-                                <h4 className="font-bold text-haven-navy">{document.label}</h4>
-                                <span className={`rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-widest ${status === 'Validé' ? 'bg-green-100 text-green-700' : status === 'En attente' ? 'bg-orange-100 text-orange-700' : 'bg-gray-200 text-gray-500'}`}>{status}</span>
+                                <h4 className="font-bold text-haven-ink">{document.label}</h4>
+                                <span className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${status === 'Validé' ? 'bg-green-100 text-green-700' : status === 'En attente' ? 'bg-orange-100 text-orange-700' : 'bg-gray-200 text-gray-500'}`}>{status}</span>
                               </div>
                               <p className="mt-2 text-sm leading-relaxed text-gray-500">{document.detail}</p>
                             </div>
                           </div>
                           <div className="mt-5 flex gap-3">
                             {url && <Button variant="outline" size="sm" onClick={() => window.open(url, '_blank', 'noopener,noreferrer')}>Visualiser</Button>}
-                            <Button variant="ghost" size="sm" className="text-haven-navy" onClick={() => setIsVerificationModalOpen(true)}>{url ? 'Remplacer' : 'Télécharger'}</Button>
+                            <Button variant="ghost" size="sm" className="text-haven-ink" onClick={() => setIsVerificationModalOpen(true)}>{url ? 'Remplacer' : 'Télécharger'}</Button>
                           </div>
                         </div>
                       );
@@ -511,7 +511,7 @@ export const OwnerDashboard: React.FC = () => {
                       </div>
                       <div className="flex-1">
                         <div className="flex items-center gap-3 mb-1">
-                          <h4 className="font-bold text-haven-navy">{incident.title}</h4>
+                          <h4 className="font-bold text-haven-ink">{incident.title}</h4>
                           <span className={`px-2 py-0.5 rounded-full text-[8px] font-bold uppercase ${
                             incident.priority === 'HIGH' ? 'bg-red-500 text-white' : 'bg-orange-500 text-white'
                           }`}>
@@ -519,7 +519,7 @@ export const OwnerDashboard: React.FC = () => {
                           </span>
                         </div>
                         <p className="text-sm text-gray-500 line-clamp-1">{incident.description}</p>
-                        <p className="text-[11px] text-gray-400 mt-1 uppercase font-bold tracking-widest">
+                        <p className="text-[11px] text-gray-400 mt-1 font-bold">
                           {listings.find(l => l.id === incident.listingId)?.title} • Signalé le {new Date(incident.createdAt).toLocaleDateString('fr-FR')}
                         </p>
                       </div>

@@ -199,7 +199,7 @@ export const EntryInventory = () => {
   if (loading) {
     return (
       <div className="min-h-screen bg-haven-cream flex items-center justify-center">
-        <Loader2 className="animate-spin text-haven-navy" size={48} />
+        <Loader2 className="animate-spin text-haven-ink" size={48} />
       </div>
     );
   }
@@ -211,7 +211,7 @@ export const EntryInventory = () => {
       <div className="min-h-screen bg-haven-cream flex items-center justify-center p-6 text-center">
         <div className="max-w-md w-full p-5 sm:p-10 bg-white rounded-[2rem] shadow-premium">
           <Calendar className="mx-auto text-haven-stone mb-6" size={64} />
-          <h1 className="text-2xl sm:text-3xl font-heading font-bold text-haven-navy mb-4">Accès non autorisé</h1>
+          <h1 className="text-2xl sm:text-3xl font-heading font-normal text-haven-ink mb-4">Accès non autorisé</h1>
           <p className="text-haven-stone mb-8">
             L’état des lieux d’entrée sera accessible à partir du {formatScheduledMoment(entryTiming.scheduledAt)}.
           </p>
@@ -234,23 +234,23 @@ export const EntryInventory = () => {
               <div className="w-20 h-20 bg-haven-red/10 rounded-full flex items-center justify-center mx-auto text-haven-red">
                 <UserIcon size={40} />
               </div>
-              <h2 className="text-2xl sm:text-3xl font-heading font-bold text-haven-navy">Vérification de votre identité</h2>
+              <h2 className="text-2xl sm:text-3xl font-heading font-normal text-haven-ink">Vérification de votre identité</h2>
               <p className="text-haven-stone max-w-lg mx-auto">Veuillez confirmer que vos informations personnelles sont exactes avant de procéder à l'état des lieux.</p>
             </div>
 
             <div className="bg-white rounded-[1.75rem] sm:rounded-[2rem] p-4 sm:p-8 shadow-sm border border-gray-100 space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Prénom</label>
-                  <div className="p-4 bg-gray-50 rounded-2xl text-haven-navy font-bold">{currentUser?.firstName}</div>
+                  <label className="block text-xs font-bold text-gray-400 mb-2">Prénom</label>
+                  <div className="p-4 bg-gray-50 rounded-2xl text-haven-ink font-bold">{currentUser?.firstName}</div>
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Nom</label>
-                  <div className="p-4 bg-gray-50 rounded-2xl text-haven-navy font-bold">{currentUser?.lastName}</div>
+                  <label className="block text-xs font-bold text-gray-400 mb-2">Nom</label>
+                  <div className="p-4 bg-gray-50 rounded-2xl text-haven-ink font-bold">{currentUser?.lastName}</div>
                 </div>
                 <div className="md:col-span-2">
-                  <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Email</label>
-                  <div className="p-4 bg-gray-50 rounded-2xl text-haven-navy font-bold">{currentUser?.email}</div>
+                  <label className="block text-xs font-bold text-gray-400 mb-2">Email</label>
+                  <div className="p-4 bg-gray-50 rounded-2xl text-haven-ink font-bold">{currentUser?.email}</div>
                 </div>
               </div>
 
@@ -259,7 +259,7 @@ export const EntryInventory = () => {
                   <div className={`w-8 h-8 rounded-xl border-2 flex items-center justify-center transition-all ${inventoryData.identityValidated ? 'bg-haven-navy border-haven-navy text-white' : 'border-gray-200 bg-white'}`}>
                     {inventoryData.identityValidated && <Check size={20} />}
                   </div>
-                  <span className="text-haven-navy font-bold">Je certifie que ces informations sont exactes</span>
+                  <span className="text-haven-ink font-bold">Je certifie que ces informations sont exactes</span>
                 </div>
               </div>
             </div>
@@ -285,20 +285,20 @@ export const EntryInventory = () => {
             className="space-y-8"
           >
             <div className="text-center space-y-4">
-              <h2 className="text-2xl sm:text-3xl font-heading font-bold text-haven-navy">Inventaire du logement</h2>
+              <h2 className="text-2xl sm:text-3xl font-heading font-normal text-haven-ink">Inventaire du logement</h2>
               <p className="text-haven-stone">Vérifiez la présence et le bon fonctionnement de chaque élément.</p>
             </div>
 
             <div className="flex bg-white p-2 rounded-3xl shadow-sm border border-gray-100 mb-8 max-w-sm mx-auto">
               <button 
                 onClick={() => setActiveTab('PRIVATE')}
-                className={`flex-1 py-4 rounded-2xl font-bold transition-all flex items-center justify-center gap-2 ${activeTab === 'PRIVATE' ? 'bg-haven-navy text-white shadow-lg' : 'text-haven-stone hover:text-haven-navy'}`}
+                className={`flex-1 py-4 rounded-2xl font-bold transition-all flex items-center justify-center gap-2 ${activeTab === 'PRIVATE' ? 'bg-haven-navy text-white shadow-lg' : 'text-haven-stone hover:text-haven-ink'}`}
               >
                 <Lock size={18} /> Parties Privées
               </button>
               <button 
                 onClick={() => setActiveTab('COMMON')}
-                className={`flex-1 py-4 rounded-2xl font-bold transition-all flex items-center justify-center gap-2 ${activeTab === 'COMMON' ? 'bg-haven-navy text-white shadow-lg' : 'text-haven-stone hover:text-haven-navy'}`}
+                className={`flex-1 py-4 rounded-2xl font-bold transition-all flex items-center justify-center gap-2 ${activeTab === 'COMMON' ? 'bg-haven-navy text-white shadow-lg' : 'text-haven-stone hover:text-haven-ink'}`}
               >
                 <Layout size={18} /> Communs
               </button>
@@ -311,10 +311,10 @@ export const EntryInventory = () => {
                   <div key={idx} className="bg-white rounded-[1.75rem] sm:rounded-[2rem] p-4 sm:p-8 shadow-sm border border-gray-100 space-y-6">
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                       <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 bg-haven-navy/5 rounded-2xl flex items-center justify-center text-haven-navy">
+                        <div className="w-12 h-12 bg-haven-navy/5 rounded-2xl flex items-center justify-center text-haven-ink">
                           <CheckCircle size={24} />
                         </div>
-                        <h3 className="font-heading font-bold text-xl text-haven-navy">{item.name}</h3>
+                        <h3 className="font-heading font-normal text-xl text-haven-ink">{item.name}</h3>
                       </div>
                       
                       <div className="flex items-center gap-4">
@@ -344,7 +344,7 @@ export const EntryInventory = () => {
                       </div>
                       <div className="flex flex-col items-center justify-center border-2 border-dashed border-gray-100 rounded-3xl p-6 hover:border-haven-navy/30 transition-all cursor-pointer group">
                         <Camera size={32} className="text-gray-300 mb-2 group-hover:scale-110 transition-transform" />
-                        <span className="text-xs font-bold text-gray-400 group-hover:text-haven-navy">Ajouter une photo</span>
+                        <span className="text-xs font-bold text-gray-400 group-hover:text-haven-ink">Ajouter une photo</span>
                       </div>
                     </div>
                   </div>
@@ -367,7 +367,7 @@ export const EntryInventory = () => {
             className="space-y-8"
           >
             <div className="text-center space-y-4">
-              <h2 className="text-2xl sm:text-3xl font-heading font-bold text-haven-navy">Évaluations générales</h2>
+              <h2 className="text-2xl sm:text-3xl font-heading font-normal text-haven-ink">Évaluations générales</h2>
               <p className="text-haven-stone">Attribuez une note aux différents aspects de votre logement.</p>
             </div>
 
@@ -379,7 +379,7 @@ export const EntryInventory = () => {
               ].map((rater) => (
                 <div key={rater.key} className="bg-white rounded-[1.75rem] sm:rounded-[2rem] p-4 sm:p-8 shadow-sm border border-gray-100 text-center space-y-4">
                   <div>
-                    <h3 className="font-heading font-bold text-2xl text-haven-navy">{rater.label}</h3>
+                    <h3 className="font-heading font-normal text-2xl text-haven-ink">{rater.label}</h3>
                     <p className="text-sm text-haven-stone">{rater.desc}</p>
                   </div>
                   <div className="flex justify-center gap-4">
@@ -418,7 +418,7 @@ export const EntryInventory = () => {
             className="space-y-8"
           >
             <div className="text-center space-y-4">
-              <h2 className="text-2xl sm:text-3xl font-heading font-bold text-haven-navy">Récapitulatif de votre location</h2>
+              <h2 className="text-2xl sm:text-3xl font-heading font-normal text-haven-ink">Récapitulatif de votre location</h2>
             </div>
 
             <div className="bg-white rounded-[2rem] overflow-hidden shadow-premium border border-gray-100">
@@ -430,7 +430,7 @@ export const EntryInventory = () => {
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-haven-navy/80 to-transparent" />
                 <div className="absolute bottom-6 left-8 text-white">
-                  <h3 className="text-2xl sm:text-3xl font-heading font-bold">{listing?.title}</h3>
+                  <h3 className="text-2xl sm:text-3xl font-heading font-normal">{listing?.title}</h3>
                   <div className="flex items-center gap-2 text-white/80">
                     <MapPin size={18} /> {listing?.city}, {listing?.address}
                   </div>
@@ -440,18 +440,18 @@ export const EntryInventory = () => {
               <div className="p-5 sm:p-10 space-y-10">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                   <div className="space-y-2">
-                    <div className="flex items-center gap-2 text-haven-stone text-xs font-bold uppercase tracking-widest">
+                    <div className="flex items-center gap-2 text-haven-stone text-xs font-bold">
                        <Calendar size={14} className="text-haven-red" /> Dates du séjour
                     </div>
-                    <p className="text-haven-navy font-bold">
+                    <p className="text-haven-ink font-bold">
                       {new Date(booking?.startDate || '').toLocaleDateString('fr-FR')} au {new Date(booking?.endDate || '').toLocaleDateString('fr-FR')}
                     </p>
                   </div>
                   <div className="space-y-2">
-                    <div className="flex items-center gap-2 text-haven-stone text-xs font-bold uppercase tracking-widest">
+                    <div className="flex items-center gap-2 text-haven-stone text-xs font-bold">
                        <CreditCard size={14} className="text-haven-red" /> Montant du séjour
                     </div>
-                    <p className="text-haven-navy font-bold">{booking?.totalPrice}€ au total</p>
+                    <p className="text-haven-ink font-bold">{booking?.totalPrice}€ au total</p>
                   </div>
 
                 </div>
@@ -459,7 +459,7 @@ export const EntryInventory = () => {
                 <div className="bg-haven-red/5 p-4 sm:p-8 rounded-3xl border border-haven-red/10 flex items-start gap-4">
                   <Info className="text-haven-red mt-1 shrink-0" size={20} />
                   <div className="space-y-1">
-                    <p className="text-haven-navy font-bold">Note sur le ménage</p>
+                    <p className="text-haven-ink font-bold">Note sur le ménage</p>
                     <p className="text-sm text-haven-stone leading-relaxed">
                       Un ménage professionnel est effectué chaque fin de semaine. En tant que locataire, vous êtes responsable de la propreté de votre chambre et du maintien quotidien des communs.
                     </p>
@@ -483,13 +483,13 @@ export const EntryInventory = () => {
             className="space-y-8"
           >
             <div className="text-center space-y-4">
-              <h2 className="text-2xl sm:text-3xl font-heading font-bold text-haven-navy">Signature finale</h2>
+              <h2 className="text-2xl sm:text-3xl font-heading font-normal text-haven-ink">Signature finale</h2>
               <p className="text-haven-stone">Signez ci-dessous pour valider officiellement votre état des lieux d'entrée.</p>
             </div>
 
             <div className="bg-white rounded-[2rem] p-1 shadow-sm border border-gray-100 overflow-hidden">
               <div className="bg-gray-50 p-4 flex justify-between items-center border-b border-gray-100">
-                <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Espace de signature</span>
+                <span className="text-xs font-bold text-gray-400">Espace de signature</span>
                 <button onClick={clearSignature} className="text-haven-red text-xs font-bold hover:underline">Effacer</button>
               </div>
               <SignatureCanvas 
@@ -520,7 +520,7 @@ export const EntryInventory = () => {
               <CheckCircle size={56} />
             </div>
             <div className="space-y-4">
-              <h1 className="text-[1.75rem] sm:text-4xl font-heading font-bold text-haven-navy">Bienvenue chez vous !</h1>
+              <h1 className="text-[1.75rem] sm:text-4xl font-heading font-normal text-haven-ink">Bienvenue chez vous !</h1>
               <p className="text-haven-stone text-lg max-w-md mx-auto leading-relaxed">
                 Votre état des lieux d'entrée est validé. Vous recevrez une copie par email. Nous vous souhaitons un excellent séjour.
               </p>
@@ -564,7 +564,7 @@ export const EntryInventory = () => {
                     }`}>
                       {isPast ? <Check size={24} /> : <StepIcon size={24} />}
                     </div>
-                    <span className={`text-[11px] font-bold uppercase tracking-widest ${isActive ? 'text-haven-navy' : 'text-gray-400'}`}>
+                    <span className={`text-[11px] font-bold ${isActive ? 'text-haven-ink' : 'text-gray-400'}`}>
                       {step.label}
                     </span>
                   </div>

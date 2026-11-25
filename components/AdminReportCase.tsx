@@ -29,7 +29,7 @@ async function claimPhoto(dataUrl: string) {
 
 function Section({ icon, title, children }: { icon: ReactNode; title: string; children: ReactNode }) {
   return <section className="rounded-2xl border border-gray-200 p-4 sm:p-5">
-    <h3 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-haven-navy">{icon}{title}</h3>
+    <h3 className="mb-3 flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-haven-ink">{icon}{title}</h3>
     {children}
   </section>;
 }
@@ -38,11 +38,11 @@ function Person({ label, member, onOpen }: { label: string; member: CaseMember |
   if (!member) return <div className="rounded-xl bg-gray-50 p-3 text-sm text-gray-500">{label} : inconnu</div>;
   return <div className="rounded-xl bg-gray-50 p-3 text-sm">
     <p className="text-xs text-gray-500">{label}</p>
-    <p className="mt-0.5 font-bold text-haven-navy">{member.firstName} {member.lastName}</p>
+    <p className="mt-0.5 font-bold text-haven-ink">{member.firstName} {member.lastName}</p>
     <div className="mt-2 flex flex-wrap gap-2">
-      {member.email && <a href={`mailto:${member.email}`} className="flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-2 py-1 text-xs font-semibold text-haven-navy"><Mail size={12} />{member.email}</a>}
-      {member.phone && <a href={`tel:${member.phone}`} className="flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-2 py-1 text-xs font-semibold text-haven-navy"><Phone size={12} />{member.phone}</a>}
-      <button type="button" onClick={() => onOpen(member.id)} className="rounded-lg border border-gray-200 bg-white px-2 py-1 text-xs font-semibold text-haven-navy">Fiche 360°</button>
+      {member.email && <a href={`mailto:${member.email}`} className="flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-2 py-1 text-xs font-semibold text-haven-ink"><Mail size={12} />{member.email}</a>}
+      {member.phone && <a href={`tel:${member.phone}`} className="flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-2 py-1 text-xs font-semibold text-haven-ink"><Phone size={12} />{member.phone}</a>}
+      <button type="button" onClick={() => onOpen(member.id)} className="rounded-lg border border-gray-200 bg-white px-2 py-1 text-xs font-semibold text-haven-ink">Fiche 360°</button>
     </div>
   </div>;
 }
@@ -57,14 +57,14 @@ function openInventory(report: InventoryReport, stay: CaseStay, title: string) {
 function StayBlock({ stay, label }: { stay: CaseStay; label: string }) {
   const { booking } = stay;
   return <div className="space-y-2 text-sm">
-    <p className="font-semibold text-haven-navy">{label} · {day(booking.startDate)} → {day(booking.endDate)} · {booking.roomName || 'Chambre'}</p>
+    <p className="font-semibold text-haven-ink">{label} · {day(booking.startDate)} → {day(booking.endDate)} · {booking.roomName || 'Chambre'}</p>
     <p className="text-xs text-gray-500">{STATUS[booking.status] || booking.status} · {formatEuros(booking.totalPrice)}{booking.paymentIsTest ? ' · test' : ''} · {booking.id}</p>
     <div className="flex flex-wrap gap-2">
       {(['checkIn', 'checkOut'] as const).map(key => {
         const report = stay[key];
         const text = key === 'checkIn' ? 'État des lieux d’entrée' : 'État des lieux de sortie';
         return report
-          ? <button key={key} type="button" onClick={() => openInventory(report, stay, `${text} – ${booking.listingTitle || ''}`)} className="flex items-center gap-1.5 rounded-xl border border-gray-200 px-3 py-2 text-xs font-semibold text-haven-navy hover:bg-gray-50"><ClipboardCheck size={14} />{text} ({day(report.date)})</button>
+          ? <button key={key} type="button" onClick={() => openInventory(report, stay, `${text} – ${booking.listingTitle || ''}`)} className="flex items-center gap-1.5 rounded-xl border border-gray-200 px-3 py-2 text-xs font-semibold text-haven-ink hover:bg-gray-50"><ClipboardCheck size={14} />{text} ({day(report.date)})</button>
           : <span key={key} className="rounded-xl bg-gray-50 px-3 py-2 text-xs text-gray-500">{text} : non fait</span>;
       })}
     </div>
@@ -126,7 +126,7 @@ export function AdminReportCase({ reportId, bookingId, onClose, onOpenMember, on
       <header className="flex items-center justify-between gap-4 border-b border-gray-100 p-5">
         <div className="min-w-0">
           <p className="text-xs font-bold uppercase tracking-wide text-haven-red">{reportId ? 'Dossier du signalement' : 'Dossier du séjour'}</p>
-          <h2 className="truncate text-xl font-bold text-haven-navy">{report ? `${report.supportCategory || report.reason}` : file?.stay ? `${file.stay.booking.listingTitle || file.listing?.title || 'Séjour'}${file.stay.booking.roomName ? ` · ${file.stay.booking.roomName}` : ''}` : 'Chargement…'}</h2>
+          <h2 className="truncate text-xl font-bold text-haven-ink">{report ? `${report.supportCategory || report.reason}` : file?.stay ? `${file.stay.booking.listingTitle || file.listing?.title || 'Séjour'}${file.stay.booking.roomName ? ` · ${file.stay.booking.roomName}` : ''}` : 'Chargement…'}</h2>
         </div>
         <button type="button" aria-label="Fermer le dossier" onClick={onClose} className="rounded-full bg-gray-100 p-3"><X size={20} /></button>
       </header>
@@ -138,7 +138,7 @@ export function AdminReportCase({ reportId, bookingId, onClose, onOpenMember, on
             <p className="text-xs text-gray-500">Le {new Date(report.timestamp).toLocaleString('fr-FR')}</p>
             <p className="mt-2 whitespace-pre-line rounded-xl bg-gray-50 p-3 text-sm text-gray-700">{report.description}</p>
             {!!report.photos?.length && <div className="mt-3 flex flex-wrap gap-2">{report.photos.map((photo, index) => <a key={index} href={photo} target="_blank" rel="noreferrer"><img src={photo} alt={`Photo ${index + 1} du signalement`} className="h-28 w-28 rounded-xl object-cover" /></a>)}</div>}
-            {report.adminNotes && <p className="mt-3 text-sm text-gray-600"><span className="font-semibold text-haven-navy">Note Haven : </span>{report.adminNotes}</p>}
+            {report.adminNotes && <p className="mt-3 text-sm text-gray-600"><span className="font-semibold text-haven-ink">Note Haven : </span>{report.adminNotes}</p>}
           </Section>}
           {!!file.related.length && <p className="rounded-xl bg-amber-50 p-3 text-xs text-amber-900">{report ? 'Aussi sur ce séjour' : 'Sur ce séjour'} : {file.related.map(item => `${item.kind === 'INCIDENT' ? 'incident' : 'signalement'} « ${item.title} » (${STATUS[item.status] || item.status})`).join(' · ')}</p>}
 
@@ -155,11 +155,11 @@ export function AdminReportCase({ reportId, bookingId, onClose, onOpenMember, on
           </Section>
 
           {file.listing && <Section icon={<Home size={16} />} title="Logement">
-            <p className="text-sm font-semibold text-haven-navy">{file.listing.title}{file.listing.roomName ? ` · ${file.listing.roomName}` : ''}</p>
+            <p className="text-sm font-semibold text-haven-ink">{file.listing.title}{file.listing.roomName ? ` · ${file.listing.roomName}` : ''}</p>
             <p className="text-xs text-gray-500">{file.listing.address || file.listing.city}</p>
             <div className="mt-2 flex flex-wrap gap-2">
-              <Link to={`/listing/${file.listing.id}`} target="_blank" className="rounded-xl border border-gray-200 px-3 py-2 text-xs font-semibold text-haven-navy">Voir l’annonce</Link>
-              <Link to={`/owner/edit/${file.listing.id}`} target="_blank" className="rounded-xl border border-gray-200 px-3 py-2 text-xs font-semibold text-haven-navy">Corriger l’annonce</Link>
+              <Link to={`/listing/${file.listing.id}`} target="_blank" className="rounded-xl border border-gray-200 px-3 py-2 text-xs font-semibold text-haven-ink">Voir l’annonce</Link>
+              <Link to={`/owner/edit/${file.listing.id}`} target="_blank" className="rounded-xl border border-gray-200 px-3 py-2 text-xs font-semibold text-haven-ink">Corriger l’annonce</Link>
             </div>
           </Section>}
 
@@ -177,17 +177,17 @@ export function AdminReportCase({ reportId, bookingId, onClose, onOpenMember, on
               {file.settlement && !file.settlement.adminHold && !['TRANSFERRED', 'REVERSED', 'PARTIALLY_REVERSED', 'CANCELLED'].includes(file.settlement.state) &&
                 <button type="button" disabled={busy === 'hold'} onClick={hold} className="min-h-11 rounded-xl border border-red-100 px-3 text-sm font-semibold text-haven-red">Bloquer le versement au propriétaire</button>}
               {report && file.previousStay && !file.previousStay.damageClaim && file.previousStay.booking.depositConsent &&
-                <button type="button" onClick={() => setClaimOpen(value => !value)} className="min-h-11 rounded-xl border border-gray-200 px-3 text-sm font-semibold text-haven-navy">Demande sur la caution du locataire précédent</button>}
-              <button type="button" onClick={onOpenFinances} className="min-h-11 rounded-xl border border-gray-200 px-3 text-sm font-semibold text-haven-navy">Rembourser le locataire (Finances › Paiements)</button>
+                <button type="button" onClick={() => setClaimOpen(value => !value)} className="min-h-11 rounded-xl border border-gray-200 px-3 text-sm font-semibold text-haven-ink">Demande sur la caution du locataire précédent</button>}
+              <button type="button" onClick={onOpenFinances} className="min-h-11 rounded-xl border border-gray-200 px-3 text-sm font-semibold text-haven-ink">Rembourser le locataire (Finances › Paiements)</button>
             </div>
             {claimOpen && <div className="mt-3 space-y-2 rounded-xl bg-gray-50 p-3 text-sm">
               <p className="text-gray-600">La demande reprend la description et les photos du signalement. Le locataire précédent pourra y répondre ; vous déciderez ensuite dans Finances › Cautions.</p>
-              <label className="block font-semibold text-haven-navy">Montant demandé (€, au plus {DAMAGE_DEPOSIT_POLICY.amountCents / 100})<input inputMode="decimal" value={claimAmount} onChange={event => setClaimAmount(event.target.value)} placeholder="Ex. 40 (une heure de ménage)" className="mt-1 h-11 w-full rounded-xl border border-gray-200 bg-white px-3 font-normal" /></label>
+              <label className="block font-semibold text-haven-ink">Montant demandé (€, au plus {DAMAGE_DEPOSIT_POLICY.amountCents / 100})<input inputMode="decimal" value={claimAmount} onChange={event => setClaimAmount(event.target.value)} placeholder="Ex. 40 (une heure de ménage)" className="mt-1 h-11 w-full rounded-xl border border-gray-200 bg-white px-3 font-normal" /></label>
               <button type="button" disabled={!(claimCents >= 100 && claimCents <= DAMAGE_DEPOSIT_POLICY.amountCents) || !report?.photos?.length || busy === 'claim'} onClick={openClaim} className="flex min-h-11 items-center gap-2 rounded-xl bg-haven-navy px-4 font-bold text-white disabled:opacity-40">{busy === 'claim' && <Loader2 size={16} className="animate-spin" />}Ouvrir la demande</button>
               {!report?.photos?.length && <p className="text-xs text-haven-red">Le signalement n’a pas de photo : demandez-en une au locataire ou au propriétaire.</p>}
             </div>}
             {report && onStatus && !closed && <div className="mt-4 space-y-2">
-              <label className="block text-sm font-semibold text-haven-navy">Conclusion (enregistrée au journal)<textarea value={conclusion} onChange={event => setConclusion(event.target.value)} rows={3} maxLength={2000} placeholder="Ex. : ménage refait par le propriétaire le jour même, demande ouverte sur la caution du locataire précédent." className="mt-1 w-full rounded-xl border border-gray-200 p-3 font-normal" /></label>
+              <label className="block text-sm font-semibold text-haven-ink">Conclusion (enregistrée au journal)<textarea value={conclusion} onChange={event => setConclusion(event.target.value)} rows={3} maxLength={2000} placeholder="Ex. : ménage refait par le propriétaire le jour même, demande ouverte sur la caution du locataire précédent." className="mt-1 w-full rounded-xl border border-gray-200 p-3 font-normal" /></label>
               <div className="flex flex-wrap gap-2">
                 {report.status === 'NEW' && <button type="button" disabled={!!busy} onClick={() => void close('INVESTIGATING')} className="min-h-11 rounded-xl bg-amber-600 px-4 text-sm font-bold text-white">Prendre en charge</button>}
                 <button type="button" disabled={!!busy || conclusion.trim().length < 3} onClick={() => void close('RESOLVED')} className="min-h-11 rounded-xl bg-green-600 px-4 text-sm font-bold text-white disabled:opacity-40">Marquer résolu</button>

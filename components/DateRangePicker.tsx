@@ -163,7 +163,7 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({ startDate, end
               ${past ? 'text-gray-200 cursor-not-allowed' : isSelectedStart || isSelectedEnd ? 'text-white' : previousStays.length && !currentRange ? 'text-haven-red hover:bg-haven-red/20' : 'text-gray-700 hover:bg-haven-navy/10'}
               ${previousEndpoint && !currentRange ? 'border border-haven-red/30 bg-haven-red/10' : ''}
               ${isSelectedStart || isSelectedEnd ? 'bg-haven-navy text-white hover:bg-haven-navy shadow-lg scale-110' : ''}
-              ${inRange ? 'text-haven-navy font-bold' : ''}
+              ${inRange ? 'text-haven-ink font-bold' : ''}
               ${today && !isSelectedStart && !isSelectedEnd ? 'border border-haven-navy/20' : ''}
             `}
           >
@@ -180,7 +180,7 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({ startDate, end
       <div className="w-full">
         <div className="grid grid-cols-7 text-center mb-1">
           {['L', 'M', 'M', 'J', 'V', 'S', 'D'].map((day, idx) => (
-            <div key={`${day}-${idx}`} className="h-5 flex items-center justify-center text-[11px] font-bold text-haven-stone/60 uppercase tracking-widest">{day}</div>
+            <div key={`${day}-${idx}`} className="h-5 flex items-center justify-center text-[11px] font-bold text-haven-stone/60">{day}</div>
           ))}
         </div>
         <div className="grid grid-cols-7 text-center">
@@ -203,7 +203,7 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({ startDate, end
           setIsOpen(true);
         }}
       >
-        <CalendarIcon size={20} className="flex-shrink-0 text-haven-navy group-hover/date:text-haven-red transition-colors duration-300" />
+        <CalendarIcon size={20} className="flex-shrink-0 text-haven-ink group-hover/date:text-haven-red transition-colors duration-300" />
         <div className={`w-full truncate select-none transition-colors duration-300 leading-none ${startDate ? 'text-gray-900 font-bold text-base' : 'date-range-placeholder text-gray-400 font-normal text-base'}`}>
           {startDate ? (
             <span className="flex items-center gap-1">
@@ -241,16 +241,16 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({ startDate, end
                   e.stopPropagation();
                   prevMonth();
                 }}
-                aria-label="Mois précédent" className="haven-touch-action p-2 hover:bg-gray-100 rounded-full transition-colors text-haven-navy"
+                aria-label="Mois précédent" className="haven-touch-action p-2 hover:bg-gray-100 rounded-full transition-colors text-haven-ink"
               >
                 <ChevronLeft size={20} />
               </button>
 
               <div className="flex gap-4 md:gap-12">
-                <h4 className="font-heading font-bold text-sm text-haven-navy min-w-[120px] text-center">
+                <h4 className="font-heading font-normal text-sm text-haven-ink min-w-[120px] text-center">
                   {["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"][viewDate.getMonth()]} {viewDate.getFullYear()}
                 </h4>
-                <h4 className="font-heading font-bold text-sm text-haven-navy min-w-[120px] text-center hidden md:block">
+                <h4 className="font-heading font-normal text-sm text-haven-ink min-w-[120px] text-center hidden md:block">
                   {["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"][nextMonthDate.getMonth()]} {nextMonthDate.getFullYear()}
                 </h4>
               </div>
@@ -262,7 +262,7 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({ startDate, end
                   e.stopPropagation();
                   nextMonth();
                 }}
-                aria-label="Mois suivant" className="haven-touch-action p-2 hover:bg-gray-100 rounded-full transition-colors text-haven-navy"
+                aria-label="Mois suivant" className="haven-touch-action p-2 hover:bg-gray-100 rounded-full transition-colors text-haven-ink"
               >
                 <ChevronRight size={20} />
               </button>

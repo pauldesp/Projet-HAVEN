@@ -56,7 +56,7 @@ export function OwnerBookingActions({ booking, listing, tenant, onCancel }: { bo
     document.addEventListener('keydown', keydown);
     return () => { document.body.style.overflow = previousOverflow; document.removeEventListener('keydown', keydown); trigger.current?.focus(); };
   }, [details]);
-  const itemClass = 'flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm text-haven-navy hover:bg-gray-50 focus:bg-gray-50 focus:outline-none';
+  const itemClass = 'flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm text-haven-ink hover:bg-gray-50 focus:bg-gray-50 focus:outline-none';
   const download = async () => {
     if (downloading) return;
     setDownloading(true); setError('');
@@ -83,8 +83,8 @@ export function OwnerBookingActions({ booking, listing, tenant, onCancel }: { bo
     </>, document.body)}
     {details && createPortal(<div className="fixed inset-0 z-[90] flex items-center justify-center bg-haven-navy/50 p-3 backdrop-blur-sm sm:p-6" onClick={event => { if (event.target === event.currentTarget) setDetails(false); }}>
       <div ref={panel} role="dialog" aria-modal="true" aria-labelledby={titleId} className="haven-dialog-panel flex max-h-[90dvh] w-full max-w-2xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl">
-        <header className="flex items-center justify-between gap-4 border-b border-gray-100 p-5"><h2 id={titleId} className="text-xl font-bold text-haven-navy">Détails de la réservation</h2><button ref={close} type="button" aria-label="Fermer les détails" onClick={() => setDetails(false)} className="rounded-full bg-gray-100 p-3"><X size={20} /></button></header>
-        <div className="haven-dialog-scroll space-y-5 overflow-y-auto p-5 sm:p-7 text-left text-haven-navy">
+        <header className="flex items-center justify-between gap-4 border-b border-gray-100 p-5"><h2 id={titleId} className="text-xl font-bold text-haven-ink">Détails de la réservation</h2><button ref={close} type="button" aria-label="Fermer les détails" onClick={() => setDetails(false)} className="rounded-full bg-gray-100 p-3"><X size={20} /></button></header>
+        <div className="haven-dialog-scroll space-y-5 overflow-y-auto p-5 sm:p-7 text-left text-haven-ink">
           <div><p className="text-xs font-bold text-haven-red">{status}{booking.paymentIsTest ? ' · Simulation' : ''}</p><h3 className="mt-2 text-2xl font-bold">{listing?.title || booking.listingTitle || 'Logement'}</h3><p className="mt-1 text-gray-500">{room}</p></div>
           <div className="rounded-2xl border border-gray-200 p-4"><p className="text-xs text-gray-500">Locataire</p><Link to={`/profile/${booking.tenantId}`} className="mt-1 inline-block font-bold underline underline-offset-4">{tenant.firstName}</Link></div>
           <div className="grid gap-3 sm:grid-cols-2">{[{ label: 'Arrivée', date: booking.startDate, time: `À partir de ${booking.checkInTime || listing?.checkInTime || '15:00'}` }, { label: 'Départ', date: booking.endDate, time: `Avant ${booking.checkOutTime || listing?.checkOutTime || '11:00'}` }].map(item => <div key={item.label} className="rounded-2xl bg-gray-50 p-4"><p className="flex items-center gap-2 text-xs text-gray-500"><CalendarDays size={15} />{item.label}</p><p className="mt-2 font-bold">{date(item.date)}</p><p className="mt-1 text-sm text-gray-500">{item.time}</p></div>)}</div>

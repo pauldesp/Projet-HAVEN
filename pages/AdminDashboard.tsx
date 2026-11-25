@@ -653,10 +653,10 @@ export const AdminDashboard: React.FC = () => {
             <div className="h-10 w-px bg-white/10 hidden md:block"></div>
             <div>
               <div className="flex items-center gap-3 mb-1">
-                <div className="p-1.5 bg-haven-red rounded shadow-lg shadow-haven-red/50">
+                <div className="p-1.5 bg-haven-red rounded shadow-lg">
                   <Shield className="text-white" size={18} />
                 </div>
-                <h1 className="font-heading font-bold text-2xl text-white tracking-tight">Back-Office Admin</h1>
+                <h1 className="font-heading font-normal text-2xl text-white tracking-tight">Back-Office Admin</h1>
               </div>
               <p className="text-gray-500 text-xs font-medium uppercase tracking-widest">Console de Pilotage HAVEN</p>
             </div>
@@ -722,7 +722,7 @@ export const AdminDashboard: React.FC = () => {
               <div className="bg-white rounded-3xl shadow-card border border-gray-100 overflow-hidden">
                 <div className="p-4 sm:p-8 border-b border-gray-100 flex flex-wrap items-center justify-between gap-6">
                   <div>
-                    <h2 className="font-heading font-bold text-2xl text-haven-navy mb-1">Gestion des annonces</h2>
+                    <h2 className="font-heading font-normal text-2xl text-haven-ink mb-1">Gestion des annonces</h2>
                     <p className="text-gray-500 text-sm">Visualisez et gérez l'ensemble du catalogue.</p>
                   </div>
                   <div className="flex items-center gap-6">
@@ -733,7 +733,7 @@ export const AdminDashboard: React.FC = () => {
                           onClick={() => setListingFilters(prev => ({ ...prev, status }))}
                           className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${
                             listingFilters.status === status 
-                            ? 'bg-white text-haven-navy shadow-sm border border-gray-100' 
+                            ? 'bg-white text-haven-ink shadow-sm border border-gray-100' 
                             : 'text-gray-400 hover:text-gray-600'
                           }`}
                         >
@@ -742,7 +742,7 @@ export const AdminDashboard: React.FC = () => {
                       ))}
                     </div>
                     <div className="text-right min-w-[100px]">
-                      <span className="text-3xl font-bold text-haven-navy">{listings.length}</span>
+                      <span className="text-3xl font-bold text-haven-ink">{listings.length}</span>
                       <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">Annonces totales</p>
                     </div>
                   </div>
@@ -755,7 +755,7 @@ export const AdminDashboard: React.FC = () => {
                         <th className="p-6 text-[11px] font-bold text-gray-400 uppercase tracking-widest">Aperçu</th>
                         <th className="p-6">
                           <div 
-                            className="text-[11px] font-bold text-gray-400 uppercase tracking-widest cursor-pointer hover:text-haven-navy transition-colors flex items-center gap-2 mb-2"
+                            className="text-[11px] font-bold text-gray-400 uppercase tracking-widest cursor-pointer hover:text-haven-ink transition-colors flex items-center gap-2 mb-2"
                             onClick={() => handleListingSort('title')}
                           >
                             Nom de la coloc <SortIcon sortKey="title" currentSort={listingSort} />
@@ -770,7 +770,7 @@ export const AdminDashboard: React.FC = () => {
                         </th>
                         <th className="p-6">
                           <div 
-                            className="text-[11px] font-bold text-gray-400 uppercase tracking-widest cursor-pointer hover:text-haven-navy transition-colors flex items-center gap-2 mb-2"
+                            className="text-[11px] font-bold text-gray-400 uppercase tracking-widest cursor-pointer hover:text-haven-ink transition-colors flex items-center gap-2 mb-2"
                             onClick={() => handleListingSort('city')}
                           >
                             Ville <SortIcon sortKey="city" currentSort={listingSort} />
@@ -785,7 +785,7 @@ export const AdminDashboard: React.FC = () => {
                         </th>
                         <th className="p-6">
                           <div 
-                            className="text-[11px] font-bold text-gray-400 uppercase tracking-widest cursor-pointer hover:text-haven-navy transition-colors flex items-center gap-2 mb-2"
+                            className="text-[11px] font-bold text-gray-400 uppercase tracking-widest cursor-pointer hover:text-haven-ink transition-colors flex items-center gap-2 mb-2"
                             onClick={() => handleListingSort('totalRooms')}
                           >
                             Chambres <SortIcon sortKey="totalRooms" currentSort={listingSort} />
@@ -800,7 +800,7 @@ export const AdminDashboard: React.FC = () => {
                         </th>
                         <th className="p-6">
                           <div 
-                            className="text-[11px] font-bold text-gray-400 uppercase tracking-widest cursor-pointer hover:text-haven-navy transition-colors flex items-center gap-2 mb-2"
+                            className="text-[11px] font-bold text-gray-400 uppercase tracking-widest cursor-pointer hover:text-haven-ink transition-colors flex items-center gap-2 mb-2"
                             onClick={() => handleListingSort('ownerName')}
                           >
                             Propriétaire <SortIcon sortKey="ownerName" currentSort={listingSort} />
@@ -814,7 +814,7 @@ export const AdminDashboard: React.FC = () => {
                           />
                         </th>
                         <th 
-                          className="p-6 text-[11px] font-bold text-gray-400 uppercase tracking-widest cursor-pointer hover:text-haven-navy transition-colors"
+                          className="p-6 text-[11px] font-bold text-gray-400 uppercase tracking-widest cursor-pointer hover:text-haven-ink transition-colors"
                           onClick={() => handleListingSort('status')}
                         >
                           <div className="flex items-center gap-2">Statut <SortIcon sortKey="status" currentSort={listingSort} /></div>
@@ -831,14 +831,14 @@ export const AdminDashboard: React.FC = () => {
                             </div>
                           </td>
                           <td data-label="Nom du logement" className="p-6">
-                            <div className="font-bold text-haven-navy text-sm">{listing.title}</div>
+                            <div className="font-bold text-haven-ink text-sm">{listing.title}</div>
                             <div className="text-[11px] text-gray-400 font-medium">{listing.type === 'APARTMENT' ? 'Appartement' : 'Maison'}</div>
                           </td>
                           <td data-label="Ville" className="p-6">
                             <div className="text-sm text-gray-600 font-medium">{listing.city}</div>
                           </td>
                           <td data-label="Chambres" className="p-6">
-                            <div className="text-sm text-haven-navy font-bold">{listing.totalRooms}</div>
+                            <div className="text-sm text-haven-ink font-bold">{listing.totalRooms}</div>
                           </td>
                           <td data-label="Propriétaire" className="p-6">
                             <div className="text-sm text-gray-600 font-medium">{getUserName(listing.ownerId)}</div>
@@ -858,7 +858,7 @@ export const AdminDashboard: React.FC = () => {
                             <div className="flex flex-wrap items-center gap-2">
                               <button 
                                 onClick={() => { setError(null); setListingReview(listing); }}
-                                className="p-2 text-gray-400 hover:text-haven-navy hover:bg-gray-100 rounded-lg transition-all"
+                                className="p-2 text-gray-400 hover:text-haven-ink hover:bg-gray-100 rounded-lg transition-all"
                                 title="Examiner l’annonce"
                               >
                                 <Eye size={16} />
@@ -887,7 +887,7 @@ export const AdminDashboard: React.FC = () => {
                <div className="bg-white rounded-3xl shadow-card border border-gray-100 overflow-hidden">
                  <div className="p-4 sm:p-8 border-b border-gray-100 flex flex-wrap items-center justify-between gap-6">
                     <div>
-                      <h2 className="font-heading font-bold text-2xl text-haven-navy mb-1">Gestion des utilisateurs</h2>
+                      <h2 className="font-heading font-normal text-2xl text-haven-ink mb-1">Gestion des utilisateurs</h2>
                       <p className="text-gray-500 text-sm">Gérez les comptes et les accès à la plateforme.</p>
                     </div>
                     <div className="flex items-center gap-6">
@@ -899,7 +899,7 @@ export const AdminDashboard: React.FC = () => {
                               onClick={() => setUserFilters(prev => ({ ...prev, status }))}
                               className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${
                                 userFilters.status === status 
-                                ? 'bg-white text-haven-navy shadow-sm border border-gray-100' 
+                                ? 'bg-white text-haven-ink shadow-sm border border-gray-100' 
                                 : 'text-gray-400 hover:text-gray-600'
                               }`}
                             >
@@ -910,7 +910,7 @@ export const AdminDashboard: React.FC = () => {
                         <select 
                           value={userFilters.role}
                           onChange={(e) => setUserFilters(prev => ({ ...prev, role: e.target.value as any }))}
-                          className="bg-gray-50 border border-gray-100 rounded-xl px-4 py-2 text-xs font-bold text-haven-navy outline-none focus:border-haven-red transition-all"
+                          className="bg-gray-50 border border-gray-100 rounded-xl px-4 py-2 text-xs font-bold text-haven-ink outline-none focus:border-haven-red transition-all"
                         >
                           <option value="ALL">Tous les rôles</option>
                           <option value={UserRole.TENANT}>Locataires</option>
@@ -919,7 +919,7 @@ export const AdminDashboard: React.FC = () => {
                         </select>
                       </div>
                       <div className="text-right min-w-[100px]">
-                        <span className="text-3xl font-bold text-haven-navy">{users.length}</span>
+                        <span className="text-3xl font-bold text-haven-ink">{users.length}</span>
                         <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">Inscrits totaux</p>
                       </div>
                     </div>
@@ -932,7 +932,7 @@ export const AdminDashboard: React.FC = () => {
                           <th className="p-6 text-[11px] font-bold text-gray-400 uppercase tracking-widest">Profil</th>
                           <th className="p-6">
                             <div 
-                              className="text-[11px] font-bold text-gray-400 uppercase tracking-widest cursor-pointer hover:text-haven-navy transition-colors flex items-center gap-2 mb-2"
+                              className="text-[11px] font-bold text-gray-400 uppercase tracking-widest cursor-pointer hover:text-haven-ink transition-colors flex items-center gap-2 mb-2"
                               onClick={() => handleUserSort('firstName')}
                             >
                               Prénom <SortIcon sortKey="firstName" currentSort={userSort} />
@@ -947,7 +947,7 @@ export const AdminDashboard: React.FC = () => {
                           </th>
                           <th className="p-6">
                             <div 
-                              className="text-[11px] font-bold text-gray-400 uppercase tracking-widest cursor-pointer hover:text-haven-navy transition-colors flex items-center gap-2 mb-2"
+                              className="text-[11px] font-bold text-gray-400 uppercase tracking-widest cursor-pointer hover:text-haven-ink transition-colors flex items-center gap-2 mb-2"
                               onClick={() => handleUserSort('lastName')}
                             >
                               Nom <SortIcon sortKey="lastName" currentSort={userSort} />
@@ -962,7 +962,7 @@ export const AdminDashboard: React.FC = () => {
                           </th>
                           <th className="p-6">
                             <div 
-                              className="text-[11px] font-bold text-gray-400 uppercase tracking-widest cursor-pointer hover:text-haven-navy transition-colors flex items-center gap-2 mb-2"
+                              className="text-[11px] font-bold text-gray-400 uppercase tracking-widest cursor-pointer hover:text-haven-ink transition-colors flex items-center gap-2 mb-2"
                               onClick={() => handleUserSort('email')}
                             >
                               Email <SortIcon sortKey="email" currentSort={userSort} />
@@ -977,7 +977,7 @@ export const AdminDashboard: React.FC = () => {
                           </th>
                           <th className="p-6">
                             <div 
-                              className="text-[11px] font-bold text-gray-400 uppercase tracking-widest cursor-pointer hover:text-haven-navy transition-colors flex items-center gap-2 mb-2"
+                              className="text-[11px] font-bold text-gray-400 uppercase tracking-widest cursor-pointer hover:text-haven-ink transition-colors flex items-center gap-2 mb-2"
                               onClick={() => handleUserSort('phone')}
                             >
                               Téléphone <SortIcon sortKey="phone" currentSort={userSort} />
@@ -992,7 +992,7 @@ export const AdminDashboard: React.FC = () => {
                           </th>
                           <th className="p-6">
                             <div 
-                              className="text-[11px] font-bold text-gray-400 uppercase tracking-widest cursor-pointer hover:text-haven-navy transition-colors flex items-center gap-2 mb-2"
+                              className="text-[11px] font-bold text-gray-400 uppercase tracking-widest cursor-pointer hover:text-haven-ink transition-colors flex items-center gap-2 mb-2"
                               onClick={() => handleUserSort('city')}
                             >
                               Ville <SortIcon sortKey="city" currentSort={userSort} />
@@ -1006,13 +1006,13 @@ export const AdminDashboard: React.FC = () => {
                             />
                           </th>
                           <th 
-                            className="p-6 text-[11px] font-bold text-gray-400 uppercase tracking-widest cursor-pointer hover:text-haven-navy transition-colors"
+                            className="p-6 text-[11px] font-bold text-gray-400 uppercase tracking-widest cursor-pointer hover:text-haven-ink transition-colors"
                             onClick={() => handleUserSort('role')}
                           >
                             <div className="flex items-center gap-2">Rôle <SortIcon sortKey="role" currentSort={userSort} /></div>
                           </th>
                           <th 
-                            className="p-6 text-[11px] font-bold text-gray-400 uppercase tracking-widest cursor-pointer hover:text-haven-navy transition-colors"
+                            className="p-6 text-[11px] font-bold text-gray-400 uppercase tracking-widest cursor-pointer hover:text-haven-ink transition-colors"
                             onClick={() => handleUserSort('status')}
                           >
                             <div className="flex items-center gap-2">Statut <SortIcon sortKey="status" currentSort={userSort} /></div>
@@ -1027,10 +1027,10 @@ export const AdminDashboard: React.FC = () => {
                               <img src={user.avatarUrl} className="w-10 h-10 rounded-full object-cover border border-gray-100" alt=""/>
                             </td>
                             <td data-label="Prénom" className="p-6">
-                              <div className="font-bold text-haven-navy text-sm">{user.firstName}</div>
+                              <div className="font-bold text-haven-ink text-sm">{user.firstName}</div>
                             </td>
                             <td data-label="Nom" className="p-6">
-                              <div className="font-bold text-haven-navy text-sm">{user.lastName}</div>
+                              <div className="font-bold text-haven-ink text-sm">{user.lastName}</div>
                             </td>
                             <td data-label="E-mail" className="p-6">
                               <div className="text-sm text-gray-500">{user.email}</div>
@@ -1061,7 +1061,7 @@ export const AdminDashboard: React.FC = () => {
                               <div className="flex items-center gap-2">
                                 <button 
                                   onClick={() => openUserDetailModal(user.id)}
-                                  className="p-2 text-gray-400 hover:text-haven-navy hover:bg-gray-100 rounded-lg transition-all"
+                                  className="p-2 text-gray-400 hover:text-haven-ink hover:bg-gray-100 rounded-lg transition-all"
                                   title="Détails"
                                 >
                                   <Eye size={16} />
@@ -1095,7 +1095,7 @@ export const AdminDashboard: React.FC = () => {
                       onClick={() => setReportFilter(status)}
                       className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${
                         reportFilter === status 
-                        ? 'bg-white text-haven-navy shadow-sm border border-gray-100' 
+                        ? 'bg-white text-haven-ink shadow-sm border border-gray-100' 
                         : 'text-gray-400 hover:text-gray-600'
                       }`}
                     >
@@ -1107,7 +1107,7 @@ export const AdminDashboard: React.FC = () => {
 
               <div className="bg-white rounded-3xl shadow-card border border-gray-100 overflow-hidden">
                 <div className="p-4 sm:p-8 border-b border-gray-100">
-                  <h2 className="font-heading font-bold text-2xl text-haven-navy mb-1">Signalements & Modération</h2>
+                  <h2 className="font-heading font-normal text-2xl text-haven-ink mb-1">Signalements & Modération</h2>
                   <p className="text-gray-500 text-sm">Gérez les signalements effectués par les utilisateurs.</p>
                 </div>
 
@@ -1129,7 +1129,7 @@ export const AdminDashboard: React.FC = () => {
                                    <AlertTriangle size={20}/>}
                                 </div>
                                 <div>
-                                  <h3 className="font-bold text-lg text-haven-navy">
+                                  <h3 className="font-bold text-lg text-haven-ink">
                                     Signalement {report.targetType === 'USER' ? 'Utilisateur' : 
                                                report.targetType === 'LISTING' ? 'Annonce' : 
                                                report.targetType === 'MESSAGE' ? 'Message' : 'Technique'}
@@ -1153,7 +1153,7 @@ export const AdminDashboard: React.FC = () => {
                               {report.photos?.map((photo, index) => <img key={index} src={photo} alt={`Pièce jointe du signalement ${index + 1}`} className="mt-3 max-h-64 rounded-xl object-contain"/>)}
                               {report.listingId && <button className="mt-3 text-sm font-bold text-haven-red" onClick={() => navigate(`/listing/${report.listingId}`)}>Voir le logement concerné</button>}
                               {report.ownerMessage && <div className="mt-3 rounded-xl border border-blue-100 bg-blue-50 p-4"><p className="text-sm text-gray-700">{report.ownerMessage}</p>{report.waitingOwnerSince && <p className="mt-2 text-xs text-gray-500">Mis en attente le {new Date(report.waitingOwnerSince).toLocaleString('fr-FR')}</p>}{report.ownerReviewDate && <p className="mt-1 text-xs text-gray-500">Réexamen prévu le {new Date(`${report.ownerReviewDate}T12:00:00`).toLocaleDateString('fr-FR')} · suivi manuel</p>}</div>}
-                              {report.incidentId && <p className="mt-2 text-xs font-semibold text-haven-navy">Incident lié : {report.incidentId}</p>}
+                              {report.incidentId && <p className="mt-2 text-xs font-semibold text-haven-ink">Incident lié : {report.incidentId}</p>}
                               {report.bookingId && <p className="mt-2 text-xs text-gray-500">Réservation : {report.bookingId}</p>}
                             </div>
                             <div className="flex items-center gap-4 text-xs text-gray-400">
@@ -1223,7 +1223,7 @@ export const AdminDashboard: React.FC = () => {
           {activeTab === 'CONTACTS' && (
             <div className="bg-white rounded-3xl shadow-card border border-gray-100 overflow-hidden">
               <div className="p-4 sm:p-8 border-b border-gray-100">
-                <h2 className="font-heading font-bold text-2xl text-haven-navy mb-2">Messages à Haven</h2>
+                <h2 className="font-heading font-normal text-2xl text-haven-ink mb-2">Messages à Haven</h2>
                 <p className="text-gray-500 text-sm">Avis, suggestions, dysfonctionnements du site, questions et réclamations sur le service Haven. Les problèmes liés aux séjours sont suivis dans Incidents et Signalements.</p>
               </div>
 
@@ -1236,7 +1236,7 @@ export const AdminDashboard: React.FC = () => {
                           <div className="flex justify-between items-start mb-4">
                             <div>
                               <div className="flex items-center gap-3 mb-1">
-                                <h3 className="font-bold text-xl text-haven-navy">{request.subject}</h3>
+                                <h3 className="font-bold text-xl text-haven-ink">{request.subject}</h3>
                                 <span className={`px-2 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-widest border ${
                                   request.status === 'NEW' ? 'bg-amber-50 text-amber-600 border-amber-100' :
                                   request.status === 'IN_PROGRESS' ? 'bg-blue-50 text-blue-600 border-blue-100' :
@@ -1246,7 +1246,7 @@ export const AdminDashboard: React.FC = () => {
                                 </span>
                               </div>
                               <p className="text-gray-500 text-sm flex items-center gap-2">
-                                <span className="font-bold text-haven-navy">{request.name}</span>
+                                <span className="font-bold text-haven-ink">{request.name}</span>
                                 <span>•</span>
                                 <span>{request.email}</span>
                                 <span>•</span>
@@ -1336,7 +1336,7 @@ export const AdminDashboard: React.FC = () => {
             isPrimaryAdmin ? <div className="space-y-8">
               <div className="bg-white rounded-3xl shadow-card border border-gray-100 p-4 sm:p-8">
                 <div className="mb-7">
-                  <div className="flex items-center gap-3 text-haven-navy"><Shield className="text-haven-red" /><h2 className="font-heading font-bold text-2xl">Administrateurs HAVEN</h2></div>
+                  <div className="flex items-center gap-3 text-haven-ink"><Shield className="text-haven-red" /><h2 className="font-heading font-normal text-2xl">Administrateurs HAVEN</h2></div>
                   <p className="text-sm text-gray-500 mt-2">Vous êtes l’administrateur principal. Vous seul pouvez accorder ou retirer les accès administrateurs.</p>
                 </div>
                 <form onSubmit={handleAddAdmin} className="grid md:grid-cols-4 gap-5 items-end">
@@ -1385,13 +1385,13 @@ export const AdminDashboard: React.FC = () => {
               </div>
 
               <div className="bg-white rounded-3xl shadow-card border border-gray-100 p-4 sm:p-8">
-                <h3 className="font-heading font-bold text-xl text-haven-navy mb-6">Équipe HAVEN ({users.filter(u => u.role === UserRole.ADMIN).length})</h3>
+                <h3 className="font-heading font-normal text-xl text-haven-ink mb-6">Équipe HAVEN ({users.filter(u => u.role === UserRole.ADMIN).length})</h3>
                 <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {users.filter(u => u.role === UserRole.ADMIN).map(admin => (
                     <div key={admin.id} className="flex items-center gap-4 p-6 bg-gray-50 rounded-2xl border border-gray-100">
                       <img src={admin.avatarUrl} className="w-14 h-14 rounded-full object-cover border-2 border-white shadow-sm" alt=""/>
                       <div className="flex-1 min-w-0">
-                        <p className="font-bold text-haven-navy truncate">{admin.firstName} {admin.lastName}</p>
+                        <p className="font-bold text-haven-ink truncate">{admin.firstName} {admin.lastName}</p>
                         <p className="text-xs text-gray-400 truncate">{admin.email}</p>
                         <div className={`mt-1 flex items-center gap-1 text-[11px] font-bold uppercase tracking-widest ${admin.adminLevel === 'PRIMARY' ? 'text-amber-600' : 'text-haven-red'}`}>
                           <Shield size={10} /> {admin.adminLevel === 'PRIMARY' ? 'Administrateur principal' : 'Administrateur'}
@@ -1406,7 +1406,7 @@ export const AdminDashboard: React.FC = () => {
                 </div>
               </div>
             </div> : <div className="rounded-3xl border border-amber-100 bg-amber-50 p-4 sm:p-8 shadow-card">
-              <div className="flex items-start gap-4"><Shield className="mt-1 text-amber-600" /><div><h2 className="font-heading text-2xl font-bold text-haven-navy">Gouvernance administrateur</h2><p className="mt-2 max-w-2xl text-sm leading-relaxed text-gray-600">Cet espace regroupe la création des administrateurs, la gestion de leurs accès et la chaîne de responsabilité. Il sera accessible dès que votre compte aura été activé comme administrateur principal.</p><p className="mt-4 text-xs font-bold text-amber-700">Compte concerné : {currentUser?.email}</p></div></div>
+              <div className="flex items-start gap-4"><Shield className="mt-1 text-amber-600" /><div><h2 className="font-heading text-2xl font-normal text-haven-ink">Gouvernance administrateur</h2><p className="mt-2 max-w-2xl text-sm leading-relaxed text-gray-600">Cet espace regroupe la création des administrateurs, la gestion de leurs accès et la chaîne de responsabilité. Il sera accessible dès que votre compte aura été activé comme administrateur principal.</p><p className="mt-4 text-xs font-bold text-amber-700">Compte concerné : {currentUser?.email}</p></div></div>
             </div>
           )}
 
@@ -1421,7 +1421,7 @@ export const AdminDashboard: React.FC = () => {
                   if (listing) { setError(null); setListingReview(listing); }
                 }
               }} /> : <div className="rounded-3xl border border-gray-100 bg-white p-4 sm:p-8 shadow-card">
-              <div className="flex items-start gap-4"><History className="mt-1 text-haven-red" /><div><h2 className="font-heading text-2xl font-bold text-haven-navy">Journal des actions administratives</h2><p className="mt-2 max-w-2xl text-sm leading-relaxed text-gray-500">Vous retrouverez ici chaque décision prise dans le back-office, son auteur, sa date et l’élément concerné. La consultation est réservée à l’administrateur principal.</p></div></div>
+              <div className="flex items-start gap-4"><History className="mt-1 text-haven-red" /><div><h2 className="font-heading text-2xl font-normal text-haven-ink">Journal des actions administratives</h2><p className="mt-2 max-w-2xl text-sm leading-relaxed text-gray-500">Vous retrouverez ici chaque décision prise dans le back-office, son auteur, sa date et l’élément concerné. La consultation est réservée à l’administrateur principal.</p></div></div>
             </div>
           )}
 
@@ -1430,7 +1430,7 @@ export const AdminDashboard: React.FC = () => {
               <div className="bg-white rounded-3xl shadow-card border border-gray-100 p-4 sm:p-8">
                 <div className="flex items-center justify-between mb-8">
                   <div>
-                    <h2 className="font-heading font-bold text-2xl text-haven-navy mb-1">Documents Légaux</h2>
+                    <h2 className="font-heading font-normal text-2xl text-haven-ink mb-1">Documents Légaux</h2>
                     <p className="text-gray-500 text-sm">Gérez les conditions générales et politiques de confidentialité.</p>
                   </div>
                   <Button 
@@ -1454,14 +1454,14 @@ export const AdminDashboard: React.FC = () => {
                   {legalDocs.length > 0 ? legalDocs.map(doc => (
                     <div key={doc.id} className="bg-gray-50 rounded-2xl border border-gray-100 p-6 hover:shadow-md transition-all group">
                       <div className="flex justify-between items-start mb-4">
-                        <div className="p-3 bg-white rounded-xl shadow-sm text-haven-navy">
+                        <div className="p-3 bg-white rounded-xl shadow-sm text-haven-ink">
                           <FileText size={24} />
                         </div>
                         <span className="text-[11px] font-bold text-gray-400 uppercase tracking-widest bg-white px-2 py-1 rounded-md border border-gray-100">
                           ID: {doc.id}
                         </span>
                       </div>
-                      <h3 className="font-bold text-lg text-haven-navy mb-2">{doc.title}</h3>
+                      <h3 className="font-bold text-lg text-haven-ink mb-2">{doc.title}</h3>
                       <p className="text-xs text-gray-400 mb-6">
                         Mis à jour le {new Date(doc.lastUpdated).toLocaleDateString()}
                       </p>
@@ -1494,7 +1494,7 @@ export const AdminDashboard: React.FC = () => {
               {isEditingLegal && (
                 <div className="bg-white rounded-3xl shadow-card border border-gray-100 p-4 sm:p-8 animate-fade-in-up">
                   <div className="flex items-center justify-between mb-8">
-                    <h3 className="font-heading font-bold text-xl text-haven-navy">
+                    <h3 className="font-heading font-normal text-xl text-haven-ink">
                       {selectedLegalDoc?.id.startsWith('new-') ? "Nouveau document" : `Édition : ${selectedLegalDoc?.title || selectedLegalDoc?.id}`}
                     </h3>
                     <div className="flex gap-3">
@@ -1517,7 +1517,7 @@ export const AdminDashboard: React.FC = () => {
                         type="text"
                         value={legalEditForm.title || ''}
                         onChange={(e) => setLegalEditForm({ ...legalEditForm, title: e.target.value })}
-                        className="w-full px-6 py-4 bg-gray-50 border border-gray-100 rounded-2xl outline-none focus:border-haven-red transition-all text-xl font-bold text-haven-navy"
+                        className="w-full px-6 py-4 bg-gray-50 border border-gray-100 rounded-2xl outline-none focus:border-haven-red transition-all text-xl font-bold text-haven-ink"
                         placeholder="Ex. : Conditions générales de vente"
                       />
                     </div>
@@ -1633,7 +1633,7 @@ export const AdminDashboard: React.FC = () => {
                       </div>
                       <span className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">Utilisateurs</span>
                     </div>
-                    <div className="text-4xl font-heading font-bold text-haven-navy">{users.length}</div>
+                    <div className="text-4xl font-heading font-normal text-haven-ink">{users.length}</div>
                     <div className="flex items-center gap-1.5 mt-2 text-xs text-haven-stone">
                       <span className="font-bold text-green-600">{users.filter(u => u.status === 'APPROVED').length} active</span> • {pendingUsers.length} à examiner
                     </div>
@@ -1647,7 +1647,7 @@ export const AdminDashboard: React.FC = () => {
                       </div>
                       <span className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">Chambres en Coloc</span>
                     </div>
-                    <div className="text-4xl font-heading font-bold text-haven-navy">{totalRoomsCount}</div>
+                    <div className="text-4xl font-heading font-normal text-haven-ink">{totalRoomsCount}</div>
                     <div className="flex items-center gap-1.5 mt-2 text-xs text-haven-stone">
                       <span className="font-bold text-haven-red">{listings.length} propriétés</span> dans {new Set(listings.map(l => l.city)).size} villes
                     </div>
@@ -1661,7 +1661,7 @@ export const AdminDashboard: React.FC = () => {
                       </div>
                       <span className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">Réservations</span>
                     </div>
-                    <div className="text-4xl font-heading font-bold text-haven-navy">{bookings.length}</div>
+                    <div className="text-4xl font-heading font-normal text-haven-ink">{bookings.length}</div>
                     <div className="flex items-center gap-1.5 mt-2 text-xs text-haven-stone">
                       <span className="font-bold text-green-600">{confirmedCount + completedCount} confirmées</span> • {pendingCount} en attente
                     </div>
@@ -1676,7 +1676,7 @@ export const AdminDashboard: React.FC = () => {
                         </div>
                         <span className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">Taux d'occupation</span>
                       </div>
-                      <span className="font-heading font-bold text-lg text-teal-600">{occupancyRate}%</span>
+                      <span className="font-heading font-normal text-lg text-teal-600">{occupancyRate}%</span>
                     </div>
                     <div className="w-full bg-gray-100 h-2.5 rounded-full overflow-hidden mb-2">
                       <div className="bg-teal-600 h-2.5 rounded-full transition-all duration-1000" style={{ width: `${occupancyRate}%` }}></div>
@@ -1692,7 +1692,7 @@ export const AdminDashboard: React.FC = () => {
                       </div>
                       <span className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">Volume Financier</span>
                     </div>
-                    <div className="text-4xl font-heading font-bold text-haven-navy">{totalProcessed.toLocaleString('fr-FR')} €</div>
+                    <div className="text-4xl font-heading font-normal text-haven-ink">{totalProcessed.toLocaleString('fr-FR')} €</div>
                     <p className="text-xs text-haven-stone mt-2">Transit sécurisé Stripe (cartes + comptes)</p>
                   </div>
 
@@ -1704,7 +1704,7 @@ export const AdminDashboard: React.FC = () => {
                       </div>
                       <span className="text-[11px] font-bold text-emerald-800 uppercase tracking-widest">Revenus commissions (15%)</span>
                     </div>
-                    <div className="text-4xl font-heading font-bold text-emerald-950">{platformCommissions.toLocaleString('fr-FR')} €</div>
+                    <div className="text-4xl font-heading font-normal text-emerald-950">{platformCommissions.toLocaleString('fr-FR')} €</div>
                     <p className="text-xs text-emerald-700 mt-2 font-bold mb-1">Marge brute accumulée HAVEN</p>
                   </div>
                 </div>
@@ -1714,7 +1714,7 @@ export const AdminDashboard: React.FC = () => {
                   {/* Left Graph: Commissions evolution */}
                   <div className="bg-white p-5 sm:p-10 rounded-[2rem] border border-gray-100 shadow-premium lg:col-span-7 flex flex-col justify-between">
                     <div>
-                      <h3 className="font-heading font-bold text-2xl text-haven-navy leading-none mb-1">Marges brutes récoltées (15%)</h3>
+                      <h3 className="font-heading font-normal text-2xl text-haven-ink leading-none mb-1">Marges brutes récoltées (15%)</h3>
                       <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-8">Évolution mensuelle des commissions</p>
                     </div>
 
@@ -1746,7 +1746,7 @@ export const AdminDashboard: React.FC = () => {
                     {/* Progress distribution */}
                     <div className="bg-white p-4 sm:p-8 rounded-[2rem] border border-gray-100 shadow-premium space-y-6">
                       <div>
-                        <h4 className="font-heading font-bold text-xl text-haven-navy leading-none mb-1">États des Réservations</h4>
+                        <h4 className="font-heading font-normal text-xl text-haven-ink leading-none mb-1">États des Réservations</h4>
                         <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">Répartition sectorielle globale</p>
                       </div>
 
@@ -1760,7 +1760,7 @@ export const AdminDashboard: React.FC = () => {
                           const percent = bookings.length > 0 ? Math.round((item.count / bookings.length) * 100) : 0;
                           return (
                             <div key={idx} className="space-y-1.5">
-                              <div className="flex justify-between text-xs font-bold text-haven-navy">
+                              <div className="flex justify-between text-xs font-bold text-haven-ink">
                                 <span>{item.label}</span>
                                 <span className={item.text}>{item.count} ({percent}%)</span>
                               </div>
@@ -1776,7 +1776,7 @@ export const AdminDashboard: React.FC = () => {
                     {/* Active cities */}
                     <div className="bg-white p-4 sm:p-8 rounded-[2rem] border border-gray-100 shadow-premium space-y-6">
                       <div>
-                        <h4 className="font-heading font-bold text-xl text-haven-navy leading-none mb-1">Top villes</h4>
+                        <h4 className="font-heading font-normal text-xl text-haven-ink leading-none mb-1">Top villes</h4>
                         <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">Activité locative par ville</p>
                       </div>
 
@@ -1787,7 +1787,7 @@ export const AdminDashboard: React.FC = () => {
                             const share = totalCleanBookings > 0 ? Math.round((city.count / totalCleanBookings) * 100) : 0;
                             return (
                               <div key={idx} className="flex justify-between items-center text-xs pb-3 border-b border-gray-50 last:border-0 last:pb-0">
-                                <span className="font-bold text-haven-navy">{city.name}</span>
+                                <span className="font-bold text-haven-ink">{city.name}</span>
                                 <div className="flex items-center gap-2">
                                   <span className="text-gray-400 font-medium">{city.count} réservation(s)</span>
                                   <span className="bg-teal-50 text-teal-700 px-2 py-0.5 font-bold uppercase text-[11px] rounded">{share}%</span>
@@ -1811,7 +1811,7 @@ export const AdminDashboard: React.FC = () => {
                     <Shield size={200} />
                   </div>
                   <div className="relative z-10">
-                    <h3 className="font-heading font-bold text-2xl mb-8 flex items-center gap-3">
+                    <h3 className="font-heading font-normal text-2xl mb-8 flex items-center gap-3">
                       <Shield className="text-haven-red" /> Informations administrateur et mode de réservation
                     </h3>
                     <div className="grid md:grid-cols-2 gap-12">
@@ -1880,7 +1880,7 @@ export const AdminDashboard: React.FC = () => {
               <div className="w-16 h-16 bg-red-100 text-red-600 rounded-2xl flex items-center justify-center mb-6">
                 <AlertTriangle size={32} />
               </div>
-              <h3 className="text-2xl font-heading font-bold text-haven-navy mb-2">{rejectionModal.type === 'BAN' ? 'Justifier le bannissement' : 'Justifier le refus'}</h3>
+              <h3 className="text-2xl font-heading font-normal text-haven-ink mb-2">{rejectionModal.type === 'BAN' ? 'Justifier le bannissement' : 'Justifier le refus'}</h3>
               <p className="text-gray-500 text-sm">
                 Veuillez expliquer votre décision concernant {rejectionModal.type === 'LISTING' ? "cette annonce" : "ce compte"}. Ce message sera visible par l'utilisateur.
               </p>
@@ -1938,7 +1938,7 @@ export const AdminDashboard: React.FC = () => {
                   <Users size={24} />
                 </div>
                 <div>
-                  <h3 className="text-2xl font-heading font-bold text-haven-navy">Fiche Utilisateur</h3>
+                  <h3 className="text-2xl font-heading font-normal text-haven-ink">Fiche Utilisateur</h3>
                   <p className="text-gray-500 text-sm">Détails complets, locations et demandes.</p>
                 </div>
               </div>
@@ -1967,7 +1967,7 @@ export const AdminDashboard: React.FC = () => {
                         alt="" 
                         className="w-32 h-32 rounded-full object-cover border-4 border-white shadow-lg mb-4"
                       />
-                      <h4 className="font-bold text-xl text-haven-navy mb-1">
+                      <h4 className="font-bold text-xl text-haven-ink mb-1">
                         {userDetailModal.user.firstName} {userDetailModal.user.lastName}
                       </h4>
                       <p className="text-sm text-gray-500 mb-4">{userDetailModal.user.email}</p>
@@ -2027,26 +2027,26 @@ export const AdminDashboard: React.FC = () => {
                       <div className="grid grid-cols-2 xl:grid-cols-3 gap-4">
                         <div className="p-4 bg-white border border-gray-100 rounded-2xl">
                           <span className="text-[11px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Membre depuis</span>
-                          <span className="font-bold text-haven-navy">
+                          <span className="font-bold text-haven-ink">
                             {userDetailModal.user.createdAt ? new Date(userDetailModal.user.createdAt).toLocaleDateString() : 'N/A'}
                           </span>
                         </div>
                         <div className="p-4 bg-white border border-gray-100 rounded-2xl">
                           <span className="text-[11px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Date de naissance</span>
-                          <span className="font-bold text-haven-navy">
+                          <span className="font-bold text-haven-ink">
                             {userDetailModal.user.birthDate ? new Date(`${userDetailModal.user.birthDate}T00:00:00`).toLocaleDateString('fr-FR') : 'Non renseignée'}
                           </span>
                         </div>
                         <div className="p-4 bg-white border border-gray-100 rounded-2xl">
                           <span className="text-[11px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Adresse e-mail</span>
-                          <span className="font-bold text-haven-navy break-all">{userDetailModal.user.email || 'Non renseignée'}</span>
+                          <span className="font-bold text-haven-ink break-all">{userDetailModal.user.email || 'Non renseignée'}</span>
                           <span className={`block mt-1 text-xs font-bold ${userDetailModal.user.emailVerified ? 'text-green-600' : 'text-amber-600'}`}>
                             {userDetailModal.user.emailVerified ? 'Confirmée' : 'À confirmer'}
                           </span>
                         </div>
                         <div className="p-4 bg-white border border-gray-100 rounded-2xl">
                           <span className="text-[11px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Téléphone</span>
-                          <span className="font-bold text-haven-navy">{userDetailModal.user.phone || 'Non renseigné'}</span>
+                          <span className="font-bold text-haven-ink">{userDetailModal.user.phone || 'Non renseigné'}</span>
                           <span className={`block mt-1 text-xs font-bold ${userDetailModal.user.phone ? 'text-gray-500' : 'text-amber-600'}`}>
                             {userDetailModal.user.phone ? 'Numéro renseigné' : 'Numéro manquant'}
                           </span>
@@ -2077,7 +2077,7 @@ export const AdminDashboard: React.FC = () => {
                         </div>
                       </div>
                       <div className="p-6 bg-white border border-gray-100 rounded-2xl">
-                        <h5 className="font-bold text-haven-navy mb-2">Bio</h5>
+                        <h5 className="font-bold text-haven-ink mb-2">Bio</h5>
                         <p className="text-sm text-gray-600 italic">
                           {userDetailModal.user.bio || "Aucune bio renseignée."}
                         </p>
@@ -2085,10 +2085,10 @@ export const AdminDashboard: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="rounded-2xl border border-gray-100 bg-white p-5"><h4 className="font-bold text-haven-navy">Domicile déclaré</h4><p className="mt-2 text-sm text-gray-600">{residenceLabel || 'Non renseigné'}</p></div>
+                  <div className="rounded-2xl border border-gray-100 bg-white p-5"><h4 className="font-bold text-haven-ink">Domicile déclaré</h4><p className="mt-2 text-sm text-gray-600">{residenceLabel || 'Non renseigné'}</p></div>
                   {/* Documents Section */}
                   <div className="space-y-4">
-                    <h4 className="font-heading font-bold text-xl text-haven-navy flex items-center gap-2">
+                    <h4 className="font-heading font-normal text-xl text-haven-ink flex items-center gap-2">
                       <Shield size={20} className="text-haven-red" /> Justificatifs du dossier
                     </h4>
                     <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">
@@ -2100,8 +2100,8 @@ export const AdminDashboard: React.FC = () => {
                         const url = userDetailModal.user?.documents?.[doc.key as keyof typeof userDetailModal.user.documents];
                         return (
                           <div key={doc.key} className="p-4 bg-gray-50 rounded-2xl border border-gray-100 flex flex-col items-center justify-center text-center">
-                            <FileText size={24} className={url ? "text-haven-navy mb-2" : "text-gray-300 mb-2"} />
-                            <p className="text-xs font-bold text-haven-navy mb-2">{doc.label}</p>
+                            <FileText size={24} className={url ? "text-haven-ink mb-2" : "text-gray-300 mb-2"} />
+                            <p className="text-xs font-bold text-haven-ink mb-2">{doc.label}</p>
                             {url ? (
                               <Button variant="outline" size="sm" onClick={() => {
                                 if (doc.key === 'idCardBack') {
@@ -2124,7 +2124,7 @@ export const AdminDashboard: React.FC = () => {
                   {/* Listings (if owner) */}
                   {userDetailModal.user.role === UserRole.OWNER && (
                     <div className="space-y-4">
-                      <h4 className="font-heading font-bold text-xl text-haven-navy flex items-center gap-2">
+                      <h4 className="font-heading font-normal text-xl text-haven-ink flex items-center gap-2">
                         <Home size={20} className="text-haven-red" /> Annonces ({userDetailModal.listings.length})
                       </h4>
                       {userDetailModal.listings.length > 0 ? (
@@ -2133,7 +2133,7 @@ export const AdminDashboard: React.FC = () => {
                             <div key={listing.id} className="flex items-center gap-4 p-4 bg-gray-50 rounded-2xl border border-gray-100">
                               <img src={listing.mainPhotoUrl} className="w-16 h-16 rounded-xl object-cover" alt=""/>
                               <div className="flex-1 min-w-0">
-                                <p className="font-bold text-haven-navy truncate text-sm">{listing.title}</p>
+                                <p className="font-bold text-haven-ink truncate text-sm">{listing.title}</p>
                                 <p className="text-xs text-gray-400">{listing.city} • {listing.rooms[0]?.pricePerDay || 0}€/nuit</p>
                               </div>
                               <Button variant="outline" size="sm" onClick={() => window.open(`/#/listing/${listing.id}`, '_blank')}>
@@ -2150,7 +2150,7 @@ export const AdminDashboard: React.FC = () => {
 
                   {/* Bookings as Tenant */}
                   <div className="space-y-4">
-                    <h4 className="font-heading font-bold text-xl text-haven-navy flex items-center gap-2">
+                    <h4 className="font-heading font-normal text-xl text-haven-ink flex items-center gap-2">
                       <Calendar size={20} className="text-haven-red" /> Demandes de location ({userDetailModal.bookings.length})
                     </h4>
                     {userDetailModal.bookings.length > 0 ? (
@@ -2159,10 +2159,10 @@ export const AdminDashboard: React.FC = () => {
                           <div key={booking.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl border border-gray-100">
                             <div className="flex items-center gap-4">
                               <div className="p-2 bg-white rounded-lg shadow-sm">
-                                <FileText size={18} className="text-haven-navy" />
+                                <FileText size={18} className="text-haven-ink" />
                               </div>
                               <div>
-                                <p className="font-bold text-haven-navy text-sm">Réservation #{booking.id.slice(-6)}</p>
+                                <p className="font-bold text-haven-ink text-sm">Réservation #{booking.id.slice(-6)}</p>
                                 <p className="text-xs text-gray-400">Du {new Date(booking.startDate).toLocaleDateString()} au {new Date(booking.endDate).toLocaleDateString()}</p>
                               </div>
                             </div>
@@ -2184,7 +2184,7 @@ export const AdminDashboard: React.FC = () => {
                   {/* Received Bookings (if owner) */}
                   {userDetailModal.user.role === UserRole.OWNER && (
                     <div className="space-y-4">
-                      <h4 className="font-heading font-bold text-xl text-haven-navy flex items-center gap-2">
+                      <h4 className="font-heading font-normal text-xl text-haven-ink flex items-center gap-2">
                         <MessageSquare size={20} className="text-haven-red" /> Demandes reçues ({userDetailModal.ownerBookings.length})
                       </h4>
                       {userDetailModal.ownerBookings.length > 0 ? (
@@ -2193,10 +2193,10 @@ export const AdminDashboard: React.FC = () => {
                             <div key={booking.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-2xl border border-gray-100">
                               <div className="flex items-center gap-4">
                                 <div className="p-2 bg-white rounded-lg shadow-sm">
-                                  <UserCheck size={18} className="text-haven-navy" />
+                                  <UserCheck size={18} className="text-haven-ink" />
                                 </div>
                                 <div>
-                                  <p className="font-bold text-haven-navy text-sm">Tenant ID: {booking.tenantId.slice(-6)}</p>
+                                  <p className="font-bold text-haven-ink text-sm">Tenant ID: {booking.tenantId.slice(-6)}</p>
                                   <p className="text-xs text-gray-400">Total: {booking.totalPrice}€</p>
                                 </div>
                               </div>
@@ -2247,7 +2247,7 @@ export const AdminDashboard: React.FC = () => {
                   <FileText size={18} />
                 </div>
                 <div>
-                  <h3 className="text-lg font-heading font-bold text-haven-navy">{docPreviewModal.title}</h3>
+                  <h3 className="text-lg font-heading font-normal text-haven-ink">{docPreviewModal.title}</h3>
                   <p className="text-gray-400 text-xs">Aperçu du justificatif</p>
                 </div>
               </div>
@@ -2278,7 +2278,7 @@ export const AdminDashboard: React.FC = () => {
                     <FileText size={32} />
                   </div>
                   <div className="space-y-1">
-                    <p className="font-bold text-haven-navy">Prévisualisation non disponible</p>
+                    <p className="font-bold text-haven-ink">Prévisualisation non disponible</p>
                     <p className="text-xs text-gray-500">Le document n'est pas au format image ou PDF standard de manière brute, vous pouvez le télécharger.</p>
                   </div>
                   <Button variant="outline" size="sm" onClick={() => window.open(docPreviewModal.url, '_blank')}>

@@ -64,8 +64,8 @@ export const HelpPage: React.FC = () => {
     <div className="bg-haven-cream min-h-screen py-8 sm:py-16 px-4 sm:px-6 lg:px-8 mt-4 sm:mt-12 animate-fade-in">
       <div className="max-w-3xl mx-auto">
         <div className="text-center mb-6 sm:mb-10">
-          <span className="px-4 py-1.5 bg-haven-navy/5 text-haven-navy rounded-full text-xs font-bold uppercase tracking-widest">Aide</span>
-          <h1 className="text-[1.75rem] sm:text-4xl font-heading font-bold text-haven-navy mt-4 mb-3">Comment pouvons-nous vous aider ?</h1>
+          <span className="px-4 py-1.5 bg-haven-navy/5 text-haven-ink rounded-full text-xs font-bold">Aide</span>
+          <h1 className="text-[1.75rem] sm:text-4xl font-heading font-normal text-haven-ink mt-4 mb-3">Comment pouvons-nous vous aider ?</h1>
           <p className="text-gray-500 text-sm sm:text-base">Réservation, paiement, séjour, propriétaires : toutes les réponses au même endroit.</p>
         </div>
 
@@ -73,13 +73,13 @@ export const HelpPage: React.FC = () => {
           <Search size={20} className="shrink-0 text-gray-400" aria-hidden="true" />
           <span className="sr-only">Rechercher une question</span>
           <input type="search" value={query} onChange={event => setQuery(event.target.value)} placeholder="Rechercher (ex. : annulation, ménage, paiement…)"
-            className="h-14 w-full bg-transparent text-sm text-haven-navy placeholder-gray-400 focus:outline-none" />
+            className="h-14 w-full bg-transparent text-sm text-haven-ink placeholder-gray-400 focus:outline-none" />
         </label>
 
         <div className="mt-4 flex flex-wrap gap-2" role="group" aria-label="Filtrer par thème">
           {[{ id: 'ALL' as const, label: 'Tout' }, ...THEMES].map(item => (
             <button key={item.id} type="button" aria-pressed={theme === item.id} onClick={() => setTheme(item.id)}
-              className={`min-h-10 rounded-full border px-4 text-sm font-semibold transition-colors ${theme === item.id ? 'border-haven-navy bg-haven-navy text-white' : 'border-gray-200 bg-white text-haven-navy hover:border-haven-navy/40'}`}>
+              className={`min-h-10 rounded-full border px-4 text-sm font-semibold transition-colors ${theme === item.id ? 'border-haven-navy bg-haven-navy text-white' : 'border-gray-200 bg-white text-haven-ink hover:border-haven-navy/40'}`}>
               {item.label}
             </button>
           ))}
@@ -88,14 +88,14 @@ export const HelpPage: React.FC = () => {
         <div className="mt-8 space-y-8">
           {groups.map(group => (
             <section key={group.id} aria-labelledby={`help-${group.id}`}>
-              <h2 id={`help-${group.id}`} className="mb-3 font-heading text-lg font-bold text-haven-navy">{group.label}</h2>
+              <h2 id={`help-${group.id}`} className="mb-3 font-heading text-lg font-normal text-haven-ink">{group.label}</h2>
               <div className="divide-y divide-gray-100 rounded-2xl border border-gray-100 bg-white shadow-card">
                 {group.items.map(item => {
                   const isOpen = open === item.q || query.trim().length > 2;
                   return (
                     <div key={item.q}>
                       <button type="button" aria-expanded={isOpen} onClick={() => setOpen(open === item.q ? null : item.q)}
-                        className="flex min-h-14 w-full items-center justify-between gap-4 px-5 py-3 text-left font-semibold text-haven-navy">
+                        className="flex min-h-14 w-full items-center justify-between gap-4 px-5 py-3 text-left font-semibold text-haven-ink">
                         {item.q}
                         <ChevronDown size={18} className={`shrink-0 text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} aria-hidden="true" />
                       </button>
@@ -121,7 +121,7 @@ export const HelpPage: React.FC = () => {
           </Link>
           <Link to="/contact" className="flex gap-4 rounded-2xl border border-gray-200 bg-white p-5 transition-colors hover:border-haven-navy/40">
             <Mail size={22} className="mt-0.5 shrink-0 text-haven-red" aria-hidden="true" />
-            <span><span className="block font-bold text-haven-navy">Une autre question ?</span><span className="mt-1 block text-sm text-gray-500">Écrivez à l’équipe Haven, qui vous répond par e-mail.</span></span>
+            <span><span className="block font-bold text-haven-ink">Une autre question ?</span><span className="mt-1 block text-sm text-gray-500">Écrivez à l’équipe Haven, qui vous répond par e-mail.</span></span>
           </Link>
         </div>
       </div>

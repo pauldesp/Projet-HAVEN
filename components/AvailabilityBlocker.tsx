@@ -58,21 +58,21 @@ export function AvailabilityBlocker({ listing, onSaved }: { listing: Listing; on
 
   return <div className="space-y-8">
     <div>
-      <h2 className="text-xl font-bold text-haven-navy">Bloquer des dates</h2>
+      <h2 className="text-xl font-bold text-haven-ink">Bloquer des dates</h2>
       <p className="mt-1 text-sm text-gray-500">Les dates bloquées ne peuvent plus être réservées. Bloquez tout le logement ou une seule chambre ; l’enregistrement est immédiat.</p>
     </div>
 
     <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Que bloquer ?">
       {[{ id: 'LISTING', name: 'Tout le logement' }, ...listing.rooms.map(item => ({ id: item.id, name: item.name }))].map(option => (
         <button key={option.id} type="button" role="radio" aria-checked={target === option.id} onClick={() => setTarget(option.id)}
-          className={`min-h-11 rounded-full border px-4 text-sm font-semibold transition-colors ${target === option.id ? 'border-haven-navy bg-haven-navy text-white' : 'border-gray-200 bg-white text-haven-navy hover:border-haven-navy/40'}`}>
+          className={`min-h-11 rounded-full border px-4 text-sm font-semibold transition-colors ${target === option.id ? 'border-haven-navy bg-haven-navy text-white' : 'border-gray-200 bg-white text-haven-ink hover:border-haven-navy/40'}`}>
           {option.name}
         </button>
       ))}
     </div>
 
     <div>
-      <p className="mb-1 text-sm font-semibold text-haven-navy">Période à bloquer</p>
+      <p className="mb-1 text-sm font-semibold text-haven-ink">Période à bloquer</p>
       {/* Field and button share one row so they stay aligned; help texts go below. */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-stretch">
         {/* Framed like a field so the date selector stands out on the form. */}
@@ -90,11 +90,11 @@ export function AvailabilityBlocker({ listing, onSaved }: { listing: Listing; on
     {overlapping && <p role="alert" className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-800">Une réservation existe déjà sur une partie de ces dates. Le blocage ne l’annule pas : il empêche seulement de nouvelles réservations.</p>}
 
     <section>
-      <h3 className="text-sm font-bold text-haven-navy">Dates bloquées · {targetName}</h3>
+      <h3 className="text-sm font-bold text-haven-ink">Dates bloquées · {targetName}</h3>
       {target !== 'LISTING' && (listing.blockedDates || []).some(date => date >= today) && <p className="mt-1 text-xs text-gray-500">Les dates bloquées pour tout le logement s’appliquent aussi à cette chambre.</p>}
       {ranges.length ? <ul className="mt-3 divide-y divide-gray-100 rounded-2xl border border-gray-100">
         {ranges.map(range => <li key={range.start} className="flex items-center justify-between gap-3 px-4 py-3 text-sm">
-          <span className="text-haven-navy">{range.nights === 1 ? `Nuit du ${label(range.start)}` : `Du ${label(range.start)} au ${label(range.end)} (dernière nuit)`} <span className="text-gray-400">· {range.nights} nuit{range.nights > 1 ? 's' : ''}</span></span>
+          <span className="text-haven-ink">{range.nights === 1 ? `Nuit du ${label(range.start)}` : `Du ${label(range.start)} au ${label(range.end)} (dernière nuit)`} <span className="text-gray-400">· {range.nights} nuit{range.nights > 1 ? 's' : ''}</span></span>
           <button type="button" disabled={saving} onClick={() => void save(withoutDates(current, datesBetween(range.start, range.end)), `Dates débloquées pour ${targetName}.`)} className="flex min-h-11 shrink-0 items-center gap-1.5 font-semibold text-haven-red disabled:opacity-40">
             <Unlock size={15} aria-hidden="true" /> Débloquer
           </button>

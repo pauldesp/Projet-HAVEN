@@ -15,13 +15,13 @@ export function PaymentCheckoutView({ details, busy, error, expired = false, onP
   const simulation = mode === 'SIMULATION';
   const confirmed = ['CONFIRMED', 'COMPLETED'].includes(booking.status) && booking.paymentStatus === 'PAID';
   const nights = countNights(booking.startDate, booking.endDate);
-  return <div className="min-h-screen bg-[#f8f7f5] text-haven-navy">
+  return <div className="min-h-screen bg-[#f8f7f5] text-haven-ink">
     <header className="border-b border-gray-200/70 bg-white px-5 sm:px-8"><div className="mx-auto flex h-24 max-w-5xl items-center justify-between gap-4">
       <Link to="/"><Logo className="h-8 sm:h-11" /></Link>
       <span className="flex items-center gap-2 text-xs font-medium text-gray-500"><LockKeyhole size={15} />{simulation || details.isTest ? 'Environnement de test' : 'Paiement sécurisé'}</span>
     </div></header>
     <main className="mx-auto max-w-5xl px-5 py-8 sm:px-8 sm:py-12">
-      <Link to={confirmed ? '/dashboard' : `/listing/${booking.listingId}`} className="mb-8 inline-flex items-center gap-2 text-sm text-gray-500 hover:text-haven-navy"><ArrowLeft size={16} />{confirmed ? 'Mes séjours' : 'Retour au logement'}</Link>
+      <Link to={confirmed ? '/dashboard' : `/listing/${booking.listingId}`} className="mb-8 inline-flex items-center gap-2 text-sm text-gray-500 hover:text-haven-ink"><ArrowLeft size={16} />{confirmed ? 'Mes séjours' : 'Retour au logement'}</Link>
       {simulation && <div className="mb-8 flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-900"><FlaskConical size={20} className="mt-0.5 shrink-0" /><div><p className="font-bold">Mode test — aucun débit bancaire</p><p className="mt-1 leading-relaxed">Les informations de carte sont fictives et préremplies. {confirmed ? 'Ce séjour a été confirmé pour tester le parcours.' : 'Le bouton ci-dessous simule le paiement et confirme le séjour pour les tests.'}</p></div></div>}
       {!simulation && details.isTest && <div className="mb-8 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-900"><p className="font-bold">Stripe en mode test · Aucun débit réel</p><p className="mt-1">Utilisez une carte de test Stripe pour effectuer cette réservation. Les transferts et virements seront également fictifs.</p></div>}
       <div className="grid items-start gap-8 lg:grid-cols-[1.1fr_0.9fr] lg:gap-12">
@@ -33,7 +33,7 @@ export function PaymentCheckoutView({ details, busy, error, expired = false, onP
             {booking.paymentIsTest && <p className="mt-4 text-sm font-medium text-amber-800">Confirmation de test : aucun paiement réel n’a été encaissé.</p>}
             <Link to="/dashboard" className="mt-8 flex w-full items-center justify-center gap-2 rounded-xl bg-haven-navy px-5 py-4 font-bold text-white">Voir mes séjours <ArrowRight size={18} /></Link>
           </div> : <>
-            <p className="mb-3 text-xs font-bold uppercase tracking-[0.18em] text-gray-400">Dernière étape</p>
+            <p className="mb-3 text-xs font-bold text-gray-400">Dernière étape</p>
             <h1 className="text-3xl font-bold sm:text-4xl">Confirmez votre séjour</h1>
             <p className="mt-3 leading-relaxed text-gray-500">{simulation ? 'Testez le paiement puis retrouvez votre réservation confirmée.' : 'Réglez votre séjour sur la page sécurisée de notre partenaire de paiement.'}</p>
             <form onSubmit={event => { event.preventDefault(); if (!busy && !expired) onPay(); }} className="mt-8 space-y-6 rounded-3xl border border-gray-200/80 bg-white p-6 shadow-sm sm:p-8">
@@ -46,7 +46,7 @@ export function PaymentCheckoutView({ details, busy, error, expired = false, onP
                   <label className="text-sm font-semibold">Expiration<input readOnly value={`12 / ${String(new Date().getFullYear() + 3).slice(-2)}`} autoComplete="off" className="mt-2 block w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3.5 font-normal text-gray-600" /></label>
                   <label className="text-sm font-semibold">Cryptogramme<input readOnly value="•••" aria-label="Cryptogramme fictif" autoComplete="off" className="mt-2 block w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3.5 font-normal text-gray-600" /></label>
                 </div>
-              </> : <div className="rounded-xl bg-gray-50 p-4 text-sm leading-relaxed text-gray-500"><ShieldCheck size={22} className="mb-2 text-haven-navy" />Vos coordonnées bancaires seront saisies directement sur la page Stripe et ne transiteront pas par Haven.</div>}
+              </> : <div className="rounded-xl bg-gray-50 p-4 text-sm leading-relaxed text-gray-500"><ShieldCheck size={22} className="mb-2 text-haven-ink" />Vos coordonnées bancaires seront saisies directement sur la page Stripe et ne transiteront pas par Haven.</div>}
               {error && <p role="alert" className="rounded-xl border border-red-100 bg-red-50 p-4 text-sm leading-relaxed text-red-700">{error}</p>}
               {booking.seriesId && <p className="rounded-xl bg-haven-cream p-4 text-sm leading-relaxed text-gray-700">{(booking.seriesIndex ?? 0) === 0
                 ? `Premier séjour de votre série de ${booking.seriesCount}. ${simulation ? 'En mode test, les séjours suivants seront simulés automatiquement.' : 'Votre carte sera enregistrée de façon sécurisée par Stripe : les séjours suivants seront prélevés automatiquement un mois avant chaque arrivée, avec un rappel par e-mail 3 jours avant.'}`

@@ -287,7 +287,7 @@ export const AccountStatusOverlay: React.FC<AccountStatusOverlayProps> = ({
   if (currentUser.status === 'BANNED') return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-haven-navy/60 p-4">
       <div className="max-w-lg rounded-3xl bg-white p-8 space-y-4">
-        <h2 className="text-2xl font-bold text-haven-navy">{tr("Compte banni")}</h2>
+        <h2 className="text-2xl font-bold text-haven-ink">{tr("Compte banni")}</h2>
         <p className="text-gray-600">{tr("Ce compte ne peut plus réserver, publier ou transmettre de dossier. Contactez Haven pour toute question.")}</p>
         {currentUser.rejectionReason && <p className="rounded-xl bg-red-50 p-4 text-red-700">{currentUser.rejectionReason}</p>}
         {onClose && <Button onClick={onClose}>{tr("Fermer")}</Button>}
@@ -336,11 +336,11 @@ export const AccountStatusOverlay: React.FC<AccountStatusOverlayProps> = ({
                 {currentUser.status === 'REJECTED' ? <XCircle size={24} /> : isVerifiedForCurrentRole ? <ShieldCheck size={24} /> : <Clock size={24} />}
               </div>
               <div className="min-w-0">
-                <p className="mb-1 text-[11px] font-bold uppercase tracking-[0.18em] text-gray-400">{tr("Vérification du compte")}</p>
-                <h2 id="account-status-title" className="truncate text-xl font-bold tracking-tight text-haven-navy sm:text-2xl">{hasVerificationException(currentUser) ? tr("Validation exceptionnelle de test") : isVerifiedForCurrentRole ? tr("Profil vérifié") : currentUser.status === 'REJECTED' ? tr("Dossier à corriger") : isSubmittedForReview ? tr("Dossier en cours de vérification") : tr("Complétez votre profil")}</h2>
+                <p className="mb-1 text-[11px] font-bold text-gray-400">{tr("Vérification du compte")}</p>
+                <h2 id="account-status-title" className="truncate text-xl font-bold tracking-tight text-haven-ink sm:text-2xl">{hasVerificationException(currentUser) ? tr("Validation exceptionnelle de test") : isVerifiedForCurrentRole ? tr("Profil vérifié") : currentUser.status === 'REJECTED' ? tr("Dossier à corriger") : isSubmittedForReview ? tr("Dossier en cours de vérification") : tr("Complétez votre profil")}</h2>
               </div>
             </div>
-            {onClose && <button type="button" onClick={onClose} aria-label={tr("Fermer")} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-gray-400 transition hover:bg-gray-100 hover:text-haven-navy"><XCircle size={22} /></button>}
+            {onClose && <button type="button" onClick={onClose} aria-label={tr("Fermer")} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-gray-400 transition hover:bg-gray-100 hover:text-haven-ink"><XCircle size={22} /></button>}
           </header>
 
           <div className="overflow-y-auto px-5 py-5 sm:px-8 sm:py-7">
@@ -353,37 +353,37 @@ export const AccountStatusOverlay: React.FC<AccountStatusOverlayProps> = ({
 
             {(propIsOpen || !isVerifiedForCurrentRole) && <div className="grid gap-5 lg:grid-cols-[1.15fr_0.85fr]">
               <section className="rounded-2xl border border-gray-200 p-4 sm:p-5">
-                <div className="mb-4"><h3 className="font-bold text-haven-navy">{tr("Vos coordonnées")}</h3><p className="mt-1 text-xs leading-relaxed text-gray-500">{tr("Ces informations servent à sécuriser votre compte et votre séjour.")}</p></div>
+                <div className="mb-4"><h3 className="font-bold text-haven-ink">{tr("Vos coordonnées")}</h3><p className="mt-1 text-xs leading-relaxed text-gray-500">{tr("Ces informations servent à sécuriser votre compte et votre séjour.")}</p></div>
                 <div className="grid grid-cols-2 gap-3">
-                  <label className="text-xs font-semibold text-gray-500">{tr("Prénom")}<input autoComplete="given-name" value={firstName} onChange={e => setFirstName(e.target.value)} placeholder={tr("Votre prénom")} className="mt-1.5 block w-full min-w-0 rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm font-normal text-haven-navy outline-none transition focus:border-haven-navy focus:ring-2 focus:ring-haven-navy/10" /></label>
-                  <label className="text-xs font-semibold text-gray-500">{tr("Nom")}<input autoComplete="family-name" value={lastName} onChange={e => setLastName(e.target.value)} placeholder={tr("Votre nom")} className="mt-1.5 block w-full min-w-0 rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm font-normal text-haven-navy outline-none transition focus:border-haven-navy focus:ring-2 focus:ring-haven-navy/10" /></label>
+                  <label className="text-xs font-semibold text-gray-500">{tr("Prénom")}<input autoComplete="given-name" value={firstName} onChange={e => setFirstName(e.target.value)} placeholder={tr("Votre prénom")} className="mt-1.5 block w-full min-w-0 rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm font-normal text-haven-ink outline-none transition focus:border-haven-navy focus:ring-2 focus:ring-haven-navy/10" /></label>
+                  <label className="text-xs font-semibold text-gray-500">{tr("Nom")}<input autoComplete="family-name" value={lastName} onChange={e => setLastName(e.target.value)} placeholder={tr("Votre nom")} className="mt-1.5 block w-full min-w-0 rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm font-normal text-haven-ink outline-none transition focus:border-haven-navy focus:ring-2 focus:ring-haven-navy/10" /></label>
                 </div>
                 <div className="mt-3 text-xs font-semibold text-gray-500"><span>{tr("Date de naissance")}</span><BirthDateInput key={currentUser.id} value={birthDate} onChange={setBirthDate} /></div>
-                <div className="mt-4 rounded-xl bg-gray-50 p-3.5"><div className="flex flex-wrap items-center justify-between gap-2"><div className="min-w-0"><p className="text-[11px] font-semibold text-gray-500">{tr("Adresse e-mail")}</p><p className="mt-0.5 break-all text-sm font-semibold text-haven-navy">{currentUser.email}</p></div><span className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold ${currentUser.emailVerified ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-800'}`}><span className={`h-1.5 w-1.5 rounded-full ${currentUser.emailVerified ? 'bg-green-600' : 'bg-amber-600'}`} />{currentUser.emailVerified ? tr("Confirmée") : tr("À confirmer")}</span></div>
+                <div className="mt-4 rounded-xl bg-gray-50 p-3.5"><div className="flex flex-wrap items-center justify-between gap-2"><div className="min-w-0"><p className="text-[11px] font-semibold text-gray-500">{tr("Adresse e-mail")}</p><p className="mt-0.5 break-all text-sm font-semibold text-haven-ink">{currentUser.email}</p></div><span className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-bold ${currentUser.emailVerified ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-800'}`}><span className={`h-1.5 w-1.5 rounded-full ${currentUser.emailVerified ? 'bg-green-600' : 'bg-amber-600'}`} />{currentUser.emailVerified ? tr("Confirmée") : tr("À confirmer")}</span></div>
                   {!currentUser.emailVerified && <div className="mt-3 space-y-2">
                     {emailLinkSent && <p className="text-xs leading-relaxed text-gray-600">{tr("Ouvrez le lien reçu à cette adresse, puis revenez ici pour terminer la confirmation.")}</p>}
                     {emailError && <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-xs leading-relaxed text-red-700">{tr(emailError)}</p>}
                     <Button fullWidth variant="outline" disabled={isVerifyingEmail || emailWaitSeconds > 0} onClick={() => void sendEmailLink()} className="rounded-xl">{isVerifyingEmail ? tr("Veuillez patienter…") : emailWaitSeconds > 0 ? language === 'en' ? `Resend available in ${emailWaitSeconds} s` : `Nouvel envoi possible dans ${emailWaitSeconds} s` : emailLinkSent ? tr("Renvoyer l’e-mail de validation") : tr("Recevoir un e-mail de validation")}</Button>
-                    <button type="button" onClick={() => void confirmEmailLink()} disabled={isVerifyingEmail} className="text-xs font-semibold text-haven-navy underline underline-offset-2 disabled:opacity-50">{tr("J’ai confirmé mon adresse")}</button>
+                    <button type="button" onClick={() => void confirmEmailLink()} disabled={isVerifyingEmail} className="text-xs font-semibold text-haven-ink underline underline-offset-2 disabled:opacity-50">{tr("J’ai confirmé mon adresse")}</button>
                   </div>}
                 </div>
-                <label className="mt-4 block text-xs font-semibold text-gray-500">{tr("Téléphone (obligatoire)")}<input required autoComplete="tel" type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="+33 6 12 34 56 78" className="mt-1.5 block w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm font-normal text-haven-navy outline-none transition focus:border-haven-navy focus:ring-2 focus:ring-haven-navy/10" /></label>
+                <label className="mt-4 block text-xs font-semibold text-gray-500">{tr("Téléphone (obligatoire)")}<input required autoComplete="tel" type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="+33 6 12 34 56 78" className="mt-1.5 block w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm font-normal text-haven-ink outline-none transition focus:border-haven-navy focus:ring-2 focus:ring-haven-navy/10" /></label>
                 <p className="mt-2 text-xs text-gray-500">{tr("Renseignez un numéro auquel vous pouvez être joint.")}</p>
               </section>
 
               <section className="flex flex-col rounded-2xl border border-gray-200 p-4 sm:p-5">
-                <div className="mb-4 flex items-start gap-3"><div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-haven-navy/5 text-haven-navy"><FileText size={20} /></div><div><h3 className="font-bold text-haven-navy">{tr("Justificatif d’identité")}</h3><p className="mt-1 text-xs leading-relaxed text-gray-500">{tr("Carte d’identité, titre de séjour ou passeport en cours de validité.")}</p></div></div>
+                <div className="mb-4 flex items-start gap-3"><div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-haven-navy/5 text-haven-ink"><FileText size={20} /></div><div><h3 className="font-bold text-haven-ink">{tr("Justificatif d’identité")}</h3><p className="mt-1 text-xs leading-relaxed text-gray-500">{tr("Carte d’identité, titre de séjour ou passeport en cours de validité.")}</p></div></div>
                 <div className="flex flex-1 flex-col gap-4 rounded-xl border border-dashed border-gray-300 bg-gray-50/70 p-4">
                   <div>
                     <p className="text-sm font-semibold text-gray-700">{tr("Quel document transmettez-vous ?")}</p>
                     <div className="mt-2 grid grid-cols-3 gap-2" role="radiogroup" aria-label={tr("Type de pièce d’identité")}>
                       {IDENTITY_TYPES.map(item => <button key={item.id} type="button" role="radio" aria-checked={identityType === item.id} onClick={() => setIdentityType(item.id)}
-                        className={`min-h-11 rounded-xl border px-2 text-xs font-semibold ${identityType === item.id ? 'border-haven-navy bg-haven-navy text-white' : 'border-gray-200 bg-white text-haven-navy'}`}>{tr(item.label)}</button>)}
+                        className={`min-h-11 rounded-xl border px-2 text-xs font-semibold ${identityType === item.id ? 'border-haven-navy bg-haven-navy text-white' : 'border-gray-200 bg-white text-haven-ink'}`}>{tr(item.label)}</button>)}
                     </div>
                     <p className="mt-2 text-xs leading-relaxed text-gray-500">{isTwoSidedIdentityDocument(identityType) ? tr("Ajoutez le recto puis le verso. Photos jusqu’à 10 Mo avant optimisation ; PDF limités à 600 Ko.") : tr("Ajoutez la page avec votre photo. Photos jusqu’à 10 Mo avant optimisation ; PDF limités à 600 Ko.")}</p>
                   </div>
                   {identitySides.map(slot => <div key={slot.side} className="rounded-xl border border-gray-200 bg-white p-3.5">
-                    <div className="flex items-center justify-between gap-3"><div><p className="text-sm font-bold text-haven-navy">{tr(slot.label)}</p><p className="mt-1 text-xs text-gray-500">{slot.uploaded ? tr("Document reçu · validation manuelle à venir") : tr("PNG, JPG ou PDF")}</p></div>{slot.uploaded && <CheckCircle2 className="shrink-0 text-green-600" size={20} />}</div>
+                    <div className="flex items-center justify-between gap-3"><div><p className="text-sm font-bold text-haven-ink">{tr(slot.label)}</p><p className="mt-1 text-xs text-gray-500">{slot.uploaded ? tr("Document reçu · validation manuelle à venir") : tr("PNG, JPG ou PDF")}</p></div>{slot.uploaded && <CheckCircle2 className="shrink-0 text-green-600" size={20} />}</div>
                     <Button variant={slot.uploaded ? 'outline' : 'primary'} fullWidth onClick={() => handleUploadIdentity(slot.side)} disabled={uploadingSide !== null} className="mt-3 flex items-center justify-center gap-2 rounded-xl">{uploadingSide === slot.side ? <Clock className="animate-spin" size={18} /> : <Upload size={18} />}{slot.uploaded ? tr("Remplacer") : tr(slot.side === 'BACK' ? "Ajouter le verso" : isTwoSidedIdentityDocument(identityType) ? "Ajouter le recto" : "Ajouter la page photo")}</Button>
                   </div>)}
                 </div>
@@ -391,17 +391,17 @@ export const AccountStatusOverlay: React.FC<AccountStatusOverlayProps> = ({
             </div>}
 
             {!isVerifiedForCurrentRole && !currentUser.legalAccepted && <section className="mt-5 rounded-2xl border border-gray-200 bg-white p-4">
-              <h3 className="font-bold text-haven-navy">{tr("Conditions générales")}</h3>
+              <h3 className="font-bold text-haven-ink">{tr("Conditions générales")}</h3>
               <p className="mt-1 text-sm text-gray-500">{tr("À accepter avant l’envoi de votre dossier pour validation.")}</p>
               {terms ? <>
                 <details className="mt-3 text-sm"><summary className="cursor-pointer font-semibold text-haven-red">{tr("Lire les conditions générales")}</summary><div className="prose prose-sm mt-3 max-h-64 max-w-none overflow-y-auto rounded-xl bg-gray-50 p-4"><ReactMarkdown>{terms.content}</ReactMarkdown></div></details>
-                <label className="mt-4 flex items-start gap-3 text-sm text-haven-navy"><input type="checkbox" checked={termsAccepted} onChange={event => setTermsAccepted(event.target.checked)} className="mt-1" />{tr("J’ai lu et j’accepte les conditions générales de Haven.")}</label>
+                <label className="mt-4 flex items-start gap-3 text-sm text-haven-ink"><input type="checkbox" checked={termsAccepted} onChange={event => setTermsAccepted(event.target.checked)} className="mt-1" />{tr("J’ai lu et j’accepte les conditions générales de Haven.")}</label>
               </> : termsError ? <div role="alert" className="mt-3 text-sm text-red-700">{tr(termsError)}<button type="button" onClick={() => void loadTerms()} className="ml-2 underline">{tr("Réessayer")}</button></div> : <p className="mt-3 text-sm text-gray-500">{tr("Chargement des conditions générales…")}</p>}
             </section>}
 
             {!hasRequiredResidence(currentUser) && <p className="mt-4 rounded-xl bg-amber-50 p-4 text-sm text-amber-900">{tr("Renseignez votre domicile et ajoutez son justificatif dans")} <Link to="/account" onClick={onClose} className="font-bold underline">{tr("Mon compte")}</Link> {tr("avant de transmettre le dossier.")}</p>}
             {isComplete && hasRequiredResidence(currentUser) && !isVerifiedForCurrentRole && (isSubmittedForReview
-              ? <p className="mt-5 rounded-xl border border-blue-100 bg-blue-50 p-4 text-sm font-semibold text-haven-navy">{tr("Dossier transmis à HAVEN. La validation de votre compte reste en attente de l’examen d’un administrateur.")}</p>
+              ? <p className="mt-5 rounded-xl border border-blue-100 bg-blue-50 p-4 text-sm font-semibold text-haven-ink">{tr("Dossier transmis à HAVEN. La validation de votre compte reste en attente de l’examen d’un administrateur.")}</p>
               : isVerificationReadyToSubmit(currentUser)
                 ? <div className="mt-5 rounded-2xl border border-green-100 bg-green-50 p-4"><p className="mb-3 text-sm text-green-800">{tr("Tout est prêt. Envoyez votre dossier pour validation manuelle par HAVEN.")}</p><Button fullWidth disabled={isSubmitting || (!currentUser.legalAccepted && (!terms || !termsAccepted))} onClick={() => void submitDocumentsForReview()} className="rounded-xl">{isSubmitting ? tr("Transmission en cours…") : tr("Transmettre mon dossier à HAVEN")}</Button></div>
                 : <p className="mt-4 rounded-xl bg-amber-50 p-3 text-center text-xs font-semibold leading-relaxed text-amber-800">{tr("Pièce reçue. Enregistrez vos coordonnées avec un numéro de téléphone valide et confirmez votre e-mail pour transmettre le dossier.")}</p>)}

@@ -49,7 +49,7 @@ export const ListingCard: React.FC<ListingCardProps> = ({ listing, stayOverride,
           alt={listing.title} 
           className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
         /></Link>
-        <div className="pointer-events-none absolute top-3 left-3 bg-white/95 backdrop-blur-sm px-3 py-1 rounded-full text-[11px] font-bold text-haven-navy uppercase tracking-wider shadow-sm">
+        <div className="pointer-events-none absolute top-3 left-3 bg-white/95 backdrop-blur-sm px-3 py-1 rounded-full text-[11px] font-bold text-haven-ink shadow-sm">
           {listing.type === 'HOUSE' ? 'Maison' : 'Appartement'}
         </div>
         {stayOverride?.label && (
@@ -61,11 +61,11 @@ export const ListingCard: React.FC<ListingCardProps> = ({ listing, stayOverride,
     <Link to={listingHref} className="flex flex-col rounded-[2rem] px-3 pb-3">
       <div className="flex-1 px-2">
         <div className="flex justify-between items-start mb-1.5">
-          <h3 className="font-heading font-bold text-lg text-haven-navy line-clamp-1 group-hover:text-haven-red transition-colors">
+          <h3 className="font-heading font-normal text-lg text-haven-ink line-clamp-1 group-hover:text-haven-red transition-colors">
             {listing.title}
           </h3>
-          <div className="flex items-center gap-1 text-sm font-bold text-haven-navy">
-            <Star size={14} className="fill-haven-navy text-haven-navy" />
+          <div className="flex items-center gap-1 text-sm font-bold text-haven-ink">
+            <Star size={14} className="fill-haven-navy text-haven-ink" />
             <span>{listing.rating}</span>
           </div>
         </div>
@@ -88,23 +88,23 @@ export const ListingCard: React.FC<ListingCardProps> = ({ listing, stayOverride,
           <div className="flex min-w-0 flex-col">
             {recurrence ? <>
               {nightlyAverage !== null && <>
-                <span className="font-heading font-bold text-xl text-haven-navy">{money(nightlyAverage)} <span className="text-sm font-medium">/ nuit</span></span>
+                <span className="font-heading font-normal text-xl text-haven-ink">{money(nightlyAverage)} <span className="text-sm font-medium">/ nuit</span></span>
                 <span className="text-[11px] text-gray-500">En moyenne · frais inclus</span>
               </>}
             </> : quote ? <>
-              <span className="text-[11px] text-gray-400 uppercase font-bold tracking-widest">{t('card.from')}</span>
-              <span className="font-heading font-bold text-xl text-haven-navy">{money(quote.total)} <span className="text-sm font-medium">{tr('au total')}</span></span>
+              <span className="text-[11px] text-gray-400 font-bold">{t('card.from')}</span>
+              <span className="font-heading font-normal text-xl text-haven-ink">{money(quote.total)} <span className="text-sm font-medium">{tr('au total')}</span></span>
               <span className="mt-1 text-xs text-gray-500">{quote.nights} {tr(quote.nights === 1 ? 'nuit · frais inclus' : 'nuits · frais inclus')}</span>
-            </> : <span className="text-sm font-semibold text-haven-navy">{tr(dates.start && dates.end ? availability ? 'Indisponible pour ces dates' : 'Vérification du prix…' : 'Choisissez vos dates pour voir le prix du séjour')}</span>}
+            </> : <span className="text-sm font-semibold text-haven-ink">{tr(dates.start && dates.end ? availability ? 'Indisponible pour ces dates' : 'Vérification du prix…' : 'Choisissez vos dates pour voir le prix du séjour')}</span>}
           </div>
-          <div className="w-10 h-10 shrink-0 rounded-full bg-gray-50 flex items-center justify-center text-haven-navy group-hover:bg-haven-red group-hover:text-white transition-all duration-300">
+          <div className="w-10 h-10 shrink-0 rounded-full bg-gray-50 flex items-center justify-center text-haven-ink group-hover:bg-haven-red group-hover:text-white transition-all duration-300">
             <ArrowRight size={18} />
           </div>
         </div>
       </div>
     </Link>
     {recurrence && <div className="space-y-3 px-5 pb-5">
-      <p className={`text-sm font-bold ${recurrence.availableCount === recurrence.periods.length ? 'text-green-700' : 'text-haven-navy'}`}>{recurrence.availableCount}/{recurrence.periods.length} séjours disponibles</p>
+      <p className={`text-sm font-bold ${recurrence.availableCount === recurrence.periods.length ? 'text-green-700' : 'text-haven-ink'}`}>{recurrence.availableCount}/{recurrence.periods.length} séjours disponibles</p>
       <div className="flex flex-wrap gap-2" aria-label="Disponibilité de chaque séjour">
         {recurrence.periods.map((period, index) => period.stay ? <Link key={period.requested.start}
           to={recurringListingLink(listing.id, period.stay, requestedPeriods, flexibleDates)}

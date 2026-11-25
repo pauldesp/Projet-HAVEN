@@ -75,7 +75,7 @@ export const ConversationsList: React.FC = () => {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <Loader2 className="w-8 h-8 text-haven-navy animate-spin" />
+        <Loader2 className="w-8 h-8 text-haven-ink animate-spin" />
       </div>
     );
   }
@@ -150,21 +150,21 @@ export const ConversationsList: React.FC = () => {
 
                 <div className="flex-grow min-w-0">
                   <div className="flex justify-between items-start mb-1">
-                    <h4 className={`text-sm font-bold truncate ${conv.unreadCount > 0 ? 'text-haven-navy' : 'text-gray-700'}`}>
+                    <h4 className={`text-sm font-bold truncate ${conv.unreadCount > 0 ? 'text-haven-ink' : 'text-gray-700'}`}>
                       {conv.otherUser?.firstName} {conv.otherUser?.lastName}
                     </h4>
                     <span className="text-[11px] font-bold text-gray-400 whitespace-nowrap ml-2">
                       {new Date(conv.latestMessage.timestamp).toLocaleDateString()}
                     </span>
                   </div>
-                  <p className={`text-xs truncate ${conv.unreadCount > 0 ? 'text-haven-navy font-bold' : 'text-gray-500'}`}>
+                  <p className={`text-xs truncate ${conv.unreadCount > 0 ? 'text-haven-ink font-bold' : 'text-gray-500'}`}>
                     {conv.latestMessage.senderId === currentUser?.id && <span className="text-gray-400">Vous: </span>}
                     {conv.latestMessage.content}
                   </p>
                   {conv.listing && (
                     <div className="flex items-center gap-1.5 mt-2 opacity-60">
-                      <Home size={10} className="text-haven-navy" />
-                      <span className="text-[11px] font-bold uppercase tracking-wider text-haven-navy truncate">
+                      <Home size={10} className="text-haven-ink" />
+                      <span className="text-[11px] font-bold text-haven-ink truncate">
                         {conv.listing.title}
                       </span>
                     </div>
@@ -172,7 +172,7 @@ export const ConversationsList: React.FC = () => {
                 </div>
 
                 <div className="flex-shrink-0 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
-                  <ChevronRight size={18} className="text-haven-navy" />
+                  <ChevronRight size={18} className="text-haven-ink" />
                 </div>
               </motion.div>
             ))

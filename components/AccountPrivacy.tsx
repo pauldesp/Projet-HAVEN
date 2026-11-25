@@ -52,10 +52,10 @@ export function AccountPrivacy() {
   };
 
   return <section className="rounded-3xl border border-gray-100 bg-white p-6 shadow-soft md:p-8">
-    <h2 className="flex items-center gap-3 font-heading text-xl font-bold text-haven-navy"><UserX size={22} aria-hidden="true" />Mes données personnelles</h2>
+    <h2 className="flex items-center gap-3 font-heading text-xl font-normal text-haven-ink"><UserX size={22} aria-hidden="true" />Mes données personnelles</h2>
     <p className="mt-3 text-sm text-gray-500">Vous pouvez à tout moment télécharger l’ensemble des données que Haven conserve à votre sujet, ou supprimer votre compte.</p>
     <div className="mt-5 flex flex-col gap-3 sm:flex-row">
-      <button type="button" disabled={exporting} onClick={() => void download()} className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-gray-200 px-5 text-sm font-bold text-haven-navy disabled:opacity-50">
+      <button type="button" disabled={exporting} onClick={() => void download()} className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-gray-200 px-5 text-sm font-bold text-haven-ink disabled:opacity-50">
         {exporting ? <Loader2 size={16} className="animate-spin" aria-hidden="true" /> : <Download size={16} aria-hidden="true" />}Télécharger mes données
       </button>
       <button type="button" onClick={() => { setConfirmOpen(true); setConfirmText(''); setError(''); }} className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-red-100 px-5 text-sm font-bold text-haven-red hover:bg-red-50">
@@ -65,14 +65,14 @@ export function AccountPrivacy() {
 
     {confirmOpen && <div className="fixed inset-0 z-[120] flex items-end justify-center bg-haven-navy/60 p-0 sm:items-center sm:p-4">
       <section role="dialog" aria-modal="true" aria-labelledby="erase-title" className="haven-dialog-panel w-full max-w-lg space-y-4 rounded-t-3xl bg-white p-6 sm:rounded-3xl">
-        <h3 id="erase-title" className="text-xl font-bold text-haven-navy">Supprimer définitivement mon compte</h3>
+        <h3 id="erase-title" className="text-xl font-bold text-haven-ink">Supprimer définitivement mon compte</h3>
         <ul className="list-disc space-y-1.5 pl-5 text-sm text-gray-600">
           <li>Votre connexion, votre profil, vos justificatifs d’identité et de domicile sont supprimés.</li>
           <li>Vos réservations, paiements et états des lieux passés sont conservés sans votre nom, car la loi impose de garder les pièces comptables.</li>
           <li>La suppression est impossible tant qu’un séjour est à venir ou en cours, ou qu’une de vos annonces est en ligne.</li>
           <li>Cette action est irréversible.</li>
         </ul>
-        <label className="block text-sm font-semibold text-haven-navy">Pour confirmer, tapez SUPPRIMER
+        <label className="block text-sm font-semibold text-haven-ink">Pour confirmer, tapez SUPPRIMER
           <input value={confirmText} onChange={event => setConfirmText(event.target.value)} autoComplete="off" autoCapitalize="characters" className="mt-1 h-11 w-full rounded-xl border border-gray-200 px-3 font-normal" />
         </label>
         {error && <p role="alert" className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</p>}

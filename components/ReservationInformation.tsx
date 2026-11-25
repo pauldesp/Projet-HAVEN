@@ -69,14 +69,14 @@ export function ReservationInformationDisclosure({ bookingId }: { bookingId: str
     return () => { document.body.style.overflow = previousOverflow; document.removeEventListener('keydown', onKeyDown); previousFocus?.focus(); };
   }, [open]);
   return <>
-    <button type="button" onClick={() => setOpen(true)} aria-haspopup="dialog" className="flex min-h-12 w-full items-center justify-between gap-3 rounded-2xl border border-gray-200 px-4 py-3 text-left text-sm font-bold text-haven-navy transition-colors hover:bg-gray-50">
+    <button type="button" onClick={() => setOpen(true)} aria-haspopup="dialog" className="flex min-h-12 w-full items-center justify-between gap-3 rounded-2xl border border-gray-200 px-4 py-3 text-left text-sm font-bold text-haven-ink transition-colors hover:bg-gray-50">
       <span className="flex items-center gap-2"><FileText size={18} className="shrink-0" />Informations de ma réservation</span><ChevronRight size={17} className="shrink-0" />
     </button>
     {open && createPortal(<div className="fixed inset-0 z-[90] flex items-center justify-center bg-haven-navy/50 p-3 backdrop-blur-sm sm:p-6" onClick={event => { if (event.target === event.currentTarget) setOpen(false); }}>
       <div ref={panel} role="dialog" aria-modal="true" aria-labelledby={titleId} className="haven-dialog-panel relative flex max-h-[90dvh] w-full max-w-3xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl">
         <header className="flex shrink-0 items-center justify-between gap-4 border-b border-gray-100 px-5 py-4 sm:px-7 sm:py-5">
-          <div><p className="text-[11px] font-bold uppercase tracking-widest text-haven-stone">Mon séjour Haven</p><h2 id={titleId} className="mt-1 text-xl font-bold text-haven-navy">Informations de ma réservation</h2></div>
-          <button ref={closeButton} type="button" onClick={() => setOpen(false)} aria-label="Fermer les informations de réservation" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gray-100 text-haven-navy hover:bg-gray-200"><X size={22} /></button>
+          <div><p className="text-[11px] font-bold text-haven-stone">Mon séjour Haven</p><h2 id={titleId} className="mt-1 text-xl font-bold text-haven-ink">Informations de ma réservation</h2></div>
+          <button ref={closeButton} type="button" onClick={() => setOpen(false)} aria-label="Fermer les informations de réservation" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gray-100 text-haven-ink hover:bg-gray-200"><X size={22} /></button>
         </header>
         <div className="min-h-0 overflow-y-auto overscroll-contain p-5 sm:p-7"><ReservationInformation bookingId={bookingId} /></div>
       </div>

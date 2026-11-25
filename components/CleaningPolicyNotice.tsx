@@ -4,7 +4,7 @@ import { OWNER_CLEANING_RULE, TENANT_CLEANING_RULE } from '../services/cleaningP
 
 export function CleaningPolicyNotice({ audience = 'tenant' }: { audience?: 'tenant' | 'owner' }) {
   const { tr } = useLanguage();
-  return <section className="rounded-2xl border border-blue-100 bg-blue-50/60 p-5 text-haven-navy">
+  return <section className="rounded-2xl border border-blue-100 bg-blue-50/60 p-5 text-haven-ink">
     <h3 className="flex items-center gap-2 font-bold"><Sparkles size={20} />{tr('Ménage : des engagements partagés')}</h3>
     <dl className="mt-4 space-y-4 text-sm leading-relaxed">
       <div>

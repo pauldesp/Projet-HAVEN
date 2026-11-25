@@ -24,7 +24,7 @@ export function AccountPersonalDetails({ onManage }: { onManage: () => void }) {
   };
   const inputClass = 'mt-2 block w-full rounded-xl border border-gray-200 p-3 font-normal';
   return <section className="rounded-3xl border border-gray-100 bg-white p-6 shadow-soft md:p-8">
-    <div className="flex flex-wrap items-center justify-between gap-4"><h2 className="flex items-center gap-3 font-heading text-xl font-bold text-haven-navy"><UserRound size={22} />{tr("Informations personnelles")}</h2><button type="button" disabled={busy} onClick={() => { setEditing(!editing); setMessage(''); }} className="rounded-xl border px-4 py-2 text-sm font-bold text-haven-navy">{editing ? tr("Annuler") : tr("Modifier")}</button></div>
+    <div className="flex flex-wrap items-center justify-between gap-4"><h2 className="flex items-center gap-3 font-heading text-xl font-normal text-haven-ink"><UserRound size={22} />{tr("Informations personnelles")}</h2><button type="button" disabled={busy} onClick={() => { setEditing(!editing); setMessage(''); }} className="rounded-xl border px-4 py-2 text-sm font-bold text-haven-ink">{editing ? tr("Annuler") : tr("Modifier")}</button></div>
     {editing ? <form onSubmit={event => { event.preventDefault(); void save(); }} className="mt-6 space-y-5"><div className="grid gap-4 sm:grid-cols-2">
       <label className="text-sm font-bold">{tr("Prénom")}<input required maxLength={99} value={firstName} onChange={event => setFirstName(event.target.value)} autoComplete="given-name" className={inputClass} /></label>
       <label className="text-sm font-bold">{tr("Nom")}<input required maxLength={99} value={lastName} onChange={event => setLastName(event.target.value)} autoComplete="family-name" className={inputClass} /></label>
@@ -33,6 +33,6 @@ export function AccountPersonalDetails({ onManage }: { onManage: () => void }) {
     </div><p className="text-sm text-gray-500">{tr("Une modification des coordonnées entraîne un nouveau contrôle du dossier. L’identité et le téléphone modifiés perdent leur validation précédente.")}</p><button disabled={busy} className="rounded-xl bg-haven-navy px-5 py-3 text-sm font-bold text-white disabled:opacity-50">{busy ? tr("Enregistrement…") : tr("Enregistrer les modifications")}</button></form> : <dl className="mt-6 grid gap-5 sm:grid-cols-2"><div><dt className="text-sm text-gray-500">{tr("Prénom et nom")}</dt><dd className="mt-1 font-bold">{currentUser.firstName} {currentUser.lastName}</dd></div><div><dt className="text-sm text-gray-500">{tr("Date de naissance")}</dt><dd className="mt-1 font-bold">{currentUser.birthDate ? new Date(`${currentUser.birthDate}T12:00:00`).toLocaleDateString(locale) : tr("Non renseignée")}</dd></div><div><dt className="text-sm text-gray-500">{tr("Téléphone")}</dt><dd className="mt-1 font-bold">{currentUser.phone || tr("Non renseigné")}</dd></div></dl>}
     <AccountEmailChange />
     {message && <p role="status" className="mt-4 text-sm">{tr(message)}</p>}
-    <button type="button" onClick={onManage} className="mt-5 text-sm font-bold text-haven-navy underline underline-offset-4">{tr("Vérifier et transmettre mon dossier")}</button>
+    <button type="button" onClick={onManage} className="mt-5 text-sm font-bold text-haven-ink underline underline-offset-4">{tr("Vérifier et transmettre mon dossier")}</button>
   </section>;
 }

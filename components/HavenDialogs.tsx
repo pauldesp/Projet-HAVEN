@@ -41,16 +41,16 @@ function DialogView({ pending, onDone }: { pending: Pending; onDone: () => void 
     document.addEventListener('keydown', keydown);
     return () => document.removeEventListener('keydown', keydown);
   });
-  const field = 'mt-1 w-full rounded-xl border border-gray-200 px-3 text-base font-normal text-haven-navy focus:border-haven-navy focus:outline-none';
+  const field = 'mt-1 w-full rounded-xl border border-gray-200 px-3 text-base font-normal text-haven-ink focus:border-haven-navy focus:outline-none';
   return createPortal(<div className="fixed inset-0 z-[200] flex items-end justify-center sm:items-center sm:p-4">
     <div ref={sheet.backdropRef} aria-hidden="true" className="haven-backdrop absolute inset-0 bg-haven-navy/50 backdrop-blur-sm" onClick={() => finish(request.kind === 'text' ? null : false)} />
     <form ref={sheet.panelRef as React.RefObject<HTMLFormElement & HTMLDivElement>} role="dialog" aria-modal="true" aria-labelledby={titleId}
       onSubmit={event => { event.preventDefault(); submit(); }}
       className="haven-sheet haven-dialog-panel relative w-full max-w-md rounded-t-[1.75rem] bg-white p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] shadow-2xl sm:rounded-[1.75rem]">
       <div {...sheet.dragProps} className="-mx-6 -mt-6 mb-2 px-6 pt-3 pb-1 sm:hidden"><div className="mx-auto h-1.5 w-12 rounded-full bg-gray-200" aria-hidden="true" /></div>
-      <h2 id={titleId} className="font-heading text-xl font-bold text-haven-navy">{request.title}</h2>
+      <h2 id={titleId} className="font-heading text-xl font-normal text-haven-ink">{request.title}</h2>
       {request.message && <p className="mt-2 text-[15px] leading-relaxed text-haven-stone">{request.message}</p>}
-      {request.kind === 'text' && <label className="mt-4 block text-sm font-semibold text-haven-navy">{request.label}
+      {request.kind === 'text' && <label className="mt-4 block text-sm font-semibold text-haven-ink">{request.label}
         {request.multiline
           ? <textarea ref={fieldRef} rows={3} value={value} placeholder={request.placeholder} onChange={event => setValue(event.target.value)} className={`${field} py-2`} />
           : <input ref={fieldRef} value={value} placeholder={request.placeholder} onChange={event => setValue(event.target.value)} className={`${field} h-11`} />}

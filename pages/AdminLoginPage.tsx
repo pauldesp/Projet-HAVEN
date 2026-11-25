@@ -81,7 +81,7 @@ export const AdminLoginPage: React.FC = () => {
             <ShieldCheck size={20} />
             <span className="text-[11px] font-bold uppercase tracking-[0.3em]">Accès Sécurisé Salariés</span>
           </div>
-          <h1 className="text-3xl font-heading font-bold text-white">Portail Administration</h1>
+          <h1 className="text-3xl font-heading font-normal text-white">Portail Administration</h1>
           <p className="text-gray-400 mt-2 text-sm">
             {showReset ? "Réinitialisation du mot de passe" : "Connectez-vous à votre espace de gestion HAVEN."}
           </p>
@@ -211,7 +211,7 @@ export const AdminLoginPage: React.FC = () => {
                 type="submit"
                 fullWidth
                 disabled={isSubmitting}
-                className="bg-haven-red hover:bg-red-700 text-white py-4 rounded-2xl shadow-xl shadow-haven-red/20 group"
+                className="bg-haven-red hover:bg-red-700 text-white py-4 rounded-2xl shadow-xl group"
               >
                 {isSubmitting ? (
                   <Loader2 size={20} className="animate-spin" />

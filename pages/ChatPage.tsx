@@ -141,7 +141,7 @@ export const ChatPage: React.FC = () => {
   if (isLoading) {
     return (
       <div className="min-h-[70vh] flex items-center justify-center">
-        <Loader2 className="w-8 h-8 text-haven-navy animate-spin" />
+        <Loader2 className="w-8 h-8 text-haven-ink animate-spin" />
       </div>
     );
   }
@@ -156,7 +156,7 @@ export const ChatPage: React.FC = () => {
           onClick={() => navigate(-1)}
           className="p-2 hover:bg-gray-100 rounded-full transition-colors"
         >
-          <ArrowLeft className="w-6 h-6 text-haven-navy" />
+          <ArrowLeft className="w-6 h-6 text-haven-ink" />
         </button>
         
         <div className="w-11 h-11 shrink-0 rounded-full overflow-hidden bg-gray-100 border-2 border-haven-red/20">
@@ -170,7 +170,7 @@ export const ChatPage: React.FC = () => {
         </div>
 
         <div className="min-w-0 flex-grow">
-          <h2 className="font-bold text-haven-navy">{otherUser.firstName} {otherUser.lastName}</h2>
+          <h2 className="font-bold text-haven-ink">{otherUser.firstName} {otherUser.lastName}</h2>
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500">
             <span className="flex items-center gap-1">
               <Home className="w-3 h-3" />
@@ -189,7 +189,7 @@ export const ChatPage: React.FC = () => {
         {messages.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center text-center p-8">
             <div className="w-16 h-16 bg-haven-cream rounded-full flex items-center justify-center mb-4">
-              <MessageSquare className="w-8 h-8 text-haven-navy/30" />
+              <MessageSquare className="w-8 h-8 text-haven-ink/30" />
             </div>
             <p className="text-gray-500">Aucun message pour le moment.<br />Commencez la conversation !</p>
           </div>
@@ -206,7 +206,7 @@ export const ChatPage: React.FC = () => {
                 <div className={`min-w-0 max-w-[88%] sm:max-w-[70%] break-words p-3 sm:p-4 rounded-2xl shadow-sm ${
                   isMe 
                     ? 'bg-haven-navy text-white rounded-tr-none' 
-                    : 'bg-white text-haven-navy border border-haven-navy/5 rounded-tl-none'
+                    : 'bg-white text-haven-ink border border-haven-navy/5 rounded-tl-none'
                 }`}>
                   <div className={`text-sm leading-relaxed prose prose-sm ${isMe ? 'prose-invert' : ''} max-w-none`}>
                     <ReactMarkdown>{msg.content.replace(/\n/g, '  \n')}</ReactMarkdown>
@@ -238,7 +238,7 @@ export const ChatPage: React.FC = () => {
           type="submit"
           aria-label={isSending ? 'Envoi en cours' : 'Envoyer le message'}
           disabled={!newMessage.trim() || isSending}
-          className="shrink-0 w-12 h-12 bg-haven-red text-white rounded-2xl flex items-center justify-center hover:bg-haven-red/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-haven-red/20"
+          className="shrink-0 w-12 h-12 bg-haven-red text-white rounded-2xl flex items-center justify-center hover:bg-haven-red/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
         >
           {isSending ? (
             <Loader2 className="w-5 h-5 animate-spin" />

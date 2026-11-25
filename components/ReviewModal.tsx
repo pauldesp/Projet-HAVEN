@@ -79,11 +79,11 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({
             <MessageSquare size={32} />
           </div>
           
-          <h2 className="font-heading font-bold text-2xl text-haven-navy mb-2">
+          <h2 className="font-heading font-normal text-2xl text-haven-ink mb-2">
             {targetType === 'LISTING' ? 'Notez votre séjour' : 'Notez votre colocataire'}
           </h2>
           <p className="text-gray-500 text-sm mb-8">
-            Partagez votre expérience avec <span className="font-bold text-haven-navy">{targetName}</span>
+            Partagez votre expérience avec <span className="font-bold text-haven-ink">{targetName}</span>
           </p>
 
           <div className="space-y-8">
@@ -101,7 +101,7 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({
             </div>
 
             <div className="text-left space-y-2">
-              <label className="text-[11px] font-bold text-haven-stone uppercase tracking-widest">Votre commentaire</label>
+              <label className="text-[11px] font-bold text-haven-stone">Votre commentaire</label>
               <textarea 
                 rows={4}
                 value={comment}
@@ -112,9 +112,9 @@ export const ReviewModal: React.FC<ReviewModalProps> = ({
             </div>
 
             {targetType === 'LISTING' && <section className="space-y-4 rounded-2xl border border-gray-100 bg-haven-cream p-5 text-left">
-              <div><h3 className="font-bold text-haven-navy">Et votre expérience sur Haven ?</h3><p className="mt-2 text-sm leading-relaxed text-gray-500">Ce retour facultatif est visible uniquement par les administrateurs Haven. Votre avis nous aidera à faire évoluer la plateforme.</p></div>
+              <div><h3 className="font-bold text-haven-ink">Et votre expérience sur Haven ?</h3><p className="mt-2 text-sm leading-relaxed text-gray-500">Ce retour facultatif est visible uniquement par les administrateurs Haven. Votre avis nous aidera à faire évoluer la plateforme.</p></div>
               <div role="group" aria-label="Votre note pour la plateforme Haven" className="flex gap-1">{[1, 2, 3, 4, 5].map(star => <button type="button" key={star} disabled={isSubmitting} aria-label={`Haven : ${star} sur 5`} aria-pressed={platformRating === star} onClick={() => setPlatformRating(star)} className={`flex min-h-11 min-w-0 flex-1 items-center justify-center rounded-lg transition-transform hover:scale-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-haven-navy ${platformRating >= star ? 'text-yellow-400' : 'text-gray-300'}`}><Star size={28} className={platformRating >= star ? 'fill-current' : ''} /></button>)}</div>
-              <label className="block text-sm text-haven-navy">Une suggestion pour améliorer Haven ?<textarea rows={3} maxLength={2000} disabled={isSubmitting} value={platformComment} onChange={event => setPlatformComment(event.target.value)} placeholder="Ce que vous avez apprécié, ce qui pourrait être plus simple…" className="mt-2 w-full rounded-xl border border-gray-200 bg-white p-3 text-sm outline-none focus:border-haven-navy" /></label>
+              <label className="block text-sm text-haven-ink">Une suggestion pour améliorer Haven ?<textarea rows={3} maxLength={2000} disabled={isSubmitting} value={platformComment} onChange={event => setPlatformComment(event.target.value)} placeholder="Ce que vous avez apprécié, ce qui pourrait être plus simple…" className="mt-2 w-full rounded-xl border border-gray-200 bg-white p-3 text-sm outline-none focus:border-haven-navy" /></label>
               {(platformRating > 0 || platformComment) && <button type="button" disabled={isSubmitting} onClick={() => { setPlatformRating(0); setPlatformComment(''); }} className="text-xs font-bold text-gray-500 underline">Ne pas donner d’avis sur Haven</button>}
             </section>}
 

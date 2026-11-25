@@ -44,7 +44,7 @@ function useWidth<T extends HTMLElement>() {
 
 function Card({ title, subtitle, children, className = '' }: { title: string; subtitle?: string; children: ReactNode; className?: string }) {
   return <section className={`min-w-0 rounded-3xl border border-gray-100 bg-white p-5 shadow-card sm:p-6 ${className}`}>
-    <h3 className="font-bold text-haven-navy">{title}</h3>
+    <h3 className="font-bold text-haven-ink">{title}</h3>
     {subtitle && <p className="mt-0.5 text-xs text-gray-500">{subtitle}</p>}
     <div className="mt-4">{children}</div>
   </section>;
@@ -57,7 +57,7 @@ function Kpi({ label, value, current, previous, hint }: { label: string; value: 
   const tone = delta === null || delta === 0 ? 'bg-gray-100 text-gray-600' : delta > 0 ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800';
   return <div className="min-w-0 rounded-3xl border border-gray-100 bg-white p-5 shadow-card">
     <p className="text-sm text-gray-500">{label}</p>
-    <p className="mt-2 font-heading text-3xl font-bold tracking-tight text-haven-navy sm:text-4xl">{value}</p>
+    <p className="mt-2 font-heading text-3xl font-normal tracking-tight text-haven-ink sm:text-4xl">{value}</p>
     <p className="mt-3 flex flex-wrap items-center gap-1.5 text-xs text-gray-400">
       <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-semibold ${tone}`}><Icon size={13} aria-hidden="true" />{delta === null ? 'nouveau' : `${delta > 0 ? '+' : ''}${delta} %`}</span>
       {delta === null ? 'rien à comparer' : 'vs période précédente'}
@@ -105,11 +105,11 @@ function DailyChart({ dates, byDate, paidByDate }: { dates: string[]; byDate: Ma
     </svg>
     {hovered && <div role="status" className="pointer-events-none absolute top-2 z-10 w-48 rounded-xl border border-gray-100 bg-white p-3 text-xs shadow-lg"
       style={{ left: Math.min(Math.max(0, x(hover!) + 12), width - 200) }}>
-      <p className="mb-1.5 font-semibold text-haven-navy first-letter:uppercase">{dayLabel(hovered.date, true)}</p>
+      <p className="mb-1.5 font-semibold text-haven-ink first-letter:uppercase">{dayLabel(hovered.date, true)}</p>
       {[['Visites', hovered.day?.sessions || 0], ['Pages vues', hovered.day?.pageviews || 0], ['Recherches', Object.values(hovered.day?.cities || {}).reduce((sum, count) => sum + count, 0)], ['Réservations payées', hovered.paid]].map(([label, value], index) => (
         <p key={label} className="flex items-center justify-between gap-3 py-0.5">
           <span className="flex items-center gap-1.5 text-gray-500">{index === 0 && <span className="h-0.5 w-3 rounded-full" style={{ background: NAVY }} aria-hidden="true" />}{label}</span>
-          <strong className="text-haven-navy">{number(Number(value))}</strong>
+          <strong className="text-haven-ink">{number(Number(value))}</strong>
         </p>
       ))}
     </div>}
@@ -124,7 +124,7 @@ function BarList({ rows, total, empty }: { rows: { label: string; count: number 
     {rows.map(row => <li key={row.label} className="text-sm" title={`${row.label} : ${number(row.count)} (${total ? percent(row.count / total * 100) : '—'})`}>
       <div className="flex items-baseline justify-between gap-3">
         <span className="min-w-0 truncate text-gray-700">{row.label}</span>
-        <span className="shrink-0 font-semibold text-haven-navy">{number(row.count)}<span className="ml-1.5 text-xs font-normal text-gray-400">{total ? percent(row.count / total * 100) : ''}</span></span>
+        <span className="shrink-0 font-semibold text-haven-ink">{number(row.count)}<span className="ml-1.5 text-xs font-normal text-gray-400">{total ? percent(row.count / total * 100) : ''}</span></span>
       </div>
       <div className="mt-1 h-2 rounded-full bg-gray-100"><div className="h-2 rounded-full" style={{ width: `${Math.max(2, row.count / max * 100)}%`, background: NAVY }} /></div>
     </li>)}
@@ -147,7 +147,7 @@ function Funnel({ counts }: { counts: { label: string; count: number }[] }) {
             <div className="relative h-6 min-w-0 flex-1 rounded-r-[4px] bg-gray-50" title={`${step.label} : ${number(step.count)}`}>
               <div className="h-6 rounded-r-[4px]" style={{ width: `${Math.max(1, step.count / base * 100)}%`, background: NAVY }} />
             </div>
-            <span className="w-24 shrink-0 text-right font-semibold text-haven-navy">{number(step.count)}<span className="ml-1 text-xs font-normal text-gray-400">{percent(step.count / base * 100)}</span></span>
+            <span className="w-24 shrink-0 text-right font-semibold text-haven-ink">{number(step.count)}<span className="ml-1 text-xs font-normal text-gray-400">{percent(step.count / base * 100)}</span></span>
           </div>
         </div>
       </li>;
@@ -167,7 +167,7 @@ function Hours({ hours }: { hours: Record<string, number> }) {
       </div>)}
     </div>
     <div className="mt-1 flex justify-between text-[11px] text-gray-400"><span>0 h</span><span>6 h</span><span>12 h</span><span>18 h</span><span>23 h</span></div>
-    {values.some(Boolean) && <p className="mt-2 text-xs text-gray-500">Heure la plus active : <strong className="text-haven-navy">{peak} h – {peak + 1} h</strong></p>}
+    {values.some(Boolean) && <p className="mt-2 text-xs text-gray-500">Heure la plus active : <strong className="text-haven-ink">{peak} h – {peak + 1} h</strong></p>}
   </div>;
 }
 
@@ -183,7 +183,7 @@ function Devices({ devices }: { devices: Record<string, number> }) {
     <ul className="mt-4 space-y-2 text-sm">
       {order.map(key => <li key={key} className="flex items-center justify-between">
         <span className="flex items-center gap-2 text-gray-700"><span className="h-3 w-3 rounded-[3px]" style={{ background: DEVICE_COLORS[key] }} aria-hidden="true" />{DEVICE_LABELS[key]}</span>
-        <span className="font-semibold text-haven-navy">{percent((devices[key] || 0) / total * 100)}<span className="ml-1.5 text-xs font-normal text-gray-400">{number(devices[key] || 0)}</span></span>
+        <span className="font-semibold text-haven-ink">{percent((devices[key] || 0) / total * 100)}<span className="ml-1.5 text-xs font-normal text-gray-400">{number(devices[key] || 0)}</span></span>
       </li>)}
     </ul>
   </div>;
@@ -237,17 +237,17 @@ export function AdminAudience({ listings }: { listings: Listing[] }) {
   return <section className="space-y-6">
     <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
       <div>
-        <h2 className="text-xl font-bold text-haven-navy">Audience</h2>
+        <h2 className="text-xl font-bold text-haven-ink">Audience</h2>
         <p className="mt-1 max-w-2xl text-sm text-gray-500">Mesure anonyme et sans cookie, exemptée de consentement par la CNIL : aucun identifiant, aucune adresse IP, aucune donnée transmise à un tiers. Seuls des totaux par jour sont conservés (25 mois).</p>
       </div>
       {/* Filters: one row above the charts. */}
       <div className="flex flex-wrap items-center gap-2">
         <div className="flex rounded-full border border-gray-200 bg-white p-1" role="group" aria-label="Période">
           {PERIODS.map(period => <button key={period.days} type="button" aria-pressed={days === period.days} onClick={() => setDays(period.days)}
-            className={`min-h-9 rounded-full px-3 text-sm font-semibold ${days === period.days ? 'bg-haven-navy text-white' : 'text-gray-600 hover:text-haven-navy'}`}>{period.label}</button>)}
+            className={`min-h-9 rounded-full px-3 text-sm font-semibold ${days === period.days ? 'bg-haven-navy text-white' : 'text-gray-600 hover:text-haven-ink'}`}>{period.label}</button>)}
         </div>
         <label className="flex min-h-11 items-center gap-2 text-sm text-gray-600"><input type="checkbox" checked={includeTests} onChange={event => setIncludeTests(event.target.checked)} /> Paiements de test</label>
-        <button type="button" onClick={() => void load()} aria-label="Actualiser" className="flex min-h-11 min-w-11 items-center justify-center rounded-full border border-gray-200 text-haven-navy">{loading ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />}</button>
+        <button type="button" onClick={() => void load()} aria-label="Actualiser" className="flex min-h-11 min-w-11 items-center justify-center rounded-full border border-gray-200 text-haven-ink">{loading ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />}</button>
       </div>
     </div>
 
@@ -267,7 +267,7 @@ export function AdminAudience({ listings }: { listings: Listing[] }) {
       <Card title="Visites par jour" subtitle="Survolez la courbe (ou utilisez les flèches du clavier) pour le détail d’une journée.">
         <DailyChart dates={view.dates} byDate={view.byDate} paidByDate={view.paidByDate} />
         <details className="mt-3 text-sm">
-          <summary className="cursor-pointer text-gray-500 hover:text-haven-navy">Voir les chiffres jour par jour</summary>
+          <summary className="cursor-pointer text-gray-500 hover:text-haven-ink">Voir les chiffres jour par jour</summary>
           <div className="mt-3 max-h-72 overflow-y-auto rounded-xl border border-gray-100">
             <table className="w-full text-left text-xs">
               <thead className="sticky top-0 bg-gray-50 text-gray-500"><tr><th className="p-2">Jour</th><th className="p-2 text-right">Visites</th><th className="p-2 text-right">Pages vues</th><th className="p-2 text-right">Réservations payées</th></tr></thead>

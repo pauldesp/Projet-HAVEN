@@ -355,16 +355,16 @@ export const ListingDetails: React.FC = () => {
             <div className="lg:col-span-2">
               <div className="flex flex-wrap justify-between items-start gap-3 mb-6">
                 <div>
-                  <h1 className="font-heading font-bold text-2xl sm:text-3xl md:text-4xl text-haven-navy mb-2">{listing.title}</h1>
+                  <h1 className="font-heading font-normal text-2xl sm:text-3xl md:text-4xl text-haven-ink mb-2">{listing.title}</h1>
                   <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-gray-600">
                     <span className="flex items-center gap-1"><MapPin size={16}/> {listing.city}{listing.neighborhood?.trim() ? ` · ${listing.neighborhood.trim()}` : ''}</span>
                     <span className="flex items-center gap-1"><Star size={16} className="text-haven-red fill-haven-red"/> {listing.rating} ({listing.reviewsCount} avis)</span>
                   </div>
                 </div>
                 <div className="flex gap-2">
-                  <button type="button" className="p-3 rounded-full border border-gray-200 hover:bg-gray-50 text-haven-navy" title="Signaler cette annonce" aria-label="Signaler cette annonce" onClick={() => { if (currentUser) setIsReportModalOpen(true); else window.location.hash = `/login?redirect=${encodeURIComponent(`/listing/${id}?${searchParams.toString()}`)}`; }}><AlertCircle size={20} aria-hidden="true" /></button>
-                  <button type="button" onClick={handleShare} aria-label="Partager cette annonce" title="Partager cette annonce" className="p-3 rounded-full border border-gray-200 hover:bg-gray-50 text-haven-navy"><Share size={20}/></button>
-                  <button type="button" onClick={handleFavorite} disabled={isFavoriteUpdating} aria-label={isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris'} title={isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris'} className={`p-3 rounded-full border border-gray-200 hover:bg-gray-50 text-haven-navy disabled:cursor-wait ${isFavorite ? 'bg-haven-red/5 text-haven-red border-haven-red/20' : ''}`}>
+                  <button type="button" className="p-3 rounded-full border border-gray-200 hover:bg-gray-50 text-haven-ink" title="Signaler cette annonce" aria-label="Signaler cette annonce" onClick={() => { if (currentUser) setIsReportModalOpen(true); else window.location.hash = `/login?redirect=${encodeURIComponent(`/listing/${id}?${searchParams.toString()}`)}`; }}><AlertCircle size={20} aria-hidden="true" /></button>
+                  <button type="button" onClick={handleShare} aria-label="Partager cette annonce" title="Partager cette annonce" className="p-3 rounded-full border border-gray-200 hover:bg-gray-50 text-haven-ink"><Share size={20}/></button>
+                  <button type="button" onClick={handleFavorite} disabled={isFavoriteUpdating} aria-label={isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris'} title={isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris'} className={`p-3 rounded-full border border-gray-200 hover:bg-gray-50 text-haven-ink disabled:cursor-wait ${isFavorite ? 'bg-haven-red/5 text-haven-red border-haven-red/20' : ''}`}>
                     {isFavoriteUpdating ? <Loader2 size={20} className="animate-spin" /> : <Heart size={20} className={isFavorite ? 'fill-current' : ''}/>}
                   </button>
                 </div>
@@ -372,29 +372,29 @@ export const ListingDetails: React.FC = () => {
 
               <div className="flex flex-wrap items-center gap-5 py-6 border-y border-gray-100 mb-8">
                  <div className="flex flex-col items-center">
-                    <span className="font-bold text-haven-navy">{listing.totalRooms}</span>
+                    <span className="font-bold text-haven-ink">{listing.totalRooms}</span>
                     <span className="text-sm text-gray-500">Chambres</span>
                  </div>
                  <div className="w-px h-10 bg-gray-200"></div>
                  <div className="flex flex-col items-center">
-                    <span className="font-bold text-haven-navy">{listing.surface}m²</span>
+                    <span className="font-bold text-haven-ink">{listing.surface}m²</span>
                     <span className="text-sm text-gray-500">Surface</span>
                  </div>
                  <div className="w-px h-10 bg-gray-200"></div>
                  <div className="flex flex-col items-center">
-                    <span className="font-bold text-haven-navy">{listing.type === 'HOUSE' ? 'Maison' : 'Appartement'}</span>
+                    <span className="font-bold text-haven-ink">{listing.type === 'HOUSE' ? 'Maison' : 'Appartement'}</span>
                     <span className="text-sm text-gray-500">Type</span>
                  </div>
               </div>
 
               <div className="mb-10">
-                <h2 className="font-heading font-bold text-xl mb-4">À propos du logement</h2>
+                <h2 className="font-heading font-normal text-xl mb-4">À propos du logement</h2>
                 <div className="prose prose-slate max-w-none prose-h1:text-2xl sm:prose-h1:text-4xl prose-h2:text-xl sm:prose-h2:text-2xl
                   prose-p:text-gray-600 prose-p:leading-relaxed prose-p:mb-4 prose-p:mt-0
                   prose-li:text-gray-600 prose-li:my-0.5
                   prose-ul:list-disc prose-ul:pl-5 prose-ul:mb-4
                   prose-ol:list-decimal prose-ol:pl-5 prose-ol:mb-4
-                  prose-strong:text-haven-navy prose-strong:font-bold
+                  prose-strong:text-haven-ink prose-strong:font-bold
                   break-words">
                   <ReactMarkdown>
                     {listing.description.replace(/\n/g, '  \n')}
@@ -405,18 +405,18 @@ export const ListingDetails: React.FC = () => {
               <section className="mb-10 grid sm:grid-cols-2 gap-4" aria-label="Localisation et accès au logement">
                 <div className="rounded-3xl border border-gray-100 bg-haven-cream/50 p-6">
                   <MapPin size={22} className="text-haven-red mb-4" />
-                  <h2 className="font-heading font-bold text-xl mb-3">Le quartier</h2>
-                  <p className="font-bold text-haven-navy">{listing.neighborhood?.trim() || listing.city}</p>
+                  <h2 className="font-heading font-normal text-xl mb-3">Le quartier</h2>
+                  <p className="font-bold text-haven-ink">{listing.neighborhood?.trim() || listing.city}</p>
                   {listing.neighborhood?.trim() && <p className="text-sm text-gray-600 mt-1">{listing.city}</p>}
                   <p className="text-sm text-gray-500 mt-3">{listing.neighborhood?.trim() ? 'L’adresse exacte est communiquée après confirmation de la réservation.' : 'Le propriétaire n’a pas encore précisé le quartier. L’adresse exacte est communiquée après confirmation de la réservation.'}</p>
                 </div>
                 <div className="rounded-3xl border border-gray-100 bg-white p-6">
                   <Lock size={22} className="text-haven-red mb-4" />
-                  <h2 className="font-heading font-bold text-xl mb-3">Arrivée et accès</h2>
-                  <p className="font-bold text-haven-navy">{listing.arrivalMethod && ARRIVAL_METHODS[listing.arrivalMethod] || 'Modalités d’accueil à préciser avec le propriétaire'}</p>
+                  <h2 className="font-heading font-normal text-xl mb-3">Arrivée et accès</h2>
+                  <p className="font-bold text-haven-ink">{listing.arrivalMethod && ARRIVAL_METHODS[listing.arrivalMethod] || 'Modalités d’accueil à préciser avec le propriétaire'}</p>
                   <dl className="mt-4 space-y-2 text-sm text-gray-600">
-                    <div className="flex justify-between gap-3"><dt>Arrivée à partir de</dt><dd className="font-bold text-haven-navy">{listing.checkInTime || '15:00'}</dd></div>
-                    <div className="flex justify-between gap-3"><dt>Départ avant</dt><dd className="font-bold text-haven-navy">{listing.checkOutTime || '11:00'}</dd></div>
+                    <div className="flex justify-between gap-3"><dt>Arrivée à partir de</dt><dd className="font-bold text-haven-ink">{listing.checkInTime || '15:00'}</dd></div>
+                    <div className="flex justify-between gap-3"><dt>Départ avant</dt><dd className="font-bold text-haven-ink">{listing.checkOutTime || '11:00'}</dd></div>
                   </dl>
                   <p className="text-sm text-gray-500 mt-4">Les consignes d’entrée sont communiquées 72 h avant l’arrivée, ou dès confirmation si vous réservez plus tard.</p>
                 </div>
@@ -442,9 +442,9 @@ export const ListingDetails: React.FC = () => {
                   </Link>
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">
-                      <h3 className="font-bold text-haven-navy text-lg">Propriétaire : {owner.firstName}</h3>
+                      <h3 className="font-bold text-haven-ink text-lg">Propriétaire : {owner.firstName}</h3>
                       {owner.status === 'APPROVED' && (
-                        <span className="flex items-center gap-1 text-[11px] font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded-full uppercase tracking-wider">
+                        <span className="flex items-center gap-1 text-[11px] font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded-full">
                           Vérifié
                         </span>
                       )}
@@ -460,7 +460,7 @@ export const ListingDetails: React.FC = () => {
               )}
 
               <div className="mb-10">
-                <h2 className="font-heading font-bold text-xl mb-4">Équipements du logement</h2>
+                <h2 className="font-heading font-normal text-xl mb-4">Équipements du logement</h2>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                   {/* Haven standards first, then the owner's choices: one single style, no unexplained difference. */}
                   {[...new Set(['Cuisine équipée', 'Ménage hebdomadaire', ...listing.amenities])].map(item => (
@@ -475,7 +475,7 @@ export const ListingDetails: React.FC = () => {
               </div>
 
               <div className="mb-10">
-                <h2 id="listing-rooms" className="scroll-mt-24 font-heading font-bold text-xl mb-6">Chambres</h2>
+                <h2 id="listing-rooms" className="scroll-mt-24 font-heading font-normal text-xl mb-6">Chambres</h2>
                 <div className="space-y-4">
                   {listing.rooms.map(room => {
                     const roomAvailable = isRoomAvailable(room);
@@ -496,7 +496,7 @@ export const ListingDetails: React.FC = () => {
                       </div>
                       <div className="flex-1 w-full text-left">
                         <div className="flex flex-wrap justify-between items-start gap-2 mb-2">
-                          <h3 className="font-bold text-lg text-haven-navy">{room.name}</h3>
+                          <h3 className="font-bold text-lg text-haven-ink">{room.name}</h3>
                           {!availabilityReady ? <span className="bg-gray-100 text-gray-600 px-2 py-1 rounded text-xs font-bold">{availabilityError ? 'Vérification impossible' : 'Vérification…'}</span> : roomAvailable ?
                             <span className="bg-green-100 text-green-700 px-2 py-1 rounded text-xs font-bold">Disponible</span> :
                             <span className="bg-gray-200 text-gray-600 px-2 py-1 rounded text-xs font-bold">Indisponible pour vos dates</span>
@@ -511,7 +511,7 @@ export const ListingDetails: React.FC = () => {
                         </div>
                         <div className="flex justify-between items-center mt-2">
                           <div>
-                            <span className="font-bold text-xl text-haven-navy">{room.pricePerDay}€</span>
+                            <span className="font-bold text-xl text-haven-ink">{room.pricePerDay}€</span>
                             <span className="text-gray-500 text-sm"> / nuit</span>
                           </div>
                           <div className={`w-6 h-6 rounded-full border flex items-center justify-center ${roomIsSelected ? 'bg-haven-navy border-haven-navy' : 'border-gray-300'}`}>
@@ -527,11 +527,11 @@ export const ListingDetails: React.FC = () => {
               {!isListingOwner && (
                 <section className="mb-10 rounded-3xl border border-gray-200 bg-gray-50/70 p-5 sm:p-6" aria-labelledby="housemates-heading" aria-live="polite">
                   <div className="flex items-start gap-3">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-gray-200 bg-white text-haven-navy">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-gray-200 bg-white text-haven-ink">
                       <Users size={19} strokeWidth={1.8} />
                     </div>
                     <div>
-                      <h2 id="housemates-heading" className="font-heading text-lg font-bold text-haven-navy">Avec qui partagerez-vous le logement ?</h2>
+                      <h2 id="housemates-heading" className="font-heading text-lg font-normal text-haven-ink">Avec qui partagerez-vous le logement ?</h2>
                       <p className="mt-1 text-sm leading-relaxed text-gray-500">Un aperçu des personnes présentes aux dates de votre séjour.</p>
                     </div>
                   </div>
@@ -539,12 +539,12 @@ export const ListingDetails: React.FC = () => {
                   {!isBookableStay(startDate, endDate) ? (
                     <div className="mt-5 rounded-2xl border border-dashed border-gray-200 bg-white px-4 py-4 text-sm text-gray-600">
                       <p>Choisissez vos dates pour découvrir les profils des autres colocataires.</p>
-                      <button type="button" onClick={() => calendarRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })} className="mt-2 font-bold text-haven-navy underline underline-offset-4 hover:text-haven-red">Voir le calendrier</button>
+                      <button type="button" onClick={() => calendarRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })} className="mt-2 font-bold text-haven-ink underline underline-offset-4 hover:text-haven-red">Voir le calendrier</button>
                     </div>
                   ) : !currentUser ? (
                     <div className="mt-5 rounded-2xl border border-gray-200 bg-white px-4 py-4 text-sm text-gray-600">
                       <p>Connectez-vous pour voir les profils des colocataires présents aux mêmes dates.</p>
-                      <Link to={`/login?redirect=${encodeURIComponent(`/listing/${id}?${searchParams.toString()}`)}`} className="mt-2 inline-block font-bold text-haven-navy underline underline-offset-4 hover:text-haven-red">Se connecter</Link>
+                      <Link to={`/login?redirect=${encodeURIComponent(`/listing/${id}?${searchParams.toString()}`)}`} className="mt-2 inline-block font-bold text-haven-ink underline underline-offset-4 hover:text-haven-red">Se connecter</Link>
                     </div>
                   ) : isHousematesLoading ? (
                     <div className="mt-5 flex items-center gap-2 text-sm text-gray-500"><Loader2 size={16} className="animate-spin" /> Recherche des profils disponibles…</div>
@@ -563,7 +563,7 @@ export const ListingDetails: React.FC = () => {
                               <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-haven-navy text-sm font-bold text-white" aria-hidden="true">{housemate.firstName.charAt(0)}</div>
                             )}
                             <div className="min-w-0">
-                              <p className="truncate font-bold text-haven-navy">{housemate.firstName}{housemate.age ? ` · ${housemate.age} ans` : ''}</p>
+                              <p className="truncate font-bold text-haven-ink">{housemate.firstName}{housemate.age ? ` · ${housemate.age} ans` : ''}</p>
                               {!!housemate.interests?.length && <p className="mt-1 text-xs text-gray-500">{housemate.interests.join(' · ')}</p>}
                               {housemate.activity && <p className="truncate text-sm text-gray-500">{housemate.activity}</p>}
                               <p className="mt-0.5 text-xs text-gray-400">{housemate.coverage === 'FULL' ? 'Présent tout votre séjour' : 'Quelques nuits en commun'}</p>
@@ -581,8 +581,8 @@ export const ListingDetails: React.FC = () => {
               {/* CALENDAR SECTION */}
               <div ref={calendarRef} className="mb-10 scroll-mt-24">
                 <div className="flex flex-wrap justify-between items-center gap-3 mb-4">
-                  <h2 className="font-heading font-bold text-xl flex items-center gap-2">
-                    <Calendar size={24} className="text-haven-navy"/>
+                  <h2 className="font-heading font-normal text-xl flex items-center gap-2">
+                    <Calendar size={24} className="text-haven-ink"/>
                     Disponibilités
                   </h2>
                   {isListingOwner && (
@@ -599,8 +599,8 @@ export const ListingDetails: React.FC = () => {
                     </p>
                     <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4 sm:flex sm:items-end sm:justify-between sm:gap-5">
                       <div>
-                        <p className="text-[11px] font-bold uppercase tracking-widest text-gray-400">Bloquer pour</p>
-                        <p className="mt-1 text-sm font-bold text-haven-navy">
+                        <p className="text-[11px] font-bold text-gray-400">Bloquer pour</p>
+                        <p className="mt-1 text-sm font-bold text-haven-ink">
                           {isBlockingWholeListing ? 'Tout le logement' : blockedRoom.name}
                         </p>
                       </div>
@@ -608,7 +608,7 @@ export const ListingDetails: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => setBlockTarget('LISTING')}
-                          className={`rounded-xl px-4 py-2.5 text-sm font-bold transition-colors ${isBlockingWholeListing ? 'bg-haven-navy text-white shadow-sm' : 'bg-white text-haven-navy border border-gray-200 hover:border-haven-navy/40'}`}
+                          className={`rounded-xl px-4 py-2.5 text-sm font-bold transition-colors ${isBlockingWholeListing ? 'bg-haven-navy text-white shadow-sm' : 'bg-white text-haven-ink border border-gray-200 hover:border-haven-navy/40'}`}
                         >
                           Tout le logement
                         </button>
@@ -617,7 +617,7 @@ export const ListingDetails: React.FC = () => {
                           id="blocking-room"
                           value={blockTarget === 'LISTING' ? '' : blockTarget}
                           onChange={(event) => event.target.value && setBlockTarget(event.target.value)}
-                          className={`rounded-xl border px-4 py-2.5 text-sm font-bold outline-none transition-colors ${!isBlockingWholeListing ? 'border-haven-red bg-white text-haven-red' : 'border-gray-200 bg-white text-haven-navy focus:border-haven-navy'}`}
+                          className={`rounded-xl border px-4 py-2.5 text-sm font-bold outline-none transition-colors ${!isBlockingWholeListing ? 'border-haven-red bg-white text-haven-red' : 'border-gray-200 bg-white text-haven-ink focus:border-haven-navy'}`}
                         >
                           <option value="" disabled>Une chambre précise</option>
                           {listing.rooms.map(room => <option key={room.id} value={room.id}>{room.name}</option>)}
@@ -627,8 +627,8 @@ export const ListingDetails: React.FC = () => {
                   </div>
                 ) : (
                   <p className="text-gray-500 mb-6 text-sm">
-                    Sélectionnez vos dates pour <span className="font-bold text-haven-navy">{activeRoom.name}</span>.
-                    Séjour minimum : <span className="font-bold text-haven-navy">{listing.minStay} nuits</span>{listing.allowGapStays !== false && ', ou moins pour remplir un trou entre deux séjours'}.
+                    Sélectionnez vos dates pour <span className="font-bold text-haven-ink">{activeRoom.name}</span>.
+                    Séjour minimum : <span className="font-bold text-haven-ink">{listing.minStay} nuits</span>{listing.allowGapStays !== false && ', ou moins pour remplir un trou entre deux séjours'}.
                     Les jours réservés sont indiqués sur le calendrier.
                   </p>
                 )}
@@ -653,12 +653,12 @@ export const ListingDetails: React.FC = () => {
               {/* REVIEWS SECTION */}
               <div className="mb-10 pt-10 border-t border-gray-100">
                 <div className="flex items-center justify-between mb-8">
-                  <h2 className="font-heading font-bold text-2xl text-haven-navy flex items-center gap-2">
+                  <h2 className="font-heading font-normal text-2xl text-haven-ink flex items-center gap-2">
                     <Star size={24} className="text-haven-red fill-haven-red"/>
                     Avis de la communauté
                   </h2>
                   <div className="text-right">
-                    <div className="text-2xl font-bold text-haven-navy">{listing.rating} / 5</div>
+                    <div className="text-2xl font-bold text-haven-ink">{listing.rating} / 5</div>
                     <div className="text-xs text-gray-500">{listing.reviewsCount} avis vérifiés</div>
                   </div>
                 </div>
@@ -666,7 +666,7 @@ export const ListingDetails: React.FC = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                   {isReviewsLoading ? (
                     <div className="col-span-full py-12 text-center">
-                      <Loader2 className="animate-spin mx-auto text-haven-navy mb-4" />
+                      <Loader2 className="animate-spin mx-auto text-haven-ink mb-4" />
                       <p className="text-gray-500 font-medium italic">CHARGEMENT DES AVIS VÉRIFIÉS...</p>
                     </div>
                   ) : reviews.length > 0 ? (
@@ -680,7 +680,7 @@ export const ListingDetails: React.FC = () => {
                               </div>
                            </div>
                            <div className="text-left">
-                              <h4 className="font-bold text-haven-navy">{review.authorName}</h4>
+                              <h4 className="font-bold text-haven-ink">{review.authorName}</h4>
                               <div className="flex gap-0.5 text-haven-red">
                                 {[...Array(5)].map((_, i) => (
                                   <Star key={i} size={12} className={i < review.rating ? 'fill-haven-red' : 'text-gray-200'} />
@@ -717,7 +717,7 @@ export const ListingDetails: React.FC = () => {
             {!isListingOwner && (
               <div className="lg:col-span-1">
                 <div className="sticky top-24 bg-white p-6 rounded-3xl shadow-card border border-gray-100">
-                  <h3 className="font-heading font-bold text-xl mb-4">{recurringPeriods.length > 1 ? 'Préparer tes séjours' : <>Réserver <span className="text-haven-red">{activeRoom.name}</span></>}</h3>
+                  <h3 className="font-heading font-normal text-xl mb-4">{recurringPeriods.length > 1 ? 'Préparer tes séjours' : <>Réserver <span className="text-haven-red">{activeRoom.name}</span></>}</h3>
                   {recurringPeriods.length > 1 && <p className="mb-4 text-sm text-gray-500">{activeRoom.name} · {selectedRecurringIndex >= 0 ? `séjour ${selectedRecurringIndex + 1} sélectionné` : 'dates sélectionnées'}</p>}
 
                   {recurringPeriods.length < 2 && <><div
@@ -728,11 +728,11 @@ export const ListingDetails: React.FC = () => {
                     <div className="flex flex-col gap-2">
                       <div className="flex justify-between items-center bg-white p-2 rounded border border-gray-200">
                         <span className="text-xs text-gray-400">Arrivée</span>
-                        <span className="font-medium text-sm text-haven-navy">{startDate ? new Date(startDate).toLocaleDateString() : '-'}</span>
+                        <span className="font-medium text-sm text-haven-ink">{startDate ? new Date(startDate).toLocaleDateString() : '-'}</span>
                       </div>
                       <div className="flex justify-between items-center bg-white p-2 rounded border border-gray-200">
                         <span className="text-xs text-gray-400">Départ</span>
-                        <span className="font-medium text-sm text-haven-navy">{endDate ? new Date(endDate).toLocaleDateString() : '-'}</span>
+                        <span className="font-medium text-sm text-haven-ink">{endDate ? new Date(endDate).toLocaleDateString() : '-'}</span>
                       </div>
                     </div>
                     {availabilityReady && isBookableStay(startDate, endDate) && isGapStay(activeRoom, listing, availability, startDate, endDate) && <p className="mt-2 rounded-lg bg-green-50 px-3 py-2 text-xs text-green-800">Créneau court entre deux séjours : ces dates remplissent exactement un trou du calendrier, le minimum de {minimumNights(listing.minStay)} nuits ne s’applique pas.</p>}
@@ -752,7 +752,7 @@ export const ListingDetails: React.FC = () => {
                       <span>{Math.round(activeRoom.pricePerDay * (nights) * 0.15)}€</span>
                     </div>
                     <div className="h-px bg-gray-200 my-2"></div>
-                    <div className="flex justify-between font-bold text-haven-navy text-lg">
+                    <div className="flex justify-between font-bold text-haven-ink text-lg">
                       <span>{recurringPeriods.length > 1 ? 'Total de ce séjour' : 'Total'}</span>
                       <span>{(activeRoom.pricePerDay * (nights)) + (listing.cleaningFee || 0) + Math.round(activeRoom.pricePerDay * (nights) * 0.15)}€</span>
                     </div>
@@ -774,7 +774,7 @@ export const ListingDetails: React.FC = () => {
                         <span className="sr-only">Sélectionner le séjour {entry.index + 1}. </span>
                         <div className="flex items-start justify-between gap-3"><span className="font-semibold">Séjour {entry.index + 1}</span><span className="flex shrink-0 items-center gap-2 font-bold">{recurringMoney(entry.amount)}<ChevronDown size={14} aria-hidden="true" className={`transition-transform ${entry.index === selectedRecurringIndex && expandedRecurringStay === entry.index ? 'rotate-180' : ''}`} /></span></div>
                         <p className="mt-1 text-gray-500">{recurringDate(entry.start)} → {recurringDate(entry.end)}</p>
-                        <p className={`mt-2 font-medium ${entry.dueNow ? 'text-haven-navy' : 'text-gray-600'}`}>{entry.dueNow ? 'Prévu à la réservation' : `Prévu le ${recurringDate(entry.dueDate)}`}</p>
+                        <p className={`mt-2 font-medium ${entry.dueNow ? 'text-haven-ink' : 'text-gray-600'}`}>{entry.dueNow ? 'Prévu à la réservation' : `Prévu le ${recurringDate(entry.dueDate)}`}</p>
                         <p className="mt-1 text-[11px] text-gray-500">{entry.index === selectedRecurringIndex && selectedRecurringPrice !== null ? activeRoom.name : 'Tarif dès · chambre à choisir'}</p>
                         </button>
                         <div id={`recurring-stay-detail-${entry.index}`} hidden={entry.index !== selectedRecurringIndex || expandedRecurringStay !== entry.index} className="mt-1 space-y-3 rounded-xl border border-gray-100 bg-gray-50 p-3 text-xs" role="region" aria-label={`Détail du séjour ${entry.index + 1}`}>
@@ -817,7 +817,7 @@ export const ListingDetails: React.FC = () => {
 
       {!isListingOwner && <div className="haven-listing-actions fixed inset-x-0 z-30 border-t border-gray-200 bg-white/95 px-4 py-3 backdrop-blur-md md:hidden">
         <div className="mx-auto flex max-w-3xl items-center justify-between gap-3">
-          <div className="min-w-0"><p className="truncate text-xs text-gray-500">{activeRoom.name}{recurringPeriods.length > 1 && selectedRecurringIndex >= 0 ? ` · séjour ${selectedRecurringIndex + 1}` : ''}</p><p className="text-sm font-bold text-haven-navy">{canBookSeries && paymentSchedule ? `${recurringMoney(paymentSchedule.dueNow)} à la réservation` : isBookableStay(startDate, endDate) ? `${activeRoom.pricePerDay * nights + (listing.cleaningFee || 0) + Math.round(activeRoom.pricePerDay * nights * .15)} € ${recurringPeriods.length > 1 ? 'ce séjour' : 'au total'}` : 'Choisissez vos dates'}</p></div>
+          <div className="min-w-0"><p className="truncate text-xs text-gray-500">{activeRoom.name}{recurringPeriods.length > 1 && selectedRecurringIndex >= 0 ? ` · séjour ${selectedRecurringIndex + 1}` : ''}</p><p className="text-sm font-bold text-haven-ink">{canBookSeries && paymentSchedule ? `${recurringMoney(paymentSchedule.dueNow)} à la réservation` : isBookableStay(startDate, endDate) ? `${activeRoom.pricePerDay * nights + (listing.cleaningFee || 0) + Math.round(activeRoom.pricePerDay * nights * .15)} € ${recurringPeriods.length > 1 ? 'ce séjour' : 'au total'}` : 'Choisissez vos dates'}</p></div>
           {canBookSeries ? <Button onClick={handleSeriesClick}>Réserver mes {seriesStays.length} séjours</Button> : <Button onClick={() => { if (!isBookableStay(startDate, endDate)) calendarRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }); else if (activeRoomIsAvailable) void handleBookClick(); else document.getElementById('listing-rooms')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); }}>
             {!isBookableStay(startDate, endDate) ? 'Voir les dates' : activeRoomIsAvailable ? recurringPeriods.length > 1 ? 'Réserver ce séjour' : 'Réserver' : 'Voir les chambres'}
           </Button>}

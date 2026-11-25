@@ -9,11 +9,11 @@ import { apiService } from '../services/api';
 
 type FooterLink = { label: string; to?: string; href?: string; onClick?: (event: React.MouseEvent) => void };
 
-const linkClass = 'inline-flex min-h-9 items-center py-1 text-[15px] leading-snug text-white/70 transition-colors hover:text-white focus-visible:text-white';
+const linkClass = 'inline-flex min-h-9 items-center py-1 text-[15px] leading-snug text-white/65 transition-colors hover:text-white focus-visible:text-white';
 
 function FooterGroup({ title, links }: { title: string; links: FooterLink[] }) {
   return <nav aria-label={title}>
-    <h2 className="text-xs font-bold uppercase tracking-[0.14em] text-white">{title}</h2>
+    <h2 className="font-body text-sm font-semibold tracking-normal text-white">{title}</h2>
     <ul className="mt-3 space-y-0.5">
       {links.map(link => <li key={link.label}>
         {link.onClick ? <button type="button" onClick={link.onClick} className={`${linkClass} text-left`}>{link.label}</button>
@@ -67,7 +67,7 @@ export const Footer: React.FC = () => {
               { label: t('footer.how_it_works'), to: '/how-it-works' },
               { label: 'Réservation récurrente', to: '/reservation-recurrente' },
               { label: t('footer.trust'), to: '/trust-and-safety' },
-              { label: 'Aide et questions', to: '/help' },
+              { label: t('footer.help'), to: '/help' },
             ]} />
             <FooterGroup title="Propriétaires" links={[
               { label: t('footer.become_owner'), to: '/become-owner' },
@@ -77,7 +77,7 @@ export const Footer: React.FC = () => {
             <FooterGroup title="Haven" links={[
               // Real pages rendered by the server (crawlable), not routes of the application.
               { label: 'Articles et conseils', href: '/articles' },
-              { label: 'Écoles et entreprises', to: '/partners' },
+              { label: t('footer.partners'), to: '/partners' },
               { label: t('footer.contact'), to: '/contact' },
             ]} />
           </div>

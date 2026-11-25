@@ -28,42 +28,42 @@ export const TrustAndSafetyPage: React.FC = () => (
   <div className="bg-haven-cream min-h-screen py-8 sm:py-16 px-4 sm:px-6 lg:px-8 mt-4 sm:mt-12 animate-fade-in">
     <div className="max-w-4xl mx-auto space-y-6 sm:space-y-10">
       <div className="text-center">
-        <span className="px-4 py-1.5 bg-haven-navy/5 text-haven-navy rounded-full text-xs font-bold uppercase tracking-widest">Confiance et sécurité</span>
-        <h1 className="text-[1.75rem] sm:text-5xl font-heading font-bold text-haven-navy mt-3 sm:mt-4 mb-3 sm:mb-6 leading-tight">Votre sécurité, avant tout</h1>
+        <span className="px-4 py-1.5 bg-haven-navy/5 text-haven-ink rounded-full text-xs font-bold">Confiance et sécurité</span>
+        <h1 className="text-[1.75rem] sm:text-5xl font-heading font-normal text-haven-ink mt-3 sm:mt-4 mb-3 sm:mb-6 leading-tight">Votre sécurité, avant tout</h1>
         <p className="text-sm sm:text-lg text-gray-500 max-w-2xl mx-auto">Ce que Haven fait pour vous protéger, les bons réflexes à garder, et que faire si quelque chose ne va pas.</p>
       </div>
 
       <section aria-labelledby="guarantees-title">
-        <h2 id="guarantees-title" className="mb-4 font-heading text-xl sm:text-2xl font-bold text-haven-navy">Nos garanties</h2>
+        <h2 id="guarantees-title" className="mb-4 font-heading text-xl sm:text-2xl font-normal text-haven-ink">Nos garanties</h2>
         <div className="grid gap-3 sm:grid-cols-2">
           {GUARANTEES.map(({ icon: Icon, title, text }) => (
             <div key={title} className="flex gap-4 rounded-2xl border border-gray-100 bg-white p-5 shadow-card">
               <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-green-50 text-green-700"><Icon size={22} aria-hidden="true" /></div>
-              <div><h3 className="font-bold text-haven-navy">{title}</h3><p className="mt-1 text-sm leading-relaxed text-gray-600">{text}</p></div>
+              <div><h3 className="font-bold text-haven-ink">{title}</h3><p className="mt-1 text-sm leading-relaxed text-gray-600">{text}</p></div>
             </div>
           ))}
         </div>
       </section>
 
       <section className="rounded-[1.75rem] sm:rounded-[2rem] border border-gray-100 bg-white p-6 sm:p-10 shadow-premium" aria-labelledby="tips-title">
-        <h2 id="tips-title" className="flex items-center gap-2 font-heading text-xl sm:text-2xl font-bold text-haven-navy"><AlertTriangle size={22} className="text-amber-600" aria-hidden="true" />Évitez les arnaques</h2>
+        <h2 id="tips-title" className="flex items-center gap-2 font-heading text-xl sm:text-2xl font-normal text-haven-ink"><AlertTriangle size={22} className="text-amber-600" aria-hidden="true" />Évitez les arnaques</h2>
         <ul className="mt-5 grid gap-5 sm:grid-cols-2">
           {TIPS.map(({ icon: Icon, title, text }) => (
             <li key={title} className="flex gap-3">
               <Icon size={20} className="mt-0.5 shrink-0 text-amber-600" aria-hidden="true" />
-              <div><p className="font-bold text-haven-navy">{title}</p><p className="mt-1 text-sm leading-relaxed text-gray-600">{text}</p></div>
+              <div><p className="font-bold text-haven-ink">{title}</p><p className="mt-1 text-sm leading-relaxed text-gray-600">{text}</p></div>
             </li>
           ))}
         </ul>
       </section>
 
       <section className="rounded-[1.75rem] sm:rounded-[2rem] border border-gray-100 bg-white p-6 sm:p-10 shadow-premium" aria-labelledby="problem-title">
-        <h2 id="problem-title" className="flex items-center gap-2 font-heading text-xl sm:text-2xl font-bold text-haven-navy"><Flag size={22} className="text-haven-red" aria-hidden="true" />En cas de problème</h2>
+        <h2 id="problem-title" className="flex items-center gap-2 font-heading text-xl sm:text-2xl font-normal text-haven-ink"><Flag size={22} className="text-haven-red" aria-hidden="true" />En cas de problème</h2>
         <ol className="mt-6 grid gap-6 sm:grid-cols-3">
           {STEPS.map(({ title, text }, index) => (
             <li key={title}>
               <span className="flex h-9 w-9 items-center justify-center rounded-full bg-haven-navy text-sm font-bold text-white">{index + 1}</span>
-              <p className="mt-3 font-heading text-lg font-bold text-haven-navy">{title}</p>
+              <p className="mt-3 font-heading text-lg font-normal text-haven-ink">{title}</p>
               <p className="mt-1 text-sm leading-relaxed text-gray-600">{text}</p>
             </li>
           ))}
@@ -74,7 +74,7 @@ export const TrustAndSafetyPage: React.FC = () => (
       <section className="flex flex-col gap-4 rounded-[1.75rem] sm:rounded-[2rem] bg-haven-navy p-6 sm:p-8 text-white sm:flex-row sm:items-center" aria-labelledby="data-title">
         <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/10"><Lock size={22} aria-hidden="true" /></div>
         <div>
-          <h2 id="data-title" className="flex items-center gap-2 font-heading text-lg font-bold"><ShieldCheck size={18} className="text-haven-red" aria-hidden="true" />Vos données sont protégées</h2>
+          <h2 id="data-title" className="flex items-center gap-2 font-heading text-lg font-normal"><ShieldCheck size={18} className="text-haven-red" aria-hidden="true" />Vos données sont protégées</h2>
           <p className="mt-1 text-sm leading-relaxed text-gray-300">Vos justificatifs ne sont visibles que par vous et l’équipe Haven, jamais sur votre profil public. Haven ne vend aucune donnée. Téléchargez vos données ou supprimez votre compte à tout moment depuis « Mon compte ».</p>
         </div>
       </section>

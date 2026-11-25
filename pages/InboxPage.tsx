@@ -84,7 +84,7 @@ export const InboxPage: React.FC = () => {
     <div className="max-w-5xl mx-auto px-6 py-12">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-heading font-bold text-haven-navy">Messages</h1>
+          <h1 className="text-2xl sm:text-3xl font-heading font-normal text-haven-ink">Messages</h1>
           <p className="text-gray-500 mt-2">Gérez vos conversations avec les propriétaires et locataires.</p>
         </div>
 
@@ -93,7 +93,7 @@ export const InboxPage: React.FC = () => {
             onClick={() => setActiveTab('ALL')}
             className={`px-4 py-2 rounded-full text-sm font-bold transition-all ${
               activeTab === 'ALL' 
-                ? 'bg-haven-navy text-white shadow-lg shadow-haven-navy/20' 
+                ? 'bg-haven-navy text-white shadow-lg' 
                 : 'text-gray-500 hover:bg-gray-100'
             }`}
           >
@@ -103,7 +103,7 @@ export const InboxPage: React.FC = () => {
             onClick={() => setActiveTab('UNREAD')}
             className={`px-4 py-2 rounded-full text-sm font-bold transition-all ${
               activeTab === 'UNREAD' 
-                ? 'bg-haven-red text-white shadow-lg shadow-haven-red/20' 
+                ? 'bg-haven-red text-white shadow-lg' 
                 : 'text-gray-500 hover:bg-gray-100'
             }`}
           >
@@ -120,7 +120,7 @@ export const InboxPage: React.FC = () => {
           placeholder="Rechercher par nom, logement ou message..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full pl-14 pr-6 py-4 bg-white border border-haven-navy/5 rounded-[2rem] focus:outline-none focus:ring-4 focus:ring-haven-navy/5 shadow-premium transition-all text-haven-navy placeholder:text-gray-300"
+          className="w-full pl-14 pr-6 py-4 bg-white border border-haven-navy/5 rounded-[2rem] focus:outline-none focus:ring-4 focus:ring-haven-navy/5 shadow-premium transition-all text-haven-ink placeholder:text-gray-300"
         />
       </div>
 
@@ -134,9 +134,9 @@ export const InboxPage: React.FC = () => {
               className="bg-white rounded-[2rem] p-6 sm:p-16 text-center shadow-premium border border-haven-navy/5"
             >
               <div className="w-20 h-20 bg-haven-cream rounded-full flex items-center justify-center mx-auto mb-6">
-                <MessageSquare className="w-10 h-10 text-haven-navy/20" />
+                <MessageSquare className="w-10 h-10 text-haven-ink/20" />
               </div>
-              <h3 className="text-xl font-bold text-haven-navy mb-2">Aucun message trouvé</h3>
+              <h3 className="text-xl font-bold text-haven-ink mb-2">Aucun message trouvé</h3>
               <p className="text-gray-500 max-w-sm mx-auto">
                 {searchTerm 
                   ? "Ajustez vos filtres ou votre recherche pour trouver ce que vous cherchez." 
@@ -181,16 +181,16 @@ export const InboxPage: React.FC = () => {
                   {/* Info */}
                   <div className="flex-grow min-w-0">
                     <div className="flex flex-col items-start sm:flex-row sm:items-center justify-between gap-1 mb-1">
-                      <h3 className={`font-bold text-lg ${conv.unreadCount > 0 ? 'text-haven-navy' : 'text-gray-700'}`}>
+                      <h3 className={`font-bold text-lg ${conv.unreadCount > 0 ? 'text-haven-ink' : 'text-gray-700'}`}>
                         {conv.otherUser?.firstName} {conv.otherUser?.lastName}
                       </h3>
-                      <span className="text-[11px] font-bold text-gray-400 flex items-center gap-1 uppercase tracking-widest">
+                      <span className="text-[11px] font-bold text-gray-400 flex items-center gap-1">
                         <Clock size={12} />
                         {new Date(conv.latestMessage.timestamp).toLocaleDateString()}
                       </span>
                     </div>
 
-                    <p className={`text-sm line-clamp-1 mb-3 ${conv.unreadCount > 0 ? 'font-bold text-haven-navy' : 'text-gray-500'}`}>
+                    <p className={`text-sm line-clamp-1 mb-3 ${conv.unreadCount > 0 ? 'font-bold text-haven-ink' : 'text-gray-500'}`}>
                       {conv.latestMessage.senderId === currentUser?.id && <span className="text-gray-400">Vous: </span>}
                       {conv.latestMessage.content}
                     </p>
@@ -198,8 +198,8 @@ export const InboxPage: React.FC = () => {
                     <div className="flex flex-wrap items-center gap-2 sm:gap-4">
                       {conv.listing && (
                         <div className="flex items-center gap-1.5 px-3 py-1 bg-haven-cream rounded-full">
-                          <Home size={12} className="text-haven-navy/50" />
-                          <span className="text-[11px] font-bold text-haven-navy/70 truncate max-w-[150px]">
+                          <Home size={12} className="text-haven-ink/50" />
+                          <span className="text-[11px] font-bold text-haven-ink/70 truncate max-w-[150px]">
                             {conv.listing.title}
                           </span>
                         </div>

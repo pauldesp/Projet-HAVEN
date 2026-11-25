@@ -2,7 +2,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { UserRole } from '../types';
 import { Button } from './Button';
-import { Globe, LayoutDashboard, ChevronDown, LogIn, LogOut, User as UserIcon, Settings, Shield, MessageSquare, UserRoundCog, ArrowRightLeft } from 'lucide-react';
+import { Globe, LayoutDashboard, ChevronDown, ArrowRight, LogOut, User as UserIcon, Settings, Shield, MessageSquare, UserRoundCog, ArrowRightLeft } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Logo } from './Logo';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -86,11 +86,11 @@ export const Header: React.FC = () => {
   };
 
   return (
-    <header className={`haven-header sticky top-0 z-50 w-full bg-haven-cream/80 backdrop-blur-md transition-shadow duration-200 ${scrolled ? 'shadow-[0_1px_0_rgba(11,36,91,0.06),0_8px_24px_-12px_rgba(11,36,91,0.18)]' : ''}`}>
+    <header className={`haven-header sticky top-0 z-50 w-full bg-haven-cream/90 backdrop-blur-md transition-shadow duration-300 ${scrolled ? 'shadow-[0_1px_0_rgba(27,30,41,0.07)]' : ''}`}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16 md:h-20">
           <Link to="/" className="flex items-center gap-2 hover:opacity-90 transition-opacity">
-            <Logo className="h-7 sm:h-8 md:h-10 w-auto" />
+            <Logo className="h-7 sm:h-8 md:h-9 w-auto" />
           </Link>
 
           <nav className="flex items-center gap-2 md:gap-8">
@@ -98,7 +98,7 @@ export const Header: React.FC = () => {
               <Button 
                 variant="ghost" 
                 size="sm" 
-                aria-label={tr("Choisir la langue")} aria-expanded={isLangOpen} className="flex items-center gap-2 px-2 md:px-4 uppercase text-haven-navy/70 hover:text-haven-navy text-sm font-semibold tracking-wide"
+                aria-label={tr("Choisir la langue")} aria-expanded={isLangOpen} className="flex items-center gap-2 px-2 md:px-3 uppercase text-haven-ink/70 hover:text-haven-ink text-sm font-medium"
                 onClick={() => setIsLangOpen(!isLangOpen)}
               >
                 <Globe size={18} /> <span className="hidden sm:inline">{language}</span> <ChevronDown size={14} className="hidden md:block" />
@@ -106,8 +106,8 @@ export const Header: React.FC = () => {
 
               {isLangOpen && (
                 <div className="absolute top-full right-0 mt-2 w-32 bg-white rounded-xl shadow-xl border border-gray-100 py-2 animate-fade-in-up">
-                   <button onClick={() => handleLangChange('fr')} className={`w-full text-left px-4 py-2 hover:bg-gray-50 text-sm ${language === 'fr' ? 'font-bold text-haven-navy' : 'text-gray-600'}`}>Français</button>
-                   <button onClick={() => handleLangChange('en')} className={`w-full text-left px-4 py-2 hover:bg-gray-50 text-sm ${language === 'en' ? 'font-bold text-haven-navy' : 'text-gray-600'}`}>English</button>
+                   <button onClick={() => handleLangChange('fr')} className={`w-full text-left px-4 py-2 hover:bg-gray-50 text-sm ${language === 'fr' ? 'font-bold text-haven-ink' : 'text-gray-600'}`}>Français</button>
+                   <button onClick={() => handleLangChange('en')} className={`w-full text-left px-4 py-2 hover:bg-gray-50 text-sm ${language === 'en' ? 'font-bold text-haven-ink' : 'text-gray-600'}`}>English</button>
                 </div>
               )}
             </div>
@@ -120,7 +120,7 @@ export const Header: React.FC = () => {
                     className={`hidden md:flex items-center gap-2 text-sm font-bold px-4 py-2 rounded-full transition-all ${
                       isOwnerMode 
                       ? 'text-haven-red bg-haven-red/5 hover:bg-haven-red/10' 
-                      : 'text-haven-navy/70 hover:text-haven-navy hover:bg-gray-200'
+                      : 'text-haven-ink/70 hover:text-haven-ink hover:bg-gray-200'
                     }`}
                   >
                     {isOwnerMode ? (
@@ -146,7 +146,7 @@ export const Header: React.FC = () => {
                     onClick={() => { setIsUserMenuOpen(!isUserMenuOpen); setIsLangOpen(false); }}
                     className="relative flex items-center gap-2 p-1 pl-3 pr-1 bg-white border border-gray-100 rounded-full hover:shadow-md transition-all group"
                   >
-                    <span className="text-xs font-bold text-haven-navy hidden lg:block">{currentUser.firstName}</span>
+                    <span className="text-xs font-bold text-haven-ink hidden lg:block">{currentUser.firstName}</span>
                     <div className="relative">
                       <img 
                         src={currentUser.avatarUrl} 
@@ -163,7 +163,7 @@ export const Header: React.FC = () => {
                   {isUserMenuOpen && (
                     <div className="absolute top-full right-0 mt-3 w-72 max-w-[calc(100vw-2rem)] max-h-[calc(100dvh-6rem)] overflow-y-auto bg-white rounded-[2rem] shadow-premium border border-gray-50 py-4 px-2 animate-fade-in-up z-50">
                       <div className="px-4 py-3 mb-2 border-b border-gray-50">
-                        <p className="text-sm font-bold text-haven-navy">{currentUser.firstName} {currentUser.lastName}</p>
+                        <p className="text-sm font-bold text-haven-ink">{currentUser.firstName} {currentUser.lastName}</p>
                         <p className="break-all text-[11px] text-gray-400">{currentUser.email}</p>
                       </div>
                       
@@ -172,20 +172,20 @@ export const Header: React.FC = () => {
                           <Link
                             to="/admin/dashboard"
                             onClick={() => setIsUserMenuOpen(false)}
-                            className="flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 hover:text-haven-navy rounded-xl transition-colors"
+                            className="flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 hover:text-haven-ink rounded-xl transition-colors"
                           >
                             <Shield size={18} /> {tr("Administration")} </Link>
                           <Link
                             to="/admin/governance"
                             onClick={() => setIsUserMenuOpen(false)}
-                            className="flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 hover:text-haven-navy rounded-xl transition-colors"
+                            className="flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 hover:text-haven-ink rounded-xl transition-colors"
                           >
                             <UserRoundCog size={18} /> {tr("Gouvernance admin")} </Link>
                         </>) : (
                           <Link 
                             to={isOwnerMode ? "/owner/dashboard" : "/dashboard"}
                             onClick={() => setIsUserMenuOpen(false)}
-                            className="flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 hover:text-haven-navy rounded-xl transition-colors"
+                            className="flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 hover:text-haven-ink rounded-xl transition-colors"
                           >
                             <LayoutDashboard size={18} /> {tr("Tableau de bord")} </Link>
                         )}
@@ -194,7 +194,7 @@ export const Header: React.FC = () => {
                           <Link
                             to="/inbox"
                             onClick={() => setIsUserMenuOpen(false)}
-                            className="flex items-center justify-between px-4 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 hover:text-haven-navy rounded-xl transition-colors"
+                            className="flex items-center justify-between px-4 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 hover:text-haven-ink rounded-xl transition-colors"
                           >
                             <div className="flex items-center gap-3">
                               <MessageSquare size={18} />
@@ -211,7 +211,7 @@ export const Header: React.FC = () => {
                         <Link 
                           to={`/profile/${currentUser.id}`}
                           onClick={() => setIsUserMenuOpen(false)}
-                          className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 hover:text-haven-navy rounded-xl transition-colors"
+                          className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 hover:text-haven-ink rounded-xl transition-colors"
                         >
                           {isAdmin ? <Shield size={18} /> : <UserIcon size={18} />} {isAdmin ? tr("Mon espace") : tr("Mon profil")}
                         </Link>
@@ -219,13 +219,13 @@ export const Header: React.FC = () => {
                           <Link
                             to="/account"
                             onClick={() => setIsUserMenuOpen(false)}
-                            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 hover:text-haven-navy rounded-xl transition-colors"
+                            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-50 hover:text-haven-ink rounded-xl transition-colors"
                           >
                             <Settings size={18} /> {tr("Mon compte")} </Link>
                         )}
                       </div>
 
-                      {!isAdmin && <button type="button" onClick={() => void handleRoleSwitch()} className="flex min-h-11 w-full items-center gap-3 rounded-xl px-4 py-2.5 text-left text-sm font-bold text-haven-navy"><ArrowRightLeft size={18} />{isOwnerMode ? tr("Passer en mode locataire") : tr("Passer en mode propriétaire")}</button>}
+                      {!isAdmin && <button type="button" onClick={() => void handleRoleSwitch()} className="flex min-h-11 w-full items-center gap-3 rounded-xl px-4 py-2.5 text-left text-sm font-bold text-haven-ink"><ArrowRightLeft size={18} />{isOwnerMode ? tr("Passer en mode locataire") : tr("Passer en mode propriétaire")}</button>}
                       <div className="mt-2 pt-2 border-t border-gray-50">
                         <button 
                           onClick={handleLogout}
@@ -243,8 +243,8 @@ export const Header: React.FC = () => {
             {!currentUser && (
               <div className="flex items-center gap-4">
                  <Link to="/login">
-                   <Button variant="primary" size="md" className="px-3 md:px-10 font-bold gap-2">
-                     <LogIn size={18} /> {t('nav.login')}
+                   <Button variant="primary" size="md" className="px-4 md:px-6 gap-2">
+                     {t('nav.login')} <ArrowRight size={16} aria-hidden="true" />
                    </Button>
                  </Link>
               </div>

@@ -96,7 +96,7 @@ export const EditListing: React.FC = () => {
     }
   }, [id, getListingById, currentUser, navigate]);
 
-  if (!listing) return <div className="p-20 text-center"><Loader2 className="animate-spin mx-auto text-haven-navy"/></div>;
+  if (!listing) return <div className="p-20 text-center"><Loader2 className="animate-spin mx-auto text-haven-ink"/></div>;
 
   const listingHasIncompleteRoom = hasIncompleteRoom(listing.rooms);
   const listingHasRoomWithoutOption = hasRoomWithoutOption(listing.rooms);
@@ -257,7 +257,7 @@ export const EditListing: React.FC = () => {
               <ArrowLeft size={24} />
             </button>
             <div>
-              <h1 className="text-2xl sm:text-3xl font-heading font-bold text-haven-navy">Modifier l'annonce</h1>
+              <h1 className="text-2xl sm:text-3xl font-heading font-normal text-haven-ink">Modifier l'annonce</h1>
               <p className="text-haven-stone text-sm">Gestion rapide de votre bien : {listing.title}</p>
             </div>
           </div>
@@ -266,7 +266,7 @@ export const EditListing: React.FC = () => {
              <Button 
                 onClick={handleSave} 
                 disabled={isSaving}
-                className="flex-1 md:flex-none gap-2 bg-haven-navy shadow-lg shadow-haven-navy/20"
+                className="flex-1 md:flex-none gap-2 bg-haven-navy shadow-lg"
              >
                 {isSaving ? <Loader2 className="animate-spin" size={20} /> : <Save size={20} />}
                 Enregistrer les modifications
@@ -289,7 +289,7 @@ export const EditListing: React.FC = () => {
                 role="tab"
                 aria-selected={activeTab === tab.id}
                 onClick={() => setActiveTab(tab.id as any)}
-                className={`flex-1 shrink-0 whitespace-nowrap px-3 flex items-center justify-center gap-2 py-3 rounded-[1.75rem] sm:rounded-[1.75rem] text-sm font-bold transition-all ${activeTab === tab.id ? 'bg-white text-haven-navy shadow-premium' : 'text-haven-stone hover:text-haven-navy/70'}`}
+                className={`flex-1 shrink-0 whitespace-nowrap px-3 flex items-center justify-center gap-2 py-3 rounded-[1.75rem] sm:rounded-[1.75rem] text-sm font-bold transition-all ${activeTab === tab.id ? 'bg-white text-haven-ink shadow-premium' : 'text-haven-stone hover:text-haven-ink/70'}`}
              >
                 <tab.icon size={16} />
                 {tab.label}
@@ -309,42 +309,42 @@ export const EditListing: React.FC = () => {
             <div className="space-y-10">
                <div className="grid md:grid-cols-2 gap-8">
                   <div className="space-y-3">
-                    <label className="text-[11px] font-bold uppercase tracking-widest text-haven-stone">Nom du logement</label>
+                    <label className="text-[11px] font-bold text-haven-stone">Nom du logement</label>
                     <input 
                       type="text" 
                       value={listing.title || ''}
                       onChange={(e) => setListing({...listing, title: e.target.value})}
-                      className="w-full bg-gray-50 border-none rounded-2xl px-5 py-4 text-haven-navy font-bold focus:ring-2 focus:ring-haven-navy/20 outline-none transition-all"
+                      className="w-full bg-gray-50 border-none rounded-2xl px-5 py-4 text-haven-ink font-bold focus:ring-2 focus:ring-haven-navy/20 outline-none transition-all"
                     />
                   </div>
                   <div className="space-y-3">
-                    <label className="text-[11px] font-bold uppercase tracking-widest text-haven-stone">Type de bien</label>
+                    <label className="text-[11px] font-bold text-haven-stone">Type de bien</label>
                     <div className="flex bg-gray-50 p-1.5 rounded-2xl">
-                      <button onClick={() => setListing({...listing, type: 'APARTMENT'})} className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition-all ${listing.type === 'APARTMENT' ? 'bg-white text-haven-navy shadow-sm' : 'text-haven-stone'}`}>
+                      <button onClick={() => setListing({...listing, type: 'APARTMENT'})} className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition-all ${listing.type === 'APARTMENT' ? 'bg-white text-haven-ink shadow-sm' : 'text-haven-stone'}`}>
                         <Building size={16} /> Appartement
                       </button>
-                      <button onClick={() => setListing({...listing, type: 'HOUSE'})} className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition-all ${listing.type === 'HOUSE' ? 'bg-white text-haven-navy shadow-sm' : 'text-haven-stone'}`}>
+                      <button onClick={() => setListing({...listing, type: 'HOUSE'})} className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition-all ${listing.type === 'HOUSE' ? 'bg-white text-haven-ink shadow-sm' : 'text-haven-stone'}`}>
                         <HomeIcon size={16} /> Maison
                       </button>
                     </div>
                   </div>
                   <div className="space-y-3">
-                    <label className="text-[11px] font-bold uppercase tracking-widest text-haven-stone">Forfait ménage (€ par location)</label>
+                    <label className="text-[11px] font-bold text-haven-stone">Forfait ménage (€ par location)</label>
                     <input 
                       type="number" 
                       value={listing.cleaningFee || 0}
                       onChange={(e) => setListing({...listing, cleaningFee: parseInt(e.target.value) || 0})}
-                      className="w-full bg-gray-50 border-none rounded-2xl px-5 py-4 text-haven-navy font-bold focus:ring-2 focus:ring-haven-navy/20 outline-none transition-all"
+                      className="w-full bg-gray-50 border-none rounded-2xl px-5 py-4 text-haven-ink font-bold focus:ring-2 focus:ring-haven-navy/20 outline-none transition-all"
                     />
                   </div>
                   <div className="space-y-3">
-                    <label className="text-[11px] font-bold uppercase tracking-widest text-haven-stone">Salles de bain</label>
+                    <label className="text-[11px] font-bold text-haven-stone">Salles de bain</label>
                     <input
                       type="number"
                       min="1"
                       value={listing.bathrooms || 1}
                       onChange={(e) => setListing({...listing, bathrooms: Math.max(1, parseInt(e.target.value) || 1)})}
-                      className="w-full bg-gray-50 border-none rounded-2xl px-5 py-4 text-haven-navy font-bold focus:ring-2 focus:ring-haven-navy/20 outline-none transition-all"
+                      className="w-full bg-gray-50 border-none rounded-2xl px-5 py-4 text-haven-ink font-bold focus:ring-2 focus:ring-haven-navy/20 outline-none transition-all"
                     />
                   </div>
                </div>
@@ -354,18 +354,18 @@ export const EditListing: React.FC = () => {
                <ListingPublicInfoFields value={listing} onChange={updates => setListing({ ...listing, ...updates })} />
                <div className="grid md:grid-cols-2 gap-8">
                   <div className="space-y-3">
-                    <label className="text-[11px] font-bold uppercase tracking-widest text-haven-stone">Heure d’arrivée</label>
-                    <input type="time" value={listing.checkInTime || '15:00'} onChange={(e) => setListing({ ...listing, checkInTime: e.target.value })} className="w-full bg-gray-50 border-none rounded-2xl px-5 py-4 text-haven-navy font-bold focus:ring-2 focus:ring-haven-navy/20 outline-none transition-all" />
+                    <label className="text-[11px] font-bold text-haven-stone">Heure d’arrivée</label>
+                    <input type="time" value={listing.checkInTime || '15:00'} onChange={(e) => setListing({ ...listing, checkInTime: e.target.value })} className="w-full bg-gray-50 border-none rounded-2xl px-5 py-4 text-haven-ink font-bold focus:ring-2 focus:ring-haven-navy/20 outline-none transition-all" />
                   </div>
                   <div className="space-y-3">
-                    <label className="text-[11px] font-bold uppercase tracking-widest text-haven-stone">Heure de départ</label>
-                    <input type="time" value={listing.checkOutTime || '11:00'} onChange={(e) => setListing({ ...listing, checkOutTime: e.target.value })} className="w-full bg-gray-50 border-none rounded-2xl px-5 py-4 text-haven-navy font-bold focus:ring-2 focus:ring-haven-navy/20 outline-none transition-all" />
+                    <label className="text-[11px] font-bold text-haven-stone">Heure de départ</label>
+                    <input type="time" value={listing.checkOutTime || '11:00'} onChange={(e) => setListing({ ...listing, checkOutTime: e.target.value })} className="w-full bg-gray-50 border-none rounded-2xl px-5 py-4 text-haven-ink font-bold focus:ring-2 focus:ring-haven-navy/20 outline-none transition-all" />
                   </div>
                </div>
 
                <div className="space-y-3">
                   <div>
-                    <label className="text-[11px] font-bold uppercase tracking-widest text-haven-stone">Description détaillée</label>
+                    <label className="text-[11px] font-bold text-haven-stone">Description détaillée</label>
                     <p className="mt-1 text-sm text-haven-stone">Décrivez votre logement en quelques phrases.</p>
                   </div>
                   <textarea 
@@ -373,19 +373,19 @@ export const EditListing: React.FC = () => {
                     value={listing.description || ''}
                     maxLength={MAX_LISTING_DESCRIPTION_LENGTH}
                     onChange={(e) => setListing({...listing, description: e.target.value})}
-                    className="w-full bg-gray-50 border-none rounded-2xl px-5 py-4 text-haven-navy leading-relaxed focus:ring-2 focus:ring-haven-navy/20 outline-none transition-all resize-none"
+                    className="w-full bg-gray-50 border-none rounded-2xl px-5 py-4 text-haven-ink leading-relaxed focus:ring-2 focus:ring-haven-navy/20 outline-none transition-all resize-none"
                   />
                   <p className="text-right text-xs font-semibold text-haven-stone">{(listing.description || '').length} / {MAX_LISTING_DESCRIPTION_LENGTH} caractères</p>
                </div>
 
                <div className="grid md:grid-cols-2 gap-8">
                   <div className="space-y-3">
-                    <label className="text-[11px] font-bold uppercase tracking-widest text-haven-stone">Séjour minimum (nuits)</label>
+                    <label className="text-[11px] font-bold text-haven-stone">Séjour minimum (nuits)</label>
                     <input 
                       type="number" 
                       value={listing.minStay || 0}
                       onChange={(e) => setListing({...listing, minStay: parseInt(e.target.value) || 0})}
-                      className="w-full bg-gray-50 border-none rounded-2xl px-5 py-4 text-haven-navy font-bold focus:ring-2 focus:ring-haven-navy/20 outline-none transition-all"
+                      className="w-full bg-gray-50 border-none rounded-2xl px-5 py-4 text-haven-ink font-bold focus:ring-2 focus:ring-haven-navy/20 outline-none transition-all"
                     />
                     <label className="flex items-start gap-3 text-sm text-gray-600">
                       <input type="checkbox" checked={listing.allowGapStays !== false} onChange={event => setListing({ ...listing, allowGapStays: event.target.checked })} className="mt-1" />
@@ -393,24 +393,24 @@ export const EditListing: React.FC = () => {
                     </label>
                   </div>
                   <div className="space-y-3">
-                    <label className="text-[11px] font-bold uppercase tracking-widest text-haven-stone">Surface totale (m²)</label>
+                    <label className="text-[11px] font-bold text-haven-stone">Surface totale (m²)</label>
                     <input 
                       type="number" 
                       value={listing.surface || 0}
                       onChange={(e) => setListing({...listing, surface: parseInt(e.target.value) || 0})}
-                      className="w-full bg-gray-50 border-none rounded-2xl px-5 py-4 text-haven-navy font-bold focus:ring-2 focus:ring-haven-navy/20 outline-none transition-all"
+                      className="w-full bg-gray-50 border-none rounded-2xl px-5 py-4 text-haven-ink font-bold focus:ring-2 focus:ring-haven-navy/20 outline-none transition-all"
                     />
                   </div>
                </div>
 
                <div className="space-y-3">
-                <p className="font-bold text-haven-navy">Réservation avec paiement direct</p>
+                <p className="font-bold text-haven-ink">Réservation avec paiement direct</p>
                 <p className="text-sm text-haven-stone">Le locataire paie lors de sa réservation. Le séjour est confirmé après paiement, sans validation supplémentaire de votre part.</p>
                </div>
 
                <div className="space-y-4">
                  <div>
-                   <label className="text-[11px] font-bold uppercase tracking-widest text-haven-stone">Équipements et services</label>
+                   <label className="text-[11px] font-bold text-haven-stone">Équipements et services</label>
                    <p className="mt-1 text-sm text-haven-stone">Sélectionnez les équipements disponibles dans les parties communes.</p>
                  </div>
                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
@@ -421,7 +421,7 @@ export const EditListing: React.FC = () => {
                          key={amenity.id}
                          type="button"
                          onClick={() => toggleAmenity(amenity.id)}
-                         className={`min-h-28 p-5 border-2 rounded-3xl text-left transition-all flex flex-col gap-3 ${isSelected ? 'border-haven-navy bg-haven-navy/5 text-haven-navy shadow-sm' : 'border-gray-100 bg-gray-50 text-haven-stone hover:border-haven-navy/30'}`}
+                         className={`min-h-28 p-5 border-2 rounded-3xl text-left transition-all flex flex-col gap-3 ${isSelected ? 'border-haven-navy bg-haven-navy/5 text-haven-ink shadow-sm' : 'border-gray-100 bg-gray-50 text-haven-stone hover:border-haven-navy/30'}`}
                        >
                          {amenity.icon}
                          <span className="font-bold text-xs">{amenity.id}</span>
@@ -434,7 +434,7 @@ export const EditListing: React.FC = () => {
                <div className="p-6 bg-haven-red/5 rounded-3xl border border-haven-red/10 flex items-start gap-4">
                   <MapPin size={24} className="text-haven-red shrink-0" />
                   <div className="space-y-1">
-                    <p className="font-bold text-haven-navy">Emplacement</p>
+                    <p className="font-bold text-haven-ink">Emplacement</p>
                     <p className="text-sm text-haven-stone">L'adresse et la ville ({listing.address}, {listing.city}) ne peuvent être modifiées pour préserver l'intégrité de l'annonce. Contactez le support si besoin.</p>
                   </div>
                </div>
@@ -445,7 +445,7 @@ export const EditListing: React.FC = () => {
             <div className="space-y-12">
                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
-                    <h3 className="font-heading font-bold text-2xl text-haven-navy">Configuration des chambres</h3>
+                    <h3 className="font-heading font-normal text-2xl text-haven-ink">Configuration des chambres</h3>
                     <p className="mt-1 text-sm text-haven-stone">Ajoutez ou retirez des chambres, puis enregistrez vos modifications.</p>
                   </div>
                   <Button variant="outline" size="sm" onClick={addRoom} className="gap-2 self-start sm:self-auto"><Plus size={16} /> Ajouter une chambre</Button>
@@ -466,16 +466,16 @@ export const EditListing: React.FC = () => {
 
                        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 items-end">
                           <div className="space-y-2 col-span-2">
-                            <label className="text-[11px] font-bold uppercase tracking-widest text-gray-400">Nom</label>
-                            <input type="text" required placeholder="Ex. Chambre Horizon" value={room.name || ''} onChange={(e) => updateRoom(room.id, { name: e.target.value })} className={`w-full bg-white rounded-xl px-4 py-3 font-bold text-haven-navy outline-none border ${!room.name.trim() ? 'border-haven-red' : 'border-gray-100'}`} />
+                            <label className="text-[11px] font-bold text-gray-400">Nom</label>
+                            <input type="text" required placeholder="Ex. Chambre Horizon" value={room.name || ''} onChange={(e) => updateRoom(room.id, { name: e.target.value })} className={`w-full bg-white rounded-xl px-4 py-3 font-bold text-haven-ink outline-none border ${!room.name.trim() ? 'border-haven-red' : 'border-gray-100'}`} />
                           </div>
                           <div className="space-y-2">
-                            <label className="text-[11px] font-bold uppercase tracking-widest text-gray-400">Prix / Nuit (€)</label>
-                            <input type="number" required min="0.01" step="0.01" placeholder="0" value={room.pricePerDay || ''} onChange={(e) => updateRoom(room.id, { pricePerDay: parseFloat(e.target.value) || 0 })} className={`w-full bg-white rounded-xl px-4 py-3 font-bold text-haven-navy outline-none border ${room.pricePerDay <= 0 ? 'border-haven-red' : 'border-gray-100'}`} />
+                            <label className="text-[11px] font-bold text-gray-400">Prix / Nuit (€)</label>
+                            <input type="number" required min="0.01" step="0.01" placeholder="0" value={room.pricePerDay || ''} onChange={(e) => updateRoom(room.id, { pricePerDay: parseFloat(e.target.value) || 0 })} className={`w-full bg-white rounded-xl px-4 py-3 font-bold text-haven-ink outline-none border ${room.pricePerDay <= 0 ? 'border-haven-red' : 'border-gray-100'}`} />
                           </div>
                           <div className="space-y-2">
-                            <label className="text-[11px] font-bold uppercase tracking-widest text-gray-400">Surface (m²)</label>
-                            <input type="number" required min="1" step="1" placeholder="0" value={room.size || ''} onChange={(e) => updateRoom(room.id, { size: parseInt(e.target.value) || 0 })} className={`w-full bg-white rounded-xl px-4 py-3 font-bold text-haven-navy outline-none border ${room.size <= 0 ? 'border-haven-red' : 'border-gray-100'}`} />
+                            <label className="text-[11px] font-bold text-gray-400">Surface (m²)</label>
+                            <input type="number" required min="1" step="1" placeholder="0" value={room.size || ''} onChange={(e) => updateRoom(room.id, { size: parseInt(e.target.value) || 0 })} className={`w-full bg-white rounded-xl px-4 py-3 font-bold text-haven-ink outline-none border ${room.size <= 0 ? 'border-haven-red' : 'border-gray-100'}`} />
                           </div>
                        </div>
 
@@ -506,7 +506,7 @@ export const EditListing: React.FC = () => {
           {activeTab === 'PHOTOS' && (
             <div className="space-y-10">
                <div>
-                  <h3 className="font-heading font-bold text-2xl text-haven-navy mb-2">Galerie Photos</h3>
+                  <h3 className="font-heading font-normal text-2xl text-haven-ink mb-2">Galerie Photos</h3>
                   <p className="text-sm text-haven-stone">Gérez jusqu’à 5 photos des parties communes. La première sera la photo principale.</p>
                </div>
 
@@ -517,7 +517,7 @@ export const EditListing: React.FC = () => {
                        <div className="haven-photo-actions absolute inset-0 bg-haven-navy/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                           <button onClick={() => removePhoto(idx)} className="w-10 h-10 rounded-xl bg-white text-haven-red flex items-center justify-center"><Trash2 size={20} /></button>
                           {idx !== 0 && (
-                            <button onClick={() => setPrimaryPhoto(idx)} className="w-10 h-10 rounded-xl bg-white text-haven-navy flex items-center justify-center"><CheckCircle size={20} /></button>
+                            <button onClick={() => setPrimaryPhoto(idx)} className="w-10 h-10 rounded-xl bg-white text-haven-ink flex items-center justify-center"><CheckCircle size={20} /></button>
                           )}
                        </div>
                        {idx === 0 && (
@@ -526,7 +526,7 @@ export const EditListing: React.FC = () => {
                     </div>
                   ))}
                   {listing.galleryUrls.length < MAX_LISTING_PHOTOS && (
-                    <button type="button" onClick={addGalleryPhoto} className="aspect-[4/3] rounded-[2rem] border-2 border-dashed border-gray-200 flex flex-col items-center justify-center gap-2 text-gray-400 hover:border-haven-navy hover:text-haven-navy transition-all cursor-pointer">
+                    <button type="button" onClick={addGalleryPhoto} className="aspect-[4/3] rounded-[2rem] border-2 border-dashed border-gray-200 flex flex-col items-center justify-center gap-2 text-gray-400 hover:border-haven-navy hover:text-haven-ink transition-all cursor-pointer">
                        <Plus size={24} />
                        <span className="text-[11px] font-bold uppercase">Charger une photo</span>
                     </button>
@@ -535,7 +535,7 @@ export const EditListing: React.FC = () => {
 
                <div className="pt-8 mt-8 border-t border-gray-100 space-y-5">
                   <div>
-                    <h3 className="font-heading font-bold text-2xl text-haven-navy mb-2">Photos des chambres</h3>
+                    <h3 className="font-heading font-normal text-2xl text-haven-ink mb-2">Photos des chambres</h3>
                     <p className="text-sm text-haven-stone">Ajoutez une photo de chaque chambre.</p>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -543,7 +543,7 @@ export const EditListing: React.FC = () => {
                       const roomPhoto = room.roomPhotos?.[0] || room.photoUrl;
                       return (
                         <div key={room.id} className="space-y-2">
-                          <p className="px-1 text-sm font-bold text-haven-navy">{room.name || 'Chambre'}</p>
+                          <p className="px-1 text-sm font-bold text-haven-ink">{room.name || 'Chambre'}</p>
                           <button type="button" onClick={() => toggleRoomPhoto(room.id)} className={`relative aspect-[4/3] w-full rounded-[2rem] border-2 border-dashed overflow-hidden flex flex-col items-center justify-center gap-2 transition-all ${roomPhoto ? 'border-haven-navy bg-white shadow-premium' : 'border-gray-200 hover:border-haven-navy text-gray-400'}`}>
                           {roomPhoto ? (
                             <>
@@ -564,7 +564,7 @@ export const EditListing: React.FC = () => {
           )}
         </div>
         {activeTab === 'GENERAL' && <section ref={guideSection} className="mt-8 scroll-mt-24 rounded-3xl border border-gray-100 bg-white p-6 md:p-8">
-          <h2 className="font-heading text-xl font-bold text-haven-navy">{tr('Préparez le séjour de vos locataires')}</h2>
+          <h2 className="font-heading text-xl font-normal text-haven-ink">{tr('Préparez le séjour de vos locataires')}</h2>
           <p className="mt-2 mb-5 text-sm leading-relaxed text-haven-stone">{tr('Complétez les accès, le Wi-Fi, le stationnement et les informations pratiques dans le guide privé du séjour.')}</p>
           <OwnerStayGuideButton listingId={listing.id} title={listing.title} />
         </section>}

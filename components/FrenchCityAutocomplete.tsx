@@ -60,7 +60,7 @@ export function FrenchCityAutocomplete({ value, onChange, onSelect, placeholder,
       <input ref={input} id={inputId} role="combobox" aria-label={ariaLabel || 'Ville'} aria-autocomplete="list" aria-expanded={open}
         aria-controls={`${id}-list`} aria-activedescendant={active >= 0 ? `${id}-${active}` : undefined}
         autoComplete="off" value={value} placeholder={placeholder || 'Ville ou code postal'}
-        className="w-full bg-transparent outline-none font-bold text-haven-navy placeholder:text-gray-400"
+        className="w-full bg-transparent outline-none font-bold text-haven-ink placeholder:text-gray-400"
         onFocus={() => setOpen(true)}
         onChange={(event) => { setSelected(null); onChange(event.target.value); setOpen(true); }}
         onKeyDown={(event) => {
@@ -77,7 +77,7 @@ export function FrenchCityAutocomplete({ value, onChange, onSelect, placeholder,
         {results.map((city, index) => <li key={city.code} id={`${id}-${index}`} role="option" aria-selected={index === active}
           className={`px-4 py-3 cursor-pointer text-left hover:bg-gray-50 ${index === active ? 'bg-gray-100' : ''}`}
           onMouseDown={(event) => event.preventDefault()} onClick={() => choose(city)}>
-          <span className="block font-bold text-haven-navy">{city.nom}</span>
+          <span className="block font-bold text-haven-ink">{city.nom}</span>
           <span className="block text-xs text-gray-500">{city.codesPostaux.join(', ')} · {city.departement?.nom || city.departement?.code}</span>
         </li>)}
       </ul>

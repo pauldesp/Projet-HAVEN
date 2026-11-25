@@ -45,8 +45,8 @@ const FilterSection: React.FC<{
 }> = ({ title, isOpen, onToggle, children }) => (
   <section className="border-t border-gray-100 first:border-t-0">
     <button type="button" onClick={onToggle} className="flex w-full items-center justify-between py-5 text-left">
-      <span className="font-heading text-base font-bold text-haven-navy">{title}</span>
-      <ChevronDown size={20} className={`text-haven-navy transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+      <span className="font-heading text-base font-normal text-haven-ink">{title}</span>
+      <ChevronDown size={20} className={`text-haven-ink transition-transform ${isOpen ? 'rotate-180' : ''}`} />
     </button>
     {isOpen && <div className="pb-5">{children}</div>}
   </section>
@@ -300,7 +300,7 @@ export const SearchPage: React.FC = () => {
 
   if (searchParams.has('periods') && !isRecurring) return <div className="mx-auto max-w-xl p-6 sm:p-10 text-center" role="alert">Les dates des séjours sont invalides ou se chevauchent. <a href="/#/" className="underline">Reprendre la recherche</a></div>;
 
-  if ((startDate || endDate || isRecurring) && availabilityError) return <div className="mx-auto max-w-xl p-6 sm:p-12 text-center text-haven-navy" role={availabilityError ? 'alert' : 'status'}>{availabilityError || 'Vérification des chambres disponibles…'}{availabilityError && <p className="mt-3 text-sm text-gray-500">Réessayez dans un instant. La réservation reste bloquée tant que les disponibilités ne peuvent pas être vérifiées.</p>}</div>;
+  if ((startDate || endDate || isRecurring) && availabilityError) return <div className="mx-auto max-w-xl p-6 sm:p-12 text-center text-haven-ink" role={availabilityError ? 'alert' : 'status'}>{availabilityError || 'Vérification des chambres disponibles…'}{availabilityError && <p className="mt-3 text-sm text-gray-500">Réessayez dans un instant. La réservation reste bloquée tant que les disponibilités ne peuvent pas être vérifiées.</p>}</div>;
 
   const activeFilterCount = selectedTypes.length + selectedAmenities.length + selectedRoomOptions.length
     + Number(priceMin > 0 || priceMax < priceCeiling) + Number(minRooms > 1 || maxRooms < maxRoomCount);
@@ -311,19 +311,19 @@ export const SearchPage: React.FC = () => {
         <div className="mb-4 md:hidden">
           <h1 className="sr-only">Résultats de recherche{cityParam ? ` à ${cityParam.split(',')[0]}` : ''}</h1>
           <div className="flex items-center gap-2">
-            <Link to="/" aria-label="Retour à l’accueil" className="flex h-11 w-9 shrink-0 items-center justify-center rounded-full text-haven-navy"><ArrowLeft size={20} /></Link>
+            <Link to="/" aria-label="Retour à l’accueil" className="flex h-11 w-9 shrink-0 items-center justify-center rounded-full text-haven-ink"><ArrowLeft size={20} /></Link>
             <button type="button" aria-expanded={mobileSearchOpen} aria-controls="recurring-search-editor" onClick={() => { setMobileSearchOpen(open => !open); setMobileFiltersOpen(false); }} className="flex min-h-14 min-w-0 flex-1 items-center gap-3 rounded-full border border-gray-200 bg-white px-4 py-2 text-left shadow-sm">
               <Search size={17} className="shrink-0 text-haven-red" aria-hidden="true" />
               <span className="min-w-0"><span className="block truncate text-sm font-bold">{cityParam.split(',')[0] || 'Tous les logements'}</span><span className="block truncate text-xs text-gray-500">{isRecurring ? `${requestedPeriods.length} séjours · ${requestedPeriods.reduce((sum, period) => sum + countNights(period.start, period.end), 0)} nuits` : startDate && endDate ? `${new Date(`${startDate}T12:00:00Z`).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', timeZone: 'UTC' })} → ${new Date(`${endDate}T12:00:00Z`).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', timeZone: 'UTC' })}` : 'Choisir mes dates'}</span></span>
               <span className="sr-only"> · Modifier ma recherche</span>
             </button>
-            <button type="button" aria-label={mobileFiltersOpen ? 'Fermer les filtres' : 'Filtrer les résultats'} aria-expanded={mobileFiltersOpen} aria-controls="search-filters" onClick={() => { setMobileFiltersOpen(open => !open); setMobileSearchOpen(false); }} className={`relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full border ${mobileFiltersOpen ? 'border-haven-navy bg-haven-navy text-white' : 'border-gray-200 bg-white text-haven-navy'}`}><SlidersHorizontal size={19} />{activeFilterCount > 0 && <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-haven-red px-1 text-[11px] font-bold text-white">{activeFilterCount}<span className="sr-only"> filtre(s) actif(s)</span></span>}</button>
+            <button type="button" aria-label={mobileFiltersOpen ? 'Fermer les filtres' : 'Filtrer les résultats'} aria-expanded={mobileFiltersOpen} aria-controls="search-filters" onClick={() => { setMobileFiltersOpen(open => !open); setMobileSearchOpen(false); }} className={`relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full border ${mobileFiltersOpen ? 'border-haven-navy bg-haven-navy text-white' : 'border-gray-200 bg-white text-haven-ink'}`}><SlidersHorizontal size={19} />{activeFilterCount > 0 && <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-haven-red px-1 text-[11px] font-bold text-white">{activeFilterCount}<span className="sr-only"> filtre(s) actif(s)</span></span>}</button>
           </div>
         </div>
         {/* Top Header */}
         <div className="mb-8 hidden md:block">
           <div className="flex items-center gap-4">
-            <h1 className="font-heading font-bold text-2xl sm:text-3xl text-haven-navy">
+            <h1 className="font-heading font-normal text-2xl sm:text-3xl text-haven-ink">
               {isRecurring ? `${requestedPeriods.length} séjours demandés · ${cityParam.split(',')[0]}` : exactMatches.length > 0 ? `Logements à ${cityParam.split(',')[0]}` : 'Chercher mon logement'}
             </h1>
             {isGeocoding && <Loader2 className="animate-spin text-haven-stone" size={24} />}
@@ -334,13 +334,13 @@ export const SearchPage: React.FC = () => {
           <div className="flex min-w-0 items-center gap-3">
             <MapPin size={18} className="shrink-0 text-haven-red" aria-hidden="true" />
             <div className="min-w-0">
-              <p className="truncate text-sm font-bold text-haven-navy">{cityParam || 'Tous les logements'}</p>
+              <p className="truncate text-sm font-bold text-haven-ink">{cityParam || 'Tous les logements'}</p>
               <p className="text-xs text-gray-500">{requestedPeriods.length} séjours · {requestedPeriods.reduce((sum, period) => sum + countNights(period.start, period.end), 0)} nuits au total</p>
             </div>
           </div>
           <button type="button" aria-expanded={recurringSearchOpen} aria-controls="recurring-search-editor"
             onClick={() => setRecurringSearchOpen(open => !open)}
-            className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-gray-200 px-3 py-2 text-xs font-bold text-haven-navy hover:bg-gray-50">
+            className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-gray-200 px-3 py-2 text-xs font-bold text-haven-ink hover:bg-gray-50">
             <SlidersHorizontal size={15} aria-hidden="true" />{recurringSearchOpen ? 'Masquer les dates' : 'Modifier ma recherche'}
           </button>
         </div>}
@@ -359,8 +359,8 @@ export const SearchPage: React.FC = () => {
 
         {searchError && <p role="alert" className="mb-4 text-sm text-haven-red">{searchError}</p>}
         {isRecurring && <div className="mb-4 flex flex-wrap items-center gap-2 md:mb-6 md:gap-3" role="group" aria-label="Classement des séjours récurrents">
-          <button type="button" aria-pressed={sortChoice === 'best'} onClick={() => setSortChoice('best')} className={`min-h-11 rounded-xl border px-4 py-2 text-sm font-bold ${sortChoice === 'best' ? 'border-haven-navy bg-haven-navy text-white' : 'border-gray-200 bg-white text-haven-navy'}`}>Meilleur choix</button>
-          <button type="button" aria-pressed={sortChoice === 'coverage'} onClick={() => setSortChoice('coverage')} className={`min-h-11 rounded-xl border px-4 py-2 text-sm font-bold ${sortChoice === 'coverage' ? 'border-haven-navy bg-haven-navy text-white' : 'border-gray-200 bg-white text-haven-navy'}`}>Plus de séjours</button>
+          <button type="button" aria-pressed={sortChoice === 'best'} onClick={() => setSortChoice('best')} className={`min-h-11 rounded-xl border px-4 py-2 text-sm font-bold ${sortChoice === 'best' ? 'border-haven-navy bg-haven-navy text-white' : 'border-gray-200 bg-white text-haven-ink'}`}>Meilleur choix</button>
+          <button type="button" aria-pressed={sortChoice === 'coverage'} onClick={() => setSortChoice('coverage')} className={`min-h-11 rounded-xl border px-4 py-2 text-sm font-bold ${sortChoice === 'coverage' ? 'border-haven-navy bg-haven-navy text-white' : 'border-gray-200 bg-white text-haven-ink'}`}>Plus de séjours</button>
           <label className="flex min-h-11 cursor-pointer items-center gap-2 text-sm text-gray-600"><input type="checkbox" checked={flexibleDates} onChange={event => { const next = new URLSearchParams(searchParams); if (event.target.checked) next.set('flex', '1'); else next.delete('flex'); setSearchParams(next); }} className="h-4 w-4 accent-haven-red" />Dates ±1 jour</label>
           <p className="hidden w-full text-xs text-gray-500 md:block">{sortChoice === 'best' ? 'Un équilibre entre proximité, séjours disponibles et notes.' : 'Les logements couvrant le plus de séjours en premier.'} Les dates décalées sont toujours signalées.</p>
         </div>}
@@ -384,7 +384,7 @@ export const SearchPage: React.FC = () => {
         <div className="flex flex-col lg:flex-row gap-4 md:gap-8">
           {/* Sidebar Filters */}
           <aside className={`w-full min-w-0 lg:w-1/4 h-fit bg-white p-4 lg:p-6 rounded-3xl shadow-premium border border-gray-100 lg:sticky lg:top-24 ${mobileFiltersOpen ? 'block' : 'hidden'} md:block`}>
-            <div className="mb-2 flex items-center justify-between gap-3 text-haven-navy">
+            <div className="mb-2 flex items-center justify-between gap-3 text-haven-ink">
               <div className="flex items-center gap-2">
                 <SlidersHorizontal size={20} />
                 <h2 className="hidden font-bold text-lg lg:block">Ajuster ma recherche</h2>
@@ -441,10 +441,10 @@ export const SearchPage: React.FC = () => {
               </div>
               <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
                 <label className="text-gray-500">Minimum
-                  <input type="number" min="0" max={priceMax} value={priceMin} onChange={(event) => setPriceMin(Math.min(Math.max(0, Number(event.target.value)), priceMax))} className="mt-1 block w-full rounded-xl border border-gray-200 px-3 py-2 font-bold text-haven-navy" />
+                  <input type="number" min="0" max={priceMax} value={priceMin} onChange={(event) => setPriceMin(Math.min(Math.max(0, Number(event.target.value)), priceMax))} className="mt-1 block w-full rounded-xl border border-gray-200 px-3 py-2 font-bold text-haven-ink" />
                 </label>
                 <label className="text-right text-gray-500">Maximum
-                  <input type="number" min={priceMin} max={priceCeiling} value={priceMax} onChange={(event) => setPriceMax(Math.max(priceMin, Math.min(priceCeiling, Number(event.target.value))))} className="mt-1 block w-full rounded-xl border border-gray-200 px-3 py-2 text-right font-bold text-haven-navy" />
+                  <input type="number" min={priceMin} max={priceCeiling} value={priceMax} onChange={(event) => setPriceMax(Math.max(priceMin, Math.min(priceCeiling, Number(event.target.value))))} className="mt-1 block w-full rounded-xl border border-gray-200 px-3 py-2 text-right font-bold text-haven-ink" />
                 </label>
               </div>
             </FilterSection>
@@ -467,12 +467,12 @@ export const SearchPage: React.FC = () => {
               <p className="mb-3 text-sm text-gray-500">Nombre de chambres dans le logement</p>
               <div className="grid grid-cols-2 gap-3">
                 <label className="text-xs font-bold text-gray-500">Minimum
-                  <select value={minRooms} onChange={(event) => setMinRooms(Math.min(Number(event.target.value), maxRooms))} className="mt-1 block w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-haven-navy">
+                  <select value={minRooms} onChange={(event) => setMinRooms(Math.min(Number(event.target.value), maxRooms))} className="mt-1 block w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-haven-ink">
                     {Array.from({ length: maxRoomCount }, (_, index) => index + 1).map(value => <option key={value} value={value}>{value}</option>)}
                   </select>
                 </label>
                 <label className="text-xs font-bold text-gray-500">Maximum
-                  <select value={maxRooms} onChange={(event) => setMaxRooms(Math.max(Number(event.target.value), minRooms))} className="mt-1 block w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-haven-navy">
+                  <select value={maxRooms} onChange={(event) => setMaxRooms(Math.max(Number(event.target.value), minRooms))} className="mt-1 block w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-haven-ink">
                     {Array.from({ length: maxRoomCount }, (_, index) => index + 1).map(value => <option key={value} value={value}>{value}</option>)}
                   </select>
                 </label>
@@ -510,7 +510,7 @@ export const SearchPage: React.FC = () => {
               <div className="space-y-0 md:space-y-6">
                 <div className="hidden items-center gap-3 md:flex">
                   <div className="h-px flex-1 bg-gray-100"></div>
-                  <h2 className="text-[11px] font-bold uppercase tracking-[0.3em] text-gray-400">Logements à {cityParam.split(',')[0]}</h2>
+                  <h2 className="text-[11px] font-bold text-gray-400">Logements à {cityParam.split(',')[0]}</h2>
                   <div className="h-px flex-1 bg-gray-100"></div>
                 </div>
                 <div className="grid md:grid-cols-2 gap-8">
@@ -524,7 +524,7 @@ export const SearchPage: React.FC = () => {
             {!isSearching && nearbyDateMatches.length > 0 && (
               <div className="space-y-6">
                 <div className="rounded-3xl border border-blue-100 bg-blue-50/60 p-5">
-                  <h2 className="font-heading font-bold text-lg text-haven-navy">Disponibles à des dates proches</h2>
+                  <h2 className="font-heading font-normal text-lg text-haven-ink">Disponibles à des dates proches</h2>
                   <p className="mt-1 text-sm text-gray-600">Même durée de séjour, dans la ville recherchée. Sélectionnez une proposition pour utiliser ses dates.</p>
                 </div>
                 <div className="grid md:grid-cols-2 gap-8">
@@ -541,14 +541,14 @@ export const SearchPage: React.FC = () => {
               <div className="space-y-6">
                 <div className="flex items-center gap-3">
                   <div className="h-px flex-1 bg-gray-100"></div>
-                  <h2 className="text-[11px] font-bold uppercase tracking-[0.3em] text-gray-400">À proximité</h2>
+                  <h2 className="text-[11px] font-bold text-gray-400">À proximité</h2>
                   <div className="h-px flex-1 bg-gray-100"></div>
                 </div>
                 <div className="grid md:grid-cols-2 gap-8">
                   {nearbyMatches.map(listing => (
                     <div key={listing.id} className="relative">
                       <ListingCard listing={listing} availability={availability} {...recurrenceCardProps(listing)} />
-                      <div className="pointer-events-none absolute top-4 left-4 z-10 bg-white/95 backdrop-blur-sm text-haven-navy px-4 py-2 rounded-2xl text-[11px] font-bold uppercase tracking-widest shadow-xl flex items-center gap-2 border border-gray-100">
+                      <div className="pointer-events-none absolute top-4 left-4 z-10 bg-white/95 backdrop-blur-sm text-haven-ink px-4 py-2 rounded-2xl text-[11px] font-bold shadow-xl flex items-center gap-2 border border-gray-100">
                         <Route size={14} className="text-haven-red" />
                         À {Math.round(listing.distance || 0)} km à vol d’oiseau
                       </div>
@@ -566,12 +566,12 @@ export const SearchPage: React.FC = () => {
                 <div className="w-24 h-24 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-6">
                   <MapPin size={40} className="text-gray-200" />
                 </div>
-                <h3 className="font-heading font-bold text-2xl text-haven-navy mb-2">Aucun logement trouvé</h3>
+                <h3 className="font-heading font-normal text-2xl text-haven-ink mb-2">Aucun logement trouvé</h3>
                 <p className="text-gray-400 max-w-sm mx-auto mb-8 text-sm leading-relaxed">Nous n'avons pas encore de colocations disponibles pour ces critères précis dans ce secteur.</p>
                 <div className="flex flex-col items-center gap-4">
                   <Button 
                     variant="outline" 
-                    className="rounded-2xl px-8 h-12 text-[11px] font-bold uppercase tracking-widest"
+                    className="rounded-2xl px-8 h-12 text-[11px] font-bold"
                     onClick={resetFilters}
                   >
                     Réinitialiser les filtres

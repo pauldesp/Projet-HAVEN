@@ -15,7 +15,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, roles 
   if (isLoading) {
     return (
       <div className="min-h-[60vh] flex items-center justify-center" role="status">
-        <span className="text-sm text-haven-navy/60">Chargement de votre espace…</span>
+        <span className="text-sm text-haven-ink/60">Chargement de votre espace…</span>
       </div>
     );
   }

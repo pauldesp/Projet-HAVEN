@@ -223,15 +223,15 @@ export const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose, lis
   const payAmount = isSeries ? firstAmount : total;
   const confirmBlock = <div className="space-y-4">
     <ul className="divide-y divide-gray-100 rounded-xl border border-gray-100 text-sm text-gray-700">
-      <li className="p-3"><span className="font-semibold text-haven-navy">Annulation</span> · remboursement intégral jusqu’à 30 jours avant l’arrivée, 50 % jusqu’à 14 jours, rien ensuite.</li>
-      {isSeries && <li className="p-3"><span className="font-semibold text-haven-navy">Séjours suivants</span> · prélevés automatiquement un mois avant chaque arrivée, avec un rappel par e-mail.</li>}
+      <li className="p-3"><span className="font-semibold text-haven-ink">Annulation</span> · remboursement intégral jusqu’à 30 jours avant l’arrivée, 50 % jusqu’à 14 jours, rien ensuite.</li>
+      {isSeries && <li className="p-3"><span className="font-semibold text-haven-ink">Séjours suivants</span> · prélevés automatiquement un mois avant chaque arrivée, avec un rappel par e-mail.</li>}
     </ul>
-    <button type="button" onClick={() => void handleOpenLegal()} disabled={isLoadingLegal} className="text-sm font-semibold text-haven-navy underline underline-offset-4">Consulter les conditions complètes</button>
+    <button type="button" onClick={() => void handleOpenLegal()} disabled={isLoadingLegal} className="text-sm font-semibold text-haven-ink underline underline-offset-4">Consulter les conditions complètes</button>
     {/* Cleaning and deposit stay explicit commitments, each with its own box. */}
     <CleaningPolicyNotice />
     <label className="flex items-start gap-3 rounded-xl border border-gray-200 p-4 text-sm leading-relaxed text-gray-700"><input type="checkbox" checked={cleaningAccepted} onChange={event => setCleaningAccepted(event.target.checked)} className="mt-1" />Je comprends que le forfait finance le ménage hebdomadaire organisé par le propriétaire et que je dois nettoyer et ranger avant mon départ.</label>
     <div className="rounded-xl border border-gray-200 p-4 text-sm leading-relaxed text-gray-700">
-      <p className="font-bold text-haven-navy">Caution de {DAMAGE_DEPOSIT_POLICY.amountCents / 100} € · rien n’est débité</p>
+      <p className="font-bold text-haven-ink">Caution de {DAMAGE_DEPOSIT_POLICY.amountCents / 100} € · rien n’est débité</p>
       <p className="mt-1 text-gray-600">Votre carte est conservée de façon sécurisée par Stripe. Elle n’est prélevée que si le propriétaire déclare une dégradation dans les {DAMAGE_DEPOSIT_POLICY.claimWindowDays} jours suivant votre départ et que Haven la valide, après avoir lu votre réponse.</p>
       <label className="mt-3 flex items-start gap-3"><input type="checkbox" checked={depositAccepted} onChange={event => setDepositAccepted(event.target.checked)} className="mt-1" />{DAMAGE_DEPOSIT_CONSENT_TEXT}</label>
     </div>
@@ -257,7 +257,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose, lis
           {/* Header */}
           <div className="flex justify-between items-center px-4 py-4 md:p-6 border-b border-gray-100">
             <div className="flex items-center gap-2">
-              <h2 className="font-heading font-bold text-lg md:text-xl text-haven-navy">Confirmer et payer</h2>
+              <h2 className="font-heading font-normal text-lg md:text-xl text-haven-ink">Confirmer et payer</h2>
             </div>
             <button onClick={sheet.requestClose} aria-label="Fermer la réservation" className="haven-touch-action p-2 hover:bg-gray-100 rounded-full text-gray-500">
               <X size={20} />
@@ -273,7 +273,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose, lis
                 <div className="flex gap-4 rounded-xl border border-gray-100 bg-haven-cream p-4">
                   <img src={room.photoUrl} alt="" className="h-16 w-16 rounded-lg object-cover" />
                   <div>
-                    <h3 className="font-bold text-haven-navy">{listing.title}</h3>
+                    <h3 className="font-bold text-haven-ink">{listing.title}</h3>
                     <p className="text-sm text-gray-600">{stays.length} séjours réservés en une fois</p>
                     <p className="mt-1 text-xs text-gray-500">Arrivée à partir de {listing.checkInTime || '15:00'} · départ avant {listing.checkOutTime || '11:00'}</p>
                   </div>
@@ -282,16 +282,16 @@ export const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose, lis
                   {seriesEntries.map(entry => (
                     <li key={entry.startDate} className="flex items-start justify-between gap-3 p-3">
                       <div className="min-w-0">
-                        <p className="font-semibold text-haven-navy">Séjour {entry.index + 1} · {entry.room.name}</p>
+                        <p className="font-semibold text-haven-ink">Séjour {entry.index + 1} · {entry.room.name}</p>
                         <p className="text-xs text-gray-500">{shortDate(entry.startDate)} → {shortDate(entry.endDate)} · {countNights(entry.startDate, entry.endDate)} nuits</p>
                         <p className="mt-1 text-xs text-gray-600">{entry.index === 0 ? 'Payé maintenant' : entry.dueDate === today ? 'Prélevé juste après votre paiement' : `Prélevé automatiquement le ${shortDate(entry.dueDate)}`}</p>
                       </div>
-                      <span className="shrink-0 font-semibold text-haven-navy">{money(entry.amount)}</span>
+                      <span className="shrink-0 font-semibold text-haven-ink">{money(entry.amount)}</span>
                     </li>
                   ))}
                 </ol>
                 <dl className="space-y-2 rounded-xl bg-gray-50 p-4 text-sm">
-                  <div className="flex justify-between gap-3 font-bold text-haven-navy"><dt>À payer maintenant</dt><dd>{money(firstAmount)}</dd></div>
+                  <div className="flex justify-between gap-3 font-bold text-haven-ink"><dt>À payer maintenant</dt><dd>{money(firstAmount)}</dd></div>
                   {dueSoon > 0 && <div className="flex justify-between gap-3 text-gray-600"><dt>Prélevé juste après (arrivées à moins d’un mois)</dt><dd>{money(dueSoon)}</dd></div>}
                   <div className="flex justify-between gap-3 text-gray-600"><dt>Total de la série, prix fixés aujourd’hui</dt><dd>{money(seriesTotal)}</dd></div>
                 </dl>
@@ -304,10 +304,10 @@ export const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose, lis
                   <div className="flex gap-4 p-4 bg-haven-cream rounded-xl border border-gray-100">
                     <img src={room.photoUrl} alt="" className="w-20 h-20 object-cover rounded-lg" />
                     <div>
-                      <h3 className="font-bold text-haven-navy">{listing.title}</h3>
+                      <h3 className="font-bold text-haven-ink">{listing.title}</h3>
                       <p className="text-sm text-gray-600">{room.name}</p>
                       <p className="text-xs text-gray-500 mt-1">{nights} nuit(s) • 1 Locataire</p>
-                      <p className="mt-2 text-xs font-semibold text-haven-navy">Arrivée à partir de {listing.checkInTime || '15:00'} · Départ avant {listing.checkOutTime || '11:00'}</p>
+                      <p className="mt-2 text-xs font-semibold text-haven-ink">Arrivée à partir de {listing.checkInTime || '15:00'} · Départ avant {listing.checkOutTime || '11:00'}</p>
                     </div>
                   </div>
 
@@ -315,7 +315,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose, lis
                     <div className="flex justify-between"><span>{nights} {nights === 1 ? 'nuit' : 'nuits'} × {room.pricePerDay} €</span><span>{basePrice}€</span></div>
                   <div className="flex justify-between"><span>Forfait ménage (par location)</span><span>{cleaningFee}€</span></div>
                   <div className="flex justify-between"><span>Frais HAVEN (15%)</span><span>{platformFee}€</span></div>
-                  <div className="flex justify-between font-bold text-haven-navy text-lg pt-2 border-t border-gray-100">
+                  <div className="flex justify-between font-bold text-haven-ink text-lg pt-2 border-t border-gray-100">
                     <span>Total à payer</span><span>{total}€</span>
                   </div>
                 </div>
@@ -339,8 +339,8 @@ export const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose, lis
                   <Shield size={24} />
                 </div>
                 <div>
-                  <h3 className="font-heading font-bold text-lg sm:text-xl text-haven-navy leading-tight mb-1">{legalDoc.title}</h3>
-                  <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">Document officiel HAVEN</p>
+                  <h3 className="font-heading font-normal text-lg sm:text-xl text-haven-ink leading-tight mb-1">{legalDoc.title}</h3>
+                  <p className="text-[11px] font-bold text-gray-400">Document officiel HAVEN</p>
                 </div>
               </div>
               <button onClick={() => setIsLegalModalOpen(false)} className="shrink-0 w-11 h-11 rounded-2xl hover:bg-gray-100 flex items-center justify-center text-haven-stone transition-all">
@@ -351,10 +351,10 @@ export const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose, lis
             <div ref={modalScrollRef} className="min-h-0 min-w-0 flex-grow overflow-y-auto overflow-x-hidden p-5 sm:p-8 md:p-16 bg-white scroll-smooth leading-relaxed">
               <div className="w-full min-w-0 max-w-3xl mx-auto">
                 <div className="haven-booking-terms prose prose-sm sm:prose-base prose-slate max-w-none
-                  prose-headings:font-heading prose-headings:text-haven-navy prose-headings:font-bold
+                  prose-headings:font-heading prose-headings:text-haven-ink prose-headings:font-normal
                   prose-p:text-haven-stone sm:prose-p:text-lg prose-p:leading-relaxed prose-p:mb-3 sm:prose-p:mb-6
                   prose-li:text-haven-stone sm:prose-li:text-lg prose-li:mb-1 sm:prose-li:mb-2
-                  prose-strong:text-haven-navy prose-strong:font-bold
+                  prose-strong:text-haven-ink prose-strong:font-normal
                 ">
                   <div
                     dangerouslySetInnerHTML={{ __html: readableLegalHtml(legalDoc.content) }}

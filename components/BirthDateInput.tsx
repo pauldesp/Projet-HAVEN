@@ -47,7 +47,7 @@ export const BirthDateInput: React.FC<BirthDateInputProps> = ({ value, onChange 
   };
 
   const invalid = Boolean(birthDateFromParts(parts)) && !isValidPastBirthDate(birthDateFromParts(parts));
-  const fieldClass = 'w-full min-w-0 bg-transparent text-center text-sm font-normal text-haven-navy outline-none placeholder:text-gray-400';
+  const fieldClass = 'w-full min-w-0 bg-transparent text-center text-sm font-normal text-haven-ink outline-none placeholder:text-gray-400';
 
   return (
     <div>

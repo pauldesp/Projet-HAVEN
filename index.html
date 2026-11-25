@@ -5,7 +5,7 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/png" href="/logo.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="theme-color" content="#F9FAF5" />
+    <meta name="theme-color" content="#FBFAF6" />
     <meta name="application-name" content="HAVEN" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
@@ -14,13 +14,13 @@
     <link rel="apple-touch-icon" href="/logo.png" />
     <title>HAVEN | La colocation flexible</title>
     
-    <!-- Fonts (DM Sans for headings, Inter for text) are served by Haven itself: no visitor IP is sent to Google. -->
+    <!-- Fonts (Newsreader for titles, Manrope for text) are served by Haven itself: no visitor IP is sent to Google. -->
 
     <style>
       body {
-        background-color: #F9FAF5;
-        color: #0B245B;
-        font-family: 'Inter Variable', 'Inter', system-ui, sans-serif;
+        background-color: #FBFAF6;
+        color: #1B1E29;
+        font-family: 'Manrope Variable', system-ui, sans-serif;
         -webkit-font-smoothing: antialiased;
         min-height: 100dvh;
         overscroll-behavior-y: none;
@@ -90,8 +90,10 @@
       }
       .haven-dual-range-min { z-index: 2; }
       .haven-dual-range-max { z-index: 3; }
-      h1, h2, h3, h4, h5, h6 {
-        font-family: 'DM Sans Variable', 'DM Sans', system-ui, sans-serif;
+      /* Titles: editorial serif in a regular weight, set slightly tight. */
+      h1, h2, .font-heading {
+        font-family: 'Newsreader Variable', Georgia, serif;
+        letter-spacing: -0.01em;
       }
       /* Custom scrollbar */
       .haven-booking-terms,
@@ -110,9 +112,9 @@
         table-layout: fixed;
       }
       ::-webkit-scrollbar { width: 8px; }
-      ::-webkit-scrollbar-track { background: #F9FAF5; }
-      ::-webkit-scrollbar-thumb { background: #E2E8F0; border-radius: 10px; }
-      ::-webkit-scrollbar-thumb:hover { background: #CBD5E1; }
+      ::-webkit-scrollbar-track { background: #FBFAF6; }
+      ::-webkit-scrollbar-thumb { background: #E7E5DF; border-radius: 10px; }
+      ::-webkit-scrollbar-thumb:hover { background: #D6D3CB; }
 
       @keyframes fade-in {
         from { opacity: 0; }
@@ -137,7 +139,7 @@
   </head>
   <body>
     <div id="root">
-      <div style="display:flex;align-items:center;justify-content:center;height:100dvh;background:#F9FAF5;font-family:'Inter Variable',system-ui,sans-serif;color:#0B245B;">
+      <div style="display:flex;align-items:center;justify-content:center;height:100dvh;background:#FBFAF6;font-family:'Manrope Variable',system-ui,sans-serif;color:#1B1E29;">
         <div style="text-align:center;">
           <img src="/logo-600.png" alt="HAVEN" style="width:190px;height:auto;animation:haven-breathe 1.8s ease-in-out infinite;" />
           <p style="margin:18px 0 0;font-size:11px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:#626878;">La colocation flexible</p>

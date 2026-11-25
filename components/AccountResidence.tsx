@@ -29,7 +29,7 @@ export function AccountResidence() {
     } catch (error) { setMessage(error instanceof Error ? error.message : tr("Enregistrement impossible.")); } finally { setBusy(false); }
   };
   return <section className="rounded-3xl border border-gray-100 bg-white p-6 shadow-soft md:p-8">
-    <h2 className="flex items-center gap-3 font-heading text-xl font-bold text-haven-navy"><Home size={22} />{tr("Mon domicile")}</h2>
+    <h2 className="flex items-center gap-3 font-heading text-xl font-normal text-haven-ink"><Home size={22} />{tr("Mon domicile")}</h2>
     <p className="mt-3 text-sm text-gray-500">{tr("Votre adresse de résidence et son justificatif sont réservés à vous et à l’administration Haven.")}</p>
     <form onSubmit={event => { event.preventDefault(); void save(); }} className="mt-6 space-y-5"><fieldset disabled={!loaded || busy} className="grid gap-4 sm:grid-cols-2 disabled:opacity-50">
       {([['address', tr("Adresse complète"), 'street-address'], ['postalCode', tr("Code postal"), 'postal-code'], ['city', tr("Commune"), 'address-level2'], ['country', tr("Pays"), 'country-name']] as const).map(([key, label, autoComplete]) => <label key={key} className={`text-sm font-bold ${key === 'address' ? 'sm:col-span-2' : ''}`}>{label}<input required value={residence[key]} maxLength={key === 'address' ? 200 : key === 'postalCode' ? 20 : 100} autoComplete={autoComplete} onChange={event => setResidence(current => ({ ...current, [key]: event.target.value }))} className="mt-2 block w-full rounded-xl border border-gray-200 p-3 font-normal" /></label>)}

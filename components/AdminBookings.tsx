@@ -70,7 +70,7 @@ export function AdminBookings({ bookings, listings, users, onOpenCase }: { booki
   const chooseView = (value: View) => { setView(value); setSort({ key: 'startDate', ascending: value === 'UPCOMING' || value === 'CURRENT' }); };
   const sortBy = (key: SortKey) => setSort(current => ({ key, ascending: current.key === key ? !current.ascending : key !== 'amount' }));
   const SortHeader = ({ label, sortKey }: { label: string; sortKey: SortKey }) => <th className="p-3 text-left">
-    <button type="button" onClick={() => sortBy(sortKey)} className="flex items-center gap-1 text-[11px] font-bold uppercase tracking-wide text-gray-500 hover:text-haven-navy">
+    <button type="button" onClick={() => sortBy(sortKey)} className="flex items-center gap-1 text-[11px] font-bold uppercase tracking-wide text-gray-500 hover:text-haven-ink">
       {label}{sort.key === sortKey && (sort.ascending ? <ArrowUp size={12} /> : <ArrowDown size={12} />)}
     </button>
   </th>;
@@ -98,11 +98,11 @@ export function AdminBookings({ bookings, listings, users, onOpenCase }: { booki
 
   return <section className="space-y-5">
     <div>
-      <h2 className="text-xl font-bold text-haven-navy">Réservations</h2>
+      <h2 className="text-xl font-bold text-haven-ink">Réservations</h2>
       <p className="mt-1 text-sm text-gray-500">Cliquez sur un séjour pour ouvrir son dossier : personnes, états des lieux, séjour précédent dans la chambre, signalements et versement. Haven peut déplacer un séjour avant l’entrée ou l’annuler jusqu’au jour d’arrivée (locataire remboursé intégralement).</p>
     </div>
     <nav className="flex flex-wrap gap-2" aria-label="Période des séjours">
-      {VIEWS.map(([id, label]) => <button key={id} type="button" aria-pressed={view === id} onClick={() => chooseView(id)} className={`min-h-11 rounded-full border px-4 text-sm font-semibold ${view === id ? 'border-haven-navy bg-haven-navy text-white' : 'border-gray-200 text-haven-navy'}`}>{label} <span className={view === id ? 'text-white/70' : 'text-gray-400'}>{counts[id]}</span></button>)}
+      {VIEWS.map(([id, label]) => <button key={id} type="button" aria-pressed={view === id} onClick={() => chooseView(id)} className={`min-h-11 rounded-full border px-4 text-sm font-semibold ${view === id ? 'border-haven-navy bg-haven-navy text-white' : 'border-gray-200 text-haven-ink'}`}>{label} <span className={view === id ? 'text-white/70' : 'text-gray-400'}>{counts[id]}</span></button>)}
     </nav>
     <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
       <label className="relative block flex-1">
@@ -151,7 +151,7 @@ export function AdminBookings({ bookings, listings, users, onOpenCase }: { booki
             const state = stayState(booking);
             const upcoming = booking.status !== 'CANCELLED' && booking.endDate.slice(0, 10) >= today && booking.status !== 'COMPLETED';
             return <tr key={booking.id} onClick={() => onOpenCase(booking.id)} className="cursor-pointer align-top hover:bg-gray-50">
-              <td data-label="Logement" className="p-3"><p className="font-semibold text-haven-navy">{title(booking)}</p><p className="text-xs text-gray-500">{booking.roomName || 'Chambre'}{booking.seriesId ? ` · série ${(booking.seriesIndex ?? 0) + 1}/${booking.seriesCount}` : ''}{booking.paymentIsTest ? ' · test' : ''}</p></td>
+              <td data-label="Logement" className="p-3"><p className="font-semibold text-haven-ink">{title(booking)}</p><p className="text-xs text-gray-500">{booking.roomName || 'Chambre'}{booking.seriesId ? ` · série ${(booking.seriesIndex ?? 0) + 1}/${booking.seriesCount}` : ''}{booking.paymentIsTest ? ' · test' : ''}</p></td>
               <td data-label="Arrivée" className="whitespace-nowrap p-3">{shortDate(booking.startDate)}</td>
               <td data-label="Départ" className="whitespace-nowrap p-3">{shortDate(booking.endDate)}</td>
               <td data-label="Nuits" className="p-3">{countNights(booking.startDate, booking.endDate)}</td>
@@ -165,7 +165,7 @@ export function AdminBookings({ bookings, listings, users, onOpenCase }: { booki
               <td data-label="Actions" className="p-3" onClick={event => event.stopPropagation()}>
                 <div className="flex flex-wrap justify-end gap-2">
                   <button type="button" onClick={() => onOpenCase(booking.id)} className="min-h-9 whitespace-nowrap rounded-lg bg-haven-navy px-3 text-xs font-bold text-white">Dossier</button>
-                  {upcoming && !booking.checkInReportId && <button type="button" onClick={() => setMoving({ booking, startDate: booking.startDate, endDate: booking.endDate, roomId: booking.roomId, reason: '' })} className="min-h-9 rounded-lg border border-gray-200 px-3 text-xs font-semibold text-haven-navy">Déplacer</button>}
+                  {upcoming && !booking.checkInReportId && <button type="button" onClick={() => setMoving({ booking, startDate: booking.startDate, endDate: booking.endDate, roomId: booking.roomId, reason: '' })} className="min-h-9 rounded-lg border border-gray-200 px-3 text-xs font-semibold text-haven-ink">Déplacer</button>}
                   {upcoming && <button type="button" onClick={() => { setCancelling(booking); setReason(''); }} className="min-h-9 whitespace-nowrap rounded-lg border border-red-100 px-3 text-xs font-semibold text-haven-red hover:bg-red-50">Annuler</button>}
                 </div>
               </td>
@@ -178,18 +178,18 @@ export function AdminBookings({ bookings, listings, users, onOpenCase }: { booki
 
     {moving && <div className="fixed inset-0 z-[120] flex items-center justify-center bg-haven-navy/60 p-4">
       <section role="dialog" aria-modal="true" aria-labelledby="move-title" className="haven-dialog-panel w-full max-w-lg space-y-4 rounded-3xl bg-white p-6">
-        <h3 id="move-title" className="text-xl font-bold text-haven-navy">Déplacer ce séjour</h3>
+        <h3 id="move-title" className="text-xl font-bold text-haven-ink">Déplacer ce séjour</h3>
         <p className="text-sm text-gray-600">{title(moving.booking)} · actuellement du {shortDate(moving.booking.startDate)} au {shortDate(moving.booking.endDate)}. Même nombre de nuits, prix inchangé ; les consignes d’arrivée et le rappel de départ suivent les nouvelles dates.</p>
         <div className="grid grid-cols-2 gap-3">
-          <label className="text-sm font-semibold text-haven-navy">Arrivée<input type="date" value={moving.startDate} onChange={event => setMoving({ ...moving, startDate: event.target.value })} className="mt-1 h-11 w-full rounded-xl border border-gray-200 px-3 font-normal" /></label>
-          <label className="text-sm font-semibold text-haven-navy">Départ<input type="date" value={moving.endDate} onChange={event => setMoving({ ...moving, endDate: event.target.value })} className="mt-1 h-11 w-full rounded-xl border border-gray-200 px-3 font-normal" /></label>
+          <label className="text-sm font-semibold text-haven-ink">Arrivée<input type="date" value={moving.startDate} onChange={event => setMoving({ ...moving, startDate: event.target.value })} className="mt-1 h-11 w-full rounded-xl border border-gray-200 px-3 font-normal" /></label>
+          <label className="text-sm font-semibold text-haven-ink">Départ<input type="date" value={moving.endDate} onChange={event => setMoving({ ...moving, endDate: event.target.value })} className="mt-1 h-11 w-full rounded-xl border border-gray-200 px-3 font-normal" /></label>
         </div>
-        <label className="block text-sm font-semibold text-haven-navy">Chambre
+        <label className="block text-sm font-semibold text-haven-ink">Chambre
           <select value={moving.roomId} onChange={event => setMoving({ ...moving, roomId: event.target.value })} className="mt-1 h-11 w-full rounded-xl border border-gray-200 px-3 font-normal">
             {(listings.find(item => item.id === moving.booking.listingId)?.rooms || []).map(room => <option key={room.id} value={room.id}>{room.name}</option>)}
           </select>
         </label>
-        <label className="block text-sm font-semibold text-haven-navy">Motif (journal d’administration)<textarea value={moving.reason} onChange={event => setMoving({ ...moving, reason: event.target.value })} rows={2} maxLength={300} className="mt-1 w-full rounded-xl border border-gray-200 p-3 font-normal" /></label>
+        <label className="block text-sm font-semibold text-haven-ink">Motif (journal d’administration)<textarea value={moving.reason} onChange={event => setMoving({ ...moving, reason: event.target.value })} rows={2} maxLength={300} className="mt-1 w-full rounded-xl border border-gray-200 p-3 font-normal" /></label>
         <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
           <button type="button" disabled={sending} onClick={() => setMoving(null)} className="min-h-11 rounded-xl px-4 font-semibold text-gray-600 hover:bg-gray-100">Retour</button>
           <button type="button" disabled={sending || moving.reason.trim().length < 3} onClick={() => void move()} className="min-h-11 rounded-xl bg-haven-navy px-4 font-bold text-white disabled:opacity-40">{sending ? 'Déplacement…' : 'Déplacer le séjour'}</button>
@@ -199,10 +199,10 @@ export function AdminBookings({ bookings, listings, users, onOpenCase }: { booki
 
     {cancelling && terms && <div className="fixed inset-0 z-[120] flex items-center justify-center bg-haven-navy/60 p-4">
       <section role="dialog" aria-modal="true" aria-labelledby="haven-cancel-title" className="haven-dialog-panel w-full max-w-lg space-y-4 rounded-3xl bg-white p-6">
-        <h3 id="haven-cancel-title" className="text-xl font-bold text-haven-navy">Annuler ce séjour au nom de Haven</h3>
+        <h3 id="haven-cancel-title" className="text-xl font-bold text-haven-ink">Annuler ce séjour au nom de Haven</h3>
         <p className="text-sm text-gray-600">{title(cancelling)} · {shortDate(cancelling.startDate)} → {shortDate(cancelling.endDate)}<br />Locataire : {name(cancelling.tenantId)}</p>
         <p className={`rounded-xl p-3 text-sm ${terms.canCancel ? 'bg-gray-50 text-gray-700' : 'bg-red-50 text-red-700'}`}>{terms.canCancel ? `${terms.label} : ${formatEuros(terms.refundAmount)}. ${terms.detail}` : terms.detail}</p>
-        <label className="block text-sm font-semibold text-haven-navy">Motif (transmis au locataire et au propriétaire)
+        <label className="block text-sm font-semibold text-haven-ink">Motif (transmis au locataire et au propriétaire)
           <textarea value={reason} onChange={event => setReason(event.target.value)} rows={3} maxLength={400} className="mt-1 w-full rounded-xl border border-gray-200 p-3 font-normal" placeholder="Ex. : demande du propriétaire suite à un dégât des eaux" />
         </label>
         <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
