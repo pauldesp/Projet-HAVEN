@@ -16,6 +16,8 @@ export interface AdminFinanceData {
   settlements: Record<string, unknown>[];
   payouts: OwnerPayout[];
   series: BookingSeries[];
+  /** Owners asked for their tax details (DAC7) and not done yet. */
+  taxRequests: Record<string, unknown>[];
 }
 
 const ID = /^[a-zA-Z0-9_-]{1,160}$/;
@@ -30,12 +32,14 @@ export function createAdminFinances(deps: { db: Firestore; stripe: () => Stripe;
   };
 
   async function overview(): Promise<AdminFinanceData> {
+    const taxRequests = (await db.collection('owner_tax_requests').where('status', '==', 'PENDING').get()).docs.map(doc => ({ ...doc.data(), ownerId: doc.id }));
     const [payments, settlements, payouts, series] = await Promise.all(['payments', 'owner_settlements', 'owner_payouts', 'booking_series'].map(name => db.collection(name).get()));
     return {
       payments: payments.docs.map(doc => ({ ...doc.data(), id: doc.id }) as Payment),
       settlements: settlements.docs.map(doc => ({ ...doc.data(), bookingId: doc.id })),
       payouts: payouts.docs.map(doc => ({ ...doc.data(), id: doc.id }) as OwnerPayout),
       series: series.docs.map(doc => ({ ...doc.data(), id: doc.id }) as BookingSeries),
+      taxRequests,
     };
   }
 

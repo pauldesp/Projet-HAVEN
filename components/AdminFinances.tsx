@@ -12,7 +12,7 @@ import { localDateKey } from '../services/stay';
 import { AdminDamageClaims } from './AdminDamageClaims';
 
 type Settlement = { bookingId: string; state: string; amountCents: number; stripeFeeCents?: number | null; havenRefundedCents?: number; adminHold?: boolean; holdReason?: string; error?: string; isTest?: boolean };
-type Data = { payments: Payment[]; settlements: Settlement[]; payouts: OwnerPayout[]; series: BookingSeries[] };
+type Data = { payments: Payment[]; settlements: Settlement[]; payouts: OwnerPayout[]; series: BookingSeries[]; taxRequests?: { ownerId: string; deadlineAt: string; remindersSent: number }[] };
 type Section = 'MONTH' | 'PAYMENTS' | 'INSTALLMENTS' | 'PAYOUTS' | 'DAMAGES';
 
 const call = async (path: string, body?: unknown) => {
@@ -91,7 +91,25 @@ export function AdminFinances({ bookings, listings, users }: { bookings: Booking
   const limits = refunding ? goodwillLimits(refunding) : null;
   const amountCents = Math.round(Number(amount.replace(',', '.')) * 100);
 
+  // Payouts held because the owner's tax details are still missing after 60 days: the money waits safely, nothing goes back to the tenant.
+  const held = data.settlements.filter(item => item.state === 'WAITING_TAX_INFO' && (includeTests || !item.isTest));
+  const heldByOwner = [...held.reduce((map, item) => {
+    const ownerId = bookings.find(booking => booking.id === item.bookingId)?.ownerId || 'inconnu';
+    const entry = map.get(ownerId) || { ownerId, cents: 0, stays: 0 };
+    entry.cents += item.amountCents; entry.stays += 1; map.set(ownerId, entry); return map;
+  }, new Map<string, { ownerId: string; cents: number; stays: number }>()).values()];
+  const pendingTax = (data.taxRequests || []).filter(request => Date.parse(request.deadlineAt) > Date.now());
   return <section className="space-y-6">
+    {(heldByOwner.length > 0 || pendingTax.length > 0) && <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-gray-700">
+      <h3 className="font-bold text-haven-ink">Versements suspendus</h3>
+      {heldByOwner.length > 0 ? <>
+        <p className="mt-1">{formatEuros(heldByOwner.reduce((sum, item) => sum + item.cents, 0) / 100)} bloqués : informations fiscales manquantes après 60 jours. L’argent attend sur le compte Stripe du propriétaire et part dès qu’il les complète.</p>
+        <ul className="mt-2 space-y-1">{heldByOwner.map(item => { const owner = users.find(user => user.id === item.ownerId); return <li key={item.ownerId}>
+          <span className="font-semibold text-haven-ink">{name(item.ownerId)}</span> · {formatEuros(item.cents / 100)} ({item.stays} séjour{item.stays > 1 ? 's' : ''}){owner?.phone ? ` · ${owner.phone}` : ''}{owner?.email ? ` · ${owner.email}` : ''}
+        </li>; })}</ul>
+      </> : <p className="mt-1">Aucun versement bloqué.</p>}
+      {pendingTax.length > 0 && <p className="mt-2 text-gray-600">{pendingTax.length} propriétaire{pendingTax.length > 1 ? 's' : ''} relancé{pendingTax.length > 1 ? 's' : ''}, encore dans le délai : {pendingTax.map(request => `${name(request.ownerId)} (avant le ${shortDate(request.deadlineAt)})`).join(', ')}.</p>}
+    </div>}
     <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
       <div>
         <h2 className="text-xl font-bold text-haven-ink">Finances</h2>
