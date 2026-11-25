@@ -45,7 +45,7 @@ const TENANT_STEPS: Step[] = [
 
 const TENANT_FACTS: Fact[] = [
   { icon: Wallet, title: 'Prix tout compris', text: 'Nuits + ménage + 15 % de frais de service. Caution de 300 € sans rien débiter.' },
-  { icon: CalendarX, title: 'Annulation', text: '100 % remboursé jusqu’à 30 jours avant, 50 % entre 14 et 29 jours, rien en dessous.' },
+  { icon: CalendarX, title: 'Annulation', text: '100 % remboursé plus de 14 jours avant, 50 % de l’hébergement et du ménage de 14 à 8 jours, rien en dessous.' },
   { icon: Repeat2, title: 'Réservation récurrente', text: 'Vous payez le premier séjour ; les suivants sont prélevés un mois avant chaque arrivée.' },
   { icon: LifeBuoy, title: 'En cas de problème', text: 'Haven intervient si le propriétaire ne règle pas la situation.' },
 ];

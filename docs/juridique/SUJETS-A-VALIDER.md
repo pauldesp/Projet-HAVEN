@@ -41,7 +41,7 @@ Les sujets marqués ⭐ conditionnent beaucoup d'autres : à traiter en premier.
 19. 🔴 **Bouton de paiement et récapitulatif** — *Avocat*. La loi impose un récapitulatif avant validation et un bouton qui dit clairement l'obligation de payer. Le site affiche « Confirmer et payer · montant », précédé du récapitulatif, des cases ménage et caution et de la mention « En sélectionnant ce bouton, j'accepte les conditions de réservation ». Faire valider cette formule, ainsi que l'acceptation des conditions par ce clic.
 20. 🔴 **Informations obligatoires avant la réservation** — *Avocat*. Prix total TTC avec tous les frais, caractéristiques du logement, identité et statut du propriétaire, conditions d'annulation, durée, coordonnées de Haven.
 21. 🔴 **Absence de droit de rétractation** — *Avocat*. L'hébergement réservé pour une date précise n'ouvre pas de droit de rétractation de 14 jours, à condition de le dire clairement avant le paiement. Vérifier la formulation dans les conditions et sur l'écran de paiement.
-22. 🔴 **Conditions d'annulation et clauses abusives** — *Avocat*. Locataire : 100 % à 30 jours, 50 % entre 14 et 29 jours, rien en dessous ; propriétaire : annulation seul seulement à 30 jours ou plus. Vérifier l'équilibre (risque de clause abusive), les pénalités du propriétaire qui annule, et la part du propriétaire en cas d'annulation tardive (aujourd'hui rien).
+22. 🔴 **Conditions d'annulation et clauses abusives** — *Avocat*. Locataire (grille du 25 novembre 2026) : 100 % plus de 14 jours avant, 50 % de l'hébergement et du ménage de 14 à 8 jours (frais de service conservés), rien à moins de 8 jours ou en cas de non-présentation ; propriétaire : annulation seul seulement à 30 jours ou plus. Vérifier l'équilibre (risque de clause abusive), les pénalités du propriétaire qui annule, et la part du propriétaire en cas d'annulation tardive (aujourd'hui rien).
 23. 🔴 **Médiateur de la consommation** — *Vous*. Adhésion obligatoire à un médiateur (payante) et mention dans les conditions et sur le site. Encore « [nom et coordonnées du médiateur] ».
 24. 🔴 **Obligations de loyauté des plateformes (article L111-7 du Code de la consommation)** — *Avocat*. Afficher les critères de classement des annonces (le tri actuel des résultats doit être décrit), la qualité de l'annonceur (particulier ou professionnel), et les droits et obligations des parties.
 25. 🔴 **Avis en ligne** — *Avocat*. Indiquer si les avis sont vérifiés et comment (sur Haven : seulement après un séjour réalisé, dans un délai de 7 jours), leurs règles de publication, de modération (le back office peut masquer un avis) et de durée d'affichage.
@@ -101,6 +101,12 @@ Les sujets marqués ⭐ conditionnent beaucoup d'autres : à traiter en premier.
 58. ⚪ **Applications iPhone et Android** — conditions des boutons d'achat (règles Apple et Google), politique de confidentialité des boutiques, compte de démonstration.
 59. ⚪ **Ouverture à d'autres villes ou pays** — règles locales des meublés (numéro, quotas), taxe de séjour, langue des conditions.
 60. ⚪ **Assurance partenaire pour les dégâts au-delà de 300 €** — contrat, distribution d'assurance (règles spécifiques si Haven la propose).
+
+---
+
+## Points tranchés (mise en conformité du site, branche `conformite-cg`)
+
+- **25 novembre 2026 — Annulation par le locataire.** Plus de 14 jours avant l'arrivée : tout est remboursé (hébergement, ménage, frais de service). De 14 à 8 jours : 50 % de l'hébergement et du forfait ménage, frais de service conservés. Moins de 8 jours ou non-présentation : rien. Le forfait ménage suit la même règle que l'hébergement (choix de Paul). Un séjour de série pas encore prélevé s'annule sans frais. Seuil propriétaire inchangé et désormais indépendant : annulation seul à 30 jours ou plus, ensuite Haven seulement. Code : `services/cancellationPolicy.ts`.
 
 ---
 

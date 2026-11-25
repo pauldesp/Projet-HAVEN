@@ -66,7 +66,7 @@ export const CancellationModal: React.FC<CancellationModalProps> = ({ booking, a
             <div>
               <p className="font-bold text-haven-ink">{terms.label}</p>
               <p className="mt-1 text-sm text-gray-600">{terms.detail}</p>
-              {terms.refundAmount > 0 && <p className="mt-2 text-sm font-bold text-green-700">Montant remboursé : {terms.refundAmount} €</p>}
+              {terms.refundAmount > 0 && <p className="mt-2 text-sm font-bold text-green-700">Montant remboursé : {terms.refundAmount.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}</p>}
             </div>
           </div>
         </div>

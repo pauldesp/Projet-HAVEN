@@ -8,13 +8,21 @@ export interface CancellationTerms {
   daysBeforeArrival: number;
   refundPercent: number;
   refundAmount: number;
+  /** Haven service fee kept on a partial refund (0 otherwise). */
+  serviceFeeKept?: number;
   label: string;
   detail: string;
 }
 
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
-/** Same limit as the tenant's full refund: an owner cancels alone only this early. */
+/** An owner cancels alone only this early; afterwards only Haven can cancel. Independent of the tenant's tiers. */
 export const OWNER_CANCELLATION_DAYS = 30;
+/** Tenant tiers (conditions de réservation, art. 6): full refund when MORE than this many days remain… */
+export const TENANT_FULL_REFUND_AFTER_DAYS = 14;
+/** …half of the stay and cleaning from this many days up to the previous threshold, nothing below. */
+export const TENANT_HALF_REFUND_FROM_DAYS = 8;
+
+const cents = (value: number) => Math.round(value * 100) / 100;
 
 // Calendar days compared at UTC midnight: a local midnight would lose an hour across the spring time change
 // and count 29 days instead of 30.
@@ -25,7 +33,7 @@ const startOfDay = (value: string) => Date.parse(`${value.slice(0, 10)}T00:00:00
  * commercial thresholds easy to change without altering the booking flow.
  */
 export const getCancellationTerms = (
-  booking: Pick<Booking, 'status' | 'startDate' | 'totalPrice' | 'paymentStatus'> & Partial<Pick<Booking, 'seriesScheduled'>>,
+  booking: Pick<Booking, 'status' | 'startDate' | 'totalPrice' | 'paymentStatus'> & Partial<Pick<Booking, 'seriesScheduled' | 'platformFee'>>,
   actor: CancellationActor,
   today = parisDateKey(),
 ): CancellationTerms => {
@@ -78,22 +86,24 @@ export const getCancellationTerms = (
     };
   }
 
-  if (daysBeforeArrival >= 30) {
+  if (daysBeforeArrival > TENANT_FULL_REFUND_AFTER_DAYS) {
     return {
       canCancel: true, daysBeforeArrival, refundPercent: 100, refundAmount: total,
-      label: 'Remboursement intégral', detail: 'Annulation au moins 30 jours avant l’arrivée.',
+      label: 'Remboursement intégral', detail: `Annulation plus de ${TENANT_FULL_REFUND_AFTER_DAYS} jours avant l’arrivée : hébergement, ménage et frais de service remboursés.`,
     };
   }
 
-  if (daysBeforeArrival >= 14) {
+  if (daysBeforeArrival >= TENANT_HALF_REFUND_FROM_DAYS) {
+    // Half of the stay and of the cleaning fee; Haven's service fee is kept.
+    const serviceFee = Math.min(total, Math.max(0, Number(booking.platformFee) || 0));
     return {
-      canCancel: true, daysBeforeArrival, refundPercent: 50, refundAmount: Math.round(total * 0.5),
-      label: 'Remboursement à 50 %', detail: 'Annulation entre 14 et 29 jours avant l’arrivée.',
+      canCancel: true, daysBeforeArrival, refundPercent: 50, refundAmount: cents((total - serviceFee) * 0.5), serviceFeeKept: serviceFee,
+      label: 'Remboursement à 50 %', detail: `Annulation de ${TENANT_FULL_REFUND_AFTER_DAYS} à ${TENANT_HALF_REFUND_FROM_DAYS} jours avant l’arrivée : 50 % de l’hébergement et du ménage remboursés, frais de service conservés.`,
     };
   }
 
   return {
     canCancel: true, daysBeforeArrival, refundPercent: 0, refundAmount: 0,
-    label: 'Aucun remboursement', detail: 'Annulation moins de 14 jours avant l’arrivée.',
+    label: 'Aucun remboursement', detail: `Annulation moins de ${TENANT_HALF_REFUND_FROM_DAYS} jours avant l’arrivée : aucun remboursement.`,
   };
 };

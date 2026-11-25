@@ -77,12 +77,12 @@ Le locataire annule depuis « Mes séjours ». Le remboursement dépend du déla
 
 | Annulation | Remboursement |
 |---|---|
-| Au moins **30 jours** avant l'arrivée | **100 %** du prix payé |
-| Entre **14 et 29 jours** avant l'arrivée | **50 %** du prix payé |
-| Moins de **14 jours** avant l'arrivée | Aucun remboursement |
+| Plus de **14 jours** avant l'arrivée | **100 %** du prix payé (hébergement, ménage et frais de service) |
+| De **14 à 8 jours** avant l'arrivée | **50 %** de l'hébergement et du forfait ménage ; les frais de service de Haven sont conservés |
+| Moins de **8 jours** avant l'arrivée, ou non-présentation | Aucun remboursement |
 | Séjour pas encore payé (série récurrente) | Annulation sans frais |
 
-Le remboursement porte sur le prix total payé (hébergement, ménage et frais de service), sur la carte utilisée, sous 5 à 10 jours selon la banque. Un séjour commencé ne peut plus être annulé en ligne : le locataire contacte Haven en cas de difficulté.
+Le remboursement est effectué sur la carte utilisée, sous 5 à 10 jours selon la banque. Un séjour commencé ne peut plus être annulé en ligne : le locataire contacte Haven en cas de difficulté.
 
 **Départ anticipé.** Un locataire qui quitte le logement avant la fin prévue le signale dans son espace (état des lieux de sortie). Les nuits non utilisées ne sont pas remboursées, sauf accord du propriétaire ou décision de Haven en cas de problème imputable au logement (article 8).
 

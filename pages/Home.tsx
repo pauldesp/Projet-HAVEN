@@ -47,7 +47,7 @@ const PROMISES = [
   'Plusieurs périodes de l’année réservées en une seule fois',
   'Un logement meublé et équipé, prêt à vivre',
   'Des logements contrôlés et des membres vérifiés',
-  'Remboursement intégral jusqu’à 30 jours avant l’arrivée',
+  'Remboursement intégral plus de 14 jours avant l’arrivée',
   'Paiement en ligne sécurisé',
 ];
 

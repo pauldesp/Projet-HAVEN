@@ -223,7 +223,7 @@ export const BookingModal: React.FC<BookingModalProps> = ({ isOpen, onClose, lis
   const payAmount = isSeries ? firstAmount : total;
   const confirmBlock = <div className="space-y-4">
     <ul className="divide-y divide-gray-100 rounded-xl border border-gray-100 text-sm text-gray-700">
-      <li className="p-3"><span className="font-semibold text-haven-ink">Annulation</span> · remboursement intégral jusqu’à 30 jours avant l’arrivée, 50 % jusqu’à 14 jours, rien ensuite.</li>
+      <li className="p-3"><span className="font-semibold text-haven-ink">Annulation</span> · remboursement intégral plus de 14 jours avant l’arrivée ; de 14 à 8 jours, 50 % de l’hébergement et du ménage (frais de service conservés) ; rien à moins de 8 jours.</li>
       {isSeries && <li className="p-3"><span className="font-semibold text-haven-ink">Séjours suivants</span> · prélevés automatiquement un mois avant chaque arrivée, avec un rappel par e-mail.</li>}
     </ul>
     <button type="button" onClick={() => void handleOpenLegal()} disabled={isLoadingLegal} className="text-sm font-semibold text-haven-ink underline underline-offset-4">Consulter les conditions complètes</button>
