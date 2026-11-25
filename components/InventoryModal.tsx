@@ -21,6 +21,8 @@ interface InventoryModalProps {
   listing?: Listing;
   room?: Room;
   onComplete: (data: any) => Promise<void>;
+  /** Occupant stay space: no Haven account, the link itself identifies the stay. */
+  withoutAccount?: boolean;
 }
 
 type CheckoutChecklistKey = keyof typeof CHECKOUT_TASK_LABELS;
@@ -40,6 +42,7 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
   listing,
   room,
   onComplete,
+  withoutAccount = false,
 }) => {
   const { currentUser } = useAuth();
   const [step, setStep] = useState(1);
@@ -170,7 +173,7 @@ export const InventoryModal: React.FC<InventoryModalProps> = ({
       : checkoutChecklist.no_new_damage);
 
   const handleSubmit = async () => {
-    if (!currentUser) return;
+    if (!currentUser && !withoutAccount) return;
     setIsSubmitting(true);
     setError(null);
 

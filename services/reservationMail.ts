@@ -2,10 +2,15 @@ import { TENANT_CLEANING_RULE } from './cleaningPolicy';
 import type { Booking } from '../types';
 import { arrivalInstant, confirmationEmail, escapeEmailHtml, type ReservationConfirmation } from './reservationFulfillment';
 
-export type ReservationMailKind = 'CONFIRMATION' | 'ARRIVAL' | 'CHECKIN' | 'DEPARTURE_REMINDER' | 'CHECKOUT';
+export type ReservationMailKind = 'CONFIRMATION' | 'ARRIVAL' | 'CHECKIN' | 'DEPARTURE_REMINDER' | 'CHECKOUT' | OccupantMailKind;
+/** Mails to the occupant of a booking made for someone else (no account): they carry the stay space link. */
+export type OccupantMailKind = 'OCCUPANT_INVITE' | 'OCCUPANT_ARRIVAL';
+export const isOccupantMailKind = (kind: unknown): kind is OccupantMailKind => kind === 'OCCUPANT_INVITE' || kind === 'OCCUPANT_ARRIVAL';
 export interface ReservationMailJob {
   bookingId: string; kind: ReservationMailKind; status: string; attempts: number;
   nextAttemptAt?: string; reportId?: string; occurredAt?: string; firstSendAttemptAt?: string;
+  /** Occupant mails only: the stay space token (its hash opens the stay in `occupant_access`). */
+  accessToken?: string;
 }
 export function reservationMailJob(bookingId: string, kind: ReservationMailKind, at: string, reportId?: string): ReservationMailJob {
   return { bookingId, kind, status: 'PENDING', attempts: 0, nextAttemptAt: at, ...(reportId ? { reportId, occurredAt: at } : {}) };
@@ -16,8 +21,10 @@ export function departureReminderDueAt(data: ReservationConfirmation) {
   previous.setUTCDate(previous.getUTCDate() - 1);
   return new Date(Math.max(Date.parse(data.paidAt), arrivalInstant(previous.toISOString().slice(0, 10), '10:00', data.timeZone).getTime())).toISOString();
 }
-export function initialReservationMailJobs(data: ReservationConfirmation) {
-  return [reservationMailJob(data.bookingId, 'CONFIRMATION', data.paidAt), reservationMailJob(data.bookingId, 'ARRIVAL', data.instructionsDueAt), reservationMailJob(data.bookingId, 'DEPARTURE_REMINDER', departureReminderDueAt(data))];
+export function initialReservationMailJobs(data: ReservationConfirmation, occupantToken?: string) {
+  return [reservationMailJob(data.bookingId, 'CONFIRMATION', data.paidAt), reservationMailJob(data.bookingId, 'ARRIVAL', data.instructionsDueAt), reservationMailJob(data.bookingId, 'DEPARTURE_REMINDER', departureReminderDueAt(data)),
+    // Booking for someone else: the occupant gets the stay space at confirmation, then the arrival instructions too.
+    ...(occupantToken ? [{ ...reservationMailJob(data.bookingId, 'OCCUPANT_INVITE', data.paidAt), accessToken: occupantToken }, { ...reservationMailJob(data.bookingId, 'OCCUPANT_ARRIVAL', data.instructionsDueAt), accessToken: occupantToken }] : [])];
 }
 export function reservationEmailConfiguration(env: Record<string, string | undefined>) {
   const start = env.RESERVATION_EMAIL_START_AT?.trim() || '';
@@ -41,11 +48,13 @@ export function reservationMailDisposition(job: ReservationMailJob, booking: Boo
     return job.occurredAt && now - Date.parse(job.occurredAt) <= 24 * 3600_000 ? 'SEND' : 'EXPIRED';
   }
   if (booking.status === 'COMPLETED' || booking.checkOutReportId || now >= departure) return 'EXPIRED';
-  if (job.kind === 'ARRIVAL') {
+  if (job.kind === 'ARRIVAL' || job.kind === 'OCCUPANT_ARRIVAL') {
     if (booking.checkInReportId) return 'EXPIRED';
     return now < Date.parse(receipt.instructionsDueAt) ? 'WAIT' : 'SEND';
   }
   if (job.kind === 'CONFIRMATION') return now < arrival ? 'SEND' : 'EXPIRED';
+  // A link resent by the account that booked is still useful during the stay.
+  if (job.kind === 'OCCUPANT_INVITE') return booking.occupant ? 'SEND' : 'CANCELLED';
   if (job.kind === 'DEPARTURE_REMINDER') return now < Date.parse(departureReminderDueAt(receipt)) ? 'WAIT' : 'SEND';
   return 'CANCELLED';
 }
@@ -77,4 +86,20 @@ export function withLayout(subject: string, text: string, data: Pick<Reservation
   let dashboard = '';
   try { const url = new URL(origin || ''); if (['https:', 'http:'].includes(url.protocol)) dashboard = `${url.origin}/#${route}`; } catch { /* No guessed public URL in transactional mail. */ }
   return { subject, text: text + (dashboard ? `\n\n${buttonLabel} : ${dashboard}` : ''), html: `<html lang="fr"><body style="margin:0;background:#f3f0ea;font-family:Arial,sans-serif;color:#0B245B"><table role="presentation" style="width:100%;max-width:620px;margin:24px auto;background:#F9FAF5;border-top:4px solid #9A073C;border-collapse:collapse"><tr><td style="padding:32px 36px;background:#f6f2ec"><span style="font-family:Georgia,serif;font-size:36px;color:#9A073C">haven</span><h1 style="font-family:Georgia,serif;font-size:25px;font-weight:400;line-height:1.3">${escapeEmailHtml(subject)}</h1></td></tr><tr><td style="padding:30px 36px;white-space:pre-line;font-size:14px;line-height:1.8">${escapeEmailHtml(text)}</td></tr>${dashboard ? `<tr><td style="padding:0 36px 32px"><a href="${escapeEmailHtml(dashboard)}" style="display:inline-block;padding:13px 22px;background:#0B245B;color:white;text-decoration:none;border-radius:6px">${escapeEmailHtml(buttonLabel)}</a></td></tr>` : ''}<tr><td style="padding:18px 36px;border-top:1px solid #e7e2dc;color:#7b7b79;font-size:11px">Haven · ${escapeEmailHtml(data.listingTitle)}</td></tr></table></body></html>` };
+}
+
+/** Mail to the occupant: who booked, the dates, and the personal link to the stay space (required). */
+export function occupantStayEmail(kind: OccupantMailKind, data: ReservationConfirmation, occupant: { firstName: string }, token: string, options: { instructions?: string; appOrigin?: string } = {}) {
+  let origin = '';
+  try { const url = new URL(options.appOrigin || ''); if (['https:', 'http:'].includes(url.protocol)) origin = url.origin; } catch { /* checked below */ }
+  if (!origin) throw new Error('Adresse publique du site (APP_ORIGIN) manquante : le lien de l’espace séjour ne peut pas être envoyé.');
+  const date = (value: string) => value.slice(0, 10).split('-').reverse().join('/');
+  const location = `${data.listingTitle}${data.roomName ? ` — ${data.roomName}` : ''}`;
+  const test = data.isTest ? 'TEST — aucun paiement réel n’a été effectué.\n\n' : '';
+  const subject = kind === 'OCCUPANT_INVITE' ? `Votre séjour du ${date(data.startDate)} — ${data.listingTitle}` : `Vos informations d’entrée — ${data.listingTitle}`;
+  const body = kind === 'OCCUPANT_INVITE'
+    ? `${data.tenantName} a réservé pour vous une chambre sur Haven.\n\n${location}\nArrivée le ${date(data.startDate)} à partir de ${data.checkInTime}, départ le ${date(data.endDate)} avant ${data.checkOutTime}.\n\nVotre espace séjour, accessible sans compte avec le lien ci-dessous, rassemble tout ce qu’il vous faut : les informations du logement, les consignes d’accès (disponibles 72 heures avant l’arrivée), vos états des lieux d’entrée et de sortie, la messagerie avec le propriétaire et le signalement d’un problème.\n\nCe lien est personnel : ne le transmettez pas. Il reste valable jusqu’à 7 jours après votre départ.`
+    : `Voici les informations pour votre entrée dans le logement.\n\n${location}\nArrivée le ${date(data.startDate)} à partir de ${data.checkInTime}.\n\n${options.instructions || 'Les consignes d’accès ne sont pas encore renseignées. Écrivez au propriétaire depuis votre espace séjour pour organiser la remise des clés.'}\n\nÀ votre arrivée, réalisez l’état des lieux d’entrée depuis votre espace séjour.`;
+  const text = `${test}Bonjour ${occupant.firstName},\n\n${body}\n\nRéférence : ${data.bookingId}\nL’équipe Haven`;
+  return withLayout(`${data.isTest ? '[TEST] ' : ''}${subject}`, text, data, origin, 'Ouvrir mon espace séjour', `/sejour/${token}`);
 }

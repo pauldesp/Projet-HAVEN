@@ -19,6 +19,9 @@ interface ReportModalProps {
   listingId?: string; // Optional, for incidents
   bookingId?: string; // Optional, for incidents
   ownerId?: string; // Optional, for incidents
+  /** Occupant stay space: sends the incident through the stay link instead of a signed-in account. */
+  submitStayIssue?: (input: Parameters<typeof apiService.stayIssues.create>[0]) => Promise<'OWNER' | 'HAVEN'>;
+  reporterId?: string;
 }
 
 function StepSummary({ label, value, onChange }: { label: string; value: string; onChange: () => void }) {
@@ -35,9 +38,12 @@ export const ReportModal: React.FC<ReportModalProps> = ({
   targetType,
   listingId,
   bookingId,
-  ownerId
+  ownerId,
+  submitStayIssue,
+  reporterId
 }) => {
   const { currentUser } = useAuth();
+  const reporter = currentUser?.id || (submitStayIssue ? reporterId : undefined);
   const [requestId, setRequestId] = useState(createIssueId);
   const [isSubmitting, setIsSubmitting] = useState(false);
   // Centered dialog: no drag, but it leaves with a short fade instead of vanishing.
@@ -82,7 +88,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
 
   const handleSubmitReport = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (!currentUser || isSubmitting) return;
+    if (!reporter || isSubmitting) return;
 
     if (isIncident) {
       if (!incidentReport.category || !incidentReport.subCategory || !incidentReport.description.trim()) {
@@ -100,8 +106,8 @@ export const ReportModal: React.FC<ReportModalProps> = ({
     try {
       if (isIncident) {
         if (!listingId || !bookingId || !ownerId) throw new Error('Le séjour associé à cet incident est introuvable.');
-        await apiService.stayIssues.create({
-          id: requestId, listingId, bookingId, ownerId, reporterId: currentUser.id,
+        await (submitStayIssue || apiService.stayIssues.create)({
+          id: requestId, listingId, bookingId, ownerId, reporterId: reporter,
           category: incidentReport.category, subCategory: incidentReport.subCategory,
           description: incidentReport.description, photo: incidentReport.photo,
           priority, createdAt: new Date().toISOString()
@@ -111,7 +117,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
         // Create a standard Report
         const report = {
           id: requestId,
-          reporterId: currentUser.id,
+          reporterId: reporter,
           targetId,
           targetType,
           ...havenReportReason(reason, reportReasons),

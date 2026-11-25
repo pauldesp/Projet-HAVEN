@@ -42,6 +42,10 @@ Le prix d'une réservation confirmée ne change plus, y compris pour tous les s�
 
 **3.4 Confirmation.** La réservation est **ferme dès que le paiement est accepté**. Le locataire reçoit alors une confirmation par e-mail avec son justificatif de paiement ; le séjour apparaît dans « Mes séjours ».
 
+**3.5 Réserver pour quelqu'un d'autre.** Le titulaire du compte (le « Réservant ») peut réserver pour une autre personne (l'« occupant »). Le Réservant paie, reste seul responsable de la réservation et du séjour, et exerce les droits liés au paiement, à l'annulation, à la caution et à l'avis. Il renseigne l'identité de l'occupant (nom, prénom, date de naissance, e-mail, téléphone), qui est communiquée au propriétaire avant le séjour. L'occupant a **au moins 16 ans** le jour de l'arrivée. S'il a 16 ou 17 ans, le Réservant déclare être son représentant légal et dépose une **autorisation parentale** (PDF ou photo), conservée par Haven et non transmise au propriétaire. La déclaration de résidence principale (article 3.1 bis) porte alors sur l'occupant.
+
+L'occupant reçoit par e-mail un **lien personnel vers son espace séjour**, sans compte, valable jusqu'à 7 jours après le départ : informations du logement, consignes d'accès (au même moment que le Réservant, article 8.1), états des lieux d'entrée et de sortie, messagerie avec le propriétaire (dont le Réservant voit les échanges) et signalement d'un problème. Le Réservant peut renvoyer ce lien depuis son espace. Les états des lieux réalisés par l'occupant valent comme ceux du Réservant.
+
 ## Article 4 — Réservation récurrente
 
 La réservation récurrente permet de réserver **en une seule fois plusieurs séjours** répartis dans le temps (par exemple une semaine par mois), dans un ou plusieurs logements.
@@ -98,7 +102,7 @@ Le remboursement est effectué sur la carte utilisée, sous 5 à 10 jours selon 
 
 ## Article 8 — Le séjour
 
-**8.1 Avant l'arrivée.** Les consignes d'entrée (adresse exacte, accès, code ou clés, repères de la chambre) sont envoyées **72 heures avant l'arrivée**, ou dès la confirmation pour une réservation de dernière minute. Elles sont personnelles et ne doivent pas être communiquées à des tiers.
+**8.1 Avant l'arrivée.** Les consignes d'entrée (adresse exacte, accès, code ou clés, repères de la chambre) sont envoyées **72 heures avant l'arrivée**, ou dès la confirmation pour une réservation de dernière minute. Pour une réservation faite pour un tiers, elles sont envoyées au Réservant et à l'occupant. Elles sont personnelles et ne doivent pas être communiquées à des tiers.
 
 **8.2 Arrivée et état des lieux d'entrée.** L'arrivée se fait à partir de l'heure indiquée dans l'annonce (15 h par défaut). Le jour de l'arrivée, le locataire réalise **l'état des lieux d'entrée** dans son espace : photos et constat de la chambre et des parties communes. Il signale à ce moment toute anomalie. À défaut d'état des lieux d'entrée, le logement est présumé remis en bon état, sauf preuve contraire.
 

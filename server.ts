@@ -25,7 +25,8 @@ import { publicTenantProfile, validateCommunityProfile } from './services/public
 import { nextAuthMailLimit, sendAuthActionMail, type AuthMailLimit } from './services/authMail';
 import { resendTemplatesEnabled, reservationResendTemplate, tenantResendTemplate, ownerResendTemplate, teamResendTemplate, selectMailContent, type ResendTemplate, type AuthMailKind } from './services/resendTemplates';
 import { accountDecisionMail, cancellationMail, reviewInvitationMail, isTenantMailKind, isSeriesMailKind, tenantMailDisposition, tenantNotificationEmail, type TenantMailJob, type SeriesMailContext } from './services/tenantMail';
-import { canSendReservationRecipient, initialReservationMailJobs, reservationMailJob, reservationMailDisposition, reservationLifecycleEmail, reservationEmailConfiguration, type ReservationMailJob } from './services/reservationMail';
+import { canSendReservationRecipient, initialReservationMailJobs, isOccupantMailKind, occupantStayEmail, reservationMailJob, reservationMailDisposition, reservationLifecycleEmail, reservationEmailConfiguration, type ReservationMailJob } from './services/reservationMail';
+import { createOccupantToken, hashOccupantToken, isWellFormedOccupantToken, occupantAccessProblem, occupantAccessRecord, OCCUPANT_LINK_RESEND_MINUTES, type OccupantAccess } from './services/occupantAccess';
 import { stayLocalDate } from './services/inventoryTiming';
 import { createReservationConfirmation, canReleaseArrivalInstructions, type ReservationConfirmation } from './services/reservationFulfillment';
 import { paymentReceiptPdf } from './services/paymentReceiptPdf';
@@ -38,7 +39,8 @@ import { MAX_STAY_MESSAGE, MAX_STAY_NIGHTS, countNights, isBookableStay, longest
 import { getCancellationTerms } from './services/cancellationPolicy';
 import { isStayReviewWindowOpen } from './services/reviewPolicy';
 import { hasCompleteVerificationDetails, hasRequiredPhoneNumber, isVerificationReadyToSubmit } from './services/profileVerification';
-import type { Booking, BookingAvailability, BookingSeries, Incident, Listing, OwnerPayout, Report, Room } from './types';
+import type { Booking, BookingAvailability, BookingSeries, Incident, Listing, Message, OwnerPayout, Report, Room } from './types';
+import { createChatMessage } from './services/chatMessage';
 import { isRoomAvailableForStay, publicAvailabilityItem } from './services/availability';
 import { requiredNightsForStay } from './services/gapStay';
 import { canConfirmEmailOwnership } from './services/emailOwnership';
@@ -388,7 +390,10 @@ async function settleBookingPayment(receipt: PaymentReceipt, actorId?: string) {
       title: confirmation.isTest ? 'Justificatif de simulation du paiement' : 'Justificatif de paiement',
       type: 'RENT_RECEIPT', url: '', createdAt: confirmation.paidAt, listingTitle: confirmation.listingTitle
     });
-    for (const job of initialReservationMailJobs(confirmation)) {
+    // Booking for someone else: a personal stay space link for the occupant (only its hash is stored).
+    const occupantToken = confirmed.occupant ? createOccupantToken() : undefined;
+    if (occupantToken) transaction.create(adminDb.collection('occupant_access').doc(hashOccupantToken(occupantToken)), occupantAccessRecord(confirmed, confirmation.paidAt));
+    for (const job of initialReservationMailJobs(confirmation, occupantToken)) {
       transaction.create(adminDb.collection('reservation_mail_outbox').doc(`${booking.id}-${job.kind}`), job);
     }
     // The owner hears about a single stay now; a recurring series is announced once, at its activation.
@@ -589,6 +594,18 @@ async function deliverReservationMail() {
             await item.ref.update({ status: disposition === 'WAIT' ? 'PENDING' : disposition, nextAttemptAt: disposition === 'WAIT' ? new Date(Date.now() + 60_000).toISOString() : FieldValue.delete() }); continue;
           }
           if (!receipt?.email || !booking) throw new Error('Adresse e-mail du locataire manquante.');
+          if (isOccupantMailKind(job.kind)) {
+            // The occupant has no account: plain Haven mail (no Resend template) carrying the stay space link.
+            if (!booking.occupant?.email || !isWellFormedOccupantToken(job.accessToken)) { await item.ref.update({ status: 'CANCELLED', lastError: 'Occupant ou lien manquant.', nextAttemptAt: FieldValue.delete() }); continue; }
+            let occupantInstructions = '';
+            if (job.kind === 'OCCUPANT_ARRIVAL') {
+              const access = await adminDb.collection('listing_access').doc(booking.listingId).get();
+              const room = await adminDb.collection('listing_access').doc(booking.listingId).collection('room_guides').doc(booking.roomId).get();
+              occupantInstructions = formatStayGuide(access.data(), room.exists ? normalizeRoomGuide(room.data()) : undefined);
+            }
+            mail = occupantStayEmail(job.kind, receipt, booking.occupant, job.accessToken, { instructions: occupantInstructions, appOrigin: process.env.APP_ORIGIN });
+            recipient = booking.occupant.email;
+          } else {
           if (job.kind === 'CHECKIN' || job.kind === 'CHECKOUT') {
             const saved = await adminDb.collection('inventory').doc(job.reportId).get();
             const inspection = saved.data();
@@ -606,6 +623,7 @@ async function deliverReservationMail() {
           selectedTemplate = resendTemplatesEnabled(process.env) ? reservationResendTemplate(job.kind, receipt, { instructions, occurredAt: job.occurredAt, appOrigin: process.env.APP_ORIGIN }) : undefined;
           recipient = receipt.email;
           if (job.kind === 'CONFIRMATION') receiptAttachment = receipt;
+          }
         }
         if (!canSendReservationRecipient(emailFrom, recipient, process.env.RESEND_TEST_EMAIL_TO)) {
           await item.ref.update({ status: 'WAITING_DOMAIN', lastError: 'Un domaine Resend validé est nécessaire pour ce destinataire.', nextAttemptAt: new Date(Date.now() + 3600_000).toISOString() }); continue;
@@ -917,16 +935,20 @@ async function startServer() {
     }
   });
 
-  app.post('/api/bookings/:bookingId/inventory', sensitiveApiLimiter, requireAuth, async (req: AuthenticatedRequest, res) => {
-    try {
-      const id = String(req.params.bookingId);
-      if (!/^[a-zA-Z0-9_-]{1,128}$/.test(id) || !req.body?.report) return sendApiError(res, 422, 'État des lieux invalide');
+  /**
+   * Records an arrival or departure inventory. The account that booked does it, or the occupant from the stay
+   * space when the booking was made for someone else (the report stays attached to the account that booked).
+   */
+  async function recordInventory(id: string, body: any, actor: { uid: string } | { occupantBookingId: string }) {
       const ref = adminDb.collection('bookings').doc(id);
       const report = await adminDb.runTransaction(async transaction => {
         const snapshot = await transaction.get(ref);
         if (!snapshot.exists) throw new BookingLifecycleError('Réservation introuvable', 404);
         const booking = { ...snapshot.data(), id } as Booking;
-        if (booking.tenantId !== req.user!.uid) throw new BookingLifecycleError('Accès refusé.', 403);
+        const byOccupant = 'occupantBookingId' in actor;
+        if (byOccupant ? actor.occupantBookingId !== id || !booking.occupant : booking.tenantId !== actor.uid) throw new BookingLifecycleError('Accès refusé.', 403);
+        const actorUid = booking.tenantId;
+        const req = { user: { uid: actorUid }, body };
         const input = req.body.report as import('./types').InventoryReport;
         const linkedId = input.type === 'IN' ? booking.checkInReportId : input.type === 'OUT' ? booking.checkOutReportId : undefined;
         if (linkedId && linkedId === input.id) {
@@ -941,7 +963,8 @@ async function startServer() {
         const report = prepareInventoryReport(booking, listing, req.user!.uid, req.body.report, now);
         const tenantSnapshot = await transaction.get(adminDb.collection('users').doc(booking.tenantId));
         const tenant = tenantSnapshot.data() || {};
-        report.stay = { listingTitle: booking.listingTitle || listing.title, roomName: booking.roomName || 'Chambre', startDate: booking.startDate, endDate: booking.endDate, tenantName: [tenant.firstName, tenant.lastName].filter(Boolean).join(' ') || 'Locataire', timeZone: booking.timeZone || 'Europe/Paris' };
+        if (byOccupant) Object.assign(report, { submittedBy: 'OCCUPANT' as const });
+        report.stay = { listingTitle: booking.listingTitle || listing.title, roomName: booking.roomName || 'Chambre', startDate: booking.startDate, endDate: booking.endDate, tenantName: byOccupant && booking.occupant ? `${booking.occupant.firstName} ${booking.occupant.lastName} (occupant, réservé par ${[tenant.firstName, tenant.lastName].filter(Boolean).join(' ') || 'le locataire'})` : [tenant.firstName, tenant.lastName].filter(Boolean).join(' ') || 'Locataire', timeZone: booking.timeZone || 'Europe/Paris' };
         let details: any = {};
         try { details = JSON.parse(report.comments) || {}; } catch { /* Older forms use plain text. */ }
         const issues: { category: string; subCategory: string; description: string; photo?: string }[] = [];
@@ -979,11 +1002,144 @@ async function startServer() {
       });
       void deliverReservationMail();
       if (report.type === 'IN') void ownerConnect.releaseArrivedBookings().catch(() => console.error('Arrival transfer queued for retry.'));
+      return report;
+  }
+
+  app.post('/api/bookings/:bookingId/inventory', sensitiveApiLimiter, requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      const id = String(req.params.bookingId);
+      if (!/^[a-zA-Z0-9_-]{1,128}$/.test(id) || !req.body?.report) return sendApiError(res, 422, 'État des lieux invalide');
+      const report = await recordInventory(id, req.body, { uid: req.user!.uid });
       return res.status(201).json({ report });
     } catch (error) {
       if (error instanceof BookingLifecycleError) return sendApiError(res, error.status, error.message);
       console.error('Inventory submission failed', error);
       return sendApiError(res, 503, 'L’état des lieux n’a pas pu être enregistré. Réessayez.');
+    }
+  });
+
+  // ---- Stay space of an occupant without an account (booking made for someone else), opened by a personal link. ----
+  async function openOccupantStay(token: unknown) {
+    if (!isWellFormedOccupantToken(token)) throw new BookingLifecycleError('Ce lien n’est pas valide. Demandez à la personne qui a réservé de vous renvoyer votre lien.', 404);
+    const access = (await adminDb.collection('occupant_access').doc(hashOccupantToken(token)).get()).data() as OccupantAccess | undefined;
+    const snapshot = access ? await adminDb.collection('bookings').doc(access.bookingId).get() : undefined;
+    const booking = snapshot?.exists ? { ...snapshot.data(), id: snapshot.id } as Booking : undefined;
+    const problem = occupantAccessProblem(access, booking);
+    if (problem) throw new BookingLifecycleError(problem, 403);
+    return booking!;
+  }
+  const occupantRoute = (handler: (req: Request, res: Response, booking: Booking) => Promise<unknown>) => async (req: Request, res: Response) => {
+    try {
+      res.setHeader('Cache-Control', 'no-store');
+      const booking = await openOccupantStay(req.params.token);
+      return await handler(req, res, booking);
+    } catch (error) {
+      if (error instanceof BookingLifecycleError) return sendApiError(res, error.status, error.message);
+      console.error('Occupant stay space failed', error);
+      return sendApiError(res, 503, error instanceof Error && error.message ? error.message : 'Votre espace séjour est momentanément indisponible.');
+    }
+  };
+
+  app.get('/api/stay/:token', sensitiveApiLimiter, occupantRoute(async (_req, res, booking) => {
+    const [receiptSnap, tenantSnap, ownerSnap, listingSnap] = await Promise.all([
+      adminDb.collection('reservation_confirmations').doc(booking.id).get(), adminDb.collection('users').doc(booking.tenantId).get(),
+      adminDb.collection('users').doc(booking.ownerId).get(), adminDb.collection('listings').doc(booking.listingId).get(),
+    ]);
+    const receipt = receiptSnap.data() as ReservationConfirmation | undefined;
+    if (!receipt) throw new BookingLifecycleError('Les informations du séjour sont en cours de préparation. Réessayez dans quelques minutes.', 503);
+    const listing = listingSnap.data() as Listing | undefined;
+    const guideAvailable = canReleaseArrivalInstructions(booking, receipt.instructionsDueAt);
+    const access = guideAvailable ? (await adminDb.collection('listing_access').doc(booking.listingId).get()).data() : undefined;
+    const roomGuide = guideAvailable ? await adminDb.collection('listing_access').doc(booking.listingId).collection('room_guides').doc(booking.roomId).get() : undefined;
+    const guide = releasedStayGuide(booking, receipt.instructionsDueAt, access, Date.now(), roomGuide?.exists ? normalizeRoomGuide(roomGuide.data()) : undefined);
+    const room = listing?.rooms?.find(item => item.id === booking.roomId);
+    return res.json({
+      stay: {
+        id: booking.id, listingId: booking.listingId, roomId: booking.roomId, tenantId: booking.tenantId, ownerId: booking.ownerId,
+        listingTitle: receipt.listingTitle, roomName: receipt.roomName, startDate: booking.startDate, endDate: booking.endDate,
+        checkInTime: receipt.checkInTime, checkOutTime: receipt.checkOutTime, timeZone: receipt.timeZone, status: booking.status, paymentStatus: booking.paymentStatus,
+        checkInReportId: booking.checkInReportId || null, checkOutReportId: booking.checkOutReportId || null, cleaningPolicyVersion: booking.cleaningPolicyVersion || null,
+      },
+      occupant: { firstName: booking.occupant!.firstName, lastName: booking.occupant!.lastName },
+      bookerName: receipt.tenantName, ownerFirstName: String(ownerSnap.data()?.firstName || 'Le propriétaire'), bookerFirstName: String(tenantSnap.data()?.firstName || ''),
+      address: receipt.address, rules: receipt.rules,
+      room: room ? { id: room.id, name: room.name || receipt.roomName } : null,
+      instructionsDueAt: receipt.instructionsDueAt, ...guide,
+    });
+  }));
+
+  app.post('/api/stay/:token/inventory', sensitiveApiLimiter, occupantRoute(async (req, res, booking) => {
+    if (!req.body?.report) return sendApiError(res, 422, 'État des lieux invalide');
+    const report = await recordInventory(booking.id, req.body, { occupantBookingId: booking.id });
+    return res.status(201).json({ report });
+  }));
+
+  app.post('/api/stay/:token/issues', sensitiveApiLimiter, occupantRoute(async (req, res, booking) => {
+    const input = req.body;
+    if (!input || !/^[a-zA-Z0-9_-]{1,160}$/.test(input.id || '')) return sendApiError(res, 422, 'Signalement invalide.');
+    const destination = await adminDb.runTransaction(async transaction => {
+      // Reported on behalf of the account that booked, which stays responsible for the stay.
+      const bound = { ...bindStayIssueToBooking(booking, booking.tenantId, { ...input, bookingId: booking.id, createdAt: new Date().toISOString() }), reportedByOccupant: `${booking.occupant!.firstName} ${booking.occupant!.lastName}` };
+      const routed = routeStayIssue(bound);
+      const record = { ...(routed.destination === 'OWNER' ? routed.incident : routed.report), reportedByOccupant: bound.reportedByOccupant };
+      const ref = adminDb.collection(routed.destination === 'OWNER' ? 'incidents' : 'reports').doc(input.id);
+      const existing = await transaction.get(ref);
+      if (existing.exists) {
+        if (existing.data()?.bookingId !== booking.id) throw new BookingLifecycleError('Identifiant déjà utilisé.', 409);
+      } else {
+        transaction.create(ref, record);
+        if (routed.destination === 'OWNER') {
+          const ownerJob = ownerMailJob('OWNER_INCIDENT', routed.incident.ownerId, routed.incident.createdAt, { incidentId: routed.incident.id });
+          transaction.set(adminDb.collection('reservation_mail_outbox').doc(ownerMailId(ownerJob)), ownerJob);
+        }
+      }
+      return routed.destination;
+    });
+    return res.json({ destination });
+  }));
+
+  // Messages: the occupant writes in the conversation of the booking, shown to the owner and to the account that booked.
+  app.get('/api/stay/:token/messages', sensitiveApiLimiter, occupantRoute(async (_req, res, booking) => {
+    const snapshot = await adminDb.collection('messages').where('bookingId', '==', booking.id).get();
+    const messages = snapshot.docs.map(item => item.data() as Message & { sentByOccupant?: boolean })
+      .filter(message => [booking.tenantId, booking.ownerId].includes(message.senderId))
+      .sort((a, b) => a.timestamp.localeCompare(b.timestamp))
+      .map(message => ({ id: message.id, content: message.content, timestamp: message.timestamp, from: message.senderId === booking.ownerId ? 'OWNER' : message.sentByOccupant ? 'OCCUPANT' : 'BOOKER' }));
+    return res.json({ messages });
+  }));
+  app.post('/api/stay/:token/messages', sensitiveApiLimiter, occupantRoute(async (req, res, booking) => {
+    const content = typeof req.body?.content === 'string' ? req.body.content.trim() : '';
+    if (!content || content.length >= 5000) return sendApiError(res, 422, 'Le message doit contenir entre 1 et 4 999 caractères.');
+    const message = { ...createChatMessage(content, booking.tenantId, booking.ownerId, booking.id), sentByOccupant: true, occupantName: `${booking.occupant!.firstName} ${booking.occupant!.lastName}` };
+    await adminDb.collection('messages').doc(message.id).create(message);
+    return res.status(201).json({ message: { id: message.id, content: message.content, timestamp: message.timestamp, from: 'OCCUPANT' } });
+  }));
+
+  // The account that booked can send the occupant a new link (also valid until 7 days after departure).
+  app.post('/api/bookings/:bookingId/occupant-link', sensitiveApiLimiter, requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+      const id = String(req.params.bookingId);
+      if (!/^[a-zA-Z0-9_-]{1,128}$/.test(id)) return sendApiError(res, 422, 'Réservation invalide.');
+      const ref = adminDb.collection('bookings').doc(id);
+      const sentAt = new Date().toISOString();
+      await adminDb.runTransaction(async transaction => {
+        const snapshot = await transaction.get(ref);
+        const booking = snapshot.exists ? { ...snapshot.data(), id } as Booking & { occupantLinkSentAt?: string } : undefined;
+        if (!booking || booking.tenantId !== req.user!.uid) throw new BookingLifecycleError('Accès refusé.', 403);
+        if (!booking.occupant) throw new BookingLifecycleError('Cette réservation n’a pas d’occupant à prévenir.', 409);
+        const problem = occupantAccessProblem(occupantAccessRecord(booking, sentAt), booking);
+        if (problem) throw new BookingLifecycleError(problem, 409);
+        if (booking.occupantLinkSentAt && Date.now() - Date.parse(booking.occupantLinkSentAt) < OCCUPANT_LINK_RESEND_MINUTES * 60_000) throw new BookingLifecycleError(`Un lien vient d’être envoyé. Réessayez dans ${OCCUPANT_LINK_RESEND_MINUTES} minutes.`, 429);
+        const token = createOccupantToken();
+        transaction.create(adminDb.collection('occupant_access').doc(hashOccupantToken(token)), occupantAccessRecord(booking, sentAt));
+        transaction.create(adminDb.collection('reservation_mail_outbox').doc(`${id}-OCCUPANT_INVITE-${Date.now()}`), { ...reservationMailJob(id, 'OCCUPANT_INVITE', sentAt), accessToken: token });
+        transaction.update(ref, { occupantLinkSentAt: sentAt });
+      });
+      void deliverReservationMail();
+      return res.json({ sentAt });
+    } catch (error) {
+      if (error instanceof BookingLifecycleError) return sendApiError(res, error.status, error.message);
+      return sendApiError(res, 503, 'Le lien n’a pas pu être renvoyé. Réessayez.');
     }
   });
 

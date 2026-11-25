@@ -208,6 +208,8 @@ export const ChatPage: React.FC = () => {
                     ? 'bg-haven-navy text-white rounded-tr-none' 
                     : 'bg-white text-haven-ink border border-haven-navy/5 rounded-tl-none'
                 }`}>
+                  {/* Booking made for someone else: the occupant writes from their stay space, in this conversation. */}
+                  {(msg as typeof msg & { sentByOccupant?: boolean; occupantName?: string }).sentByOccupant && <p className={`mb-1 text-[11px] font-semibold ${isMe ? 'text-white/70' : 'text-haven-stone'}`}>Message de l’occupant · {(msg as typeof msg & { occupantName?: string }).occupantName}</p>}
                   <div className={`text-sm leading-relaxed prose prose-sm ${isMe ? 'prose-invert' : ''} max-w-none`}>
                     <ReactMarkdown>{msg.content.replace(/\n/g, '  \n')}</ReactMarkdown>
                   </div>

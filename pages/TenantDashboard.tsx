@@ -33,6 +33,7 @@ import { CancellationModal } from '../components/CancellationModal';
 import { toast } from 'sonner';
 import { stayReviewDeadline } from '../services/reviewPolicy';
 import { formatScheduledMoment, getInventoryTiming, stayLocalDate } from '../services/inventoryTiming';
+import { OccupantBookingNote } from '../components/OccupantBookingNote';
 
 export const TenantDashboard: React.FC = () => {
   const paymentReturnId = useRef(new URLSearchParams(window.location.search).get('booking') === 'pending' ? new URLSearchParams(window.location.search).get('id') : null);
@@ -639,6 +640,8 @@ export const TenantDashboard: React.FC = () => {
                     </div>
 
                     {booking.status === 'CONFIRMED' && booking.paymentStatus === 'PAID' && !booking.checkOutReportId && <p className="mt-4 rounded-xl bg-gray-50 p-3 text-xs text-gray-600">Séjour terminé dans le calendrier. L’état des lieux de sortie n’a pas été enregistré et ne peut plus être réalisé après la date de départ.</p>}
+
+                    {booking.occupant && <OccupantBookingNote booking={booking} />}
 
                     {booking.status === 'CANCELLED' && booking.cancellation && (
                       <div className="mt-3 rounded-xl border border-red-100 bg-red-50 px-3 py-2 text-xs text-red-800">

@@ -33,6 +33,8 @@ function ResponsiveToaster() {
 import { HavenDialogHost } from './components/HavenDialogs';
 import { classifyError, reportError } from './services/errorHandling';
 
+// Stay space of an occupant booked by someone else: opened by a personal link, without an account.
+const OccupantStay = lazy(() => import('./pages/OccupantStay'));
 const AccountPage = lazy(() => import('./pages/AccountPage').then(module => ({ default: module.AccountPage })));
 const PaymentPage = lazy(() => import('./pages/PaymentPage').then(module => ({ default: module.PaymentPage })));
 const ListingDetails = lazy(() => import('./pages/ListingDetails').then(module => ({ default: module.ListingDetails })));
@@ -149,6 +151,7 @@ const AppContent: React.FC = () => {
           <Route path="/messages/:bookingId" element={<ProtectedRoute><ChatPage /></ProtectedRoute>} />
           <Route path="/inbox" element={<ProtectedRoute><InboxPage /></ProtectedRoute>} />
           <Route path="/legal/:docId" element={<LegalPage />} />
+          <Route path="/sejour/:token" element={<OccupantStay />} />
           <Route path="/inventory/in/:bookingId" element={<ProtectedRoute><EntryInventory /></ProtectedRoute>} />
           <Route path="/how-it-works" element={<HowItWorks />} />
           <Route path="/reservation-recurrente" element={<RecurringBookingGuide />} />

@@ -64,3 +64,27 @@ test('demo sending is restricted to the account owner without redirecting anothe
   assert.equal(canSendReservationRecipient('Haven <onboarding@resend.dev>', 'owner@example.com'), false);
   assert.equal(canSendReservationRecipient('Haven <bonjour@haven.example>', 'tenant@example.com'), true);
 });
+
+test('a booking for someone else also sends the occupant the stay space link, at confirmation and with the arrival instructions', async () => {
+  const { occupantStayEmail } = await import('./reservationMail');
+  const token = 'A'.repeat(43);
+  const jobs = initialReservationMailJobs(receipt, token);
+  assert.deepEqual(jobs.slice(3).map(job => [job.kind, job.nextAttemptAt, job.accessToken]), [['OCCUPANT_INVITE', booking.paidAt, token], ['OCCUPANT_ARRIVAL', '2026-11-04T14:00:00.000Z', token]]);
+  assert.equal(initialReservationMailJobs(receipt).length, 3, 'sans occupant, rien de plus');
+
+  const withOccupant = { ...booking, occupant: { firstName: 'Tom', lastName: 'Durand', birthDate: '2009-01-01', email: 'tom@example.com', phone: '+33612345678', minor: true } } as Booking;
+  const invite = reservationMailJob(booking.id, 'OCCUPANT_INVITE', booking.paidAt);
+  assert.equal(reservationMailDisposition(invite, withOccupant, receipt, cutover, Date.parse('2026-11-08T10:00:00Z')), 'SEND', 'un lien renvoyé reste utile pendant le séjour');
+  assert.equal(reservationMailDisposition(invite, booking, receipt, cutover, Date.parse('2026-11-02T10:00:00Z')), 'CANCELLED');
+  const arrival = reservationMailJob(booking.id, 'OCCUPANT_ARRIVAL', receipt.instructionsDueAt);
+  assert.equal(reservationMailDisposition(arrival, withOccupant, receipt, cutover, Date.parse('2026-11-04T13:00:00Z')), 'WAIT');
+  assert.equal(reservationMailDisposition(arrival, withOccupant, receipt, cutover, Date.parse('2026-11-05T13:00:00Z')), 'SEND');
+
+  const mail = occupantStayEmail('OCCUPANT_INVITE', receipt, { firstName: 'Tom' }, token, { appOrigin: 'https://havencoloc.fr' });
+  assert.match(mail.text, /Bonjour Tom/);
+  assert.match(mail.text, /Camille a réservé pour vous/);
+  assert.match(mail.text, new RegExp(`https://havencoloc.fr/#/sejour/${token}`));
+  const arrivalMail = occupantStayEmail('OCCUPANT_ARRIVAL', receipt, { firstName: 'Tom' }, token, { instructions: 'Code porte : 1234', appOrigin: 'https://havencoloc.fr' });
+  assert.match(arrivalMail.text, /Code porte : 1234/);
+  assert.throws(() => occupantStayEmail('OCCUPANT_INVITE', receipt, { firstName: 'Tom' }, token, {}), /APP_ORIGIN/);
+});

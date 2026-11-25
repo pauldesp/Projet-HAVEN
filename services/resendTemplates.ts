@@ -1,5 +1,5 @@
 import type { Booking } from '../types';
-import type { ReservationMailKind } from './reservationMail';
+import type { OccupantMailKind, ReservationMailKind } from './reservationMail';
 import { isSeriesMailKind, seriesMailValues, type SeriesMailContext, type TenantMailJob, type TenantMailProfile } from './tenantMail';
 import { ownerMailValues, type OwnerMailData, type OwnerMailJob } from './ownerMail';
 import { teamMailValues, type TeamMailData, type TeamMailJob } from './teamMail';
@@ -72,7 +72,7 @@ const common = (name: string, reference: string, link: string, test: boolean) =>
 const stay = (data: Pick<ReservationConfirmation, 'listingTitle' | 'roomName' | 'startDate' | 'endDate'>) => ({
   LOGEMENT: data.listingTitle, CHAMBRE: data.roomName || 'Votre logement', DATE_ARRIVEE: date(data.startDate), DATE_DEPART: date(data.endDate),
 });
-export function reservationResendTemplate(kind: ReservationMailKind, data: ReservationConfirmation, options: { instructions?: string; occurredAt?: string; appOrigin?: string } = {}) {
+export function reservationResendTemplate(kind: Exclude<ReservationMailKind, OccupantMailKind>, data: ReservationConfirmation, options: { instructions?: string; occurredAt?: string; appOrigin?: string } = {}) {
   const values: Record<string, string> = { ...common(data.tenantName, `Réservation · ${data.bookingId}`, mailDashboardLink(options.appOrigin), data.isTest), ...stay(data) };
   if (kind === 'CONFIRMATION') Object.assign(values, {
     ADRESSE: data.address || 'Adresse à préciser par le propriétaire', HEURE_ARRIVEE: data.checkInTime, HEURE_DEPART: data.checkOutTime,

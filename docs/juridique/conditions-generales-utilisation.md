@@ -40,7 +40,7 @@ Haven peut les modifier, notamment pour suivre l'évolution du service ou de la 
 
 ## Article 4 — Créer et utiliser un compte
 
-**4.1 Conditions.** Le compte est réservé aux personnes physiques **majeures** et capables de contracter. Un seul compte par personne. Une personne morale peut ouvrir un compte propriétaire par l'intermédiaire de son représentant.
+**4.1 Conditions.** Le compte est réservé aux personnes physiques **majeures (18 ans révolus)** et capables de contracter ; l'inscription est refusée en dessous de cet âge. Un mineur de 16 ou 17 ans ne crée pas de compte : il peut séjourner comme occupant d'une réservation faite par l'un de ses parents, dans les conditions des Conditions de réservation (article 3.5). Un seul compte par personne. Une personne morale peut ouvrir un compte propriétaire par l'intermédiaire de son représentant.
 
 **4.2 Vérification.** Avant de réserver ou de publier, chaque membre transmet un dossier de vérification : pièce d'identité, justificatif de domicile et informations demandées selon son rôle. Haven examine chaque dossier manuellement et peut demander des compléments, ou refuser un dossier incomplet, incohérent ou présentant un risque de fraude.
 
