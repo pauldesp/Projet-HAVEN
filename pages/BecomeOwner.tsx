@@ -6,7 +6,7 @@ import { useAuth } from '../contexts/AuthContext';
 /** Reasons to join, all true today: shown first, before the details. */
 const REASONS = [
   { icon: Wallet, title: '0 % de commission', text: 'Vous gardez 100 % du prix de vos nuits et de votre forfait ménage. Les frais de service sont payés par le locataire.' },
-  { icon: ShieldCheck, title: 'Fini les impayés', text: 'Chaque séjour est payé en ligne au moment de la réservation. Haven vous le verse après l’arrivée du locataire.' },
+  { icon: ShieldCheck, title: 'Fini les impayés', text: 'Chaque séjour est payé en ligne au moment de la réservation, directement sur votre compte. Le virement vers votre banque part le lendemain de l’arrivée du locataire.' },
   { icon: CalendarRange, title: 'Moins de chambres vides', text: 'Stagiaires, alternants, étudiants en mobilité : ils réservent quelques semaines ou plusieurs périodes dans l’année, et les séjours courts comblent les trous entre deux locations.' },
   { icon: BadgeCheck, title: 'Des locataires vérifiés', text: 'Personne ne réserve sans avoir fait vérifier son identité et son domicile par l’équipe Haven.' },
   { icon: KeyRound, title: 'Vous gérez moins', text: 'Réservation instantanée, consignes d’accès envoyées automatiquement, états des lieux avec photos : plus de remises de clés ni de relances.' },
@@ -30,7 +30,7 @@ const YOU_DO = [
 const QUESTIONS = [
   { q: 'Quand suis-je payé ?', a: 'Après l’arrivée de chaque locataire, une fois son état des lieux d’entrée enregistré. Le virement part automatiquement vers votre compte bancaire, séjour par séjour.' },
   { q: 'Est-ce que je choisis mes locataires ?', a: 'Les locataires dont le compte a été vérifié par Haven réservent directement vos dates libres, sans demande à valider. Vous voyez qui a réservé dans votre espace, et vous bloquez à l’avance les dates où une chambre n’est pas disponible.' },
-  { q: 'Et en cas de dégradation ?', a: 'Les états des lieux avec photos servent de preuve. Dans les 7 jours suivant le départ, vous déclarez la dégradation depuis vos réservations, avec photos et devis. Haven examine le dossier et la réponse du locataire ; si la dégradation est retenue, Haven prélève jusqu’à 300 € sur la carte du locataire et vous les reverse.' },
+  { q: 'Et en cas de dégradation ?', a: 'Les états des lieux avec photos servent de preuve. Dans les 7 jours suivant le départ, vous déclarez la dégradation depuis vos réservations, avec photos et devis. Haven examine le dossier et la réponse du locataire ; si la dégradation est retenue, Haven prélève jusqu’à 300 € sur la carte du locataire, pour votre compte.' },
   { q: 'Puis-je annuler une réservation ?', a: 'Oui, seul, jusqu’à 30 jours avant l’arrivée ; le locataire est alors remboursé intégralement. Plus tard, seule Haven peut annuler, pour un motif sérieux.' },
   { q: 'Que dois-je faire avant de publier ?', a: 'Faire vérifier votre compte (identité et domicile), puis configurer vos versements avec Stripe (identité et compte bancaire). Haven vérifie ensuite votre annonce avant sa mise en ligne.' },
 ];

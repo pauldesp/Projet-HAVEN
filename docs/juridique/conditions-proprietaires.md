@@ -47,19 +47,20 @@ Les présentes conditions s'appliquent à tout membre qui propose un logement su
 | Payé par le locataire | 132 € + 15 € + 20 € de frais de service = **167 €** |
 | Versé au propriétaire | 132 € + 15 € = **147 €** |
 
-**4.2 Encaissement pour le compte du propriétaire.** Le propriétaire **mandate Haven** pour encaisser en son nom, par l'intermédiaire de Stripe, le prix payé par les locataires, et pour le lui reverser. Le paiement reçu par Haven vaut paiement au propriétaire pour le locataire.
+**4.2 Paiement directement au propriétaire.** Le locataire paie le propriétaire **directement sur son compte de paiement Stripe** : le propriétaire est le vendeur du séjour et le titulaire des fonds. Haven ne détient pas le prix du séjour ; elle perçoit uniquement ses **frais de service**, prélevés sur chaque paiement. Pour cela, le compte Stripe du propriétaire doit accepter les paiements par carte ; tant que ce n'est pas le cas, les paiements sont encaissés par Haven pour le compte du propriétaire et lui sont transférés après l'arrivée, comme pour les réservations payées avant ce changement.
 
-> **À valider :** rédaction du mandat d'encaissement et statut de Haven au regard de la réglementation des services de paiement (encaissement via Stripe Connect).
+> **À valider :** paiement « au nom du propriétaire » (Stripe Connect, `on_behalf_of`) au regard de la réglementation des services de paiement ; virement manuel déclenché par Haven (article 4.3).
 
-**4.3 Date de versement.** La part du propriétaire est transférée sur son compte Stripe **après l'arrivée du locataire**, une fois l'état des lieux d'entrée enregistré, séjour par séjour. Stripe la vire ensuite sur son compte bancaire selon le calendrier de virement choisi dans son espace Stripe. Si le compte de versement est incomplet à ce moment, le transfert attend qu'il soit complété.
+**4.3 Date de versement.** Les virements du compte Stripe du propriétaire vers son compte bancaire sont réglés en mode manuel. Haven lance le virement de chaque séjour **le lendemain de l'état des lieux d'entrée**, dès que Stripe rend les fonds disponibles (délai habituel de Stripe). Si le compte de versement est incomplet à ce moment, le virement attend qu'il soit complété.
 
 **4.4 Suspension en cas de litige.** En cas d'incident signalé ou de litige sur un séjour, Haven peut **suspendre le versement** de ce séjour le temps de l'examiner, et en informe le propriétaire.
 
 **4.5 Remboursements.** Lorsqu'un locataire est remboursé :
 
-- après une **annulation par le propriétaire** ou pour un manquement qui lui est imputable, la part correspondante n'est pas versée au propriétaire ou lui est reprise ;
-- lorsque Haven décide d'un **geste commercial** sans faute du propriétaire, il est pris en priorité sur les frais de service de Haven ;
-- en cas d'**annulation tardive par le locataire** (remboursement partiel ou nul) : [**À DÉCIDER** : part de la somme conservée reversée au propriétaire. Aujourd'hui, le propriétaire ne reçoit rien dans ce cas.]
+- après une **annulation par le propriétaire**, par Haven, ou plus de 14 jours avant l'arrivée par le locataire, le paiement est intégralement rendu : la part du propriétaire lui est reprise et Haven rend ses frais de service ;
+- en cas d'**annulation par le locataire de 14 à 8 jours avant l'arrivée**, le remboursement (50 % de l'hébergement et du ménage) est repris sur la part du propriétaire, qui **conserve l'autre moitié** ; Haven conserve ses frais de service. À moins de 8 jours, le propriétaire conserve toute sa part ;
+- lorsque Haven décide d'un **geste commercial** sans faute du propriétaire, il est pris sur les fonds de Haven ;
+- en cas de **contestation bancaire** du locataire, le montant contesté est repris sur le compte du propriétaire et le virement est suspendu jusqu'à l'issue de la contestation. Si le solde du propriétaire est insuffisant, il devient négatif et Stripe le récupère sur ses paiements suivants.
 
 **4.6 Relevés.** Le détail des réservations, des versements et des sommes à venir est disponible dans l'onglet Finances de l'espace propriétaire.
 

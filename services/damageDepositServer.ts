@@ -2,6 +2,7 @@ import type { Firestore } from 'firebase-admin/firestore';
 import type Stripe from 'stripe';
 import type { Booking, BookingSeries, DamageClaim } from '../types';
 import { CONNECT_POLICY_VERSION } from './stripeConnect';
+import { CONNECT_ON_BEHALF_POLICY, isOnBehalfPolicy, onBehalfChargeData } from './onBehalfPayments';
 import { damageMailId, damageMailJob } from './damageMail';
 import { DamageClaimError, canDeclareDamage, damageClaimDeadline, validateDamageClaimInput, validateDamageDecision, validateDamageResponse } from './damageDeposit';
 
@@ -11,7 +12,7 @@ export interface DamageDepositDependencies {
   /** 'SIMULATION' in local development without Stripe. */
   paymentMode: () => 'SIMULATION' | 'STRIPE';
   isTestMode: () => boolean;
-  payoutAccount: (ownerId: string) => Promise<{ accountId: string; ready: boolean } | null>;
+  payoutAccount: (ownerId: string) => Promise<{ accountId: string; ready: boolean; onBehalf?: boolean } | null>;
   /** Wakes the mail outbox up after a message was queued. */
   notifyMail?: () => void;
 }
@@ -129,12 +130,17 @@ export function createDamageDeposit(deps: DamageDepositDependencies) {
     if (deps.paymentMode() !== 'STRIPE' || booking.paymentIsTest !== deps.isTestMode()) return fail('Les clés Stripe actuelles ne correspondent pas au mode de paiement de ce séjour.');
     const card = await cardFor({ ...booking, id: bookingId });
     if (!card) return fail('Aucune carte enregistrée pour ce séjour.');
+    // A stay paid on the owner's behalf: the damage charge goes straight to the owner, without any Haven fee.
+    let owner: { accountId: string; ready: boolean; onBehalf?: boolean } | null = null;
+    if (isOnBehalfPolicy(booking.connectPolicy)) { try { owner = await deps.payoutAccount(claim.ownerId); } catch { owner = null; } }
+    const onBehalf = Boolean(owner?.ready && owner.onBehalf);
     let intent: Stripe.PaymentIntent;
     try {
       intent = await deps.stripe().paymentIntents.create({
         amount: claim.decision.amountCents, currency: 'eur', customer: card.customer, payment_method: card.method, off_session: true, confirm: true,
         transfer_group: `haven_damage_${bookingId}`, description: `Caution · dégradation · ${claim.listingTitle} · séjour terminé le ${claim.stayEndDate}`,
-        metadata: { bookingId, damageClaim: '1', ownerId: claim.ownerId, connectPolicy: CONNECT_POLICY_VERSION },
+        ...(onBehalf ? onBehalfChargeData(owner!.accountId, 0) : {}),
+        metadata: { bookingId, damageClaim: '1', ownerId: claim.ownerId, connectPolicy: onBehalf ? CONNECT_ON_BEHALF_POLICY : CONNECT_POLICY_VERSION },
       }, { idempotencyKey: `damage-${bookingId}-${attempts}` });
     } catch (error) {
       const stripeError = error as { type?: string; code?: string };
@@ -142,6 +148,14 @@ export function createDamageDeposit(deps: DamageDepositDependencies) {
         : stripeError.type === 'StripeCardError' ? 'Carte refusée (expirée, opposée ou provision insuffisante).' : 'Prélèvement momentanément impossible, réessayez.');
     }
     if (intent.status !== 'succeeded') return fail('Le prélèvement n’a pas abouti.');
+    if (onBehalf) {
+      // Already on the owner's balance: it is paid out to the bank with their next payout.
+      await claims.doc(bookingId).update({ status: 'CHARGED', charge: { provider: 'STRIPE', paymentIntentId: intent.id, attempts, at, isTest: !intent.livemode, onBehalfOf: owner!.accountId }, transfer: { status: 'DONE', onBehalf: true, at } });
+      // Owner accounts pay out manually: queue the bank payout of this amount (made once Stripe makes the funds available).
+      await db.collection('owner_damage_payouts').doc(`damage_${bookingId}`).set({ bookingId, ownerId: claim.ownerId, accountId: owner!.accountId, mode: deps.isTestMode() ? 'test' : 'live',
+        amountCents: claim.decision.amountCents, paymentIntentId: intent.id, state: 'WAITING_FUNDS', createdAt: at, updatedAt: at });
+      return;
+    }
     await claims.doc(bookingId).update({ status: 'CHARGED', charge: { provider: 'STRIPE', paymentIntentId: intent.id, attempts, at, isTest: !intent.livemode } });
     await transferToOwner(bookingId);
   }

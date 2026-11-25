@@ -1,6 +1,7 @@
 import type { Booking, Incident, OwnerPayout } from '../types';
 import { withLayout } from './reservationMail';
 import { ownerShare } from './money';
+import { isOnBehalfPolicy } from './onBehalfPayments';
 
 export type OwnerMailKind = 'OWNER_BOOKING' | 'OWNER_SERIES' | 'OWNER_CANCELLED' | 'OWNER_INCIDENT' | 'OWNER_PAYOUT';
 export const OWNER_MAIL_KINDS: readonly OwnerMailKind[] = ['OWNER_BOOKING', 'OWNER_SERIES', 'OWNER_CANCELLED', 'OWNER_INCIDENT', 'OWNER_PAYOUT'];
@@ -78,7 +79,10 @@ export function ownerMailValues(job: OwnerMailJob, data: OwnerMailData): Record<
       MOTIF_ANNULATION: unpaid ? 'Le paiement de ce séjour n’a pas été reçu dans le délai prévu.' : cancellation?.reason || 'Non précisé.',
       INFORMATION_VERSEMENT: unpaid || booking.paymentStatus !== 'PAID'
         ? 'Ce séjour n’avait pas encore été payé : aucun montant n’a été encaissé et aucun versement n’aura lieu.'
-        : `Le locataire est remboursé à ${cancellation?.refundPercent ?? 0} % selon les conditions d’annulation. Aucun versement n’aura lieu pour ce séjour.`,
+        : isOnBehalfPolicy(booking.connectPolicy) && (cancellation?.refundPercent ?? 0) < 100
+          // Paid on the owner's behalf: the share that is not refunded stays with the owner.
+          ? `Le locataire est remboursé à ${cancellation?.refundPercent ?? 0} % selon les conditions d’annulation. Vous conservez la part non remboursée, virée sur votre compte bancaire.`
+          : `Le locataire est remboursé à ${cancellation?.refundPercent ?? 0} % selon les conditions d’annulation. Aucun versement n’aura lieu pour ce séjour.`,
     });
   }
   if (job.kind === 'OWNER_INCIDENT' && data.incident) Object.assign(values, {

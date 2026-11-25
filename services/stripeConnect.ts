@@ -5,6 +5,9 @@ export interface OwnerConnectView {
   available: boolean; isTest: boolean; status: ConnectStatus; checkedAt: string | null;
   bank: { last4: string; name: string | null; currency: string } | null;
   error?: string;
+  /** Payments on the owner's behalf: card payments accepted by the owner's account (Stripe may ask for more details). */
+  cardPayments?: 'ACTIVE' | 'PENDING' | 'INACTIVE';
+  onBehalfReady?: boolean;
 }
 export const CONNECT_POLICY_VERSION = 'haven-connect-arrival-v1';
 export const DEPOSIT_POLICY = { enabled: false, amountCents: null, timing: 'TO_DEFINE', version: null } as const;
@@ -41,6 +44,7 @@ export function settlementLabel(state: string) {
     WAITING_ARRIVAL: 'En attente de l’arrivée', WAITING_ACCOUNT: 'Compte Stripe à compléter',
     RETRY: 'Nouvelle tentative programmée', CREATING: 'Transfert en cours',
     TRANSFERRED: 'Transféré sur votre solde Stripe', CANCELLED: 'Séjour annulé',
+    WAITING_FUNDS: 'Fonds en cours de disponibilité chez Stripe', PAID_OUT: 'Virement vers votre banque lancé',
     REVERSED: 'Transfert annulé par retour des fonds', PARTIALLY_REVERSED: 'Retour partiel des fonds', REVIEW_REQUIRED: 'Vérification par Haven nécessaire'
   };
   return labels[state] || 'Vérification en cours';

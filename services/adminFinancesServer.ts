@@ -4,6 +4,7 @@ import type { Booking, BookingSeries, HavenRefund, OwnerPayout, Payment } from '
 import { isLaterSeriesStay } from './recurringInstallments';
 import { goodwillLimits } from './adminFinances';
 import { localDateKey } from './stay';
+import { refundOptionsFor } from './onBehalfPayments';
 
 export class AdminFinanceError extends Error {
   constructor(message: string, public status = 409) { super(message); }
@@ -58,7 +59,8 @@ export function createAdminFinances(deps: { db: Firestore; stripe: () => Stripe;
       const session = sessionId.startsWith('pi_') ? null : await deps.stripe().checkout.sessions.retrieve(sessionId);
       const paymentIntent = !session ? sessionId : typeof session.payment_intent === 'string' ? session.payment_intent : session.payment_intent?.id;
       if (!paymentIntent) throw new AdminFinanceError('Le paiement d’origine est introuvable.', 503);
-      const created = await deps.stripe().refunds.create({ payment_intent: paymentIntent, amount: amountCents as number, metadata: { bookingId, kind: 'haven-goodwill', adminId: admin.uid } },
+      // A goodwill gesture is taken from Haven's own balance, also for a payment made on the owner's behalf.
+      const created = await deps.stripe().refunds.create({ payment_intent: paymentIntent, amount: amountCents as number, ...refundOptionsFor(booking.connectPolicy, 'HAVEN_ONLY'), metadata: { bookingId, kind: 'haven-goodwill', adminId: admin.uid } },
         { idempotencyKey: `haven-goodwill-${bookingId}-${index}` });
       if (['failed', 'canceled'].includes(created.status || '')) throw new AdminFinanceError('Stripe a refusé le remboursement.', 503);
       refundId = created.id;

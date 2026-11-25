@@ -78,6 +78,7 @@ import firebaseConfig from "./firebase-applet-config.json" with { type: "json" }
 import { createHash, randomUUID } from "node:crypto";
 import helmet from "helmet";
 import compression from "compression";
+import { CONNECT_ON_BEHALF_POLICY, cancellationRefundBearer, onBehalfChargeData, refundOptionsFor } from './services/onBehalfPayments';
 import { rateLimit } from "express-rate-limit";
 
 let stripeClient: Stripe | null = null;
@@ -311,7 +312,7 @@ async function synchronizeCheckout(session: Stripe.Checkout.Session) {
   if (result.disposition === 'REFUND') {
     const intent = typeof session.payment_intent === 'string' ? session.payment_intent : session.payment_intent?.id;
     if (!intent) throw new Error('Payment intent missing.');
-    await getStripe().refunds.create({ payment_intent: intent }, { idempotencyKey: `stale-checkout-${session.id}` });
+    await getStripe().refunds.create({ payment_intent: intent, ...refundOptionsFor(session.metadata?.connectPolicy, 'FULL') }, { idempotencyKey: `stale-checkout-${session.id}` });
   } else {
     await ownerConnect.registerPayment(result.booking as Booking, session);
     await recurringSeries.savePaymentMethod(result.booking as Booking, session);
@@ -2498,6 +2499,8 @@ async function startServer() {
           const refund = await getStripe().refunds.create({
             payment_intent: paymentIntent,
             amount: Math.round(terms.refundAmount * 100),
+            // Paid on the owner's behalf: a full refund returns the fee too; a partial one is taken from the owner's share.
+            ...refundOptionsFor(booking.connectPolicy, cancellationRefundBearer(terms.refundPercent)),
             metadata: { bookingId, cancelledBy: actor },
           }, { idempotencyKey: `haven-cancellation-refund-${bookingId}` });
           if (["failed", "canceled"].includes(refund.status || "")) return sendApiError(res, 503, "Le remboursement Stripe a échoué. Votre réservation reste active. Contactez Haven.");
@@ -2738,7 +2741,7 @@ async function startServer() {
       if (mode === 'SIMULATION') return res.json({ mode, url: safeReturnUrl(req, `/#/payment/${encodeURIComponent(bookingId)}`) });
       if (booking.paymentProvider === 'SIMULATION') throw new BookingLifecycleError('Cette réservation appartient au mode simulation. Créez une nouvelle réservation pour utiliser Stripe.');
       const stripe = getStripe();
-      const ownerAccountId = await ownerConnect.readyAccount(booking.ownerId);
+      const { accountId: ownerAccountId, onBehalf } = await ownerConnect.paymentAccount(booking.ownerId);
       const laterStay = isLaterSeriesStay(booking);
       const series = booking.seriesId ? (await adminDb.collection('booking_series').doc(booking.seriesId).get()).data() as BookingSeries | undefined : undefined;
       if (laterStay && series?.status !== 'ACTIVE') return sendApiError(res, 409, 'Payez d’abord le premier séjour de votre série.');
@@ -2748,7 +2751,7 @@ async function startServer() {
       else if (previousSession) {
         const existing = await stripe.checkout.sessions.retrieve(previousSession);
         if (existing.status === 'open' && existing.url) {
-          if (existing.metadata?.connectPolicy !== CONNECT_POLICY_VERSION || existing.metadata.ownerAccountId !== ownerAccountId) return sendApiError(res, 409, 'Recommencez votre réservation pour utiliser les versements sécurisés.');
+          if (![CONNECT_POLICY_VERSION, CONNECT_ON_BEHALF_POLICY].includes(String(existing.metadata?.connectPolicy)) || existing.metadata?.ownerAccountId !== ownerAccountId) return sendApiError(res, 409, 'Recommencez votre réservation pour utiliser les versements sécurisés.');
           return res.json({ mode, id: existing.id, url: existing.url });
         }
         if (existing.payment_status === 'paid') return sendApiError(res, 409, 'Le paiement a déjà été effectué. Sa confirmation est en cours.');
@@ -2776,8 +2779,11 @@ async function startServer() {
         ...(tenantEmail && !(laterStay && series?.stripeCustomerId) ? { customer_email: tenantEmail } : {}),
         line_items: [{ quantity: 1, price_data: { currency: 'eur', unit_amount: Math.round(booking.totalPrice * 100), product_data: { name: String(booking.listingTitle || listing?.title || 'Séjour HAVEN').slice(0, 200), description: `${booking.roomName || 'Chambre'} · ${booking.startDate} → ${booking.endDate}` } } }],
         success_url: successUrl, cancel_url: cancelUrl,
-        payment_intent_data: { transfer_group: `haven_${bookingId}`, ...(booking.seriesId || booking.depositConsent ? { setup_future_usage: 'off_session' as const } : {}), metadata: { bookingId, connectPolicy: CONNECT_POLICY_VERSION, ownerAccountId } },
-        metadata: { bookingId, listingId: booking.listingId, tenantId: booking.tenantId, connectPolicy: CONNECT_POLICY_VERSION, ownerAccountId }
+        // On the owner's behalf when their account accepts cards: the owner is the merchant, Haven takes its service fee.
+        payment_intent_data: { transfer_group: `haven_${bookingId}`, ...(booking.seriesId || booking.depositConsent ? { setup_future_usage: 'off_session' as const } : {}),
+          ...(onBehalf ? onBehalfChargeData(ownerAccountId, Math.round(booking.platformFee * 100)) : {}),
+          metadata: { bookingId, connectPolicy: onBehalf ? CONNECT_ON_BEHALF_POLICY : CONNECT_POLICY_VERSION, ownerAccountId } },
+        metadata: { bookingId, listingId: booking.listingId, tenantId: booking.tenantId, connectPolicy: onBehalf ? CONNECT_ON_BEHALF_POLICY : CONNECT_POLICY_VERSION, ownerAccountId }
       }, { idempotencyKey: checkoutAttempt ? `checkout-${bookingId}-${checkoutAttempt}` : `checkout-${bookingId}` });
       await adminDb.runTransaction(async transaction => {
         const fresh = await transaction.get(bookingRef);

@@ -13,6 +13,7 @@ import { simulationSessionId } from './paymentCheckout';
 import { ownerMailId, ownerMailJob } from './ownerMail';
 import { residenceDeclarationRecord, residenceDeclarationVersion } from './residenceDeclaration';
 import { OccupantError, guardianDeclarationRecord, normalizeOccupant, type Occupant } from './occupant';
+import { refundOptionsFor, CONNECT_ON_BEHALF_POLICY, isOnBehalfPolicy, onBehalfChargeData } from './onBehalfPayments';
 
 export class SeriesError extends Error {
   constructor(message: string, public status = 409) { super(message); }
@@ -28,7 +29,7 @@ export interface RecurringSeriesDependencies {
   stripe: () => Stripe;
   isTestMode: () => boolean;
   /** The owner's payout account, even when it needs completing (null: none at all). Throws when Stripe is unreachable. */
-  ownerPayoutAccount: (ownerId: string) => Promise<{ accountId: string; ready: boolean } | null>;
+  ownerPayoutAccount: (ownerId: string) => Promise<{ accountId: string; ready: boolean; onBehalf?: boolean } | null>;
   settle: (receipt: PaymentReceiptInput, actorId?: string) => Promise<SettleResult>;
   registerPayment: (booking: Booking, payment: IntentLike) => Promise<void>;
   /** Throws when the tenant may not book (verification, role). */
@@ -166,7 +167,9 @@ export function createRecurringSeries(deps: RecurringSeriesDependencies) {
     const method = intent.payment_method;
     const customer = typeof intent.customer === 'string' ? intent.customer : intent.customer?.id;
     if (!customer || !method || typeof method === 'string') return;
-    await seriesCollection.doc(booking.seriesId).set({ stripeCustomerId: customer, paymentMethodId: method.id, cardBrand: method.card?.brand || '', cardLast4: method.card?.last4 || '' }, { merge: true });
+    // The series keeps the payment flow of its first stay: an older series finishes as it started.
+    await seriesCollection.doc(booking.seriesId).set({ stripeCustomerId: customer, paymentMethodId: method.id, cardBrand: method.card?.brand || '', cardLast4: method.card?.last4 || '',
+      connectPolicy: isOnBehalfPolicy(session.metadata?.connectPolicy) ? CONNECT_ON_BEHALF_POLICY : CONNECT_POLICY_VERSION }, { merge: true });
   }
 
   /** Marks the booking as paid by this PaymentIntent, then settles it like a checkout. */
@@ -185,7 +188,7 @@ export function createRecurringSeries(deps: RecurringSeriesDependencies) {
     const result = await deps.settle({ bookingId, sessionId: intent.id, provider: 'STRIPE', amountCents: intent.amount_received || intent.amount, currency: intent.currency, isTest: !intent.livemode });
     if (result.disposition === 'REFUND') {
       // Paid twice (by hand and automatically) or after the deadline: never keep the money.
-      await deps.stripe().refunds.create({ payment_intent: intent.id, metadata: { bookingId, reason: 'installment-not-applicable' } }, { idempotencyKey: `installment-refund-${intent.id}` });
+      await deps.stripe().refunds.create({ payment_intent: intent.id, ...refundOptionsFor(intent.metadata?.connectPolicy, 'FULL'), metadata: { bookingId, reason: 'installment-not-applicable' } }, { idempotencyKey: `installment-refund-${intent.id}` });
       return;
     }
     await deps.registerPayment(result.booking, { id: intent.id, metadata: intent.metadata, payment_intent: intent.id, livemode: intent.livemode });
@@ -238,7 +241,7 @@ export function createRecurringSeries(deps: RecurringSeriesDependencies) {
       return;
     }
     if (!series.stripeCustomerId || !series.paymentMethodId) return recordFailure(leased, 'Aucune carte enregistrée pour cette série.');
-    let payoutAccount: { accountId: string; ready: boolean } | null;
+    let payoutAccount: { accountId: string; ready: boolean; onBehalf?: boolean } | null;
     try { payoutAccount = await deps.ownerPayoutAccount(leased.ownerId); }
     catch {
       // Stripe unreachable: not the tenant's fault, retry in an hour without counting an attempt.
@@ -256,13 +259,16 @@ export function createRecurringSeries(deps: RecurringSeriesDependencies) {
       }
     }
     const ownerAccountId = payoutAccount.accountId;
+    // On the owner's behalf for a series started that way, as long as the owner's account accepts cards.
+    const onBehalf = isOnBehalfPolicy(series.connectPolicy) && payoutAccount.ready && payoutAccount.onBehalf === true;
     let intent: Stripe.PaymentIntent;
     try {
       intent = await deps.stripe().paymentIntents.create({
         amount: Math.round(leased.totalPrice * 100), currency: 'eur', customer: series.stripeCustomerId, payment_method: series.paymentMethodId,
         off_session: true, confirm: true, transfer_group: `haven_${leased.id}`,
+        ...(onBehalf ? onBehalfChargeData(ownerAccountId, Math.round(leased.platformFee * 100)) : {}),
         description: `${leased.listingTitle || 'Séjour Haven'} · séjour ${(leased.seriesIndex ?? 0) + 1}/${leased.seriesCount ?? ''} · ${leased.startDate} → ${leased.endDate}`,
-        metadata: { bookingId: leased.id, seriesId: leased.seriesId, installment: '1', connectPolicy: CONNECT_POLICY_VERSION, ownerAccountId },
+        metadata: { bookingId: leased.id, seriesId: leased.seriesId, installment: '1', connectPolicy: onBehalf ? CONNECT_ON_BEHALF_POLICY : CONNECT_POLICY_VERSION, ownerAccountId },
       }, { idempotencyKey: `installment-${leased.id}-${attempt}` });
     } catch (error) {
       const stripeError = error as { type?: string; code?: string; message?: string };

@@ -4,6 +4,7 @@ import { FieldValue, type Firestore } from 'firebase-admin/firestore';
 import { ownerMailId, ownerMailJob } from './ownerMail';
 import type { Booking, InventoryReport } from '../types';
 import { CONNECT_POLICY_VERSION, connectStatus, hasRecordedArrival, ownerShareCents, payoutStatus, type OwnerConnectView } from './stripeConnect';
+import { CONNECT_ON_BEHALF_POLICY, canChargeOnBehalf, isOnBehalfPolicy, ownerNetCents } from './onBehalfPayments';
 
 export class ConnectError extends Error { constructor(message: string, public status = 409) { super(message); } }
 export function createStripeConnect(db: Firestore, stripe: () => Stripe, configuration: () => { enabled: boolean; isTest: boolean }) {
@@ -21,13 +22,21 @@ export function createStripeConnect(db: Firestore, stripe: () => Stripe, configu
     const ref = accountRef(uid), snapshot = await ref.get(), saved = snapshot.data();
     if (!saved?.accountId) return { ...unavailable(), available: true };
     const checkedAt = new Date().toISOString();
-    const account = await stripe().accounts.retrieve(saved.accountId);
+    let account = await stripe().accounts.retrieve(saved.accountId);
     if (account.metadata?.havenOwnerId !== uid || account.metadata?.havenMode !== mode()) throw new ConnectError('Le compte de versement ne correspond pas au propriétaire.', 403);
+    // Payments on the owner's behalf: the account must accept cards, and Haven pays it out to the bank after arrival.
+    if (!account.capabilities?.card_payments || account.settings?.payouts?.schedule?.interval !== 'manual') {
+      account = await stripe().accounts.update(account.id, { capabilities: { card_payments: { requested: true }, transfers: { requested: true } }, settings: { payouts: { schedule: { interval: 'manual' } } } },
+        { idempotencyKey: `haven-connect-onbehalf-setup-${mode()}-${account.id}` });
+    }
     const banks = await stripe().accounts.listExternalAccounts(account.id, { object: 'bank_account', limit: 10 });
     const bank = banks.data.find(item => item.object === 'bank_account' && item.currency === 'eur' && !['errored', 'verification_failed'].includes(item.status) && item.default_for_currency) || banks.data.find(item => item.object === 'bank_account' && item.currency === 'eur' && !['errored', 'verification_failed'].includes(item.status));
     const status = connectStatus(account);
+    const card = account.capabilities?.card_payments;
     const view: OwnerConnectView = { available: true, isTest: configuration().isTest, status: status === 'READY' && !bank ? 'INCOMPLETE' : status, checkedAt,
-      bank: bank?.object === 'bank_account' ? { last4: bank.last4, name: bank.bank_name || null, currency: bank.currency } : null };
+      bank: bank?.object === 'bank_account' ? { last4: bank.last4, name: bank.bank_name || null, currency: bank.currency } : null,
+      cardPayments: card === 'active' ? 'ACTIVE' : card === 'pending' ? 'PENDING' : 'INACTIVE',
+      onBehalfReady: canChargeOnBehalf(account) && account.settings?.payouts?.schedule?.interval === 'manual' };
     return db.runTransaction(async transaction => {
       const fresh = await transaction.get(ref);
       if (fresh.data()?.checkedAt > checkedAt) return fresh.data()!.view as OwnerConnectView;
@@ -51,7 +60,9 @@ export function createStripeConnect(db: Firestore, stripe: () => Stripe, configu
       const account = await stripe().accounts.create({
         ...(email ? { email } : {}),
         controller: { fees: { payer: 'application' }, losses: { payments: 'application' }, requirement_collection: 'stripe', stripe_dashboard: { type: 'express' } },
-        capabilities: { transfers: { requested: true } },
+        capabilities: { transfers: { requested: true }, card_payments: { requested: true } },
+        // Haven pays the owner's balance out to the bank the day after arrival (payments made on the owner's behalf).
+        settings: { payouts: { schedule: { interval: 'manual' } } },
         metadata: { havenOwnerId: uid, havenMode: mode() },
       }, { idempotencyKey: `haven-connect-account-${mode()}-${uid}` });
       await db.runTransaction(async transaction => {
@@ -86,6 +97,13 @@ export function createStripeConnect(db: Firestore, stripe: () => Stripe, configu
     return (await accountRef(uid).get()).data()!.accountId as string;
   }
 
+  /** Account used to collect a stay: on the owner's behalf when the account accepts cards, otherwise the older flow. */
+  async function paymentAccount(uid: string) {
+    const accountId = await readyAccount(uid);
+    const view = (await accountRef(uid).get()).data()?.view as OwnerConnectView | undefined;
+    return { accountId, onBehalf: view?.onBehalfReady === true };
+  }
+
   /** The owner's account even when it needs completing, with its readiness; null when none was ever created. */
   async function payoutAccount(uid: string) {
     assertEnabled();
@@ -93,16 +111,18 @@ export function createStripeConnect(db: Firestore, stripe: () => Stripe, configu
     const accountId = saved.data()?.accountId;
     if (typeof accountId !== 'string' || await accountOwner(accountId) !== uid) return null;
     const view = await syncAccount(uid);
-    return { accountId, ready: view.status === 'READY' && Boolean(view.bank) };
+    return { accountId, ready: view.status === 'READY' && Boolean(view.bank), onBehalf: view.status === 'READY' && Boolean(view.bank) && view.onBehalfReady === true };
   }
 
   async function registerPayment(booking: Booking, session: Pick<Stripe.Checkout.Session, 'id' | 'metadata' | 'livemode'> & { payment_intent: Stripe.Checkout.Session['payment_intent'] }) {
-    if (session.metadata?.connectPolicy !== CONNECT_POLICY_VERSION) return; // Never transfer historical/legacy receipts.
+    const onBehalf = isOnBehalfPolicy(session.metadata?.connectPolicy);
+    if (session.metadata?.connectPolicy !== CONNECT_POLICY_VERSION && !onBehalf) return; // Never transfer historical/legacy receipts.
     const destination = session.metadata?.ownerAccountId;
     if (!destination || await accountOwner(destination) !== booking.ownerId || booking.paymentStatus !== 'PAID' || booking.paymentProvider !== 'STRIPE' || (booking.checkoutSessionId || booking.stripeSessionId) !== session.id || session.livemode === configuration().isTest) throw new ConnectError('Destination ou paiement Stripe incohérent.');
     const intentId = typeof session.payment_intent === 'string' ? session.payment_intent : session.payment_intent?.id;
     if (!intentId) throw new Error('Payment intent absent.');
     const intent = await stripe().paymentIntents.retrieve(intentId, { expand: ['latest_charge.balance_transaction'] });
+    if (onBehalf && (intent.on_behalf_of !== destination || (typeof intent.transfer_data?.destination === 'string' ? intent.transfer_data.destination : intent.transfer_data?.destination?.id) !== destination)) throw new Error('Paiement au nom du propriétaire incohérent.');
     const charge = intent.latest_charge;
     if (intent.status !== 'succeeded' || typeof charge !== 'object' || !charge || !charge.paid || charge.currency !== 'eur' || charge.amount !== Math.round(booking.totalPrice * 100)) throw new Error('Encaissement Stripe non confirmé.');
     const ref = db.collection('owner_settlements').doc(booking.id);
@@ -115,9 +135,39 @@ export function createStripeConnect(db: Firestore, stripe: () => Stripe, configu
       }
       transaction.create(ref, { bookingId: booking.id, ownerId: booking.ownerId, accountId: destination, mode: mode(), isTest: !session.livemode,
         amountCents: ownerShareCents(booking), havenFeeCents: Math.round(booking.platformFee * 100), stripeFeeCents: providerFee ?? null,
-        currency: 'eur', chargeId: charge.id, paymentIntentId: intent.id, policy: CONNECT_POLICY_VERSION,
+        currency: 'eur', chargeId: charge.id, paymentIntentId: intent.id, policy: onBehalf ? CONNECT_ON_BEHALF_POLICY : CONNECT_POLICY_VERSION,
+        // On the owner's behalf the money is already on the owner's Stripe balance: only the bank payout waits for the arrival.
+        ...(onBehalf ? { model: 'ON_BEHALF', transferId: typeof charge.transfer === 'string' ? charge.transfer : charge.transfer?.id || null, applicationFeeId: typeof charge.application_fee === 'string' ? charge.application_fee : charge.application_fee?.id || null } : {}),
         state: 'WAITING_ARRIVAL', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
+      // Refunds of this stay must know who holds the money.
+      transaction.update(db.collection('bookings').doc(booking.id), { connectPolicy: onBehalf ? CONNECT_ON_BEHALF_POLICY : CONNECT_POLICY_VERSION });
     });
+  }
+
+  /**
+   * Pays the owner's share out from their Stripe balance to their bank (manual payouts). One payout per stay,
+   * identified by its metadata so that an ambiguous network error never creates a second one.
+   */
+  async function payOut(job: FirebaseFirestore.QueryDocumentSnapshot, saved: FirebaseFirestore.DocumentData, amountCents: number, finish: (update: Record<string, unknown>) => Promise<unknown>) {
+    const at = new Date().toISOString();
+    if (amountCents <= 0) { await finish({ state: 'PAID_OUT', payoutAmountCents: 0, paidOutAt: at, leaseUntil: FieldValue.delete(), updatedAt: at, error: FieldValue.delete() }); return; }
+    const existing = await stripe().payouts.list({ limit: 100 }, { stripeAccount: saved.accountId });
+    let payout = existing.data.find(item => item.metadata?.bookingId === job.id && item.metadata?.havenPayout === '1' && !['failed', 'canceled'].includes(item.status));
+    if (!payout) {
+      const attempt = (Number(saved.payoutAttempts) || 0) + 1;
+      try {
+        payout = await stripe().payouts.create({ amount: amountCents, currency: 'eur', description: `Haven · séjour ${job.id}`, metadata: { bookingId: job.id, ownerId: saved.ownerId, havenPayout: '1' } },
+          { stripeAccount: saved.accountId, idempotencyKey: `haven-owner-payout-${mode()}-${job.id}-${attempt}` });
+      } catch (error) {
+        // Card payments become available after Stripe's usual delay: try again later, without alerting anyone.
+        if ((error as { code?: string }).code === 'balance_insufficient') {
+          await finish({ state: 'WAITING_FUNDS', payoutAttempts: attempt, retryAt: new Date(Date.now() + 12 * 3600_000).toISOString(), leaseUntil: FieldValue.delete(), updatedAt: at, error: FieldValue.delete() });
+          return;
+        }
+        throw error;
+      }
+    }
+    await finish({ state: 'PAID_OUT', payoutId: payout.id, payoutAmountCents: payout.amount, paidOutAt: at, leaseUntil: FieldValue.delete(), updatedAt: at, error: FieldValue.delete() });
   }
 
   let releasing = false;
@@ -126,7 +176,7 @@ export function createStripeConnect(db: Firestore, stripe: () => Stripe, configu
     releasing = true;
     try {
       // Only jobs still waiting: transferred or cancelled ones are never read again here.
-      const jobs = await db.collection('owner_settlements').where('state', 'in', ['WAITING_ARRIVAL', 'WAITING_ACCOUNT', 'RETRY', 'CREATING']).get();
+      const jobs = await db.collection('owner_settlements').where('state', 'in', ['WAITING_ARRIVAL', 'WAITING_ACCOUNT', 'RETRY', 'CREATING', 'WAITING_FUNDS']).get();
       for (const job of jobs.docs) {
         const saved = job.data();
         if (saved.mode !== mode() || (saved.retryAt && Date.parse(saved.retryAt) > Date.now())) continue;
@@ -135,15 +185,19 @@ export function createStripeConnect(db: Firestore, stripe: () => Stripe, configu
         const bookingSnapshot = await db.collection('bookings').doc(job.id).get();
         if (!bookingSnapshot.exists) continue;
         const booking = { ...bookingSnapshot.data(), id: job.id } as Booking;
-        if (booking.status === 'CANCELLED') { await job.ref.update({ state: 'CANCELLED', updatedAt: new Date().toISOString() }); continue; }
-        const arrival = booking.checkInReportId ? await db.collection('inventory').doc(booking.checkInReportId).get() : null;
-        const proof = await db.collection('owner_arrivals').doc(job.id).get();
-        if (!hasRecordedArrival(booking, arrival?.exists ? arrival.data() as InventoryReport : null, proof.exists ? proof.data() as { reportId: string; tenantId: string } : null)) continue;
+        const onBehalf = saved.model === 'ON_BEHALF';
+        // A late cancellation paid on the owner's behalf leaves the non-refunded share with the owner: it is paid out too.
+        if (booking.status === 'CANCELLED' && !onBehalf) { await job.ref.update({ state: 'CANCELLED', updatedAt: new Date().toISOString() }); continue; }
+        if (booking.status !== 'CANCELLED') {
+          const arrival = booking.checkInReportId ? await db.collection('inventory').doc(booking.checkInReportId).get() : null;
+          const proof = await db.collection('owner_arrivals').doc(job.id).get();
+          if (!hasRecordedArrival(booking, arrival?.exists ? arrival.data() as InventoryReport : null, proof.exists ? proof.data() as { reportId: string; tenantId: string } : null)) continue;
+        }
         const leaseToken = randomUUID();
         const claimed = await db.runTransaction(async transaction => {
           const [current, freshBooking] = await Promise.all([transaction.get(job.ref), transaction.get(bookingSnapshot.ref)]);
           const data = current.data();
-          if (!data || !['WAITING_ARRIVAL', 'WAITING_ACCOUNT', 'RETRY', 'CREATING'].includes(data.state) || (data.leaseUntil && Date.parse(data.leaseUntil) > Date.now()) || freshBooking.data()?.status === 'CANCELLED' || freshBooking.data()?.checkInReportId !== booking.checkInReportId) return false;
+          if (!data || !['WAITING_ARRIVAL', 'WAITING_ACCOUNT', 'RETRY', 'CREATING', 'WAITING_FUNDS'].includes(data.state) || (data.leaseUntil && Date.parse(data.leaseUntil) > Date.now()) || (freshBooking.data()?.status === 'CANCELLED' && data.model !== 'ON_BEHALF') || freshBooking.data()?.checkInReportId !== booking.checkInReportId) return false;
           transaction.update(job.ref, { state: 'CREATING', leaseToken, leaseUntil: new Date(Date.now() + 120000).toISOString(), updatedAt: new Date().toISOString() });
           return true;
         });
@@ -153,6 +207,21 @@ export function createStripeConnect(db: Firestore, stripe: () => Stripe, configu
           if (current.data()?.leaseToken === leaseToken && current.data()?.state === 'CREATING') transaction.update(job.ref, update);
         });
         try {
+          if (onBehalf) {
+            // The money is already the owner's: check the payment, then pay the owner's net balance out to the bank.
+            if (await accountOwner(saved.accountId) !== booking.ownerId) throw new Error('Settlement mismatch.');
+            const ready = await syncAccount(booking.ownerId);
+            if (ready.status !== 'READY' || !ready.bank) throw new ConnectError('Compte de versement à compléter.');
+            const charge = await stripe().charges.retrieve(saved.chargeId, { expand: ['transfer', 'application_fee'] });
+            if (charge.disputed || charge.livemode === configuration().isTest || typeof charge.transfer !== 'object' || !charge.transfer) {
+              await finish({ state: 'REVIEW_REQUIRED', error: 'Paiement contesté ou transfert introuvable.', leaseUntil: FieldValue.delete(), updatedAt: new Date().toISOString() }); continue;
+            }
+            const fee = typeof charge.application_fee === 'object' ? charge.application_fee : null;
+            const net = ownerNetCents(charge.transfer, fee);
+            if (booking.status === 'CANCELLED' && net <= 0) { await finish({ state: 'CANCELLED', leaseUntil: FieldValue.delete(), updatedAt: new Date().toISOString() }); continue; }
+            await payOut(job, saved, net, finish);
+            continue;
+          }
           if (ownerShareCents(booking) !== saved.amountCents || await accountOwner(saved.accountId) !== booking.ownerId) throw new Error('Settlement mismatch.');
           const ready = await syncAccount(booking.ownerId);
           if (ready.status !== 'READY' || !ready.bank) throw new ConnectError('Compte de versement à compléter.');
@@ -178,10 +247,20 @@ export function createStripeConnect(db: Firestore, stripe: () => Stripe, configu
               { idempotencyKey: `haven-owner-transfer-${mode()}-${job.id}` });
           }
           await finish({ state: 'TRANSFERRED', transferId: transfer.id, transferredAt: new Date(transfer.created * 1000).toISOString(), updatedAt: new Date().toISOString(), error: FieldValue.delete(), leaseUntil: FieldValue.delete() });
+          // Owner accounts now pay out manually: the transferred share goes to the bank right away (arrival already recorded).
+          if (ready.onBehalfReady) await payOut(job, { ...saved, transferId: transfer.id }, transfer.amount - transfer.amount_reversed, update => job.ref.update(update));
         } catch (error) {
           const retryable = error instanceof ConnectError || Boolean((error as { type?: string }).type?.match(/Connection|APIError|RateLimit/));
           await finish({ state: retryable ? error instanceof ConnectError ? 'WAITING_ACCOUNT' : 'RETRY' : 'REVIEW_REQUIRED', error: retryable ? 'Nouvelle vérification programmée.' : 'Le transfert nécessite une vérification par Haven.', retryAt: new Date(Date.now() + 60000).toISOString(), leaseUntil: FieldValue.delete(), updatedAt: new Date().toISOString() });
         }
+      }
+      // Damage charges made on the owner's behalf: paid out to the owner's bank once the funds are available.
+      const damages = await db.collection('owner_damage_payouts').where('state', '==', 'WAITING_FUNDS').get();
+      for (const job of damages.docs) {
+        const saved = job.data();
+        if (saved.mode !== mode() || (saved.retryAt && Date.parse(saved.retryAt) > Date.now()) || saved.adminHold === true) continue;
+        try { await payOut(job, saved, saved.amountCents, update => job.ref.update(update)); }
+        catch { await job.ref.update({ retryAt: new Date(Date.now() + 3600_000).toISOString(), error: 'Virement de la caution à relancer.', updatedAt: new Date().toISOString() }); }
       }
     } finally { releasing = false; }
   }
@@ -240,9 +319,32 @@ export function createStripeConnect(db: Firestore, stripe: () => Stripe, configu
       const chargeId = event.type === 'charge.refunded' ? object.id : typeof object.charge === 'string' ? object.charge : object.charge?.id;
       if (chargeId) {
         const affected = await db.collection('owner_settlements').where('chargeId', '==', chargeId).get();
-        for (const job of affected.docs) await reconcileSettlement(job);
+        for (const job of affected.docs) {
+          if (event.type === 'charge.dispute.created' && job.data().model === 'ON_BEHALF') await recoverDisputedAmount(job, event.data.object as Stripe.Dispute);
+          await reconcileSettlement(job);
+        }
       }
     }
+  }
+
+  /**
+   * Bank dispute on a payment made on the owner's behalf: Stripe debits Haven, which takes the disputed amount back
+   * from the owner's balance and suspends the payout until Haven has reviewed the case.
+   */
+  async function recoverDisputedAmount(job: FirebaseFirestore.QueryDocumentSnapshot, dispute: Stripe.Dispute) {
+    const saved = job.data();
+    const at = new Date().toISOString();
+    let reversalId: string | null = null, error: string | null = null;
+    try {
+      if (!saved.transferId) throw new Error('Transfert introuvable.');
+      const reversal = await stripe().transfers.createReversal(saved.transferId, { amount: dispute.amount, metadata: { bookingId: job.id, disputeId: dispute.id } },
+        { idempotencyKey: `haven-dispute-reversal-${mode()}-${dispute.id}` });
+      reversalId = reversal.id;
+    } catch (reason) {
+      error = `Reprise du montant contesté impossible (${reason instanceof Error ? reason.message : 'Stripe'}) : à traiter par Haven.`;
+    }
+    await job.ref.update({ adminHold: true, disputed: true, disputeId: dispute.id, disputeAmountCents: dispute.amount, ...(reversalId ? { disputeReversalId: reversalId } : {}),
+      state: 'REVIEW_REQUIRED', error: error || 'Paiement contesté par la banque du locataire : montant repris chez le propriétaire, versement suspendu.', updatedAt: at });
   }
 
   async function syncTransfer(transfer: Stripe.Transfer, checkedAt: string) {
@@ -276,9 +378,12 @@ export function createStripeConnect(db: Firestore, stripe: () => Stripe, configu
     await db.runTransaction(async transaction => {
       const fresh = await transaction.get(job.ref);
       if (fresh.data()?.checkedAt > checkedAt) return;
+      // On the owner's behalf, refunds take their share back automatically: only a dispute needs Haven.
+      const onBehalf = saved.model === 'ON_BEHALF';
+      const review = onBehalf ? charge.disputed : (charge.amount_refunded > 0 || charge.disputed) && !transfer?.reversed;
       transaction.update(job.ref, { refundedAmountCents: charge.amount_refunded, disputed: charge.disputed,
         stripeFeeCents: balance?.fee ?? null, checkedAt,
-        ...((charge.amount_refunded > 0 || charge.disputed) && !transfer?.reversed ? { state: 'REVIEW_REQUIRED', error: 'Paiement remboursé ou contesté : rapprochement nécessaire par Haven.' } : {}) });
+        ...(review ? { state: 'REVIEW_REQUIRED', ...(onBehalf ? { adminHold: true } : {}), error: onBehalf ? 'Paiement contesté : versement suspendu, examen par Haven.' : 'Paiement remboursé ou contesté : rapprochement nécessaire par Haven.' } : {}) });
     });
   }
 
@@ -293,12 +398,12 @@ export function createStripeConnect(db: Firestore, stripe: () => Stripe, configu
       for (const job of settlements.docs) {
         // A settled job (transferred, cancelled) is checked again at most once a day for late refunds or disputes.
         const saved = job.data();
-        const final = ['TRANSFERRED', 'CANCELLED', 'REVERSED', 'PARTIALLY_REVERSED'].includes(saved.state);
+        const final = ['TRANSFERRED', 'PAID_OUT', 'CANCELLED', 'REVERSED', 'PARTIALLY_REVERSED'].includes(saved.state);
         if (final && saved.checkedAt && Date.now() - Date.parse(saved.checkedAt) < 24 * 3600_000) continue;
         try { await reconcileSettlement(job); } catch { console.error('Stripe settlement reconciliation unavailable.'); }
       }
       await releaseArrivedBookings();
     } finally { reconciling = false; }
   }
-  return { syncAccount, onboarding, dashboard, readyAccount, payoutAccount, registerPayment, releaseArrivedBookings, syncPayout, reconcileOwner, reconcileAll, handleEvent };
+  return { syncAccount, onboarding, dashboard, readyAccount, paymentAccount, payoutAccount, registerPayment, releaseArrivedBookings, syncPayout, reconcileOwner, reconcileAll, handleEvent };
 }

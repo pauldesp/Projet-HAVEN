@@ -97,5 +97,5 @@ export const installmentDeadlineLabel = (booking: Pick<Booking, 'installmentDueD
   new Date(installmentDeadline(booking)).toLocaleString('fr-FR', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' });
 
 /** Explicit authorization for the automatic charges of a series, stored with the series as proof. */
-export const AUTO_CHARGE_CONSENT_VERSION = 'haven-auto-charge-v1';
-export const AUTO_CHARGE_CONSENT_TEXT = 'J’autorise Haven à enregistrer ma carte via Stripe et à prélever automatiquement chaque séjour suivant de cette série, au montant indiqué, un mois avant son arrivée (ou dès la réservation si l’arrivée est plus proche). Je peux payer un séjour à l’avance ou l’annuler selon les conditions d’annulation.';
+export const AUTO_CHARGE_CONSENT_VERSION = 'haven-auto-charge-v2';
+export const AUTO_CHARGE_CONSENT_TEXT = 'J’autorise Haven à enregistrer ma carte via Stripe et à prélever automatiquement, pour le compte du propriétaire, chaque séjour suivant de cette série, au montant indiqué, un mois avant son arrivée (ou dès la réservation si l’arrivée est plus proche). Je peux payer un séjour à l’avance ou l’annuler selon les conditions d’annulation.';

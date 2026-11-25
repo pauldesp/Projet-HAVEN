@@ -235,6 +235,8 @@ export interface Booking {
   havenRefunds?: HavenRefund[];
   /** Caution : accord du locataire pour un prélèvement plafonné en cas de dégradation validée par Haven. */
   depositConsent?: { version: string; text: string; amountCents: number; acceptedAt: string };
+  /** Payment flow used for this stay: collected by Haven then transferred (v1), or on the owner's behalf (v2). */
+  connectPolicy?: string;
   /** Déclaration de résidence principale distincte, cochée à la réservation (texte, version, date). */
   residenceDeclaration?: { version: string; text: string; declaredAt: string };
   /** Réservation pour un tiers : la personne qui séjourne (le compte qui réserve paie et reste responsable). */
@@ -294,6 +296,8 @@ export interface BookingSeries {
   paymentMethodId?: string;
   cardBrand?: string;
   cardLast4?: string;
+  /** Payment flow of the series, set by its first stay (on the owner's behalf or the older transfer flow). */
+  connectPolicy?: string;
   /** Proof of the tenant's explicit authorization of the automatic charges. */
   autoChargeConsent?: { version: string; text: string; acceptedAt: string };
   /** Proof of the main residence declaration made when booking the series. */

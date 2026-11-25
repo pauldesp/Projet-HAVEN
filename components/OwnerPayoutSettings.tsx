@@ -43,15 +43,18 @@ export function OwnerPayoutSettings({ payouts = [] }: { payouts?: OwnerPayout[] 
       <button type="button" onClick={() => setRevision(value => value + 1)} className="min-h-11 flex items-center gap-2 text-sm text-haven-ink"><RefreshCw size={16} /> Actualiser</button>
     </div>
     <p className="text-sm text-gray-600 leading-relaxed">Renseignez votre identité et votre compte bancaire directement chez Stripe. Votre part comprend le prix du séjour et le forfait ménage. Haven prend en charge les frais Stripe sur ses propres frais de service.</p>
-    <p className="text-sm text-gray-600 leading-relaxed">Le transfert vers votre solde Stripe est déclenché après la validation de l’état des lieux d’entrée par le locataire. Stripe effectue ensuite le virement vers votre banque selon son calendrier et la disponibilité des fonds. Seuls les virements confirmés comme versés sont inclus dans vos revenus versés.</p>
+    <p className="text-sm text-gray-600 leading-relaxed">Le locataire paie directement sur votre compte Stripe : vous êtes le vendeur du séjour, et Haven ne retient que ses frais de service. Le virement vers votre banque est lancé le lendemain de l’état des lieux d’entrée, dès que Stripe rend les fonds disponibles. Seuls les virements confirmés comme versés sont inclus dans vos revenus versés.</p>
     {error && <p role="alert" className="text-sm text-haven-red">{error} Les informations affichées peuvent ne plus être à jour.</p>}
     {!account && !error && <p role="status" className="text-sm text-gray-500">Vérification de votre compte…</p>}
     {account && !account.available ? <p className="rounded-2xl bg-gray-50 p-4 text-sm text-gray-600">La configuration des versements sera disponible dès l’activation de Stripe Connect par Haven. Aucun virement réel n’est simulé.</p> : account && <div className="rounded-2xl bg-gray-50 p-4 sm:p-5 space-y-3">
       <p className="font-bold text-haven-ink" role="status">{labels[account.status]}{account.isTest ? ' · Mode test' : ''}</p>
       {account.bank && <p className="text-sm text-gray-600">{account.bank.name || 'Compte bancaire'} · se terminant par {account.bank.last4}</p>}
       {account.checkedAt && <p className="text-xs text-gray-500">Vérifié le {new Date(account.checkedAt).toLocaleString('fr-FR')}</p>}
+      {account.status === 'READY' && account.cardPayments && account.cardPayments !== 'ACTIVE' && <p className="rounded-xl bg-white p-3 text-sm text-gray-700">
+        {account.cardPayments === 'PENDING' ? 'Stripe vérifie votre compte pour que les locataires puissent vous payer directement. En attendant, leurs paiements passent par Haven et vous sont reversés après leur arrivée.' : 'Complétez vos informations chez Stripe pour recevoir les paiements des locataires directement sur votre compte.'}
+      </p>}
       <div className="flex flex-col sm:flex-row gap-3">
-        {account.status !== 'READY' && <button type="button" disabled={opening} onClick={() => void open('onboarding')} className="min-h-12 rounded-xl bg-haven-navy px-5 py-3 text-white font-bold disabled:opacity-50">{opening ? 'Ouverture de Stripe…' : account.status === 'NOT_STARTED' ? 'Configurer mes versements' : 'Compléter mes informations'}</button>}
+        {(account.status !== 'READY' || account.cardPayments === 'INACTIVE') && <button type="button" disabled={opening} onClick={() => void open('onboarding')} className="min-h-12 rounded-xl bg-haven-navy px-5 py-3 text-white font-bold disabled:opacity-50">{opening ? 'Ouverture de Stripe…' : account.status === 'NOT_STARTED' ? 'Configurer mes versements' : 'Compléter mes informations'}</button>}
         {account.status !== 'NOT_STARTED' && <button type="button" disabled={opening} onClick={() => void open('dashboard')} className="min-h-12 rounded-xl border border-gray-200 px-5 py-3 text-haven-ink font-bold inline-flex items-center justify-center gap-2 disabled:opacity-50">Gérer chez Stripe <ExternalLink size={16} /></button>}
       </div>
     </div>}

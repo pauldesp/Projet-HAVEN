@@ -46,6 +46,8 @@ function fixture() {
   const provider = {
     accounts: {
       retrieve: async () => ({ id: 'acct_o', payouts_enabled: true, capabilities: { transfers: 'active' }, metadata: { havenOwnerId: 'o', havenMode: 'test' } }),
+      // Card payments requested for payments on the owner's behalf, still pending: the older transfer flow applies.
+      update: async () => ({ id: 'acct_o', payouts_enabled: true, capabilities: { transfers: 'active', card_payments: 'pending' }, settings: { payouts: { schedule: { interval: 'manual' } } }, metadata: { havenOwnerId: 'o', havenMode: 'test' } }),
       listExternalAccounts: async () => ({ data: [{ object: 'bank_account', currency: 'eur', last4: '1234', bank_name: 'Test', default_for_currency: true }] }),
     },
     payouts: { retrieve: async () => ({ ...payout }) },

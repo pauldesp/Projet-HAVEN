@@ -38,7 +38,7 @@ Le prix d'une réservation confirmée ne change plus, y compris pour tous les s�
 
 **3.2 Délai de paiement.** Une réservation non payée bloque la chambre **30 minutes**. Passé ce délai, elle est automatiquement libérée.
 
-**3.3 Paiement.** Le paiement se fait par carte bancaire, sur la page sécurisée de **Stripe**, prestataire de paiement de Haven. Haven n'a jamais accès au numéro de carte. Haven encaisse le prix pour le compte du propriétaire et lui reverse sa part dans les conditions de l'article 9.
+**3.3 Paiement.** Le paiement se fait par carte bancaire, sur la page sécurisée de **Stripe**, prestataire de paiement de Haven. Haven n'a jamais accès au numéro de carte. Le locataire paie **directement le propriétaire**, sur son compte de paiement Stripe ; le propriétaire est le vendeur du séjour. Haven perçoit uniquement ses frais de service, prélevés sur ce paiement. Les séjours suivants d'une série et une éventuelle caution sont prélevés de la même façon, pour le compte du propriétaire.
 
 **3.4 Confirmation.** La réservation est **ferme dès que le paiement est accepté**. Le locataire reçoit alors une confirmation par e-mail avec son justificatif de paiement ; le séjour apparaît dans « Mes séjours ».
 
@@ -127,7 +127,7 @@ Il éteint ses équipements, sécurise les accès et dépose les clés selon les
 
 ## Article 9 — Paiement du propriétaire
 
-Haven conserve le paiement jusqu'à l'arrivée du locataire. La part du propriétaire (hébergement et ménage) lui est versée **après l'arrivée**, une fois l'état des lieux d'entrée enregistré, séjour par séjour. En cas de litige signalé, Haven peut suspendre ce versement le temps de l'examiner.
+Le paiement du locataire est crédité sur le compte Stripe du propriétaire, déduction faite des frais de service de Haven. Le virement de ce montant vers le compte bancaire du propriétaire est lancé **le lendemain de l'état des lieux d'entrée**, séjour par séjour, dès que Stripe rend les fonds disponibles. En cas de litige signalé, Haven peut suspendre ce virement le temps de l'examiner. Un remboursement accordé au locataire est repris sur la part du propriétaire, sauf geste commercial décidé par Haven (pris sur ses propres frais).
 
 ## Article 10 — Dégradations
 
